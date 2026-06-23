@@ -1,0 +1,46 @@
+# syntax=docker/dockerfile:1.7
+
+ARG SERVICE_NAME
+ARG PROJECT_PATH
+ARG VERSION=0.0.0
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG SERVICE_NAME
+ARG PROJECT_PATH
+ARG VERSION
+WORKDIR /src
+
+# Copy the repository and restore the service project.
+COPY . .
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    --mount=type=cache,target=/root/.local/share/NuGet/v3-cache \
+    dotnet restore "$PROJECT_PATH" -r linux-x64
+
+# Build first so WolverineFx has an assembly to execute, then emit generated code,
+# then publish the final Host project.
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    --mount=type=cache,target=/root/.local/share/NuGet/v3-cache \
+    dotnet build "$PROJECT_PATH" -c Release --no-restore /p:Version="$VERSION"
+
+RUN cd "$(dirname "$PROJECT_PATH")" && dotnet "./bin/Release/net10.0/${SERVICE_NAME}.Host.dll" codegen write
+
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    --mount=type=cache,target=/root/.local/share/NuGet/v3-cache \
+    dotnet publish "$PROJECT_PATH" -c Release -o /app/publish --no-build --no-restore /p:Version="$VERSION"
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+ARG SERVICE_NAME
+ARG VERSION=0.0.0
+WORKDIR /app
+
+LABEL org.opencontainers.image.title="${SERVICE_NAME}.Host" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.vendor="Teck" \
+      org.opencontainers.image.description="Teck Monorepo service host"
+
+COPY --from=build /app/publish .
+
+ENV SERVICE_DLL="${SERVICE_NAME}.Host.dll"
+
+EXPOSE 8080
+ENTRYPOINT ["sh", "-c", "exec dotnet /app/${SERVICE_DLL}"]

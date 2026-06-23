@@ -1,0 +1,342 @@
+<Project>
+  <!-- ================================================== -->
+  <!-- CORE FRAMEWORKS & LIBRARIES                        -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Core Framework Dependencies">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageVersion>
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.7">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageVersion>
+    <PackageVersion Include="WolverineFx.MemoryPack" Version="6.2.2" />
+    <PackageVersion Include="MemoryPack" Version="1.21.4" />
+    <PackageVersion Include="WolverineFx.RabbitMQ" Version="6.2.2" />
+    <PackageVersion Include="WolverineFx.SignalR" Version="6.2.2" />
+    <PackageVersion Include="WolverineFx.Postgresql" Version="6.2.2" />
+    <PackageVersion Include="WolverineFx" Version="6.2.2" />
+    <PackageVersion Include="WolverineFx.Http" Version="6.2.2" />
+    <PackageVersion Include="WolverineFx.FluentValidation" Version="6.2.2" />
+    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="6.2.2" />
+    <PackageVersion Include="WolverineFx.SqlServer" Version="6.2.2" />
+    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.2.2" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- DATABASE PROVIDERS                                  -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Database Providers">
+    <!-- PostgreSQL (Primary) -->
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+    <PackageVersion Include="EntityFrameworkCore.Exceptions.PostgreSQL" Version="10.0.0" />
+    <PackageVersion Include="Npgsql.OpenTelemetry" Version="10.0.2" />
+    <!-- InMemory (for testing) -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.7" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- WEB API & ENDPOINTS                                 -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Web API Framework">
+    <PackageVersion Include="FastEndpoints" Version="8.1.0" />
+    <PackageVersion Include="FastEndpoints.Swagger" Version="8.1.0" />
+    <PackageVersion Include="FastEndpoints.Messaging.Core" Version="8.1.0" />
+    <PackageVersion Include="FastEndpoints.Messaging.Remote" Version="8.1.0" />
+    <PackageVersion Include="FastEndpoints.Generator" Version="8.1.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.4.1" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.13.8" />
+    <PackageVersion Include="Scalar.AspNetCore.Microsoft" Version="2.13.8" />
+    <PackageVersion Include="Grpc.AspNetCore" Version="2.76.0" />
+    <PackageVersion Include="Grpc.Net.ClientFactory" Version="2.76.0" />
+    <PackageVersion Include="Grpc.Tools" Version="2.78.0" />
+    <PackageVersion Include="Google.Protobuf" Version="3.33.5" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- AUTHENTICATION & AUTHORIZATION                     -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Authentication and Authorization">
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Identity.Web" Version="4.1.1" />
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.17.0" />
+    <PackageVersion Include="Keycloak.AuthServices.Authentication" Version="2.9.0" />
+    <PackageVersion Include="Keycloak.AuthServices.Authorization" Version="2.9.0" />
+    <PackageVersion Include="Keycloak.AuthServices.Sdk" Version="2.9.0" />
+    <PackageVersion Include="Keycloak.AuthServices.OpenTelemetry" Version="1.0.0" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- CACHING & PERFORMANCE                              -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Caching and Performance">
+    <PackageVersion Include="ZiggyCreatures.FusionCache" Version="2.6.0" />
+    <PackageVersion Include="ZiggyCreatures.FusionCache.Backplane.StackExchangeRedis" Version="2.6.0" />
+    <PackageVersion Include="ZiggyCreatures.FusionCache.Backplane.Memory" Version="2.6.0" />
+    <PackageVersion Include="ZiggyCreatures.FusionCache.Serialization.CysharpMemoryPack" Version="2.6.0" />
+    <PackageVersion Include="ZiggyCreatures.FusionCache.OpenTelemetry" Version="2.6.0" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.7" />
+    <PackageVersion Include="StackExchange.Redis" Version="2.12.14" />
+    <PackageVersion Include="DistributedLock.Redis" Version="1.1.1" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- DOMAIN MODELING & VALIDATION                       -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Domain Modeling Validation">
+    <PackageVersion Include="Ardalis.SmartEnum" Version="8.2.0" />
+    <PackageVersion Include="Ardalis.SmartEnum.EFCore" Version="8.2.0" />
+    <PackageVersion Include="Ardalis.Specification" Version="9.3.1" />
+    <PackageVersion Include="Ardalis.Specification.EntityFrameworkCore" Version="9.3.1" />
+    <PackageVersion Include="Ardalis.GuardClauses" Version="5.0.0" />
+    <PackageVersion Include="Standard.Licensing" Version="1.2.1" />
+    <PackageVersion Include="ErrorOr" Version="2.0.1" />
+    <PackageVersion Include="FluentValidation" Version="12.1.1" />
+    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+    <PackageVersion Include="Riok.Mapperly" Version="4.3.1" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- MULTI-TENANCY                                      -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Multi-Tenancy">
+    <PackageVersion Include="Finbuckle.MultiTenant" Version="10.0.6" />
+    <PackageVersion Include="Finbuckle.MultiTenant.EntityFrameworkCore" Version="10.0.6" />
+    <PackageVersion Include="Finbuckle.MultiTenant.AspNetCore" Version="10.0.6" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- UTILITIES & HELPERS                                -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Utilities and Helpers">
+    <PackageVersion Include="IdentityModel" Version="7.0.0" />
+    <PackageVersion Include="Grpc.Core.Api" Version="2.76.0" />
+    <PackageVersion Include="Nanoid" Version="3.1.0" />
+    <PackageVersion Include="NewId" Version="4.0.1" />
+    <PackageVersion Include="Mediator.Abstractions" Version="3.0.2" />
+    <PackageVersion Include="CorrelationId" Version="3.0.1" />
+    <PackageVersion Include="System.Text.Json" Version="10.0.0" />
+    <PackageVersion Include="System.Text.Encodings.Web" Version="10.0.0" />
+    <PackageVersion Include="System.Text.RegularExpressions" Version="4.3.1" />
+    <PackageVersion Include="System.Private.Uri" Version="4.3.2" />
+    <PackageVersion Include="System.Net.Http" Version="4.3.4" />
+    <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
+    <PackageVersion Include="Nito.AsyncEx.Context" Version="5.1.2" />
+    <PackageVersion Include="Nito.AsyncEx.Tasks" Version="5.1.2" />
+    <PackageVersion Include="AsyncAwaitBestPractices" Version="10.0.0" />
+    <PackageVersion Include="Polly" Version="8.6.5" />
+    <PackageVersion Include="ServiceScan" Version="3.1.4" />
+    <PackageVersion Include="ServiceScan.SourceGenerator" Version="3.1.4" />
+    <PackageVersion Include="CsvHelper" Version="33.1.0" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- STORAGE & FILE HANDLING                            -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Storage File Handling">
+    <PackageVersion Include="FluentStorage" Version="6.0.3" />
+    <PackageVersion Include="FluentStorage.AWS" Version="6.0.3" />
+    <PackageVersion Include="AWSSDK.Core" Version="4.0.3.8" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- IMAGE PROCESSING                                   -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Image Processing">
+    <PackageVersion Include="Magick.NET-Q8-AnyCPU" Version="14.13.1" />
+    <PackageVersion Include="SkiaSharp" Version="3.119.2" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.119.2" />
+    <PackageVersion Include="ZXing.Net" Version="0.16.11" />
+    <PackageVersion Include="ZXing.Net.Bindings.SkiaSharp" Version="0.16.22" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- SECRETS MANAGEMENT                                 -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Secrets Management">
+    <PackageVersion Include="VaultSharp" Version="1.17.5.1" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- LOGGING & OBSERVABILITY                            -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Logging (Serilog)">
+    <PackageVersion Include="Serilog" Version="4.3.0" />
+    <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
+    <PackageVersion Include="Serilog.Expressions" Version="5.0.0" />
+    <PackageVersion Include="Serilog.Exceptions" Version="8.4.0" />
+    <PackageVersion Include="Serilog.Exceptions.EntityFrameworkCore" Version="8.4.0" />
+    <PackageVersion Include="Serilog.Formatting.Compact" Version="3.0.0" />
+    <PackageVersion Include="SerilogTimings" Version="3.1.0" />
+  </ItemGroup>
+  <ItemGroup Label="Serilog Enrichers">
+    <PackageVersion Include="Serilog.Enrichers.CorrelationId" Version="3.0.1" />
+    <PackageVersion Include="Serilog.Enrichers.Environment" Version="3.0.1" />
+    <PackageVersion Include="Serilog.Enrichers.Process" Version="3.0.0" />
+    <PackageVersion Include="Serilog.Enrichers.Span" Version="3.1.0" />
+    <PackageVersion Include="Serilog.Enrichers.Thread" Version="4.0.0" />
+  </ItemGroup>
+  <ItemGroup Label="Serilog Sinks">
+    <PackageVersion Include="Serilog.Sinks.Async" Version="2.1.0" />
+    <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageVersion Include="Serilog.Sinks.Debug" Version="3.0.0" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageVersion Include="Serilog.Sinks.Grafana.Loki" Version="8.3.2" />
+    <PackageVersion Include="Serilog.Sinks.OpenTelemetry" Version="4.2.0" />
+    <PackageVersion Include="Serilog.Sinks.Seq" Version="8.0.0" />
+    <PackageVersion Include="Serilog.Sinks.Spectre" Version="0.5.0" />
+    <PackageVersion Include="Serilog.OpenTelemetry.ConsoleSink" Version="2.0.0" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- OPENTELEMETRY & MONITORING                         -->
+  <!-- ================================================== -->
+  <ItemGroup Label="OpenTelemetry">
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.15.0-beta.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" Version="1.15.0-beta.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.StackExchangeRedis" Version="1.15.0-beta.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.SqlClient" Version="1.15.2" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Process" Version="1.15.0-beta.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.GrpcNetClient" Version="1.15.0-beta.1" />
+    <PackageVersion Include="OpenTelemetry.PersistentStorage.FileSystem" Version="1.0.3" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Propagators" Version="1.15.3" />
+    <PackageVersion Include="OpenTelemetry.Resources.Container" Version="1.15.0-beta.1" />
+    <PackageVersion Include="OpenTelemetry.Resources.Host" Version="1.15.0-beta.2" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.EventCounters" Version="1.15.0-alpha.1" />
+    <PackageVersion Include="OpenTelemetry.Resources.ProcessRuntime" Version="1.15.0-beta.1" />
+    <PackageVersion Include="OpenTelemetry.Resources.Process" Version="1.15.0-beta.1" />
+    <PackageVersion Include="RabbitMQ.Client.OpenTelemetry" Version="1.0.0-rc.2" />
+    <PackageVersion Include="OpenTelemetry.Resources.OperatingSystem" Version="1.15.0-beta.1" />
+    <PackageVersion Include="MySql.Data.OpenTelemetry" Version="9.7.0" />
+  </ItemGroup>
+  <ItemGroup Label="Application Insights and Monitoring">
+    <PackageVersion Include="prometheus-net" Version="8.2.1" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- HEALTH CHECKS                                      -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Health Checks">
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.7" />
+    <PackageVersion Include="AspNetCore.HealthChecks.ApplicationStatus" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.MySql" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.OpenIdConnectServer" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.Prometheus.Metrics" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.Rabbitmq" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.Redis" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.SignalR" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.SqlServer" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.System" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.Uris" Version="9.0.0" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- MICROSOFT EXTENSIONS                               -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Microsoft Extensions">
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.FileExtensions" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.5.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.5.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery.Abstractions" Version="10.5.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery.Dns" Version="10.5.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery.Yarp" Version="10.5.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.HeaderPropagation" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.AspNet.WebApi.Client" Version="6.0.0" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- REVERSE PROXY & NETWORKING                         -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Reverse Proxy and Networking">
+    <PackageVersion Include="Yarp.ReverseProxy" Version="2.3.0" />
+    <PackageVersion Include="Treyt.Yarp.ReverseProxy.Swagger" Version="4.0.1" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- .NET ASPIRE                                        -->
+  <!-- ================================================== -->
+  <ItemGroup Label=".NET Aspire">
+    <PackageVersion Include="CommunityToolkit.Aspire.Hosting.Bun" Version="13.1.1" />
+    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.1.2" />
+    <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.1.2-preview.1.26105.8" />
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.2.4" />
+    <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="13.2.4" />
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.2.4" />
+    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.2.4" />
+    <PackageVersion Include="Aspire.StackExchange.Redis" Version="13.2.4" />
+    <PackageVersion Include="Aspire.StackExchange.Redis.DistributedCaching" Version="13.2.4" />
+    <PackageVersion Include="Keycloak.AuthServices.Aspire.Hosting" Version="0.2.0" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- DEVELOPMENT & TOOLING                              -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Development Tooling">
+    <PackageVersion Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.23.0" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.203" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- CODE ANALYZERS                                     -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Code Quality Analyzers">
+    <PackageVersion Include="NewStyleCop.Analyzers" Version="1.2.1" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.54" />
+    <PackageVersion Include="Roslynator.Analyzers" Version="4.15.0" />
+    <PackageVersion Include="Roslynator.Formatting.Analyzers" Version="4.15.0" />
+    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.24.0.138807" />
+    <PackageVersion Include="CSharpGuidelinesAnalyzer" Version="3.8.5" />
+    <PackageVersion Include="SecurityCodeScan.VS2019" Version="5.6.7" />
+    <!-- Code Analysis Dependencies -->
+    <PackageVersion Include="Microsoft.CodeAnalysis" Version="5.0.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Common" Version="5.0.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.0.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.0.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Scripting.Common" Version="5.0.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="5.0.0" />
+  </ItemGroup>
+  <ItemGroup Label="Specialized Analyzers">
+    <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.14.15" />
+    <PackageVersion Include="SmartanAlyzers.ExceptionAnalyzer" Version="1.0.10" />
+    <PackageVersion Include="StackExchange.Redis.Analyzer" Version="1.3.3" />
+    <PackageVersion Include="ErrorProne.NET.CoreAnalyzers" Version="0.6.1-beta.1" />
+  </ItemGroup>
+  <!-- ================================================== -->
+  <!-- TESTING FRAMEWORK                                  -->
+  <!-- ================================================== -->
+  <ItemGroup Label="Testing Framework">
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.4.0" />
+    <PackageVersion Include="Microsoft.TestPlatform" Version="18.4.0" />
+    <PackageVersion Include="xunit.v3" Version="3.2.2" />
+    <PackageVersion Include="xunit.v3.extensibility.core" Version="3.2.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageVersion Include="coverlet.collector" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.7" />
+  </ItemGroup>
+  <ItemGroup Label="Testing Utilities">
+    <PackageVersion Include="AutoFixture" Version="4.18.1" />
+    <PackageVersion Include="AutoFixture.AutoNSubstitute" Version="4.18.1" />
+    <PackageVersion Include="Bogus" Version="35.6.5" />
+    <PackageVersion Include="NSubstitute" Version="5.3.0" />
+    <PackageVersion Include="Shouldly" Version="4.3.0" />
+    <PackageVersion Include="Soenneker.Utils.AutoBogus" Version="4.0.895" />
+    <PackageVersion Include="Soenneker.Utils.AutoBogus.NSubstitute" Version="4.0.779" />
+    <PackageVersion Include="TngTech.ArchUnitNET" Version="0.13.3" />
+    <PackageVersion Include="TngTech.ArchUnitNET.xUnitV3" Version="0.13.3" />
+  </ItemGroup>
+  <ItemGroup Label="Integration Testing">
+    <PackageVersion Include="Testcontainers" Version="4.11.0" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.11.0" />
+    <PackageVersion Include="Testcontainers.RabbitMq" Version="4.11.0" />
+    <PackageVersion Include="Testcontainers.Redis" Version="4.11.0" />
+    <PackageVersion Include="Testcontainers.Keycloak" Version="4.10.0" />
+  </ItemGroup>
+</Project>

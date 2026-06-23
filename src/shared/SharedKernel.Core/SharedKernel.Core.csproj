@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NoWarn>IDE0005</NoWarn>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+	<ItemGroup>
+		<!--https://github.com/dotnet/aspnetcore/issues/19481-->
+		<!--https://docs.microsoft.com/en-us/aspnet/core/fundamentals/metapackage-app-->
+		<!--https://docs.microsoft.com/en-us/aspnet/core/fundamentals/target-aspnetcore-->
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+
+  <ItemGroup>
+	  <PackageReference Include="Ardalis.SmartEnum" />
+	  <PackageReference Include="Ardalis.Specification" />
+    <PackageReference Include="ErrorOr" />
+
+    <PackageReference Include="Nanoid" />
+    <PackageReference Include="Finbuckle.MultiTenant" />
+    <PackageReference Include="NewId" />
+    <PackageReference Include="Riok.Mapperly" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="Meziantou.Analyzer">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Update="Roslynator.Analyzers">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Update="Roslynator.CodeAnalysis.Analyzers">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Update="Roslynator.Formatting.Analyzers">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,31 @@
+# Nx
+.nx/cache
+.nx/workspace-data
+
+# Build outputs
+dist/
+.next/
+storybook-static/
+bin/
+obj/
+
+# Dependencies
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log

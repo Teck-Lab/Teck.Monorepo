@@ -1,0 +1,35 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/Solution Items/">
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="nuget.config" />
+    <File Path=".editorconfig" />
+  </Folder>
+  <Folder Name="/src/" />
+  <Folder Name="/src/shared/">
+    <File Path="src/shared/Directory.Build.props" />
+    <Project Path="src/shared/SharedKernel.Core/SharedKernel.Core.csproj" />
+    <Project Path="src/shared/SharedKernel.Events/SharedKernel.Events.csproj" />
+    <Project Path="src/shared/SharedKernel.Infrastructure/SharedKernel.Infrastructure.csproj" />
+    <Project Path="src/shared/SharedKernel.Grpc.Contracts/SharedKernel.Grpc.Contracts.csproj" />
+  </Folder>
+
+  <Folder Name="/src/services/commerce/" />
+  <Folder Name="/src/services/commerce/order/">
+    <Project Path="src/services/commerce/order/Order.Application/Order.Application.csproj" />
+    <Project Path="src/services/commerce/order/Order.Domain/Order.Domain.csproj" />
+    <Project Path="src/services/commerce/order/Order.Host/Order.Host.csproj" />
+  </Folder>
+  <Folder Name="/src/services/operations/" />
+  <Folder Name="/src/services/content/" />
+  <Folder Name="/src/services/gateway/" />
+  <Folder Name="/src/apps/" />
+  <Folder Name="/src/packages/" />
+  <Folder Name="/tests/" />
+  <Folder Name="/tools/" />
+</Solution>

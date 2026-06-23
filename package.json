@@ -1,0 +1,33 @@
+{
+  "name": "teck-platform",
+  "private": true,
+  "scripts": {
+    "build": "nx run-many -t build",
+    "test": "nx run-many -t test",
+    "lint": "nx run-many -t lint",
+    "typecheck": "nx run-many -t typecheck",
+    "affected:build": "nx affected -t build",
+    "affected:test": "nx affected -t test",
+    "affected:lint": "nx affected -t lint",
+    "affected:typecheck": "nx affected -t typecheck",
+    "affected:all": "nx affected -t build test lint typecheck",
+    "graph": "nx graph",
+    "release:dry": "nx release --dry-run",
+    "release": "nx release --yes",
+    "clean": "nx reset"
+  },
+  "devDependencies": {
+    "@nx/dotnet": "latest",
+    "@nx/js": "latest",
+    "@nx/next": "latest",
+    "@nx/storybook": "latest",
+    "@nx/devkit": "latest",
+    "nx": "latest",
+    "typescript": "^5.7.0"
+  },
+  "packageManager": "bun@1.2.0",
+  "workspaces": [
+    "src/apps/*",
+    "src/packages/*"
+  ]
+}

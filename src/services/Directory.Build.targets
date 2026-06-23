@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <RunWolverineCodegen Condition="'$(RunWolverineCodegen)' == ''">false</RunWolverineCodegen>
+    <WolverineCodegenEnvironment Condition="'$(WolverineCodegenEnvironment)' == ''">Development</WolverineCodegenEnvironment>
+    <WolverineCodegenGrpcLogLevel Condition="'$(WolverineCodegenGrpcLogLevel)' == ''">Warning</WolverineCodegenGrpcLogLevel>
+  </PropertyGroup>
+
+  <Target Name="WolverineCodegenWrite"
+          DependsOnTargets="Build"
+          Condition="'$(RunWolverineCodegen)' == 'true' and ($([System.String]::Copy('$(MSBuildProjectName)').EndsWith('.Host')) or $([System.String]::Copy('$(MSBuildProjectName)').EndsWith('.Api')))">
+    <Message Importance="high" Text="Running WolverineFx codegen for $(MSBuildProjectName)..." />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)"
+          EnvironmentVariables="ASPNETCORE_ENVIRONMENT=$(WolverineCodegenEnvironment);Logging__LogLevel__Grpc=$(WolverineCodegenGrpcLogLevel)"
+          Command='dotnet "$(TargetPath)" codegen write' />
+  </Target>
+</Project>

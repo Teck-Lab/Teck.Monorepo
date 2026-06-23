@@ -1,0 +1,123 @@
+name: Security Scans
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+
+concurrency:
+  group: security-scans-${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  trivy-filesystem:
+    name: Trivy Filesystem Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scan (non-blocking)
+        uses: aquasecurity/trivy-action@0.35.0
+        continue-on-error: true
+        with:
+          version: 'v0.69.3'
+          scan-type: 'fs'
+          scan-ref: .
+          format: sarif
+          output: trivy-fs-results.sarif
+          severity: 'CRITICAL,HIGH'
+          exit-code: 0
+          ignore-unfixed: true
+          scanners: 'vuln,secret,misconfig'
+
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs-results.sarif
+          category: trivy-filesystem
+
+  gitleaks:
+    name: Gitleaks Secret Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks (non-blocking)
+        uses: gitleaks/gitleaks-action@v2
+        continue-on-error: true
+
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Semgrep
+        run: python -m pip install --upgrade semgrep
+
+      - name: Run Semgrep (C# + TypeScript + React)
+        env:
+          SEMGREP_SEND_METRICS: 'off'
+        run: |
+          semgrep scan \
+            --config p/csharp \
+            --config p/typescript \
+            --config p/react \
+            --config p/javascript \
+            --config p/secrets \
+            --config p/r2c-security-audit \
+            --sarif \
+            --output semgrep.sarif \
+            || true
+
+      - name: Upload Semgrep SARIF
+        if: always() && hashFiles('semgrep.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Review dependencies
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          deny-licenses: GPL-2.0, GPL-3.0
+          comment-summary-in-pr: always
+
+  frontend-audit:
+    name: Frontend Dependency Audit
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Audit frontend dependencies
+        run: bun audit || true

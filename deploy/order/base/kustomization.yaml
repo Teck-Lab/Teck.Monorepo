@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: teck-cloud-core
+
+resources:
+  - deployment.yaml
+  - service.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: commerce
+
+images:
+  - name: order-api
+    newName: ghcr.io/teck-lab/teck-monorepo/commerce/order-api
+    # newTag is set by Kargo promotion, not hardcoded here.
+    # Kargo Warehouse detects new image tags and Kustomize overlays in
+    # Teck.GitOps apply the promoted tag at sync time.

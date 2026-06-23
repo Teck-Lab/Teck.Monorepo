@@ -1,0 +1,31 @@
+name: Canary Preview
+on:
+  pull_request:
+    types: [labeled, synchronize]
+
+jobs:
+  canary:
+    name: Canary Build
+    if: contains(github.event.pull_request.labels.*.name, 'preview')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: |
+          dotnet restore
+          bun install --frozen-lockfile
+
+      - name: Canary build (affected only)
+        run: |
+          nx affected -t docker:build --tag canary-${{ github.event.pull_request.number || github.sha }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

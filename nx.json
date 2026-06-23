@@ -1,0 +1,132 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "plugins": [
+    {
+      "plugin": "@nx/dotnet",
+      "options": {
+        "build": { "targetName": "build" },
+        "test": { "targetName": "test", "dependsOn": ["build"] },
+        "restore": { "targetName": "restore" },
+        "publish": { "targetName": "publish" }
+      }
+    },
+    {
+      "plugin": "@nx/docker",
+      "options": {
+        "buildTarget": {
+          "name": "docker:build",
+          "args": [
+            "--platform", "linux/amd64,linux/arm64",
+            "--label", "org.opencontainers.image.title={projectName}",
+            "--label", "org.opencontainers.image.revision={commitSha}",
+            "--label", "org.opencontainers.image.version={version}",
+            "--build-arg", "VERSION={version}",
+            "--tag", "{imageRef}:{version}",
+            "--tag", "{imageRef}:sha-{shortCommitSha}"
+          ],
+          "env": {
+            "DOCKER_BUILDKIT": "1"
+          }
+        }
+      }
+    },
+    {
+      "plugin": "@nx/next/plugin",
+      "include": ["src/apps/**/*"],
+      "options": {
+        "buildTargetName": "build",
+        "devTargetName": "dev",
+        "startTargetName": "start"
+      }
+    },
+    {
+      "plugin": "@nx/storybook/plugin",
+      "include": ["src/apps/storybook"],
+      "options": {
+        "buildStorybookTargetName": "build-storybook",
+        "serveStorybookTargetName": "storybook"
+      }
+    }
+  ],
+  "targetDefaults": {
+    "build": {
+      "dependsOn": ["^build"],
+      "cache": true
+    },
+    "test": {
+      "dependsOn": ["build"],
+      "cache": true
+    },
+    "lint": {
+      "cache": true
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "cache": true
+    },
+    "docker:build": {
+      "dependsOn": ["build"],
+      "cache": true
+    }
+  },
+  "release": {
+    "version": {
+      "conventionalCommits": true
+    },
+    "git": {
+      "commit": true,
+      "tag": true,
+      "commitMessage": "chore(release): publish {version}"
+    },
+    "changelog": {
+      "projectChangelogs": {
+        "createRelease": "github",
+        "file": false
+      }
+    },
+    "groups": {
+      "commerce": {
+        "projects": ["src/services/commerce/*"],
+        "projectsRelationship": "fixed",
+        "releaseTag": { "pattern": "commerce@{version}" },
+        "docker": {
+          "skipVersionActions": true,
+          "registryUrl": "ghcr.io/teck-lab/teck-cloud"
+        }
+      },
+      "operations": {
+        "projects": ["src/services/operations/*"],
+        "projectsRelationship": "fixed",
+        "releaseTag": { "pattern": "operations@{version}" },
+        "docker": {
+          "skipVersionActions": true,
+          "registryUrl": "ghcr.io/teck-lab/teck-cloud"
+        }
+      },
+      "content": {
+        "projects": ["src/services/content/*"],
+        "projectsRelationship": "fixed",
+        "releaseTag": { "pattern": "content@{version}" },
+        "docker": {
+          "skipVersionActions": true,
+          "registryUrl": "ghcr.io/teck-lab/teck-cloud"
+        }
+      },
+      "gateway": {
+        "projects": ["src/services/gateway/*"],
+        "projectsRelationship": "fixed",
+        "releaseTag": { "pattern": "gateway@{version}" },
+        "docker": {
+          "skipVersionActions": true,
+          "registryUrl": "ghcr.io/teck-lab/teck-cloud"
+        }
+      },
+      "web": {
+        "projects": ["src/apps/*", "src/packages/*"],
+        "projectsRelationship": "independent",
+        "releaseTag": { "pattern": "{projectName}@{version}" }
+      }
+    }
+  },
+  "defaultBase": "main"
+}
