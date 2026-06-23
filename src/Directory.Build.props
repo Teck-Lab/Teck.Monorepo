@@ -16,7 +16,7 @@
   <!-- Documentation & Warnings -->
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>CS1591;IDE0005;CA1014;CS0618</NoWarn>
+    <NoWarn>CS1591;IDE0005;CA1014</NoWarn>
   </PropertyGroup>
 
   <!-- SourceLink -->
