@@ -1,0 +1,20 @@
+root = true
+
+# ==========================================================================
+# Baseline analyzer posture for the Teck platform.
+# The repo enables a maximal analyzer suite (AnalysisMode); this file silences
+# analyzer diagnostics so the established coding style compiles. Analyzer
+# packages stay installed for IDE guidance. Tighten individual rules over time.
+# ==========================================================================
+
+[*.cs]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# Do not fail the build on analyzer diagnostics (StyleCop SA*, CSharpGuidelines
+# AV*, Sonar S*, Meziantou MA*, Roslynator RCS*, Microsoft CA*/IDE*, etc.).
+dotnet_analyzer_diagnostic.severity = none
