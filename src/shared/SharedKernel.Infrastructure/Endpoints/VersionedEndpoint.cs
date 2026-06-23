@@ -10,6 +10,7 @@ public enum ApiVersion
 }
 
 public abstract class VersionedEndpoint<TRequest, TResponse> : Endpoint<TRequest, TResponse>
+    where TRequest : notnull
 {
     protected ApiVersion RequestedVersion { get; private set; } = ApiVersion.V1;
 
