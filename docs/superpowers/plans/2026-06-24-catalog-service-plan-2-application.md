@@ -44,6 +44,27 @@ These three choices diverge from `docs/superpowers/specs/2026-06-23-catalog-serv
 
 ---
 
+## Test strategy for load-then-mutate handlers (IMPORTANT — added during execution)
+
+The EF Core **InMemory** provider cannot persist a mutation to an **already-saved owned-aggregate graph** (adding to / updating an owned collection after reload throws `DbUpdateConcurrencyException`). This is a provider limitation, not a code defect, and it matches the repo convention that DB round-trips belong in Plan 3 Testcontainers integration tests, not unit tests (mirroring how the `order` service's handler unit tests stub `SaveChangesAsync`).
+
+Therefore **pure-create** handler tests (CreateProduct/CreateCategory/CreateSupplier — a single insert, no reload) use a real `CatalogTestContext.CreateInMemory()` and may assert persisted counts. But **load-then-mutate** handler tests (AddVariant, UpdateSellPrice, LinkVariantSupplier, UpdateSupplierCost, SetPreferredSupplier) use this two-context pattern:
+
+```csharp
+// 1. Seed with a REAL context (single insert works), then dispose it:
+using (var seed = CatalogTestContext.CreateInMemory("<dbName>"))
+{
+    seed.Products.Add(product);
+    await seed.SaveChangesAsync();
+}
+// 2. Act against a STUBBED-SAVE context over the SAME named database:
+using var db = CatalogTestContext.CreateWithStubbedSave("<dbName>");
+// ... run the handler: it loads from the shared store, mutates, the stubbed
+//     SaveChangesAsync is a no-op, and it publishes/returns as normal.
+```
+
+`CreateWithStubbedSave(name)` is a `Substitute.ForPartsOf<CatalogDbContext>` whose `SaveChangesAsync` returns 1 without persisting (added to `CatalogTestContext` during execution). Assert on the **returned `ErrorOr<DTO>`** (which is built from the in-memory mutated aggregate) and on `bus.Received(...)`. Do **not** assert persisted state by re-querying after the act — the mutation is intentionally not persisted (Plan 3 integration tests cover real persistence). The not-found path needs no seed (empty store → load returns null → `Error.NotFound`).
+
 ## File Structure (this plan)
 
 ```
@@ -1191,20 +1212,21 @@ namespace Catalog.UnitTests.Application;
 
 public sealed class UpdateSellPriceHandlerTests
 {
-    private static async Task<(Catalog.Application.Database.CatalogDbContext Db, Product Product)> SeedAsync(string name)
+    // See "Test strategy for load-then-mutate handlers": seed with a real context, act with a stubbed-save one.
+    private static async Task<Product> SeedAsync(string name)
     {
         var product = Product.Create("tenant-1", "Widget", null, null, "WIDGET-1", new Money(9.99m, "USD"));
-        var db = CatalogTestContext.CreateInMemory(name);
-        db.Products.Add(product);
-        await db.SaveChangesAsync();
-        return (db, product);
+        using var seed = CatalogTestContext.CreateInMemory(name);
+        seed.Products.Add(product);
+        await seed.SaveChangesAsync();
+        return product;
     }
 
     [Fact]
     public async Task Handle_WithNewPrice_UpdatesAndPublishes()
     {
-        var (db, product) = await SeedAsync("price-change");
-        using var _ = db;
+        var product = await SeedAsync("price-change");
+        using var db = CatalogTestContext.CreateWithStubbedSave("price-change");
         var bus = Substitute.For<IMessageBus>();
         var command = new UpdateSellPriceCommand(product.Id, product.Variants[0].Id, 14.00m, "USD");
 
@@ -1218,8 +1240,8 @@ public sealed class UpdateSellPriceHandlerTests
     [Fact]
     public async Task Handle_WithSamePrice_DoesNotPublish()
     {
-        var (db, product) = await SeedAsync("price-same");
-        using var _ = db;
+        var product = await SeedAsync("price-same");
+        using var db = CatalogTestContext.CreateWithStubbedSave("price-same");
         var bus = Substitute.For<IMessageBus>();
         var command = new UpdateSellPriceCommand(product.Id, product.Variants[0].Id, 9.99m, "USD");
 
@@ -1232,7 +1254,7 @@ public sealed class UpdateSellPriceHandlerTests
     [Fact]
     public async Task Handle_WithMissingProduct_ReturnsNotFound()
     {
-        using var db = CatalogTestContext.CreateInMemory("price-missing");
+        using var db = CatalogTestContext.CreateWithStubbedSave("price-missing");
         var bus = Substitute.For<IMessageBus>();
         var command = new UpdateSellPriceCommand(Guid.NewGuid(), Guid.NewGuid(), 1m, "USD");
 
@@ -2025,9 +2047,12 @@ public sealed class LinkVariantSupplierHandlerTests
     public async Task Handle_WithExistingVariant_LinksSupplierWithInitialHistory()
     {
         var product = Product.Create("tenant-1", "Widget", null, null, "WIDGET-1", new Money(9.99m, "USD"));
-        using var db = CatalogTestContext.CreateInMemory("link");
-        db.Products.Add(product);
-        await db.SaveChangesAsync();
+        using (var seed = CatalogTestContext.CreateInMemory("link"))
+        {
+            seed.Products.Add(product);
+            await seed.SaveChangesAsync();
+        }
+        using var db = CatalogTestContext.CreateWithStubbedSave("link");
         var supplierId = Guid.NewGuid();
         var command = new LinkVariantSupplierCommand(product.Variants[0].Id, supplierId, 5m, "USD", "ACME-9", 7, 10, true);
 
@@ -2042,7 +2067,7 @@ public sealed class LinkVariantSupplierHandlerTests
     [Fact]
     public async Task Handle_WithMissingVariant_ReturnsNotFound()
     {
-        using var db = CatalogTestContext.CreateInMemory("link-missing");
+        using var db = CatalogTestContext.CreateWithStubbedSave("link-missing");
         var command = new LinkVariantSupplierCommand(Guid.NewGuid(), Guid.NewGuid(), 5m, "USD", "X", 1, 1, false);
 
         var result = await LinkVariantSupplierHandler.Handle(command, db, CancellationToken.None);
@@ -2170,9 +2195,12 @@ public sealed class UpdateSupplierCostHandlerTests
         var product = Product.Create("tenant-1", "Widget", null, null, "WIDGET-1", new Money(9.99m, "USD"));
         var supplierId = Guid.NewGuid();
         product.LinkSupplier(product.Variants[0].Id, supplierId, new Money(5m, "USD"), "A", 7, 1, isPreferred: true);
-        using var db = CatalogTestContext.CreateInMemory("cost");
-        db.Products.Add(product);
-        await db.SaveChangesAsync();
+        using (var seed = CatalogTestContext.CreateInMemory("cost"))
+        {
+            seed.Products.Add(product);
+            await seed.SaveChangesAsync();
+        }
+        using var db = CatalogTestContext.CreateWithStubbedSave("cost");
         var command = new UpdateSupplierCostCommand(product.Variants[0].Id, supplierId, 6.50m, "USD");
 
         var result = await UpdateSupplierCostHandler.Handle(command, db, CancellationToken.None);
@@ -2185,9 +2213,12 @@ public sealed class UpdateSupplierCostHandlerTests
     public async Task Handle_WithUnlinkedSupplier_ReturnsNotFound()
     {
         var product = Product.Create("tenant-1", "Widget", null, null, "WIDGET-1", new Money(9.99m, "USD"));
-        using var db = CatalogTestContext.CreateInMemory("cost-missing");
-        db.Products.Add(product);
-        await db.SaveChangesAsync();
+        using (var seed = CatalogTestContext.CreateInMemory("cost-missing"))
+        {
+            seed.Products.Add(product);
+            await seed.SaveChangesAsync();
+        }
+        using var db = CatalogTestContext.CreateWithStubbedSave("cost-missing");
         var command = new UpdateSupplierCostCommand(product.Variants[0].Id, Guid.NewGuid(), 6.50m, "USD");
 
         var result = await UpdateSupplierCostHandler.Handle(command, db, CancellationToken.None);
@@ -2307,16 +2338,21 @@ public sealed class SetPreferredSupplierHandlerTests
         var b = Guid.NewGuid();
         product.LinkSupplier(variantId, a, new Money(5m, "USD"), "A", 7, 1, isPreferred: true);
         product.LinkSupplier(variantId, b, new Money(6m, "USD"), "B", 7, 1, isPreferred: false);
-        using var db = CatalogTestContext.CreateInMemory("preferred");
-        db.Products.Add(product);
-        await db.SaveChangesAsync();
+        using (var seed = CatalogTestContext.CreateInMemory("preferred"))
+        {
+            seed.Products.Add(product);
+            await seed.SaveChangesAsync();
+        }
+        using var db = CatalogTestContext.CreateWithStubbedSave("preferred");
 
         var result = await SetPreferredSupplierHandler.Handle(
             new SetPreferredSupplierCommand(variantId, b), db, CancellationToken.None);
 
         Assert.False(result.IsError);
-        var reloaded = await db.Products.FirstAsync();
-        var suppliers = reloaded.Variants[0].Suppliers;
+        // The handler loaded + mutated the product in `db`'s change tracker; re-querying `db`
+        // returns that same tracked instance (identity map), reflecting the in-memory mutation.
+        var tracked = await db.Products.FirstAsync();
+        var suppliers = tracked.Variants[0].Suppliers;
         Assert.Equal(1, suppliers.Count(s => s.IsPreferred));
         Assert.True(suppliers.Single(s => s.SupplierId == b).IsPreferred);
     }
@@ -2325,9 +2361,12 @@ public sealed class SetPreferredSupplierHandlerTests
     public async Task Handle_WithUnlinkedSupplier_ReturnsNotFound()
     {
         var product = Product.Create("tenant-1", "Widget", null, null, "WIDGET-1", new Money(9.99m, "USD"));
-        using var db = CatalogTestContext.CreateInMemory("preferred-missing");
-        db.Products.Add(product);
-        await db.SaveChangesAsync();
+        using (var seed = CatalogTestContext.CreateInMemory("preferred-missing"))
+        {
+            seed.Products.Add(product);
+            await seed.SaveChangesAsync();
+        }
+        using var db = CatalogTestContext.CreateWithStubbedSave("preferred-missing");
 
         var result = await SetPreferredSupplierHandler.Handle(
             new SetPreferredSupplierCommand(product.Variants[0].Id, Guid.NewGuid()), db, CancellationToken.None);
