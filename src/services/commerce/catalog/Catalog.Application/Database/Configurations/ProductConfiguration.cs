@@ -35,6 +35,9 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
             {
                 attr.ToTable("VariantAttributes");
                 attr.WithOwner().HasForeignKey("VariantId");
+                // VariantAttribute has no identity of its own; key it by owner + name
+                // (a variant cannot carry two attributes with the same name).
+                attr.HasKey("VariantId", nameof(Domain.ValueObjects.VariantAttribute.Name));
                 attr.Property(a => a.Name).HasMaxLength(128);
                 attr.Property(a => a.Value).HasMaxLength(512);
             });
