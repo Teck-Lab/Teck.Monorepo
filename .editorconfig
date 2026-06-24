@@ -18,3 +18,7 @@ insert_final_newline = true
 # Do not fail the build on analyzer diagnostics (StyleCop SA*, CSharpGuidelines
 # AV*, Sonar S*, Meziantou MA*, Roslynator RCS*, Microsoft CA*/IDE*, etc.).
 dotnet_analyzer_diagnostic.severity = none
+
+# Mapperly: ignore unmapped source members (RMG020) for DTOs that intentionally
+# exclude base entity properties (TenantId, CreatedAt, DomainEvents, etc.)
+dotnet_diagnostic.RMG020.severity = none
