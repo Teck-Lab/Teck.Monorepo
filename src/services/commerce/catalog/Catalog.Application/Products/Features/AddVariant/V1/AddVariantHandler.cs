@@ -21,7 +21,10 @@ public static class AddVariantHandler
         IMessageBus bus,
         CancellationToken ct)
     {
-        var product = await db.Products.FindAsync(new object?[] { command.ProductId }, cancellationToken: ct).ConfigureAwait(false);
+        var product = await db.Products
+            .WithSpecification(new ProductByIdSpec(command.ProductId))
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
 
         if (product is null)
         {
