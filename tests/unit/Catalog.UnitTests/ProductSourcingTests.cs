@@ -120,4 +120,18 @@ public sealed class ProductSourcingTests
         Assert.False(product.IsActive);
         Assert.All(product.Variants, v => Assert.False(v.IsActive));
     }
+
+    [Fact]
+    public void ChangeSupplierCost_WithSameCost_DoesNotRaiseEvent()
+    {
+        var product = NewProduct();
+        var variantId = DefaultVariantId(product);
+        var supplierId = Guid.NewGuid();
+        product.LinkSupplier(variantId, supplierId, new Money(5m, "USD"), "A", 7, 1, isPreferred: true);
+
+        product.ChangeSupplierCost(variantId, supplierId, new Money(5m, "USD"));
+
+        Assert.Empty(product.DomainEvents.OfType<SupplierCostPriceChanged>());
+        Assert.Single(product.Variants[0].Suppliers.Single(s => s.SupplierId == supplierId).PriceHistory);
+    }
 }

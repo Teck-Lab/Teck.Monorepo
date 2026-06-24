@@ -42,4 +42,18 @@ public sealed class CategoryTests
 
         Assert.Equal("Drinks", category.Name);
     }
+
+    [Fact]
+    public void Create_WithBlankSlug_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => Category.Create("tenant-1", "Beverages", " "));
+    }
+
+    [Fact]
+    public void Rename_WithBlankName_Throws()
+    {
+        var category = Category.Create("tenant-1", "Beverages", "beverages");
+
+        Assert.Throws<ArgumentException>(() => category.Rename(" "));
+    }
 }
