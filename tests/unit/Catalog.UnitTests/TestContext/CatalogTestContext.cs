@@ -16,10 +16,10 @@ public static class CatalogTestContext
             .UseInMemoryDatabase(name ?? $"catalog-{Guid.NewGuid()}")
             .Options;
 
-        // BaseDbContext reads tenantAccessor?.MultiTenantContext.TenantInfo; NSubstitute's recursive
-        // mocking returns a non-null context with a null TenantInfo, so TenantDetails resolves to null.
-        // SaveChangesAsync's tenant enforcement is a no-op for entities not marked with Finbuckle's
-        // [MultiTenant] attribute, so seeding and saving in tests works without a real tenant.
+        // The substituted accessor resolves no tenant, so the context's TenantId is null.
+        // The two CatalogDbContextTests confirm that seeding and saving the Product aggregate
+        // works in this no-tenant configuration under the InMemory provider — which is what unit
+        // tests need. Production contexts always receive a real tenant from the Host's interceptor.
         var accessor = Substitute.For<IMultiTenantContextAccessor<TenantDetails>>();
         return new CatalogDbContext(options, accessor);
     }
