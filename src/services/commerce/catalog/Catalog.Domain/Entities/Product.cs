@@ -67,6 +67,71 @@ public sealed class Product : BaseEntity, IAggregateRoot, ITenantScoped
         return variant.Id;
     }
 
+    /// <summary>Changes a variant's sell price; raises an event only on a real change.</summary>
+    public void ChangeVariantSellPrice(Guid variantId, Money newPrice)
+    {
+        ArgumentNullException.ThrowIfNull(newPrice);
+        var variant = RequireVariant(variantId);
+        var old = variant.SellPrice;
+
+        if (old.Equals(newPrice))
+        {
+            return;
+        }
+
+        variant.ChangeSellPrice(newPrice);
+        AddDomainEvent(new VariantSellPriceChanged(Id, variant.Id, old.Amount, newPrice.Amount, newPrice.Currency));
+    }
+
+    /// <summary>Links a supplier to a variant with sourcing details.</summary>
+    public Guid LinkSupplier(
+        Guid variantId,
+        Guid supplierId,
+        Money costPrice,
+        string supplierSku,
+        int leadTimeDays,
+        int minOrderQuantity,
+        bool isPreferred)
+    {
+        var variant = RequireVariant(variantId);
+        var link = variant.LinkSupplier(supplierId, costPrice, supplierSku, leadTimeDays, minOrderQuantity, isPreferred, DateTimeOffset.UtcNow);
+        return link.Id;
+    }
+
+    /// <summary>Changes a variant↔supplier cost price, recording history.</summary>
+    public void ChangeSupplierCost(Guid variantId, Guid supplierId, Money newCost)
+    {
+        ArgumentNullException.ThrowIfNull(newCost);
+        var variant = RequireVariant(variantId);
+        var link = variant.RequireSupplier(supplierId);
+        var old = link.CostPrice;
+
+        if (old.Equals(newCost))
+        {
+            return;
+        }
+
+        link.ChangeCost(newCost, DateTimeOffset.UtcNow);
+        AddDomainEvent(new SupplierCostPriceChanged(Id, variant.Id, supplierId, old.Amount, newCost.Amount, newCost.Currency));
+    }
+
+    /// <summary>Sets the single preferred supplier for a variant.</summary>
+    public void SetPreferredSupplier(Guid variantId, Guid supplierId)
+    {
+        var variant = RequireVariant(variantId);
+        variant.SetPreferred(supplierId);
+    }
+
+    /// <summary>Deactivates the product and all its variants.</summary>
+    public void Deactivate()
+    {
+        IsActive = false;
+        foreach (var variant in _variants)
+        {
+            variant.Deactivate();
+        }
+    }
+
     internal Variant RequireVariant(Guid variantId)
     {
         var variant = _variants.Find(v => v.Id == variantId);
