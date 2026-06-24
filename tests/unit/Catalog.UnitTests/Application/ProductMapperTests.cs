@@ -49,5 +49,6 @@ public sealed class ProductMapperTests
 
         Assert.Equal(2, summaries.Count);
         Assert.Contains(summaries, s => s.Name == "A");
+        Assert.Contains(summaries, s => s.Name == "B");
     }
 }

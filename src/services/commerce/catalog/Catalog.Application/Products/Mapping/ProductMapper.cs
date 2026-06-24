@@ -5,7 +5,7 @@ using Riok.Mapperly.Abstractions;
 namespace Catalog.Application.Products.Mapping;
 
 /// <summary>Compile-time mapping for products, variants, and categories.</summary>
-[Mapper]
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public static partial class ProductMapper
 {
     /// <summary>Maps a product (and its variant tree) to a DTO.</summary>
