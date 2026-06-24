@@ -1698,7 +1698,10 @@ using Riok.Mapperly.Abstractions;
 namespace Catalog.Application.Suppliers.Mapping;
 
 /// <summary>Compile-time mapping for suppliers, links, and price history.</summary>
-[Mapper]
+// RequiredMappingStrategy.Target suppresses Mapperly RMG020 for the intentionally-dropped
+// BaseEntity source fields (TenantId/CreatedAt/DomainEvents/...) while keeping RMG012 (unmapped
+// target) active. Scope it here on the mapper — never via the repo-root .editorconfig.
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public static partial class SupplierMapper
 {
     /// <summary>Maps a supplier to a DTO.</summary>
