@@ -5,16 +5,13 @@ using Wolverine;
 
 namespace Orders.Host.Endpoints.Orders;
 
+/// <summary>
+/// Endpoint that retrieves a single order by its identifier.
+/// </summary>
+/// <param name="bus">The message bus used to dispatch the get order query.</param>
 public sealed class GetOrderEndpoint(IMessageBus bus) : AuthenticatedEndpoint<GetOrderRequest, OrderDto>
 {
     private readonly IMessageBus _bus = bus;
-
-    /// <inheritdoc/>
-    protected override void ConfigureEndpoint()
-    {
-        AllowAnonymous();
-        Get("/orders/{id}");
-    }
 
     /// <inheritdoc/>
     public override async Task HandleAsync(GetOrderRequest request, CancellationToken ct)
@@ -24,6 +21,11 @@ public sealed class GetOrderEndpoint(IMessageBus bus) : AuthenticatedEndpoint<Ge
 
         await Send.OkAsync(result, ct);
     }
-}
 
-public sealed record GetOrderRequest(Guid Id);
+    /// <inheritdoc/>
+    protected override void ConfigureEndpoint()
+    {
+        AllowAnonymous();
+        Get("/orders/{id}");
+    }
+}

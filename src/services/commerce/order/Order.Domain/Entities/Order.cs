@@ -5,6 +5,9 @@ using SharedKernel.Core.Domain;
 
 namespace Orders.Domain.Entities;
 
+/// <summary>
+/// Represents a customer order aggregate root.
+/// </summary>
 public sealed class Order : BaseEntity, IAggregateRoot, ITenantScoped
 {
     private Order()
@@ -12,17 +15,36 @@ public sealed class Order : BaseEntity, IAggregateRoot, ITenantScoped
         Lines = new List<OrderLine>();
     }
 
+    /// <summary>
+    /// Gets the identifier of the customer who owns the order.
+    /// </summary>
     public Guid CustomerId { get; private set; }
 
     /// <inheritdoc/>
     public string TenantId { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Gets the current status of the order.
+    /// </summary>
     public OrderStatus Status { get; private set; } = OrderStatus.Pending;
 
+    /// <summary>
+    /// Gets the lines that make up the order.
+    /// </summary>
     public List<OrderLine> Lines { get; private set; }
 
+    /// <summary>
+    /// Gets the total monetary amount of the order.
+    /// </summary>
     public decimal Total { get; private set; }
 
+    /// <summary>
+    /// Creates a new <see cref="Order"/> for the specified customer and order lines.
+    /// </summary>
+    /// <param name="customerId">The identifier of the customer who owns the order.</param>
+    /// <param name="tenantId">The identifier of the tenant that owns the order.</param>
+    /// <param name="lines">The lines that make up the order.</param>
+    /// <returns>The newly created <see cref="Order"/>.</returns>
     public static Order Create(Guid customerId, string tenantId, List<OrderLine> lines)
     {
         ArgumentNullException.ThrowIfNull(lines);
@@ -53,6 +75,9 @@ public sealed class Order : BaseEntity, IAggregateRoot, ITenantScoped
         return order;
     }
 
+    /// <summary>
+    /// Recalculates the order total from its current lines.
+    /// </summary>
     public void CalculateTotal()
     {
         Total = OrderPricingService.CalculateTotal(Lines);

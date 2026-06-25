@@ -5,16 +5,13 @@ using Wolverine;
 
 namespace Orders.Host.Endpoints.Orders;
 
+/// <summary>
+/// Endpoint that creates a new order.
+/// </summary>
+/// <param name="bus">The message bus used to dispatch the create order command.</param>
 public sealed class CreateOrderEndpoint(IMessageBus bus) : AuthenticatedEndpoint<CreateOrderRequest, OrderDto>
 {
     private readonly IMessageBus _bus = bus;
-
-    /// <inheritdoc/>
-    protected override void ConfigureEndpoint()
-    {
-        AllowAnonymous();
-        Post("/orders");
-    }
 
     /// <inheritdoc/>
     public override async Task HandleAsync(CreateOrderRequest request, CancellationToken ct)
@@ -25,6 +22,11 @@ public sealed class CreateOrderEndpoint(IMessageBus bus) : AuthenticatedEndpoint
         HttpContext.Response.Headers.Location = $"/orders/{result.Id}";
         await Send.ResponseAsync(result, StatusCodes.Status201Created, ct);
     }
-}
 
-public sealed record CreateOrderRequest(Guid CustomerId, List<CreateOrderLine> Lines);
+    /// <inheritdoc/>
+    protected override void ConfigureEndpoint()
+    {
+        AllowAnonymous();
+        Post("/orders");
+    }
+}
