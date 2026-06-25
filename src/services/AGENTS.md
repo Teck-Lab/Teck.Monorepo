@@ -409,3 +409,21 @@ dotnet <Service>.Host.dll codegen write
 ```
 
 - The generated output must exist before the Docker image is built so the publish step packages the compiled handlers.
+
+## Code Style & Analyzer Enforcement
+
+Analyzer diagnostics are **enforced as build errors** (`TreatWarningsAsErrors=true` + `EnforceCodeStyleInBuild=true`). The policy is an **allowlist** in the root `.editorconfig`: the floor `dotnet_analyzer_diagnostic.severity = none` silences everything, then specific rules are opted in at `warning`. Only the rules listed there can fail the build — add a rule to the allowlist to enforce it; never re-introduce a blanket suppression.
+
+Enforced today:
+- **Using directives** ordered (System first, alphabetical) — `SA1208/1210/1211`; unnecessary usings removed — `IDE0005`.
+- **Layout** (braces, blank lines, trailing commas, no trailing whitespace) — `SA1028/1137/1500/1503/1505-1508/1513/1516/1518/1413`.
+- **Member ordering** (kind → accessibility → static/instance) — `SA1201/1202/1203/1204`.
+- **File hygiene** — one type per file (`SA1402`), file name matches type (`SA1649`).
+- **Public-API documentation** — `SA1600/1601/1602/1611/1612/1614-1616/1618/1622`. Scope is **public only**, configured in the root `stylecop.json` (`documentExposedElements: true`, internal/private `false`). Document public types/members with meaningful summaries and `<param>`/`<returns>`/`<typeparam>` text.
+- **Namespaces** are **file-scoped** (`IDE0161`).
+
+Deliberately **off** (do not enable without discussion): `SA1101` (`this.` prefix), `SA1200` (usings inside namespace — incompatible with file-scoped), `SA1309` (`_field` underscore is our convention), `SA1633/1636` (file copyright headers). The **CSharpGuidelines (`AV*`)** suite is dropped entirely (architectural, not style). `CS1591` is suppressed in favour of `SA1600`.
+
+Test projects (`tests/`) get the IDE/formatting rules but **not** StyleCop `SA*` (the StyleCop package is referenced only under `src/`), so test methods are not documentation-gated.
+
+`AnalysisModeSecurity=All` stays on regardless of the allowlist.
