@@ -1,10 +1,13 @@
 root = true
 
 # ==========================================================================
-# Baseline analyzer posture for the Teck platform.
-# The repo enables a maximal analyzer suite (AnalysisMode); this file silences
-# analyzer diagnostics so the established coding style compiles. Analyzer
-# packages stay installed for IDE guidance. Tighten individual rules over time.
+# Curated analyzer enforcement (Teck platform).
+# Strategy: ALLOWLIST. The floor silences every analyzer diagnostic; we then
+# explicitly opt-in the curated rules at `warning`, which the projects'
+# TreatWarningsAsErrors=true promotes to build errors. Only the rules we
+# deliberately chose can fail the build. Sonar (S*)/Meziantou (MA*)/Roslynator
+# (RCS*) are tightened over time; CSharpGuidelines (AV*) is intentionally
+# dropped (see src/Directory.Build.props).
 # ==========================================================================
 
 [*.cs]
@@ -15,6 +18,64 @@ charset = utf-8
 trim_trailing_whitespace = true
 insert_final_newline = true
 
-# Do not fail the build on analyzer diagnostics (StyleCop SA*, CSharpGuidelines
-# AV*, Sonar S*, Meziantou MA*, Roslynator RCS*, Microsoft CA*/IDE*, etc.).
+# ---- floor: nothing fires unless explicitly enabled below ----
 dotnet_analyzer_diagnostic.severity = none
+
+# ---- C# style backing the enforced IDE rules ----
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_using_directive_placement = outside_namespace:warning
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+
+# ---- IDE (compiler/style) ----
+dotnet_diagnostic.IDE0005.severity = warning   # remove unnecessary usings
+dotnet_diagnostic.IDE0161.severity = warning   # file-scoped namespace
+
+# ---- StyleCop: using ordering ----
+dotnet_diagnostic.SA1208.severity = warning    # System usings first
+dotnet_diagnostic.SA1210.severity = warning    # usings ordered alphabetically
+dotnet_diagnostic.SA1211.severity = warning    # using aliases ordered
+
+# ---- StyleCop: layout / spacing ----
+dotnet_diagnostic.SA1028.severity = warning    # no trailing whitespace
+dotnet_diagnostic.SA1137.severity = warning    # elements same indentation
+dotnet_diagnostic.SA1500.severity = warning    # braces for multi-line not on shared line
+dotnet_diagnostic.SA1503.severity = warning    # braces required
+dotnet_diagnostic.SA1505.severity = warning    # no blank line after opening brace
+dotnet_diagnostic.SA1506.severity = warning    # no blank lines after doc header
+dotnet_diagnostic.SA1507.severity = warning    # no multiple consecutive blank lines
+dotnet_diagnostic.SA1508.severity = warning    # no blank line before closing brace
+dotnet_diagnostic.SA1513.severity = warning    # closing brace followed by blank line
+dotnet_diagnostic.SA1516.severity = warning    # blank line between members
+dotnet_diagnostic.SA1518.severity = warning    # newline at EOF
+
+# ---- StyleCop: ordering of members ----
+dotnet_diagnostic.SA1201.severity = warning    # elements in correct order
+dotnet_diagnostic.SA1202.severity = warning    # public before private
+dotnet_diagnostic.SA1203.severity = warning    # const before non-const
+dotnet_diagnostic.SA1204.severity = warning    # static before instance
+
+# ---- StyleCop: file hygiene ----
+dotnet_diagnostic.SA1402.severity = warning    # one type per file
+dotnet_diagnostic.SA1413.severity = warning    # trailing comma in multi-line initializers
+dotnet_diagnostic.SA1649.severity = warning    # file name matches type
+
+# ---- StyleCop: documentation (public API only, via stylecop.json) ----
+dotnet_diagnostic.SA1600.severity = warning    # elements documented
+dotnet_diagnostic.SA1601.severity = warning    # partial elements documented
+dotnet_diagnostic.SA1602.severity = warning    # enumeration items documented
+dotnet_diagnostic.SA1611.severity = warning    # parameter documentation
+dotnet_diagnostic.SA1612.severity = warning    # parameter doc order
+dotnet_diagnostic.SA1614.severity = warning    # parameter doc has text
+dotnet_diagnostic.SA1615.severity = warning    # return value documented
+dotnet_diagnostic.SA1616.severity = warning    # return value doc has text
+dotnet_diagnostic.SA1618.severity = warning    # generic type parameters documented
+dotnet_diagnostic.SA1622.severity = warning    # generic type param doc has text
+
+# ---- explicitly DISABLED (contradict chosen conventions) ----
+dotnet_diagnostic.SA1101.severity = none       # `this.` prefix — contradicts modern style
+dotnet_diagnostic.SA1200.severity = none       # usings inside namespace — file-scoped chosen
+dotnet_diagnostic.SA1309.severity = none       # _field underscore prefix is our convention
+dotnet_diagnostic.SA1633.severity = none       # no file copyright header convention
+dotnet_diagnostic.SA1636.severity = none       # (file header text)
+dotnet_diagnostic.AV2210.severity = none       # CSharpGuidelines suite dropped
