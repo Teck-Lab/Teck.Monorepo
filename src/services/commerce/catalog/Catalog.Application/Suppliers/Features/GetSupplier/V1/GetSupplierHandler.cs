@@ -11,6 +11,9 @@ namespace Catalog.Application.Suppliers.Features.GetSupplier.V1;
 public static class GetSupplierHandler
 {
     /// <summary>Returns the supplier DTO or a NotFound error.</summary>
+    /// <param name="query">The query identifying the supplier to return.</param>
+    /// <param name="repository">The repository used to load the supplier.</param>
+    /// <param name="ct">The cancellation token.</param>
     /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task<ErrorOr<SupplierDto>> Handle(
         GetSupplierQuery query,

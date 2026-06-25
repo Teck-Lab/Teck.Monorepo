@@ -16,6 +16,10 @@ namespace Catalog.Application.Products.Features.UpdateSellPrice.V1;
 public static class UpdateSellPriceHandler
 {
     /// <summary>Changes the sell price; publishes <see cref="ProductPriceChangedIntegrationEvent"/> only on a real change.</summary>
+    /// <param name="command">The command describing the variant and new sell price.</param>
+    /// <param name="db">The catalog write context.</param>
+    /// <param name="bus">The message bus used to publish integration events.</param>
+    /// <param name="ct">The cancellation token.</param>
     /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task<ErrorOr<VariantDto>> Handle(
         UpdateSellPriceCommand command,

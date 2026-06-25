@@ -9,6 +9,9 @@ namespace Catalog.Application.Products.Features.CreateCategory.V1;
 public static class CreateCategoryHandler
 {
     /// <summary>Creates and persists a category. TenantId is stamped by the Host interceptor on save.</summary>
+    /// <param name="command">The command describing the category to create.</param>
+    /// <param name="db">The catalog write context.</param>
+    /// <param name="ct">The cancellation token.</param>
     /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task<CategoryDto> Handle(
         CreateCategoryCommand command,
