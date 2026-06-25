@@ -24,7 +24,11 @@ public sealed class Category : BaseEntity, IAggregateRoot, ITenantScoped
     public Guid? ParentId { get; private set; }
 
     /// <summary>Creates a new category.</summary>
-    /// <returns></returns>
+    /// <param name="tenantId">The owning tenant id.</param>
+    /// <param name="name">The display name.</param>
+    /// <param name="slug">The URL slug.</param>
+    /// <param name="parentId">The optional parent category id.</param>
+    /// <returns>The newly created category.</returns>
     public static Category Create(string tenantId, string name, string slug, Guid? parentId = null)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -47,6 +51,7 @@ public sealed class Category : BaseEntity, IAggregateRoot, ITenantScoped
     }
 
     /// <summary>Renames the category.</summary>
+    /// <param name="name">The new display name.</param>
     public void Rename(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
