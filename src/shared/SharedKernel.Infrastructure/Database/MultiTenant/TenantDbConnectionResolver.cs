@@ -164,6 +164,21 @@ public class TenantDbConnectionResolver : ITenantDbConnectionResolver
         }
     }
 
+    private static string ResolveIdentifier(TenantDetails tenantInfo)
+    {
+        if (!string.IsNullOrWhiteSpace(tenantInfo.Identifier))
+        {
+            return tenantInfo.Identifier;
+        }
+
+        if (!string.IsNullOrWhiteSpace(tenantInfo.Id))
+        {
+            return tenantInfo.Id;
+        }
+
+        throw new InvalidOperationException("Tenant has no Identifier or Id set.");
+    }
+
     private DatabaseStrategy? ReadStrategyHeader()
     {
         var headers = _httpContextAccessor.Value?.HttpContext?.Request?.Headers;
@@ -193,20 +208,5 @@ public class TenantDbConnectionResolver : ITenantDbConnectionResolver
     {
         DatabaseProvider.TryFromName(tenantInfo.DatabaseProvider, ignoreCase: true, out var provider);
         return provider ?? _defaultProvider;
-    }
-
-    private static string ResolveIdentifier(TenantDetails tenantInfo)
-    {
-        if (!string.IsNullOrWhiteSpace(tenantInfo.Identifier))
-        {
-            return tenantInfo.Identifier;
-        }
-
-        if (!string.IsNullOrWhiteSpace(tenantInfo.Id))
-        {
-            return tenantInfo.Id;
-        }
-
-        throw new InvalidOperationException("Tenant has no Identifier or Id set.");
     }
 }

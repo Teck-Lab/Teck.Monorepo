@@ -40,21 +40,23 @@ public sealed record DatabaseCredentials
     /// <summary>
     /// Gets the connection string for admin user.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>The connection string for the admin user.</returns>
     public string GetAdminConnectionString() =>
         BuildConnectionString(Admin, null, null);
 
     /// <summary>
     /// Gets the connection string for admin user with optional host/port override.
     /// </summary>
-    /// <returns></returns>
+    /// <param name="overrideHost">An optional host that replaces the configured host.</param>
+    /// <param name="overridePort">An optional port that replaces the configured port.</param>
+    /// <returns>The connection string for the admin user with the supplied overrides applied.</returns>
     public string GetAdminConnectionString(string? overrideHost, int? overridePort) =>
         BuildConnectionString(Admin, overrideHost, overridePort);
 
     /// <summary>
     /// Gets the connection string for application user.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>The connection string for the application user.</returns>
     public string GetApplicationConnectionString() =>
         BuildConnectionString(Application, null, null);
 
@@ -62,7 +64,9 @@ public sealed record DatabaseCredentials
     /// Gets the connection string for application user with optional host/port override.
     /// Useful for read replicas that use different host/port but same credentials.
     /// </summary>
-    /// <returns></returns>
+    /// <param name="overrideHost">An optional host that replaces the configured host.</param>
+    /// <param name="overridePort">An optional port that replaces the configured port.</param>
+    /// <returns>The connection string for the application user with the supplied overrides applied.</returns>
     public string GetApplicationConnectionString(string? overrideHost, int? overridePort) =>
         BuildConnectionString(Application, overrideHost, overridePort);
 
@@ -94,20 +98,4 @@ public sealed record DatabaseCredentials
         builder.Append(CultureInfo.InvariantCulture, $"Password={credentials.Password};");
         return builder;
     }
-}
-
-/// <summary>
-/// User credentials for database access.
-/// </summary>
-public sealed record UserCredentials
-{
-    /// <summary>
-    /// Gets username.
-    /// </summary>
-    public required string Username { get; init; }
-
-    /// <summary>
-    /// Gets password.
-    /// </summary>
-    public required string Password { get; init; }
 }

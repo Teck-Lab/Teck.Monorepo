@@ -23,7 +23,7 @@ public interface ISoftDeletable
     /// <summary>
     /// Sets the deleted properties.
     /// </summary>
-    /// <param name="isDeleted"></param>
-    /// <param name="deletedBy"></param>
+    /// <param name="isDeleted">A value indicating whether the entity is deleted.</param>
+    /// <param name="deletedBy">The identifier of the user who deleted the entity.</param>
     void SetDeletedProperties(bool isDeleted, string? deletedBy);
 }

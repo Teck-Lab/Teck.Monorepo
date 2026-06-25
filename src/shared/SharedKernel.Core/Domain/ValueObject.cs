@@ -6,12 +6,6 @@ namespace SharedKernel.Core.Domain;
 public abstract class ValueObject
 {
     /// <summary>
-    /// Provides the components that are used to determine equality for the value object.
-    /// </summary>
-    /// <returns>An enumerable of objects representing the equality components.</returns>
-    protected abstract IEnumerable<object?> GetEqualityComponents();
-
-    /// <summary>
     /// Determines whether the specified object is equal to the current value object.
     /// </summary>
     /// <param name="obj">The object to compare with the current value object.</param>
@@ -61,4 +55,10 @@ public abstract class ValueObject
             return hash;
         }
     }
+
+    /// <summary>
+    /// Provides the components that are used to determine equality for the value object.
+    /// </summary>
+    /// <returns>An enumerable of objects representing the equality components.</returns>
+    protected abstract IEnumerable<object?> GetEqualityComponents();
 }

@@ -10,7 +10,7 @@ public interface IBaseEntity
 /// <summary>
 /// Base entity interface with softdelete and audit.
 /// </summary>
-/// <typeparam name="TId"></typeparam>
+/// <typeparam name="TId">The type of the entity's identifier.</typeparam>
 public interface IBaseEntity<out TId> : IBaseEntity, ISoftDeletable, IAuditable
 {
     /// <summary>

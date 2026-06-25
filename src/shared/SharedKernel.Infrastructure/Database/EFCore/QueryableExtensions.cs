@@ -11,7 +11,7 @@ public static class QueryableExtensions
     /// <summary>
     /// Apply the paging asynchronously.
     /// </summary>
-    /// <typeparam name="T"/>
+    /// <typeparam name="T">The element type of the collection.</typeparam>
     /// <param name="collection">The collection.</param>
     /// <param name="page">The page.</param>
     /// <param name="resultsPerPage">The results per page.</param>

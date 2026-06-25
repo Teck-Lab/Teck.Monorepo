@@ -6,7 +6,14 @@ namespace SharedKernel.Core.CQRS;
 /// </summary>
 public readonly struct Unit : IEquatable<Unit>
 {
+    /// <summary>
+    /// The singleton instance of the <see cref="Unit"/> value.
+    /// </summary>
     public static readonly Unit Value = default;
+
+    public static bool operator ==(Unit left, Unit right) => true;
+
+    public static bool operator !=(Unit left, Unit right) => false;
 
     /// <inheritdoc/>
     public bool Equals(Unit other) => true;
@@ -16,10 +23,6 @@ public readonly struct Unit : IEquatable<Unit>
 
     /// <inheritdoc/>
     public override int GetHashCode() => 0;
-
-    public static bool operator ==(Unit left, Unit right) => true;
-
-    public static bool operator !=(Unit left, Unit right) => false;
 
     /// <inheritdoc/>
     public override string ToString() => "Unit";

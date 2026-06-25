@@ -12,7 +12,8 @@ public static class GrpcHostingExtensions
     /// <summary>
     /// Enables protocol support required for internal gRPC traffic while preserving HTTP endpoints.
     /// </summary>
-    /// <returns></returns>
+    /// <param name="builder">The web application builder to configure.</param>
+    /// <returns>The same <see cref="WebApplicationBuilder"/> instance so that calls can be chained.</returns>
     public static WebApplicationBuilder ConfigureInternalServiceTransport(this WebApplicationBuilder builder)
     {
         builder.WebHost.ConfigureKestrel(options =>

@@ -52,7 +52,13 @@ public sealed class LicenseValidationResult
     /// <summary>
     /// Creates a successful validation result.
     /// </summary>
-    /// <returns></returns>
+    /// <param name="maxAccessPoints">The maximum number of access points allowed.</param>
+    /// <param name="maxDevices">The maximum number of devices allowed.</param>
+    /// <param name="maxProducts">The maximum number of products allowed.</param>
+    /// <param name="maxLocations">The maximum number of locations allowed.</param>
+    /// <param name="supportsCustomBranding">Whether custom branding is supported.</param>
+    /// <param name="supportsAnalytics">Whether analytics is supported.</param>
+    /// <returns>A successful <see cref="LicenseValidationResult"/> populated with the supplied limits.</returns>
     public static LicenseValidationResult Success(
         int? maxAccessPoints,
         int? maxDevices,
@@ -77,7 +83,7 @@ public sealed class LicenseValidationResult
     /// Creates a failed validation result.
     /// </summary>
     /// <param name="errorMessage">The error message.</param>
-    /// <returns></returns>
+    /// <returns>A failed <see cref="LicenseValidationResult"/> carrying the supplied error message.</returns>
     public static LicenseValidationResult Failure(string errorMessage)
     {
         return new LicenseValidationResult

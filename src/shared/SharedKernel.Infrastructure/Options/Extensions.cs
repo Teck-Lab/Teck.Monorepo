@@ -14,7 +14,7 @@ public static class Extensions
     /// <summary>
     /// Load the options.
     /// </summary>
-    /// <typeparam name="T"/>
+    /// <typeparam name="T">The options type to load and bind.</typeparam>
     /// <param name="configuration">The configuration.</param>
     /// <param name="sectionName">The section name.</param>
     /// <exception cref="ConfigurationMissingException">.</exception>
@@ -31,7 +31,7 @@ public static class Extensions
     /// <summary>
     /// Bind validate return.
     /// </summary>
-    /// <typeparam name="T"/>
+    /// <typeparam name="T">The options type to bind, validate and return.</typeparam>
     /// <param name="services">The services.</param>
     /// <param name="configuration">The configuration.</param>
     /// <returns>A <typeparamref name="T"/>.</returns>
@@ -50,7 +50,7 @@ public static class Extensions
     /// <summary>
     /// Bind the validate.
     /// </summary>
-    /// <typeparam name="T"/>
+    /// <typeparam name="T">The options type to bind and validate.</typeparam>
     /// <param name="services">The services.</param>
     [RequiresDynamicCode("Binding strongly typed objects to configuration values may require generating dynamic code at runtime.")]
     public static void BindValidate<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(this IServiceCollection services)

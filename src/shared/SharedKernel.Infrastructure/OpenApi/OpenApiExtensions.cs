@@ -20,6 +20,8 @@ public static class OpenApiExtensions
     /// <summary>
     /// Registers OpenAPI documents for configured versions.
     /// </summary>
+    /// <param name="builder">The web application builder to register the OpenAPI documents with.</param>
+    /// <param name="appOptions">The application options describing the API name, description and versions.</param>
     public static void AddOpenApiInfrastructure(this WebApplicationBuilder builder, AppOptions appOptions)
     {
         var keycloakOptions = builder.Configuration.GetKeycloakOptions<KeycloakAuthenticationOptions>();
@@ -104,6 +106,8 @@ public static class OpenApiExtensions
     /// <summary>
     /// Maps OpenAPI JSON route and Scalar UI.
     /// </summary>
+    /// <param name="app">The web application to map the OpenAPI route and Scalar UI on.</param>
+    /// <param name="appOptions">The application options describing the API versions to expose.</param>
     public static void UseOpenApiInfrastructure(this WebApplication app, AppOptions appOptions)
     {
         List<int> apiVersions = appOptions.Versions

@@ -6,6 +6,66 @@ namespace SharedKernel.Core.Pricing;
 public class DatabaseOptions
 {
     /// <summary>
+    /// Gets default database options with no additional features.
+    /// </summary>
+    public static DatabaseOptions Default => new();
+
+    /// <summary>
+    /// Gets database options for high availability scenarios.
+    /// </summary>
+    public static DatabaseOptions HighAvailability => new()
+    {
+        HasReadReplicas = true,
+        RequiresGeographicDistribution = true,
+        RequiresEnhancedBackup = true,
+        RequiresEncryptionAtRest = true,
+        RequiresDedicatedResources = true,
+        RequiresAutoScaling = true,
+        RequiresAdvancedMonitoring = true,
+    };
+
+    /// <summary>
+    /// Gets database options for performance scenarios (read replicas and auto scaling).
+    /// </summary>
+    public static DatabaseOptions Performance => new()
+    {
+        HasReadReplicas = true,
+        RequiresAutoScaling = true,
+        RequiresDedicatedResources = true,
+    };
+
+    /// <summary>
+    /// Gets database options for backup scenarios (enhanced backup only).
+    /// </summary>
+    public static DatabaseOptions Backup => new()
+    {
+        RequiresEnhancedBackup = true,
+    };
+
+    /// <summary>
+    /// Gets database options for security scenarios (encryption and compliance).
+    /// </summary>
+    public static DatabaseOptions Security => new()
+    {
+        RequiresEnhancedBackup = true,
+        RequiresEncryptionAtRest = true,
+        RequiresComplianceFeatures = true,
+        RequiresAdvancedMonitoring = true,
+    };
+
+    /// <summary>
+    /// Gets database options for compliance scenarios (all security and audit features).
+    /// </summary>
+    public static DatabaseOptions Compliance => new()
+    {
+        RequiresGeographicDistribution = true,
+        RequiresEnhancedBackup = true,
+        RequiresEncryptionAtRest = true,
+        RequiresComplianceFeatures = true,
+        RequiresAdvancedMonitoring = true,
+    };
+
+    /// <summary>
     /// Gets or sets a value indicating whether the tenant has dedicated read replicas for improved read performance.
     /// Can be applied to any DatabaseStrategy for an additional cost.
     /// </summary>
@@ -65,66 +125,6 @@ public class DatabaseOptions
         (RequiresAutoScaling ? 1 : 0) +
         (RequiresAdvancedMonitoring ? 1 : 0) +
         (RequiresComplianceFeatures ? 1 : 0);
-
-    /// <summary>
-    /// Gets default database options with no additional features.
-    /// </summary>
-    public static DatabaseOptions Default => new();
-
-    /// <summary>
-    /// Gets database options for high availability scenarios.
-    /// </summary>
-    public static DatabaseOptions HighAvailability => new()
-    {
-        HasReadReplicas = true,
-        RequiresGeographicDistribution = true,
-        RequiresEnhancedBackup = true,
-        RequiresEncryptionAtRest = true,
-        RequiresDedicatedResources = true,
-        RequiresAutoScaling = true,
-        RequiresAdvancedMonitoring = true,
-    };
-
-    /// <summary>
-    /// Gets database options for performance scenarios (read replicas and auto scaling).
-    /// </summary>
-    public static DatabaseOptions Performance => new()
-    {
-        HasReadReplicas = true,
-        RequiresAutoScaling = true,
-        RequiresDedicatedResources = true,
-    };
-
-    /// <summary>
-    /// Gets database options for backup scenarios (enhanced backup only).
-    /// </summary>
-    public static DatabaseOptions Backup => new()
-    {
-        RequiresEnhancedBackup = true,
-    };
-
-    /// <summary>
-    /// Gets database options for security scenarios (encryption and compliance).
-    /// </summary>
-    public static DatabaseOptions Security => new()
-    {
-        RequiresEnhancedBackup = true,
-        RequiresEncryptionAtRest = true,
-        RequiresComplianceFeatures = true,
-        RequiresAdvancedMonitoring = true,
-    };
-
-    /// <summary>
-    /// Gets database options for compliance scenarios (all security and audit features).
-    /// </summary>
-    public static DatabaseOptions Compliance => new()
-    {
-        RequiresGeographicDistribution = true,
-        RequiresEnhancedBackup = true,
-        RequiresEncryptionAtRest = true,
-        RequiresComplianceFeatures = true,
-        RequiresAdvancedMonitoring = true,
-    };
 
     /// <summary>
     /// Creates a new instance with read replicas option modified.
@@ -375,7 +375,7 @@ public class DatabaseOptions
     /// <summary>
     /// Returns a string representation of the database options.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>A human-readable summary of the enabled options, or "Default" when none are enabled.</returns>
     public override string ToString()
     {
         if (!HasAnyOptions)

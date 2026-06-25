@@ -34,6 +34,12 @@ internal static class ModelBuilderExtensions
         return modelBuilder;
     }
 
+    private static Expression ReplaceParameter(Expression expression, ParameterExpression oldParameter, ParameterExpression newParameter)
+    {
+        var visitor = new ParameterReplaceVisitor(oldParameter, newParameter);
+        return visitor.Visit(expression) ?? expression;
+    }
+
     private sealed class ParameterReplaceVisitor : ExpressionVisitor
     {
         private readonly ParameterExpression _oldParameter;
@@ -49,11 +55,5 @@ internal static class ModelBuilderExtensions
         {
             return node == _oldParameter ? _newParameter : base.VisitParameter(node);
         }
-    }
-
-    private static Expression ReplaceParameter(Expression expression, ParameterExpression oldParameter, ParameterExpression newParameter)
-    {
-        var visitor = new ParameterReplaceVisitor(oldParameter, newParameter);
-        return visitor.Visit(expression) ?? expression;
     }
 }

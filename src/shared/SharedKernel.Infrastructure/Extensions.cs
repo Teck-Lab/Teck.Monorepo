@@ -23,7 +23,7 @@ public static class Extensions
     /// Add the infrastructure.
     /// </summary>
     /// <param name="builder">The builder.</param>
-    /// <param name="appOptions"></param>
+    /// <param name="appOptions">The application options.</param>
     public static void AddBaseInfrastructure(
         this WebApplicationBuilder builder,
         AppOptions appOptions)

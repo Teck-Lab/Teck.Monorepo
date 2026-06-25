@@ -6,6 +6,16 @@ namespace SharedKernel.Core.Events;
 public abstract class DomainEvent : IDomainEvent
 {
     /// <summary>
+    /// Initializes a new instance of the <see cref="DomainEvent"/> class.
+    /// </summary>
+    protected DomainEvent()
+    {
+        Id = DefaultIdType.NewGuid();
+        CreatedOn = DateTime.UtcNow;
+        MetaData = new Dictionary<string, object>();
+    }
+
+    /// <summary>
     /// Gets the id.
     /// </summary>
     public DefaultIdType Id { get; }
@@ -19,14 +29,4 @@ public abstract class DomainEvent : IDomainEvent
     /// Gets the meta data.
     /// </summary>
     public IDictionary<string, object> MetaData { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="DomainEvent"/> class.
-    /// </summary>
-    protected DomainEvent()
-    {
-        Id = DefaultIdType.NewGuid();
-        CreatedOn = DateTime.UtcNow;
-        MetaData = new Dictionary<string, object>();
-    }
 }

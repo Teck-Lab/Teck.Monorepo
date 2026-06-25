@@ -50,6 +50,38 @@ public sealed class GrpcTokenExchangeInterceptor : Interceptor
         return ContinueWithHeadersAsync(request, context, continuation);
     }
 
+    private static void ApplyHeaders(Metadata headers, OutboundSecurityContext outbound)
+    {
+        if (!string.IsNullOrWhiteSpace(outbound.AccessToken))
+        {
+            RemoveAll(headers, AuthorizationHeader);
+            headers.Add(AuthorizationHeader, $"Bearer {outbound.AccessToken}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(outbound.TenantId))
+        {
+            RemoveAll(headers, TenantIdHeader);
+            headers.Add(TenantIdHeader, outbound.TenantId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(outbound.TenantDbStrategy))
+        {
+            RemoveAll(headers, TenantDbStrategyHeader);
+            headers.Add(TenantDbStrategyHeader, outbound.TenantDbStrategy);
+        }
+    }
+
+    private static void RemoveAll(Metadata headers, string key)
+    {
+        for (int index = headers.Count - 1; index >= 0; index--)
+        {
+            if (string.Equals(headers[index].Key, key, StringComparison.OrdinalIgnoreCase))
+            {
+                headers.RemoveAt(index);
+            }
+        }
+    }
+
     private AsyncUnaryCall<TResponse> ContinueWithHeadersAsync<TRequest, TResponse>(
         TRequest request,
         ClientInterceptorContext<TRequest, TResponse> context,
@@ -86,37 +118,5 @@ public sealed class GrpcTokenExchangeInterceptor : Interceptor
             call.GetStatus,
             call.GetTrailers,
             call.Dispose);
-    }
-
-    private static void ApplyHeaders(Metadata headers, OutboundSecurityContext outbound)
-    {
-        if (!string.IsNullOrWhiteSpace(outbound.AccessToken))
-        {
-            RemoveAll(headers, AuthorizationHeader);
-            headers.Add(AuthorizationHeader, $"Bearer {outbound.AccessToken}");
-        }
-
-        if (!string.IsNullOrWhiteSpace(outbound.TenantId))
-        {
-            RemoveAll(headers, TenantIdHeader);
-            headers.Add(TenantIdHeader, outbound.TenantId);
-        }
-
-        if (!string.IsNullOrWhiteSpace(outbound.TenantDbStrategy))
-        {
-            RemoveAll(headers, TenantDbStrategyHeader);
-            headers.Add(TenantDbStrategyHeader, outbound.TenantDbStrategy);
-        }
-    }
-
-    private static void RemoveAll(Metadata headers, string key)
-    {
-        for (int index = headers.Count - 1; index >= 0; index--)
-        {
-            if (string.Equals(headers[index].Key, key, StringComparison.OrdinalIgnoreCase))
-            {
-                headers.RemoveAt(index);
-            }
-        }
     }
 }

@@ -10,6 +10,7 @@ public interface ICommand : ICommand<Unit>
 /// <summary>
 /// Command with response. Marker interface — WolverineFx discovers handlers by convention.
 /// </summary>
+/// <typeparam name="TResponse">The type of the response returned by the command's handler.</typeparam>
 public interface ICommand<out TResponse>
 {
 }
@@ -24,6 +25,7 @@ public interface ITransactionalCommand : ICommand<Unit>
 /// <summary>
 /// Transactional command with a response.
 /// </summary>
+/// <typeparam name="TResponse">The type of the response returned by the command's handler.</typeparam>
 public interface ITransactionalCommand<out TResponse> : ICommand<TResponse>
 {
 }

@@ -24,29 +24,14 @@ public class GenericReadRepository<[DynamicallyAccessedMembers(DynamicallyAccess
     private readonly TContext _dbContext;
 
     /// <summary>
-    /// Gets the strongly-typed tenant-aware DbContext.
-    /// </summary>
-    protected TContext DbContext => _dbContext;
-
-    /// <summary>
     /// The entity set backing field.
     /// </summary>
     private readonly DbSet<TReadModel> _dbSet;
 
     /// <summary>
-    /// Gets the entity set.
-    /// </summary>
-    protected DbSet<TReadModel> DbSet => _dbSet;
-
-    /// <summary>
     /// The specification evaluator backing field.
     /// </summary>
     private readonly ISpecificationEvaluator _specificationEvaluator;
-
-    /// <summary>
-    /// Gets the specification evaluator.
-    /// </summary>
-    protected ISpecificationEvaluator SpecificationEvaluator => _specificationEvaluator;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GenericReadRepository{TReadModel, TId, TContext}"/> class.
@@ -58,6 +43,21 @@ public class GenericReadRepository<[DynamicallyAccessedMembers(DynamicallyAccess
         _dbSet = _dbContext.Set<TReadModel>();
         _specificationEvaluator = new SpecificationEvaluator();
     }
+
+    /// <summary>
+    /// Gets the strongly-typed tenant-aware DbContext.
+    /// </summary>
+    protected TContext DbContext => _dbContext;
+
+    /// <summary>
+    /// Gets the entity set.
+    /// </summary>
+    protected DbSet<TReadModel> DbSet => _dbSet;
+
+    /// <summary>
+    /// Gets the specification evaluator.
+    /// </summary>
+    protected ISpecificationEvaluator SpecificationEvaluator => _specificationEvaluator;
 
     /// <summary>
     /// Checks if entities matching the predicate exist.
@@ -140,41 +140,6 @@ public class GenericReadRepository<[DynamicallyAccessedMembers(DynamicallyAccess
         var spec = new Specification<TReadModel>();
         var result = await ApplySpecification(spec, enableTracking).ToListAsync(cancellationToken);
         return result;
-    }
-
-    /// <summary>
-    /// Applies the specification to the database set.
-    /// </summary>
-    /// <param name="specification">The specification to apply.</param>
-    /// <param name="enableTracking">Whether to enable tracking.</param>
-    /// <returns>The filtered queryable.</returns>
-    protected virtual IQueryable<TReadModel> ApplySpecification(ISpecification<TReadModel> specification, bool enableTracking = false)
-    {
-        var query = DbSet.AsQueryable();
-        if (!enableTracking)
-        {
-            query = query.AsNoTracking();
-        }
-
-        return SpecificationEvaluator.GetQuery(query, specification);
-    }
-
-    /// <summary>
-    /// Applies the specification to the database set for a single result.
-    /// </summary>
-    /// <typeparam name="TResult">The type of the result after projection.</typeparam>
-    /// <param name="specification">The specification to apply.</param>
-    /// <param name="enableTracking">Whether to enable tracking.</param>
-    /// <returns>The filtered queryable.</returns>
-    protected virtual IQueryable<TResult> ApplySpecification<TResult>(ISpecification<TReadModel, TResult> specification, bool enableTracking = false)
-    {
-        var query = DbSet.AsQueryable();
-        if (!enableTracking)
-        {
-            query = query.AsNoTracking();
-        }
-
-        return SpecificationEvaluator.GetQuery(query, specification);
     }
 
     /// <summary>
@@ -268,83 +233,39 @@ public class GenericReadRepository<[DynamicallyAccessedMembers(DynamicallyAccess
     {
         return await ApplySpecification(specification, false).AnyAsync(cancellationToken);
     }
-}
-
-/// <summary>
-/// Specification for finding an entity by ID.
-/// </summary>
-/// <typeparam name="TEntity">The entity type.</typeparam>
-/// <typeparam name="TId">The ID type.</typeparam>
-public class ByIdSpecification<TEntity, TId> : Specification<TEntity>
-    where TEntity : class, IReadModel<TId>
-{
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ByIdSpecification{TEntity, TId}"/> class.
-    /// </summary>
-    /// <param name="id">The entity ID to match.</param>
-    public ByIdSpecification(TId id)
-    {
-        // Using object.Equals to handle both reference and value types
-        Query.Where(entity => object.Equals(entity.Id, id));
-    }
-}
-
-/// <summary>
-/// Specification for finding entities by one or more IDs.
-/// </summary>
-/// <typeparam name="TEntity">The entity type.</typeparam>
-/// <typeparam name="TId">The ID type.</typeparam>
-public class ByIdsSpecification<TEntity, TId> : Specification<TEntity>
-    where TEntity : class, IReadModel<TId>
-{
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ByIdsSpecification{TEntity, TId}"/> class
-    /// for a single id (keeps backward compatibility).
-    /// </summary>
-    /// <param name="id">The entity ID to match.</param>
-    public ByIdsSpecification(TId id)
-    {
-        Query.Where(entity => object.Equals(entity.Id, id));
-    }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ByIdsSpecification{TEntity, TId}"/> class
-    /// for multiple ids.
+    /// Applies the specification to the database set.
     /// </summary>
-    /// <param name="ids">The collection of IDs to match.</param>
-    public ByIdsSpecification(IEnumerable<TId> ids)
+    /// <param name="specification">The specification to apply.</param>
+    /// <param name="enableTracking">Whether to enable tracking.</param>
+    /// <returns>The filtered queryable.</returns>
+    protected virtual IQueryable<TReadModel> ApplySpecification(ISpecification<TReadModel> specification, bool enableTracking = false)
     {
-        ArgumentNullException.ThrowIfNull(ids);
-
-        // Make a concrete set to avoid multiple enumeration and for faster lookups.
-        var idSet = new HashSet<TId>(ids);
-
-        // If the set is empty, add a clause that always evaluates false to return no results.
-        if (idSet.Count == 0)
+        var query = DbSet.AsQueryable();
+        if (!enableTracking)
         {
-            Query.Where(_ => false);
-            return;
+            query = query.AsNoTracking();
         }
 
-        // Use Contains on the HashSet. EF Core translates this to SQL IN(...) for supported
-        // primitive ID types. This also avoids repeated enumeration of the input collection.
-        Query.Where(entity => idSet.Contains(entity.Id));
+        return SpecificationEvaluator.GetQuery(query, specification);
     }
-}
 
-/// <summary>
-/// Generic specification using a predicate.
-/// </summary>
-/// <typeparam name="TEntity">The entity type.</typeparam>
-public class GenericSpecification<TEntity> : Specification<TEntity>
-    where TEntity : class
-{
     /// <summary>
-    /// Initializes a new instance of the <see cref="GenericSpecification{TEntity}"/> class.
+    /// Applies the specification to the database set for a single result.
     /// </summary>
-    /// <param name="predicate">The predicate to filter entities.</param>
-    public GenericSpecification(Expression<Func<TEntity, bool>> predicate)
+    /// <typeparam name="TResult">The type of the result after projection.</typeparam>
+    /// <param name="specification">The specification to apply.</param>
+    /// <param name="enableTracking">Whether to enable tracking.</param>
+    /// <returns>The filtered queryable.</returns>
+    protected virtual IQueryable<TResult> ApplySpecification<TResult>(ISpecification<TReadModel, TResult> specification, bool enableTracking = false)
     {
-        Query.Where(predicate);
+        var query = DbSet.AsQueryable();
+        if (!enableTracking)
+        {
+            query = query.AsNoTracking();
+        }
+
+        return SpecificationEvaluator.GetQuery(query, specification);
     }
 }

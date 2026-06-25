@@ -3,35 +3,6 @@ using Microsoft.AspNetCore.Http;
 namespace SharedKernel.Infrastructure.Auth;
 
 /// <summary>
-/// Creates outbound security context data for downstream service calls.
-/// </summary>
-public interface IOutboundSecurityContextFactory
-{
-    /// <summary>
-    /// Creates an outbound security context for a target audience.
-    /// </summary>
-    /// <param name="httpContext">The current HTTP context, if available.</param>
-    /// <param name="audience">The destination audience/client identifier.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The outbound security context.</returns>
-    Task<OutboundSecurityContext> CreateAsync(
-        HttpContext? httpContext,
-        string audience,
-        CancellationToken cancellationToken = default);
-}
-
-/// <summary>
-/// Represents outbound token and tenant metadata propagated to downstream services.
-/// </summary>
-/// <param name="AccessToken">The exchanged outbound access token.</param>
-/// <param name="TenantId">The resolved tenant identifier header value.</param>
-/// <param name="TenantDbStrategy">The resolved tenant database strategy header value.</param>
-public sealed record OutboundSecurityContext(
-    string? AccessToken,
-    string? TenantId,
-    string? TenantDbStrategy);
-
-/// <summary>
 /// Builds outbound security context values from the current <see cref="HttpContext"/>.
 /// </summary>
 public sealed class HttpContextOutboundSecurityContextFactory : IOutboundSecurityContextFactory

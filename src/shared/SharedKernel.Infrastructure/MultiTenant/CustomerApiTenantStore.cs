@@ -76,9 +76,9 @@ public class CustomerApiTenantStore : IMultiTenantStore<TenantDetails>
     /// <summary>
     /// Gets all tenants from the Customer API with pagination.
     /// </summary>
-    /// <param name="strategy"></param>
-    /// <param name="size"></param>
-    /// <param name="page"></param>
+    /// <param name="strategy">The database strategy used to select the tenant data source.</param>
+    /// <param name="size">The maximum number of tenants to return per page.</param>
+    /// <param name="page">The zero-based index of the page to retrieve.</param>
     /// <returns>An enumerable of tenant info.</returns>
     public async Task<PagedList<TenantDetails>> GetPaginatedTennantsAsync(DatabaseStrategy strategy, int size, int page)
     {
@@ -266,7 +266,7 @@ public class CustomerApiTenantStore : IMultiTenantStore<TenantDetails>
     /// Gets a tenant from the Customer API by its ID.
     /// </summary>
     /// <param name="id">The tenant ID.</param>
-    /// <param name="cancellationToken"></param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>The tenant info if found; otherwise, null.</returns>
     [RequiresDynamicCode("Calls HttpContent.ReadFromJsonAsync which may require dynamic code at runtime.")]
     public async Task<TenantDetails?> TryGetByIdAsync(string id, CancellationToken cancellationToken = default)
@@ -348,7 +348,7 @@ public class CustomerApiTenantStore : IMultiTenantStore<TenantDetails>
     /// Tries to get a tenant by name.
     /// </summary>
     /// <param name="name">The tenant name.</param>
-    /// <param name="cancellationToken"></param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>The tenant info if found; otherwise, null.</returns>
     public async Task<TenantDetails?> TryGetByNameAsync(string name, CancellationToken cancellationToken = default)
     {
@@ -457,15 +457,6 @@ public class CustomerApiTenantStore : IMultiTenantStore<TenantDetails>
         return Task.FromResult(false);
     }
 
-    private static Uri BuildRequestUri(string endpoint)
-    {
-        return Uri.TryCreate(endpoint, UriKind.Absolute, out Uri? absoluteUri)
-            ? absoluteUri
-            : new Uri(endpoint, UriKind.Relative);
-    }
-
-    // All caching is now handled by FusionCache's GetOrSetAsync methods above.
-
     /// <summary>
     /// Finds the primary tenant from a list of tenant IDs.
     /// </summary>
@@ -547,5 +538,13 @@ public class CustomerApiTenantStore : IMultiTenantStore<TenantDetails>
                 .SetFailSafe(false));
 
         return fallbackTenantId;
+    }
+
+    // All caching is now handled by FusionCache's GetOrSetAsync methods above.
+    private static Uri BuildRequestUri(string endpoint)
+    {
+        return Uri.TryCreate(endpoint, UriKind.Absolute, out Uri? absoluteUri)
+            ? absoluteUri
+            : new Uri(endpoint, UriKind.Relative);
     }
 }

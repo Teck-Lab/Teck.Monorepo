@@ -9,6 +9,7 @@ namespace SharedKernel.Infrastructure.Behaviors;
 /// WolverineFx middleware that enforces license validation for requests
 /// implementing <see cref="ILicenseGatedRequest"/>.
 /// </summary>
+/// <param name="licenseValidator">Validator used to verify tenant and location license validity.</param>
 public sealed class LicenseEnforcementMiddleware(
     ILicenseValidator licenseValidator)
 {
@@ -17,6 +18,13 @@ public sealed class LicenseEnforcementMiddleware(
         BindingFlags.Public | BindingFlags.Static,
         [typeof(List<Error>)]);
 
+    /// <summary>
+    /// Validates the license for license-gated requests before invoking the next middleware.
+    /// </summary>
+    /// <param name="context">The WolverineFx message context for the current envelope.</param>
+    /// <param name="next">The delegate that invokes the next middleware in the pipeline.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    /// <returns>A task that represents the asynchronous middleware operation.</returns>
     public async ValueTask InvokeAsync(
         IMessageContext context,
         Func<ValueTask> next,

@@ -28,13 +28,13 @@ public interface IAuditable
     /// <summary>
     /// Set updated properties.
     /// </summary>
-    /// <param name="updatedOn"></param>
-    /// <param name="updatedBy"></param>
+    /// <param name="updatedOn">The timestamp of the update.</param>
+    /// <param name="updatedBy">The identifier of the user who performed the update.</param>
     void SetUpdatedProperties(DateTimeOffset? updatedOn, string? updatedBy);
 
     /// <summary>
     /// Set created properties.
     /// </summary>
-    /// <param name="createdBy"></param>
+    /// <param name="createdBy">The identifier of the user who created the entity.</param>
     void SetCreatedByProperties(string? createdBy);
 }

@@ -9,7 +9,7 @@ namespace SharedKernel.Infrastructure.Database.EFCore;
 /// <summary>
 /// The unit of work.
 /// </summary>
-/// <typeparam name="TContext"/>
+/// <typeparam name="TContext">The database context type.</typeparam>
 /// <remarks>
 /// Initializes a new instance of the <see cref="UnitOfWork{TContext}"/> class.
 /// </remarks>
@@ -69,7 +69,7 @@ public class UnitOfWork<TContext> : IUnitOfWork
     /// <summary>
     /// Begins the transaction asynchronously.
     /// </summary>
-    /// <param name="isolationLevel"></param>
+    /// <param name="isolationLevel">The transaction isolation level.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <exception cref="InvalidTransactionException">.</exception>
     /// <returns><![CDATA[Task<IDbContextTransaction>]]></returns>
@@ -103,8 +103,8 @@ public class UnitOfWork<TContext> : IUnitOfWork
     /// <summary>
     /// Creates transaction savepoint asynchronously.
     /// </summary>
-    /// <param name="savePoint"></param>
-    /// <param name="cancellationToken"></param>
+    /// <param name="savePoint">The name of the savepoint to create.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A <see cref="Task"/> representing the result of the asynchronous operation.</returns>
     public async Task CreateTransactionSavepoint(string savePoint, CancellationToken cancellationToken = default)
     {
@@ -135,8 +135,8 @@ public class UnitOfWork<TContext> : IUnitOfWork
     /// <summary>
     /// Rollbacks the transaction to the savepoint asynchronously.
     /// </summary>
-    /// <param name="savePoint"></param>
-    /// <param name="cancellationToken"></param>
+    /// <param name="savePoint">The name of the savepoint to roll back to.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A <see cref="Task"/> representing the result of the asynchronous operation.</returns>
     public async Task RollbackTransactionToSavepointAsync(string savePoint, CancellationToken cancellationToken = default)
     {
@@ -173,7 +173,7 @@ public class UnitOfWork<TContext> : IUnitOfWork
     /// <summary>
     /// Virtual dispose.
     /// </summary>
-    /// <param name="disposing"></param>
+    /// <param name="disposing">A value indicating whether the method is being called from <see cref="Dispose()"/>.</param>
     protected virtual void Dispose(bool disposing)
     {
         _transaction?.Dispose();

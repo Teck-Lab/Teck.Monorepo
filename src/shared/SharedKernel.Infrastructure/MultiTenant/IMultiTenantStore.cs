@@ -15,7 +15,7 @@ public interface IMultiTenantStore
     /// Tries to get a tenant by its identifier.
     /// </summary>
     /// <param name="identifier">The tenant identifier.</param>
-    /// <param name="cancellationToken"></param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>The tenant info if found; otherwise, null.</returns>
     Task<TenantDetails?> TryGetAsync(string identifier, CancellationToken cancellationToken);
 
@@ -23,7 +23,7 @@ public interface IMultiTenantStore
     /// Tries to get a tenant by its ID.
     /// </summary>
     /// <param name="id">The tenant ID.</param>
-    /// <param name="cancellationToken"></param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>The tenant info if found; otherwise, null.</returns>
     Task<TenantDetails?> TryGetByIdAsync(string id, CancellationToken cancellationToken);
 
@@ -52,7 +52,7 @@ public interface IMultiTenantStore
     /// Tries to get a tenant by its name.
     /// </summary>
     /// <param name="name">The tenant name.</param>
-    /// <param name="cancellationToken"></param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>The tenant info if found; otherwise, null.</returns>
     Task<TenantDetails?> TryGetByNameAsync(string name, CancellationToken cancellationToken);
 }

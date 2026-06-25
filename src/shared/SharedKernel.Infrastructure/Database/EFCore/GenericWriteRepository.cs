@@ -24,64 +24,7 @@ public class GenericWriteRepository<[DynamicallyAccessedMembers(DynamicallyAcces
 {
     private readonly TContext _dbContext;
     private readonly DbSet<TEntity> _dbSet;
-
-    /// <summary>
-    /// Gets the entity set.
-    /// </summary>
-    protected DbSet<TEntity> DbSet => _dbSet;
-
-    /// <summary>
-    /// Gets the typed DbContext instance for use by derived repositories.
-    /// </summary>
-    protected TContext DbContext => _dbContext;
-
     private readonly IHttpContextAccessor? _httpContextAccessor;
-
-    /// <summary>
-    /// Gets the HTTP context accessor used to retrieve user/tenant information.
-    /// </summary>
-    protected IHttpContextAccessor? HttpContextAccessor => _httpContextAccessor;
-
-    /// <summary>
-    /// Gets the specification evaluator used by derived write repositories for read queries.
-    /// </summary>
-    protected ISpecificationEvaluator SpecificationEvaluator { get; } = new SpecificationEvaluator();
-
-    /// <summary>
-    /// Applies a specification to the current DbSet.
-    /// Derived write repositories can call this to avoid duplicating specification application logic.
-    /// </summary>
-    /// <param name="specification">The specification to apply.</param>
-    /// <param name="enableTracking">If true, enables change tracking on the returned query.</param>
-    /// <returns>An <see cref="IQueryable{TEntity}"/> that represents the query with the specification applied.</returns>
-    protected IQueryable<TEntity> ApplySpecification(ISpecification<TEntity> specification, bool enableTracking = false)
-    {
-        var query = _dbSet.AsQueryable();
-        if (!enableTracking)
-        {
-            query = query.AsNoTracking();
-        }
-
-        return SpecificationEvaluator.GetQuery(query, specification);
-    }
-
-    /// <summary>
-    /// Applies a projected specification to the current DbSet.
-    /// </summary>
-    /// <typeparam name="TResult">The projection result type.</typeparam>
-    /// <param name="specification">The specification to apply.</param>
-    /// <param name="enableTracking">If true, enables change tracking on the returned query.</param>
-    /// <returns>An <see cref="IQueryable{TResult}"/> that represents the projected query with the specification applied.</returns>
-    protected IQueryable<TResult> ApplySpecification<TResult>(ISpecification<TEntity, TResult> specification, bool enableTracking = false)
-    {
-        var query = _dbSet.AsQueryable();
-        if (!enableTracking)
-        {
-            query = query.AsNoTracking();
-        }
-
-        return SpecificationEvaluator.GetQuery(query, specification);
-    }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GenericWriteRepository{TEntity, TId, TContext}"/> class.
@@ -94,6 +37,26 @@ public class GenericWriteRepository<[DynamicallyAccessedMembers(DynamicallyAcces
         _dbSet = _dbContext.Set<TEntity>();
         _httpContextAccessor = httpContextAccessor;
     }
+
+    /// <summary>
+    /// Gets the entity set.
+    /// </summary>
+    protected DbSet<TEntity> DbSet => _dbSet;
+
+    /// <summary>
+    /// Gets the typed DbContext instance for use by derived repositories.
+    /// </summary>
+    protected TContext DbContext => _dbContext;
+
+    /// <summary>
+    /// Gets the HTTP context accessor used to retrieve user/tenant information.
+    /// </summary>
+    protected IHttpContextAccessor? HttpContextAccessor => _httpContextAccessor;
+
+    /// <summary>
+    /// Gets the specification evaluator used by derived write repositories for read queries.
+    /// </summary>
+    protected ISpecificationEvaluator SpecificationEvaluator { get; } = new SpecificationEvaluator();
 
     /// <summary>
     /// Adds the specified entity to the context.
@@ -378,5 +341,41 @@ public class GenericWriteRepository<[DynamicallyAccessedMembers(DynamicallyAcces
     public async Task<bool> AnyAsync(ISpecification<TEntity> specification, CancellationToken cancellationToken = default)
     {
         return await ApplySpecification(specification).AnyAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Applies a specification to the current DbSet.
+    /// Derived write repositories can call this to avoid duplicating specification application logic.
+    /// </summary>
+    /// <param name="specification">The specification to apply.</param>
+    /// <param name="enableTracking">If true, enables change tracking on the returned query.</param>
+    /// <returns>An <see cref="IQueryable{TEntity}"/> that represents the query with the specification applied.</returns>
+    protected IQueryable<TEntity> ApplySpecification(ISpecification<TEntity> specification, bool enableTracking = false)
+    {
+        var query = _dbSet.AsQueryable();
+        if (!enableTracking)
+        {
+            query = query.AsNoTracking();
+        }
+
+        return SpecificationEvaluator.GetQuery(query, specification);
+    }
+
+    /// <summary>
+    /// Applies a projected specification to the current DbSet.
+    /// </summary>
+    /// <typeparam name="TResult">The projection result type.</typeparam>
+    /// <param name="specification">The specification to apply.</param>
+    /// <param name="enableTracking">If true, enables change tracking on the returned query.</param>
+    /// <returns>An <see cref="IQueryable{TResult}"/> that represents the projected query with the specification applied.</returns>
+    protected IQueryable<TResult> ApplySpecification<TResult>(ISpecification<TEntity, TResult> specification, bool enableTracking = false)
+    {
+        var query = _dbSet.AsQueryable();
+        if (!enableTracking)
+        {
+            query = query.AsNoTracking();
+        }
+
+        return SpecificationEvaluator.GetQuery(query, specification);
     }
 }

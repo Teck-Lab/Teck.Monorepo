@@ -7,6 +7,29 @@ namespace SharedKernel.Core.Pagination;
 public class PagedList<T>
 {
     /// <summary>
+    /// Initializes a new instance of the <see cref="PagedList{T}"/> class for JSON deserialization.
+    /// </summary>
+    public PagedList()
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PagedList{T}"/> class.
+    /// </summary>
+    /// <param name="items">The items on the current page.</param>
+    /// <param name="totalItems">The total number of items in the full dataset.</param>
+    /// <param name="page">The current page number (1-based).</param>
+    /// <param name="size">The number of items per page.</param>
+    public PagedList(IEnumerable<T> items, int totalItems, int page, int size)
+    {
+        Page = page;
+        Size = size;
+        TotalItems = totalItems;
+        TotalPages = totalItems > 0 ? (int)Math.Ceiling(totalItems / (double)size) : 0;
+        Items = new List<T>(items);
+    }
+
+    /// <summary>
     /// Gets the items on the current page.
     /// </summary>
     public IList<T> Items { get; init; } = new List<T>();
@@ -40,27 +63,4 @@ public class PagedList<T>
     /// Gets a value indicating whether this is the last page.
     /// </summary>
     public bool IsLastPage => Page == TotalPages && TotalPages > 0;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="PagedList{T}"/> class for JSON deserialization.
-    /// </summary>
-    public PagedList()
-    {
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="PagedList{T}"/> class.
-    /// </summary>
-    /// <param name="items">The items on the current page.</param>
-    /// <param name="totalItems">The total number of items in the full dataset.</param>
-    /// <param name="page">The current page number (1-based).</param>
-    /// <param name="size">The number of items per page.</param>
-    public PagedList(IEnumerable<T> items, int totalItems, int page, int size)
-    {
-        Page = page;
-        Size = size;
-        TotalItems = totalItems;
-        TotalPages = totalItems > 0 ? (int)Math.Ceiling(totalItems / (double)size) : 0;
-        Items = new List<T>(items);
-    }
 }

@@ -26,7 +26,7 @@ public static class OpenApiDocumentRegistry
     /// <summary>
     /// ReadOnly list of openapi documents.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>A read-only list of the registered OpenAPI documents.</returns>
     public static IReadOnlyList<(string Name, string Url)> GetAll() =>
         _documents.AsReadOnly();
 }

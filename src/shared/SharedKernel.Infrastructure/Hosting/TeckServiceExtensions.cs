@@ -12,21 +12,18 @@ using SharedKernel.Infrastructure.Resilience;
 
 namespace SharedKernel.Infrastructure.Hosting;
 
-public sealed class TeckServiceOptions
-{
-    public const string SectionName = "TeckService";
-
-    public string CorsPolicyName { get; init; } = "TeckServiceCors";
-
-    public string[] CorsOrigins { get; init; } = [];
-
-    public string HealthPath { get; init; } = "/health";
-
-    public string ReadyPath { get; init; } = "/ready";
-}
-
+/// <summary>
+/// Extension methods that register and configure the shared Teck service host pipeline.
+/// </summary>
 public static class TeckServiceExtensions
 {
+    /// <summary>
+    /// Registers the shared Teck service dependencies (options, endpoints, health checks, CORS and resilience).
+    /// </summary>
+    /// <param name="services">The service collection to add registrations to.</param>
+    /// <param name="assembly">The assembly scanned for FastEndpoints endpoints.</param>
+    /// <param name="configuration">The application configuration used to bind options.</param>
+    /// <returns>The same service collection so calls can be chained.</returns>
     public static IServiceCollection AddTeckService(
         this IServiceCollection services,
         Assembly assembly,
@@ -62,6 +59,11 @@ public static class TeckServiceExtensions
         return services;
     }
 
+    /// <summary>
+    /// Configures the shared Teck service middleware pipeline (logging, security headers, CORS, auth, endpoints and health checks).
+    /// </summary>
+    /// <param name="app">The web application to configure.</param>
+    /// <returns>The same web application so calls can be chained.</returns>
     public static WebApplication UseTeckService(this WebApplication app)
     {
         TeckServiceOptions options = app.Services.GetRequiredService<IOptions<TeckServiceOptions>>().Value;

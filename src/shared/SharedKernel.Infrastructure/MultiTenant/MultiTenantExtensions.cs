@@ -9,6 +9,32 @@ using Microsoft.Extensions.Options;
 namespace SharedKernel.Infrastructure.MultiTenant;
 
 /// <summary>
+/// Strategy to use when multiple tenant IDs are available.
+/// </summary>
+public enum MultiTenantResolutionStrategy
+{
+    /// <summary>
+    /// Use the first tenant ID in the list.
+    /// </summary>
+    First,
+
+    /// <summary>
+    /// Use the primary tenant ID (when the primary tenant is indicated).
+    /// </summary>
+    Primary,
+
+    /// <summary>
+    /// Use the tenant ID from the request context (URL, header, etc.)
+    /// </summary>
+    FromRequest,
+
+    /// <summary>
+    /// Let the application code handle the resolution.
+    /// </summary>
+    Custom,
+}
+
+/// <summary>
 /// Extension methods for configuring multi-tenant functionality in Teck.Cloud applications.
 /// </summary>
 public static class MultiTenantExtensions
@@ -67,6 +93,26 @@ public static class MultiTenantExtensions
             services.AddScoped<IMultiTenantStore<TenantDetails>, HeaderTenantStore>();
             builder.WithStore<HeaderTenantStore>(ServiceLifetime.Scoped);
         }
+
+        return services;
+    }
+
+    /// <summary>
+    /// Configures HTTP client for tenant resolution and adds it to the service collection.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="tenantApiUrl">The base URL for the tenant API.</param>
+    /// <param name="httpClientName">The name for the HTTP client.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddTenantHttpClient(
+this IServiceCollection services,
+Uri tenantApiUrl,
+string httpClientName = "TenantApi")
+    {
+        services.AddHttpClient(httpClientName, client =>
+        {
+            client.BaseAddress = tenantApiUrl;
+        });
 
         return services;
     }
@@ -271,161 +317,4 @@ public static class MultiTenantExtensions
 
         return Task.FromResult<string?>(null);
     }
-
-    /// <summary>
-    /// Configures HTTP client for tenant resolution and adds it to the service collection.
-    /// </summary>
-    /// <param name="services">The service collection.</param>
-    /// <param name="tenantApiUrl">The base URL for the tenant API.</param>
-    /// <param name="httpClientName">The name for the HTTP client.</param>
-    /// <returns>The service collection for chaining.</returns>
-    public static IServiceCollection AddTenantHttpClient(
-this IServiceCollection services,
-Uri tenantApiUrl,
-string httpClientName = "TenantApi")
-    {
-        services.AddHttpClient(httpClientName, client =>
-        {
-            client.BaseAddress = tenantApiUrl;
-        });
-
-        return services;
-    }
-}
-
-/// <summary>
-/// Options for configuring the TeckCloud multi-tenant functionality.
-/// </summary>
-public class TeckCloudMultiTenancyOptions
-{
-    /// <summary>
-    /// Gets or sets a value indicating whether whether to use claim-based tenant resolution (default: true).
-    /// </summary>
-    public bool UseClaimStrategy { get; set; } = true;
-
-    /// <summary>
-    /// Gets or sets a value indicating whether whether to use header-based tenant resolution (default: true).
-    /// </summary>
-    public bool UseHeaderStrategy { get; set; } = true;
-
-    /// <summary>
-    /// Gets or sets a value indicating whether whether to use distributed cache store (default: true)
-    /// This is only used when UseCustomerApiTenantStore is false.
-    /// </summary>
-    public bool UseDistributedCacheStore { get; set; } = true;
-
-    /// <summary>
-    /// Gets or sets a value indicating whether whether to use Customer API for tenant details (default: false).
-    /// </summary>
-    public bool UseCustomerApiTenantStore { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether whether to use distributed cache with the Customer API store (default: false)
-    /// When true, tenant details from the Customer API will be stored in the distributed cache
-    /// instead of memory cache.
-    /// </summary>
-    public bool UseDistributedCacheWithCustomerApi { get; set; }
-
-    /// <summary>
-    /// Gets or sets the name of the claim that contains the tenant ID (default: "tenant_id").
-    /// </summary>
-    public string TenantIdClaimName { get; set; } = "tenant_id";
-
-    /// <summary>
-    /// Gets or sets the name of the claim that contains multiple tenant IDs (default: "tenant_ids")
-    /// Used when a user belongs to multiple tenants.
-    /// </summary>
-    public string MultiTenantClaimName { get; set; } = "tenant_ids";
-
-    /// <summary>
-    /// Gets or sets the name of the claim that contains the organization information (default: "organization").
-    /// </summary>
-    public string OrganizationClaimName { get; set; } = "organization";
-
-    /// <summary>
-    /// Gets or sets the name of the HTTP header for tenant ID (default: "X-TenantId").
-    /// </summary>
-    public string TenantIdHeaderName { get; set; } = "X-TenantId";
-
-    /// <summary>
-    /// Gets or sets the name of the HTTP header for tenant name (default: "X-TenantName").
-    /// </summary>
-    public string TenantNameHeaderName { get; set; } = "X-TenantName";
-
-    /// <summary>
-    /// Gets or sets the separator character for multiple tenant IDs in claims or headers (default: ",").
-    /// </summary>
-    public string TenantIdSeparator { get; set; } = ",";
-
-    /// <summary>
-    /// Gets or sets the strategy to use when multiple tenant IDs are available (default: Primary).
-    /// </summary>
-    public MultiTenantResolutionStrategy MultiTenantResolutionStrategy { get; set; } = MultiTenantResolutionStrategy.FromRequest;
-
-    /// <summary>
-    /// Gets or sets customer API tenant details options.
-    /// </summary>
-    public CustomerApiTenantOptions CustomerApiOptions { get; set; } = new();
-}
-
-/// <summary>
-/// Options for configuring the Customer API tenant resolution.
-/// </summary>
-public class CustomerApiTenantOptions
-{
-    /// <summary>
-    /// Gets or sets the API endpoint to retrieve tenant details.
-    /// </summary>
-    public string TenantDetailsEndpoint { get; set; } = "api/tenants/{tenantId}";
-
-    /// <summary>
-    /// Gets or sets the API endpoint to retrieve all tenants.
-    /// </summary>
-    public string AllTenantsEndpoint { get; set; } = "api/tenants";
-
-    /// <summary>
-    /// Gets or sets the API endpoint to retrieve tenant by ID.
-    /// </summary>
-    public string TenantByIdEndpoint { get; set; } = "api/tenants/id/{id}";
-
-    /// <summary>
-    /// Gets or sets the API endpoint to retrieve tenant by name.
-    /// </summary>
-    public string TenantByNameEndpoint { get; set; } = "api/tenants/name/{name}";
-
-    /// <summary>
-    /// Gets or sets cache duration for tenant details in minutes.
-    /// </summary>
-    public int CacheDurationMinutes { get; set; } = 30;
-
-    /// <summary>
-    /// Gets or sets the name of the HTTP client to use (default: "CustomerApi").
-    /// </summary>
-    public string HttpClientName { get; set; } = "CustomerApi";
-}
-
-/// <summary>
-/// Strategy to use when multiple tenant IDs are available.
-/// </summary>
-public enum MultiTenantResolutionStrategy
-{
-    /// <summary>
-    /// Use the first tenant ID in the list.
-    /// </summary>
-    First,
-
-    /// <summary>
-    /// Use the primary tenant ID (when the primary tenant is indicated).
-    /// </summary>
-    Primary,
-
-    /// <summary>
-    /// Use the tenant ID from the request context (URL, header, etc.)
-    /// </summary>
-    FromRequest,
-
-    /// <summary>
-    /// Let the application code handle the resolution.
-    /// </summary>
-    Custom,
 }

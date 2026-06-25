@@ -9,8 +9,8 @@ namespace SharedKernel.Infrastructure.Caching;
 /// <summary>
 /// The generic cache service.
 /// </summary>
-/// <typeparam name="TEntity"/>
-/// <typeparam name="TId"/>
+/// <typeparam name="TEntity">The entity type being cached and retrieved from the repository.</typeparam>
+/// <typeparam name="TId">The type of the entity's identifier used to build cache keys.</typeparam>
 /// <remarks>
 /// Initializes a new instance of the <see cref="GenericCacheService{TEntity, TId}"/> class.
 /// </remarks>
@@ -72,8 +72,8 @@ public class GenericCacheService<TEntity, TId>(
     /// <summary>
     /// Attempts to retrieve an entity by its id from the cache asynchronously, or returns null if not found.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="cancellationToken"></param>
+    /// <param name="id">The identifier of the entity to look up in the cache.</param>
+    /// <param name="cancellationToken">The token used to cancel the cache lookup.</param>
     /// <returns>A <see cref="Task{TResult}"/> representing the result of the asynchronous operation.</returns>
     public async Task<TEntity?> TryGetByIdAsync(TId id, CancellationToken cancellationToken = default)
     {
@@ -108,8 +108,8 @@ public class GenericCacheService<TEntity, TId>(
     /// <summary>
     /// Expire by id asynchronously, might not be removed, depends on the failsafe mode.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="cancellationToken"></param>
+    /// <param name="id">The identifier of the entity whose cache entry should be expired.</param>
+    /// <param name="cancellationToken">The token used to cancel the expiration operation.</param>
     /// <returns><![CDATA[Task]]></returns>
     public async Task ExpireAsync(TId id, CancellationToken cancellationToken = default)
     {
@@ -121,8 +121,8 @@ public class GenericCacheService<TEntity, TId>(
     /// <summary>
     /// Remove by id asynchronously.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="cancellationToken"></param>
+    /// <param name="id">The identifier of the entity whose cache entry should be removed.</param>
+    /// <param name="cancellationToken">The token used to cancel the removal operation.</param>
     /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public async Task RemoveAsync(TId id, CancellationToken cancellationToken = default)
     {

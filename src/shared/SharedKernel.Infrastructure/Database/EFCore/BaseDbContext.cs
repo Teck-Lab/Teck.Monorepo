@@ -19,6 +19,30 @@ public abstract class BaseDbContext : DbContext, IMultiTenantDbContext
     private readonly DatabaseStrategy _tenantStrategy;
 
     /// <summary>
+    /// Initializes a new instance of the <see cref="BaseDbContext"/> class.
+    /// </summary>
+    /// <param name="options">The options to be used by a <see cref="DbContext"/>.</param>
+    /// <param name="tenantDetails">The tenant information (optional).</param>
+    /// <param name="tenantStrategy">The tenant database strategy (optional, defaults to Shared).</param>
+    /// <param name="tenantAccessor">The multi-tenant context accessor (optional, for runtime tenant resolution).</param>
+    [RequiresDynamicCode("Calls DbContext configuration which may require dynamic code at runtime.")]
+    protected BaseDbContext(
+        DbContextOptions options,
+        TenantDetails? tenantDetails = null,
+        DatabaseStrategy? tenantStrategy = null,
+        IMultiTenantContextAccessor<TenantDetails>? tenantAccessor = null)
+        : base(options)
+    {
+        // Prefer explicit tenantDetails, then accessor, then TenantDbContextOptionsExtension embedded in options
+        // (used when Wolverine constructs the context via Activator.CreateInstance with a single options argument).
+        var tenantId = options.FindExtension<TenantDbContextOptionsExtension>()?.TenantId;
+        TenantDetails = tenantDetails
+            ?? tenantAccessor?.MultiTenantContext.TenantInfo
+            ?? (tenantId is not null ? new TenantDetails { Id = tenantId, Identifier = tenantId, Name = tenantId, IsActive = true } : null);
+        _tenantStrategy = tenantStrategy ?? DatabaseStrategy.Shared;
+    }
+
+    /// <summary>
     /// Gets the tenant information associated with this context.
     /// </summary>
     /// <remarks>
@@ -47,28 +71,25 @@ public abstract class BaseDbContext : DbContext, IMultiTenantDbContext
     /// </summary>
     public TenantNotSetMode TenantNotSetMode { get; set; } = TenantNotSetMode.Throw;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="BaseDbContext"/> class.
-    /// </summary>
-    /// <param name="options">The options to be used by a <see cref="DbContext"/>.</param>
-    /// <param name="tenantDetails">The tenant information (optional).</param>
-    /// <param name="tenantStrategy">The tenant database strategy (optional, defaults to Shared).</param>
-    /// <param name="tenantAccessor">The multi-tenant context accessor (optional, for runtime tenant resolution).</param>
-    [RequiresDynamicCode("Calls DbContext configuration which may require dynamic code at runtime.")]
-    protected BaseDbContext(
-        DbContextOptions options,
-        TenantDetails? tenantDetails = null,
-        DatabaseStrategy? tenantStrategy = null,
-        IMultiTenantContextAccessor<TenantDetails>? tenantAccessor = null)
-        : base(options)
+    /// <inheritdoc/>
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
-        // Prefer explicit tenantDetails, then accessor, then TenantDbContextOptionsExtension embedded in options
-        // (used when Wolverine constructs the context via Activator.CreateInstance with a single options argument).
-        var tenantId = options.FindExtension<TenantDbContextOptionsExtension>()?.TenantId;
-        TenantDetails = tenantDetails
-            ?? tenantAccessor?.MultiTenantContext.TenantInfo
-            ?? (tenantId is not null ? new TenantDetails { Id = tenantId, Identifier = tenantId, Name = tenantId, IsActive = true } : null);
-        _tenantStrategy = tenantStrategy ?? DatabaseStrategy.Shared;
+        EnforceTenantOnSave();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    /// <inheritdoc/>
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        EnforceTenantOnSave();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        EnforceTenantOnSave();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
     /// <summary>
@@ -116,27 +137,6 @@ public abstract class BaseDbContext : DbContext, IMultiTenantDbContext
     {
         // Configure exception handling based on the database provider
         optionsBuilder.UseExceptionProcessor();
-    }
-
-    /// <inheritdoc/>
-    public override int SaveChanges(bool acceptAllChangesOnSuccess)
-    {
-        EnforceTenantOnSave();
-        return base.SaveChanges(acceptAllChangesOnSuccess);
-    }
-
-    /// <inheritdoc/>
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        EnforceTenantOnSave();
-        return base.SaveChangesAsync(cancellationToken);
-    }
-
-    /// <inheritdoc/>
-    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
-    {
-        EnforceTenantOnSave();
-        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
     private void EnforceTenantOnSave()

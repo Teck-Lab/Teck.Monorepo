@@ -31,8 +31,8 @@ public static class Extensions
     /// <typeparam name="TReadContext">The read context type (for queries).</typeparam>
     /// <param name="builder">The web application builder.</param>
     /// <param name="assembly">The assembly containing migrations.</param>
-    /// <param name="defaultWriteConnectionString"></param>
-    /// <param name="defaultReadConnectionString"></param>
+    /// <param name="defaultWriteConnectionString">The default write connection string for the shared database.</param>
+    /// <param name="defaultReadConnectionString">The default read connection string for the shared database.</param>
     /// <param name="provider">The database provider to use (defaults to PostgreSQL).</param>
     public static void AddCustomDbContexts<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors | DynamicallyAccessedMemberTypes.PublicProperties)] TWriteContext,
@@ -62,6 +62,41 @@ public static class Extensions
 
         // Add health check for the appropriate provider
         AddDbHealthCheck(builder, defaultWriteConnectionString, defaultReadConnectionString, provider);
+    }
+
+    /// <summary>
+    /// Configures database context options based on the selected provider.
+    /// </summary>
+    /// <param name="options">The DbContext options builder.</param>
+    /// <param name="connectionString">The database connection string.</param>
+    /// <param name="migrationsAssembly">Optional migrations assembly.</param>
+    /// <param name="provider">The selected database provider.</param>
+    public static void ConfigureProviderDbContextOptions(
+        DbContextOptionsBuilder options,
+        string connectionString,
+        Assembly? migrationsAssembly,
+        DatabaseProvider provider)
+    {
+        ConfigureDbContextOptions(options, connectionString, migrationsAssembly, provider);
+
+        if (!string.IsNullOrWhiteSpace(TenantPropagationContext.CurrentTenantId))
+        {
+            options.UseTeckCloudTenant(TenantPropagationContext.CurrentTenantId!);
+        }
+    }
+
+    /// <summary>
+    /// Gets the database provider from configuration.
+    /// </summary>
+    /// <param name="configuration">The configuration.</param>
+    /// <returns>The database provider.</returns>
+    public static DatabaseProvider GetDatabaseProvider(this IConfiguration configuration)
+    {
+        var providerName = configuration["Database:Provider"]
+            ?? configuration["Database__Provider"]
+            ?? "PostgreSQL";
+
+        return DatabaseProvider.PostgreSQL;
     }
 
     /// <summary>
@@ -134,27 +169,6 @@ public static class Extensions
 
         // Register as IBaseDbContext so it can be used for read operations
         builder.Services.AddScoped<IBaseDbContext>(sp => (IBaseDbContext)sp.GetRequiredService<TContext>());
-    }
-
-    /// <summary>
-    /// Configures database context options based on the selected provider.
-    /// </summary>
-    /// <param name="options">The DbContext options builder.</param>
-    /// <param name="connectionString">The database connection string.</param>
-    /// <param name="migrationsAssembly">Optional migrations assembly.</param>
-    /// <param name="provider">The selected database provider.</param>
-    public static void ConfigureProviderDbContextOptions(
-        DbContextOptionsBuilder options,
-        string connectionString,
-        Assembly? migrationsAssembly,
-        DatabaseProvider provider)
-    {
-        ConfigureDbContextOptions(options, connectionString, migrationsAssembly, provider);
-
-        if (!string.IsNullOrWhiteSpace(TenantPropagationContext.CurrentTenantId))
-        {
-            options.UseTeckCloudTenant(TenantPropagationContext.CurrentTenantId!);
-        }
     }
 
     /// <summary>
@@ -243,19 +257,5 @@ public static class Extensions
         {
             throw new ArgumentException($"Unsupported database provider: {provider}");
         }
-    }
-
-    /// <summary>
-    /// Gets the database provider from configuration.
-    /// </summary>
-    /// <param name="configuration">The configuration.</param>
-    /// <returns>The database provider.</returns>
-    public static DatabaseProvider GetDatabaseProvider(this IConfiguration configuration)
-    {
-        var providerName = configuration["Database:Provider"]
-            ?? configuration["Database__Provider"]
-            ?? "PostgreSQL";
-
-        return DatabaseProvider.PostgreSQL;
     }
 }

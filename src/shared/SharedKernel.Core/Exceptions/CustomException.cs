@@ -8,11 +8,6 @@ namespace SharedKernel.Core.Exceptions;
 public class CustomException : Exception
 {
     /// <summary>
-    /// Gets the status code.
-    /// </summary>
-    public HttpStatusCode StatusCode { get; }
-
-    /// <summary>
     /// Initializes a new instance of the <see cref="CustomException"/> class.
     /// </summary>
     public CustomException() : this(string.Empty, HttpStatusCode.InternalServerError)
@@ -46,4 +41,9 @@ public class CustomException : Exception
     {
         StatusCode = statusCode;
     }
+
+    /// <summary>
+    /// Gets the status code.
+    /// </summary>
+    public HttpStatusCode StatusCode { get; }
 }
