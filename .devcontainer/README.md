@@ -31,7 +31,7 @@ In VS Code: Command Palette → **Dev Containers: Reopen in Container** (first b
 
 ## Claude Code
 
-Run `claude` in the integrated terminal and follow the browser sign-in. If the callback doesn't reach the container, copy the code from the browser and paste it at the prompt. Your auth and session history persist across rebuilds via the `claude-code-config` volume.
+Run `claude` in the integrated terminal and follow the browser sign-in. If the callback doesn't reach the container, copy the code from the browser and paste it at the prompt. Your auth and session history persist across rebuilds via a per-project named volume, `claude-code-config-${devcontainerId}` (find it with `docker volume ls | grep claude-code-config`).
 
 ## Security — read this
 
