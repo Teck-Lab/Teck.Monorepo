@@ -1,6 +1,6 @@
 using Ardalis.SmartEnum;
 
-namespace Order.Domain.ValueObjects;
+namespace Orders.Domain.ValueObjects;
 
 public sealed class OrderStatus : SmartEnum<OrderStatus>
 {

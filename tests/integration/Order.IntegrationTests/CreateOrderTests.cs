@@ -3,10 +3,11 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
-using Order.Application.Orders.Responses;
+using Orders.Application.Orders.Responses;
 using Teck.Platform.IntegrationTests.Shared;
+using Xunit;
 
-namespace Order.IntegrationTests;
+namespace Orders.IntegrationTests;
 
 [Collection("SharedTestcontainers")]
 public sealed class CreateOrderTests : OrderIntegrationTestBase
@@ -116,7 +117,7 @@ public abstract class OrderIntegrationTestBase : IDisposable
         this.fixture = fixture;
 
         Type dbContextType = Type.GetType(
-            "Order.Host.Database.OrderDbContext, Order.Host",
+            "Orders.Application.Database.OrderDbContext, Order.Application",
             throwOnError: true)!;
 
         databaseConnectionString = fixture

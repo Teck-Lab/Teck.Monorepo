@@ -1,7 +1,7 @@
 using SharedKernel.Core.CQRS;
-using Order.Application.Orders.Responses;
+using Orders.Application.Orders.Responses;
 
-namespace Order.Application.Orders.Features.CreateOrder.V1;
+namespace Orders.Application.Orders.Features.CreateOrder.V1;
 
 public sealed record CreateOrderLine(
     Guid ProductId,

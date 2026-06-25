@@ -1,4 +1,4 @@
-namespace Order.Application.Orders.ReadModels;
+namespace Orders.Application.Orders.ReadModels;
 
 public sealed record OrderSummaryDto(
     Guid Id,

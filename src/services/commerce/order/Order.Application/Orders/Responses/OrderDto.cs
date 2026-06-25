@@ -1,4 +1,4 @@
-namespace Order.Application.Orders.Responses;
+namespace Orders.Application.Orders.Responses;
 
 public sealed record OrderDto(
     Guid Id,

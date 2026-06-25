@@ -1,4 +1,4 @@
-namespace Order.Domain.ValueObjects;
+namespace Orders.Domain.ValueObjects;
 
 public sealed record OrderLine(Guid ProductId, string ProductName, int Quantity, decimal UnitPrice)
 {

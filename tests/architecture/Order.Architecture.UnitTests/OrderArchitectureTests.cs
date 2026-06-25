@@ -5,12 +5,12 @@ using ArchUnitNET.xUnitV3;
 using SharedKernel.Core.Domain;
 using static ArchUnitNET.Fluent.ArchRuleDefinition;
 
-namespace Order.Architecture.UnitTests;
+namespace Orders.Architecture.UnitTests;
 
 public sealed class OrderArchitectureTests : Teck.Platform.Arch.Tests.SharedTestBase
 {
-    private static readonly Assembly DomainAssembly = typeof(Order.Domain.Entities.Order).Assembly;
-    private static readonly Assembly ApplicationAssembly = typeof(Order.Application.Orders.Features.CreateOrder.V1.CreateOrderHandler).Assembly;
+    private static readonly Assembly DomainAssembly = typeof(Orders.Domain.Entities.Order).Assembly;
+    private static readonly Assembly ApplicationAssembly = typeof(Orders.Application.Orders.Features.CreateOrder.V1.CreateOrderHandler).Assembly;
     private static readonly Assembly HostAssembly = typeof(Program).Assembly;
 
     private static readonly Architecture OrderArchitecture = new ArchLoader()

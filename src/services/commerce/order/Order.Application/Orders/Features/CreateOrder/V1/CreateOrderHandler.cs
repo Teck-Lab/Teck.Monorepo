@@ -1,11 +1,11 @@
-using Order.Application.Orders.Mapping;
-using Order.Application.Orders.IntegrationEvents;
-using Order.Application.Orders.Responses;
-using Order.Domain.Entities;
-using Order.Host.Database;
+using Orders.Application.Orders.Mapping;
+using Orders.Application.Orders.IntegrationEvents;
+using Orders.Application.Orders.Responses;
+using Orders.Domain.Entities;
+using Orders.Application.Database;
 using Wolverine;
 
-namespace Order.Application.Orders.Features.CreateOrder.V1;
+namespace Orders.Application.Orders.Features.CreateOrder.V1;
 
 public static class CreateOrderHandler
 {
@@ -21,7 +21,7 @@ public static class CreateOrderHandler
         db.Orders.Add(order);
         await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        await bus.PublishAsync(new OrderPlacedIntegrationEvent(order), ct).ConfigureAwait(false);
+        await bus.PublishAsync(new OrderPlacedIntegrationEvent(order)).ConfigureAwait(false);
 
         return OrderMapper.ToDto(order);
     }

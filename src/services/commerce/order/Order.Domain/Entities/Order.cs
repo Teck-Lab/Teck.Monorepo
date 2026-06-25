@@ -1,9 +1,9 @@
-using Order.Domain.DomainEvents;
-using Order.Domain.Services;
-using Order.Domain.ValueObjects;
+using Orders.Domain.DomainEvents;
+using Orders.Domain.Services;
+using Orders.Domain.ValueObjects;
 using SharedKernel.Core.Domain;
 
-namespace Order.Domain.Entities;
+namespace Orders.Domain.Entities;
 
 public sealed class Order : BaseEntity, IAggregateRoot, ITenantScoped
 {

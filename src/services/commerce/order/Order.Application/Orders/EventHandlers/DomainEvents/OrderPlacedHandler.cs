@@ -1,8 +1,8 @@
-using Order.Application.Orders.IntegrationEvents;
-using Order.Domain.DomainEvents;
+using Orders.Application.Orders.IntegrationEvents;
+using Orders.Domain.DomainEvents;
 using Wolverine;
 
-namespace Order.Application.Orders.EventHandlers.DomainEvents;
+namespace Orders.Application.Orders.EventHandlers.DomainEvents;
 
 public static class OrderPlacedHandler
 {

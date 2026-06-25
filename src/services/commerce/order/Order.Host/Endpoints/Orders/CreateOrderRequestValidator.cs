@@ -1,6 +1,7 @@
 using FastEndpoints;
+using FluentValidation;
 
-namespace Order.Host.Endpoints.Orders;
+namespace Orders.Host.Endpoints.Orders;
 
 public sealed class CreateOrderRequestValidator : Validator<CreateOrderRequest>
 {

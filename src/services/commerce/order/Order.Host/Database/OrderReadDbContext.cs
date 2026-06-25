@@ -1,8 +1,9 @@
 using Finbuckle.MultiTenant.Abstractions;
 using Microsoft.EntityFrameworkCore;
+using Orders.Application.Database;
 using SharedKernel.Infrastructure.MultiTenant;
 
-namespace Order.Host.Database;
+namespace Orders.Host.Database;
 
 public class OrderReadDbContext(DbContextOptions options, IMultiTenantContextAccessor<TenantDetails> tenantContextAccessor)
     : OrderDbContext(options, tenantContextAccessor)

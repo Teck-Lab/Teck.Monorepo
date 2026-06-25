@@ -1,6 +1,6 @@
-using Order.Domain.Entities;
+using Orders.Domain.Entities;
 
-namespace Order.Domain.Services;
+namespace Orders.Domain.Services;
 
 public static class OrderPricingService
 {

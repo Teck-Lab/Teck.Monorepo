@@ -1,7 +1,7 @@
 using SharedKernel.Core.Events;
-using Order.Domain.Entities;
+using Orders.Domain.Entities;
 
-namespace Order.Domain.DomainEvents;
+namespace Orders.Domain.DomainEvents;
 
 public sealed class OrderPlaced : DomainEvent
 {

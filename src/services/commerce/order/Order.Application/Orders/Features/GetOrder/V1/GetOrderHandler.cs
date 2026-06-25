@@ -1,11 +1,11 @@
 using Ardalis.Specification;
 using ErrorOr;
-using Order.Application.Orders.Mapping;
-using Order.Application.Orders.ReadModels;
-using Order.Application.Orders.Responses;
-using Order.Domain.Entities;
+using Orders.Application.Orders.Mapping;
+using Orders.Application.Orders.ReadModels;
+using Orders.Application.Orders.Responses;
+using Orders.Domain.Entities;
 
-namespace Order.Application.Orders.Features.GetOrder.V1;
+namespace Orders.Application.Orders.Features.GetOrder.V1;
 
 public static class GetOrderHandler
 {

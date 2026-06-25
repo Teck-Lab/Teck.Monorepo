@@ -1,10 +1,10 @@
 using MemoryPack;
-using Order.Application.Orders.Responses;
-using Order.Domain.Entities;
-using Order.Domain.DomainEvents;
+using Orders.Application.Orders.Responses;
+using Orders.Domain.Entities;
+using Orders.Domain.DomainEvents;
 using SharedKernel.Core.Events;
 
-namespace Order.Application.Orders.IntegrationEvents;
+namespace Orders.Application.Orders.IntegrationEvents;
 
 [MemoryPackable]
 public partial class OrderPlacedIntegrationEvent : IntegrationEvent

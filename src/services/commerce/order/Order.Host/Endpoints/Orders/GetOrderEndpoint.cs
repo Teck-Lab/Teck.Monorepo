@@ -1,9 +1,9 @@
-using Order.Application.Orders.Features.GetOrder.V1;
-using Order.Application.Orders.Responses;
+using Orders.Application.Orders.Features.GetOrder.V1;
+using Orders.Application.Orders.Responses;
 using SharedKernel.Infrastructure.Endpoints;
 using Wolverine;
 
-namespace Order.Host.Endpoints.Orders;
+namespace Orders.Host.Endpoints.Orders;
 
 public sealed class GetOrderEndpoint(IMessageBus bus) : AuthenticatedEndpoint<GetOrderRequest, OrderDto>
 {
@@ -20,7 +20,7 @@ public sealed class GetOrderEndpoint(IMessageBus bus) : AuthenticatedEndpoint<Ge
         var query = new GetOrderQuery(request.Id);
         var result = await _bus.InvokeAsync<OrderDto>(query, ct);
 
-        await SendAsync(result);
+        await Send.OkAsync(result, ct);
     }
 }
 

@@ -1,7 +1,7 @@
 using Ardalis.Specification;
-using Order.Domain.Entities;
+using Orders.Domain.Entities;
 
-namespace Order.Application.Orders.ReadModels;
+namespace Orders.Application.Orders.ReadModels;
 
 public sealed class OrderByIdSpec : Specification<Order>
 {

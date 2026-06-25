@@ -1,12 +1,12 @@
 using Riok.Mapperly.Abstractions;
-using Order.Application.Orders.Features.CreateOrder.V1;
-using Order.Application.Orders.ReadModels;
-using Order.Application.Orders.Responses;
-using Order.Domain.Entities;
+using Orders.Application.Orders.Features.CreateOrder.V1;
+using Orders.Application.Orders.ReadModels;
+using Orders.Application.Orders.Responses;
+using Orders.Domain.Entities;
 
-namespace Order.Application.Orders.Mapping;
+namespace Orders.Application.Orders.Mapping;
 
-[Mapper]
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public static partial class OrderMapper
 {
     [MapProperty("Status.Name", nameof(OrderDto.Status))]

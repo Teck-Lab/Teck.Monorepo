@@ -1,10 +1,9 @@
-using Order.Application.Orders.Features.CreateOrder.V1;
-using Order.Application.Orders.Responses;
-using FastEndpoints;
+using Orders.Application.Orders.Features.CreateOrder.V1;
+using Orders.Application.Orders.Responses;
 using SharedKernel.Infrastructure.Endpoints;
 using Wolverine;
 
-namespace Order.Host.Endpoints.Orders;
+namespace Orders.Host.Endpoints.Orders;
 
 public sealed class CreateOrderEndpoint(IMessageBus bus) : AuthenticatedEndpoint<CreateOrderRequest, OrderDto>
 {
@@ -21,9 +20,8 @@ public sealed class CreateOrderEndpoint(IMessageBus bus) : AuthenticatedEndpoint
         var command = new CreateOrderCommand(request.CustomerId, request.Lines);
         var result = await _bus.InvokeAsync<OrderDto>(command, ct);
 
-        HttpContext.Response.StatusCode = StatusCodes.Status201Created;
         HttpContext.Response.Headers.Location = $"/orders/{result.Id}";
-        await SendAsync(result);
+        await Send.ResponseAsync(result, StatusCodes.Status201Created, ct);
     }
 }
 

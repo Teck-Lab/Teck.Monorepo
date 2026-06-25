@@ -1,8 +1,8 @@
 using Ardalis.Specification;
-using Order.Application.Orders.ReadModels;
-using Order.Domain.Entities;
+using Orders.Application.Orders.ReadModels;
+using Orders.Domain.Entities;
 
-namespace Order.Application.Orders.Repositories;
+namespace Orders.Application.Orders.Repositories;
 
 public sealed class OrdersByCustomerSpec : Specification<Order, OrderSummaryDto>
 {
