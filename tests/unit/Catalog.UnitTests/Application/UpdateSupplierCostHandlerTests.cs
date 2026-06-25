@@ -45,4 +45,16 @@ public sealed class UpdateSupplierCostHandlerTests
         Assert.True(result.IsError);
         Assert.Equal(ErrorOr.ErrorType.NotFound, result.FirstError.Type);
     }
+
+    [Fact]
+    public async Task Handle_WithMissingProduct_ReturnsNotFound()
+    {
+        using var db = CatalogTestContext.CreateWithStubbedSave("cost-missing-product");
+        var command = new UpdateSupplierCostCommand(Guid.NewGuid(), Guid.NewGuid(), 6.50m, "USD");
+
+        var result = await UpdateSupplierCostHandler.Handle(command, db, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(ErrorOr.ErrorType.NotFound, result.FirstError.Type);
+    }
 }

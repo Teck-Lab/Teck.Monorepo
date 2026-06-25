@@ -33,7 +33,11 @@ public sealed class UpdateSellPriceHandlerTests
 
         Assert.False(result.IsError);
         Assert.Equal(14.00m, result.Value.SellPriceAmount);
-        await bus.Received(1).PublishAsync(Arg.Any<ProductPriceChangedIntegrationEvent>());
+        await bus.Received(1).PublishAsync(Arg.Is<ProductPriceChangedIntegrationEvent>(e =>
+            e.VariantId == product.Variants[0].Id &&
+            e.OldAmount == 9.99m &&
+            e.NewAmount == 14.00m &&
+            e.Currency == "USD"));
     }
 
     [Fact]

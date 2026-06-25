@@ -31,7 +31,7 @@ public static class AddVariantHandler
             return Error.NotFound(description: $"Product '{command.ProductId}' was not found.");
         }
 
-        var attributes = command.Attributes.Select(a => new VariantAttribute(a.Name, a.Value));
+        var attributes = command.Attributes.Select(a => new VariantAttribute(a.Name, a.Value)).ToList();
         var variantId = product.AddVariant(command.Sku, new Money(command.SellPriceAmount, command.SellPriceCurrency), attributes);
 
         await db.SaveChangesAsync(ct).ConfigureAwait(false);

@@ -38,6 +38,6 @@ public static class UpdateSupplierCostHandler
         product.ChangeSupplierCost(command.VariantId, command.SupplierId, new Money(command.CostAmount, command.CostCurrency));
         await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        return variant.Suppliers.Single(s => s.SupplierId == command.SupplierId).ToDto();
+        return link.ToDto();
     }
 }

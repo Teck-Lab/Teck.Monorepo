@@ -32,7 +32,10 @@ public sealed class AddVariantHandlerTests
         Assert.Equal("WIDGET-2", result.Value.Sku);
         Assert.False(result.Value.IsDefault);
         Assert.Equal("Large", Assert.Single(result.Value.Attributes).Value);
-        await bus.Received(1).PublishAsync(Arg.Any<VariantCreatedIntegrationEvent>());
+        await bus.Received(1).PublishAsync(Arg.Is<VariantCreatedIntegrationEvent>(e =>
+            e.ProductId == product.Id &&
+            e.VariantId == result.Value.Id &&
+            e.Sku == "WIDGET-2"));
     }
 
     [Fact]

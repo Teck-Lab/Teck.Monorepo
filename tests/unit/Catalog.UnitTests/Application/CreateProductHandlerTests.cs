@@ -25,6 +25,9 @@ public sealed class CreateProductHandlerTests
         Assert.True(variant.IsDefault);
         Assert.Equal(9.99m, variant.SellPriceAmount);
         Assert.Equal(1, await db.Products.CountAsync());
-        await bus.Received(1).PublishAsync(Arg.Any<ProductCreatedIntegrationEvent>());
+        await bus.Received(1).PublishAsync(Arg.Is<ProductCreatedIntegrationEvent>(e =>
+            e.ProductId == dto.Id &&
+            e.Name == "Widget" &&
+            e.VariantIds.Count == 1));
     }
 }
