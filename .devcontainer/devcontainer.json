@@ -1,0 +1,43 @@
+{
+  "name": "Teck Platform",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:2.1-10.0-noble",
+  "features": {
+    "ghcr.io/devcontainers/features/dotnet:2": {
+      "version": "10.0.300"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:4": {},
+    "ghcr.io/devcontainers-extra/features/bun:1": {
+      "version": "1.2.0"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    },
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+  },
+  "remoteUser": "vscode",
+  "containerEnv": {
+    "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+    "DOTNET_NOLOGO": "1",
+    "NUGET_XMLDOC_MODE": "skip"
+  },
+  "mounts": [
+    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume"
+  ],
+  "forwardPorts": [18888, 3000, 8080],
+  "portsAttributes": {
+    "18888": { "label": "Aspire dashboard" },
+    "3000": { "label": "Next.js dev" },
+    "8080": { "label": "Service host" }
+  },
+  "postCreateCommand": "bash .devcontainer/postCreate.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csdevkit",
+        "biomejs.biome",
+        "nrwl.angular-console",
+        "editorconfig.editorconfig"
+      ]
+    }
+  }
+}
