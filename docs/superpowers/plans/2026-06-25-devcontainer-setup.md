@@ -251,7 +251,7 @@ In VS Code: Command Palette → **Dev Containers: Reopen in Container** (first b
 
 ## Claude Code
 
-Run `claude` in the integrated terminal and follow the browser sign-in. If the callback doesn't reach the container, copy the code from the browser and paste it at the prompt. Your auth and session history persist across rebuilds via the `claude-code-config` volume.
+Run `claude` in the integrated terminal and follow the browser sign-in. If the callback doesn't reach the container, copy the code from the browser and paste it at the prompt. Your auth and session history persist across rebuilds via a per-project named volume, `claude-code-config-${devcontainerId}` (find it with `docker volume ls | grep claude-code-config`).
 
 ## Security — read this
 
@@ -301,7 +301,7 @@ Expected: build completes; final output reports the container is running. (If `@
 
 Run (via `... exec --workspace-folder .` or the container terminal):
 ```bash
-dotnet --version          # expect 10.0.300 (selected by global.json)
+dotnet --version          # expect 10.0.300 or a newer 10.0.3xx patch (global.json rollForward: latestMinor)
 bun --version             # expect 1.2.0
 node --version            # expect an LTS major
 nx --version              # expect Nx to report a version

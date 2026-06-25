@@ -14,7 +14,7 @@ dotnet restore || echo "WARN: dotnet restore reported errors (continuing; baseli
 echo "==> Installing JS workspace dependencies (bun install)"
 bun install --frozen-lockfile || echo "WARN: bun install reported errors (continuing)"
 
-echo "==> Trusting a local HTTPS development certificate"
+echo "==> Ensuring a local HTTPS development certificate exists"
 dotnet dev-certs https || echo "WARN: could not create HTTPS dev cert (continuing)"
 
 echo "==> Installing low-prompt 'claude' alias in ~/.bashrc"
