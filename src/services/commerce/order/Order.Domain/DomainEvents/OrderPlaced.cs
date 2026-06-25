@@ -6,6 +6,7 @@ namespace Order.Domain.DomainEvents;
 public sealed class OrderPlaced : DomainEvent
 {
     public OrderPlaced(Guid orderId, Guid customerId, string tenantId, string status, decimal total, List<OrderLine> lines, DateTimeOffset createdAt)
+    {
         OrderId = orderId;
         CustomerId = customerId;
         TenantId = tenantId;
@@ -13,6 +14,7 @@ public sealed class OrderPlaced : DomainEvent
         Total = total;
         Lines = lines;
         CreatedAt = createdAt;
+    }
 
     public Guid OrderId { get; }
     public Guid CustomerId { get; }
