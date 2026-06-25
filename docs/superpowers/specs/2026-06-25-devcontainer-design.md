@@ -47,18 +47,19 @@ All new files live under `.devcontainer/`.
 
 The complete configuration. No custom Dockerfile in the initial version (added later only if a missing system package forces it).
 
-- **Base image:** `mcr.microsoft.com/devcontainers/dotnet:10.0`
-  - Provides the .NET SDK and a non-root `vscode` user.
-  - **Verification required during implementation:** confirm the SDK bundled in this image satisfies `global.json` (`10.0.300`, `rollForward: latestMinor`). If the bundled SDK is older than `10.0.300`, layer `ghcr.io/devcontainers/features/dotnet` pinned to `10.0.300` to install the exact SDK. Do not assume — check.
-- **Features:**
-  - `ghcr.io/devcontainers/features/docker-in-docker` — nested daemon for Testcontainers + Aspire. Implies `--privileged`.
-  - `ghcr.io/devcontainers-extra/features/bun` pinned to **`1.2.0`** — matches `packageManager: bun@1.2.0`.
-  - `ghcr.io/devcontainers/features/node` (LTS) — runtime Nx needs; Nx itself is installed by `bun install` (it is a `devDependency`).
+- **Base image:** `mcr.microsoft.com/devcontainers/dotnet:2.1-10.0-noble`
+  - Provides .NET 10 and a non-root `vscode` user (uid/gid 1000). .NET 10 ships **noble-only** (no bookworm variant); multi-arch (amd64 + arm64).
+  - **Resolved (research 2026-06-25):** the image's bundled SDK is `10.0.2xx` — **below** `global.json`'s `10.0.300`. So the pinned `dotnet` feature below is **required**, not conditional. The feature installs `10.0.300` alongside the image SDK; `global.json` selects it.
+- **Features** (install order matters only for the dotnet pin coexisting with the base SDK; all additive):
+  - `ghcr.io/devcontainers/features/dotnet:2` with `"version": "10.0.300"` — installs the exact SDK `global.json` requires (the base image lags). Auto-adds `ms-dotnettools.csharp`.
+  - `ghcr.io/devcontainers/features/docker-in-docker:4` — nested daemon for Testcontainers + Aspire. The feature **declares `privileged: true` itself** and **auto-mounts persistent `dind-var-lib-docker-${devcontainerId}` / `dind-var-lib-containerd-${devcontainerId}` volumes**, so no manual `runArgs` and no manual `/var/lib/docker` mount are needed.
+  - `ghcr.io/devcontainers-extra/features/bun:1` with `"version": "1.2.0"` — matches `packageManager: bun@1.2.0`. Installs system-wide to `/usr/local/bin`; no Node dependency.
+  - `ghcr.io/devcontainers/features/node:1` (LTS) — runtime Nx needs; Nx itself is installed by `bun install` (it is a `devDependency`).
   - `ghcr.io/anthropics/devcontainer-features/claude-code:1.0` — installs the latest Claude Code CLI and adds the VS Code extension.
 - **`remoteUser`: `vscode`** — non-root, which `--dangerously-skip-permissions` requires (the CLI refuses to run that flag as root).
 - **`mounts`:**
   - `source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume` — persists Claude auth, settings, and session history across rebuilds, isolated per project via `${devcontainerId}`.
-  - A named volume for the Docker-in-Docker image store (`target=/var/lib/docker`) so pulled Testcontainers images (Postgres/RabbitMQ/Redis/Keycloak) survive rebuilds. Without this, every rebuild re-pulls all service images; the nested daemon does **not** share the host image cache. *(Exact wiring confirmed against the docker-in-docker feature's options during implementation — the feature may expose this directly rather than via a raw mount.)*
+  - *(No manual Docker image-store mount needed.* The `docker-in-docker:4` feature already auto-mounts `dind-var-lib-docker-${devcontainerId}`, so pulled Testcontainers images survive rebuilds automatically.)
 - **`containerEnv`:** `DOTNET_CLI_TELEMETRY_OPTOUT=1`, `DOTNET_NOLOGO=1`, `NUGET_XMLDOC_MODE=skip`. (No Claude telemetry opt-out or autoupdater disable — convenience-first.)
 - **`forwardPorts`:** `18888` (Aspire dashboard), `3000` (Next.js dev), `8080` (service host) — each labeled via `portsAttributes`.
 - **`postCreateCommand`:** `bash .devcontainer/postCreate.sh`.
@@ -120,8 +121,8 @@ This is configuration, not application code, so verification is manual and behav
 - A custom Dockerfile (added later only if a system package is missing).
 - Multi-architecture build tuning.
 
-## Open items to resolve during implementation
+## Open items — RESOLVED (research 2026-06-25)
 
-1. Confirm `mcr.microsoft.com/devcontainers/dotnet:10.0` ships an SDK ≥ `10.0.300`; otherwise add the pinned `dotnet` feature.
-2. Confirm the exact, current option/coordinates for the Bun feature (`devcontainers-extra/features/bun`) and that the `1.2.0` pin is valid.
-3. Confirm whether the docker-in-docker feature persists `/var/lib/docker` via a built-in option or needs the explicit named-volume mount.
+1. **SDK version:** base image SDK (`10.0.2xx`) is below `10.0.300` → pinned `ghcr.io/devcontainers/features/dotnet:2` (`version: 10.0.300`) is **required**.
+2. **Bun feature:** `ghcr.io/devcontainers-extra/features/bun:1` with `"version": "1.2.0"` is valid (free-form semver accepted; pins Bun v1.2.0). System-wide install, no Node dependency.
+3. **DinD persistence:** the `docker-in-docker:4` feature auto-mounts persistent `dind-var-lib-docker-${devcontainerId}` volumes and declares `privileged: true` itself — no manual mount or `runArgs` required.
