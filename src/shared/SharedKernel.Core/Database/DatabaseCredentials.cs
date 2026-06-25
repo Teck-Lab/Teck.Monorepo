@@ -40,18 +40,21 @@ public sealed record DatabaseCredentials
     /// <summary>
     /// Gets the connection string for admin user.
     /// </summary>
+    /// <returns></returns>
     public string GetAdminConnectionString() =>
         BuildConnectionString(Admin, null, null);
 
     /// <summary>
     /// Gets the connection string for admin user with optional host/port override.
     /// </summary>
+    /// <returns></returns>
     public string GetAdminConnectionString(string? overrideHost, int? overridePort) =>
         BuildConnectionString(Admin, overrideHost, overridePort);
 
     /// <summary>
     /// Gets the connection string for application user.
     /// </summary>
+    /// <returns></returns>
     public string GetApplicationConnectionString() =>
         BuildConnectionString(Application, null, null);
 
@@ -59,6 +62,7 @@ public sealed record DatabaseCredentials
     /// Gets the connection string for application user with optional host/port override.
     /// Useful for read replicas that use different host/port but same credentials.
     /// </summary>
+    /// <returns></returns>
     public string GetApplicationConnectionString(string? overrideHost, int? overridePort) =>
         BuildConnectionString(Application, overrideHost, overridePort);
 

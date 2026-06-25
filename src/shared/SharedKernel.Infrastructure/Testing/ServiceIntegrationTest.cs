@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 using Testcontainers.RabbitMq;
 using Xunit;
@@ -25,6 +24,7 @@ public abstract class ServiceIntegrationTest<TProgram> : IAsyncLifetime
 
     protected string RabbitMqConnectionString => _rabbitMqContainer.GetConnectionString();
 
+    /// <inheritdoc/>
     public async ValueTask InitializeAsync()
     {
         await _postgresContainer.StartAsync();
@@ -34,6 +34,7 @@ public abstract class ServiceIntegrationTest<TProgram> : IAsyncLifetime
         HttpClient = _factory.CreateClient();
     }
 
+    /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
         HttpClient.Dispose();

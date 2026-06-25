@@ -13,6 +13,7 @@ namespace Catalog.Application.Suppliers.Features.UpdateSupplierCost.V1;
 public static class UpdateSupplierCostHandler
 {
     /// <summary>Changes the cost (appending history via the domain) and saves. Cost stays internal — no event published.</summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task<ErrorOr<VariantSupplierDto>> Handle(
         UpdateSupplierCostCommand command,
         CatalogDbContext db,

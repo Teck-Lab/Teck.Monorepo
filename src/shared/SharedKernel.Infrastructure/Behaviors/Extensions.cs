@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
-using Wolverine;
 using SharedKernel.Infrastructure.Messaging.Idempotency;
+using Wolverine;
 
 namespace SharedKernel.Infrastructure.Behaviors;
 

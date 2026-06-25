@@ -15,9 +15,13 @@ namespace SharedKernel.Infrastructure.Hosting;
 public sealed class TeckServiceOptions
 {
     public const string SectionName = "TeckService";
+
     public string CorsPolicyName { get; init; } = "TeckServiceCors";
+
     public string[] CorsOrigins { get; init; } = [];
+
     public string HealthPath { get; init; } = "/health";
+
     public string ReadyPath { get; init; } = "/ready";
 }
 

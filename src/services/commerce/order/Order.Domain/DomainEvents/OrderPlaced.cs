@@ -1,5 +1,5 @@
-using SharedKernel.Core.Events;
 using Orders.Domain.Entities;
+using SharedKernel.Core.Events;
 
 namespace Orders.Domain.DomainEvents;
 
@@ -17,10 +17,16 @@ public sealed class OrderPlaced : DomainEvent
     }
 
     public Guid OrderId { get; }
+
     public Guid CustomerId { get; }
+
     public string TenantId { get; }
+
     public string Status { get; }
+
     public decimal Total { get; }
+
     public List<OrderLine> Lines { get; }
+
     public DateTimeOffset CreatedAt { get; }
 }

@@ -4,8 +4,6 @@ using Serilog.Events;
 using Serilog.Exceptions;
 using Serilog.Exceptions.Core;
 using Serilog.Exceptions.EntityFrameworkCore.Destructurers;
-using Serilog.Enrichers.CorrelationId;
-using Serilog.Formatting.Compact;
 using Serilog.Sinks.Grafana.Loki;
 using Serilog.Sinks.OpenTelemetry;
 using Serilog.Sinks.SystemConsole.Themes;

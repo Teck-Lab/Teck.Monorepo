@@ -14,6 +14,7 @@ public abstract class VersionedEndpoint<TRequest, TResponse> : Endpoint<TRequest
 {
     protected ApiVersion RequestedVersion { get; private set; } = ApiVersion.V1;
 
+    /// <inheritdoc/>
     public sealed override void Configure()
     {
         ConfigureEndpoint();
@@ -23,6 +24,7 @@ public abstract class VersionedEndpoint<TRequest, TResponse> : Endpoint<TRequest
 
     protected void Version(ApiVersion version) => base.Version((int)version);
 
+    /// <inheritdoc/>
     public sealed override Task OnBeforeHandleAsync(TRequest req, CancellationToken ct)
     {
         string? requestedVersion = HttpContext.Request.Headers.TryGetValue("api-version", out var headerValues) && !string.IsNullOrWhiteSpace(headerValues.FirstOrDefault())

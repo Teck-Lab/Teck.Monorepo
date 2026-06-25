@@ -1,8 +1,8 @@
-using Orders.Application.Orders.Mapping;
+using Orders.Application.Database;
 using Orders.Application.Orders.IntegrationEvents;
+using Orders.Application.Orders.Mapping;
 using Orders.Application.Orders.Responses;
 using Orders.Domain.Entities;
-using Orders.Application.Database;
 using Wolverine;
 
 namespace Orders.Application.Orders.Features.CreateOrder.V1;

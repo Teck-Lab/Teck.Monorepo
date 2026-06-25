@@ -82,7 +82,7 @@ public class DatabaseOptions
         RequiresEncryptionAtRest = true,
         RequiresDedicatedResources = true,
         RequiresAutoScaling = true,
-        RequiresAdvancedMonitoring = true
+        RequiresAdvancedMonitoring = true,
     };
 
     /// <summary>
@@ -92,7 +92,7 @@ public class DatabaseOptions
     {
         HasReadReplicas = true,
         RequiresAutoScaling = true,
-        RequiresDedicatedResources = true
+        RequiresDedicatedResources = true,
     };
 
     /// <summary>
@@ -100,7 +100,7 @@ public class DatabaseOptions
     /// </summary>
     public static DatabaseOptions Backup => new()
     {
-        RequiresEnhancedBackup = true
+        RequiresEnhancedBackup = true,
     };
 
     /// <summary>
@@ -111,7 +111,7 @@ public class DatabaseOptions
         RequiresEnhancedBackup = true,
         RequiresEncryptionAtRest = true,
         RequiresComplianceFeatures = true,
-        RequiresAdvancedMonitoring = true
+        RequiresAdvancedMonitoring = true,
     };
 
     /// <summary>
@@ -123,7 +123,7 @@ public class DatabaseOptions
         RequiresEnhancedBackup = true,
         RequiresEncryptionAtRest = true,
         RequiresComplianceFeatures = true,
-        RequiresAdvancedMonitoring = true
+        RequiresAdvancedMonitoring = true,
     };
 
     /// <summary>
@@ -140,7 +140,7 @@ public class DatabaseOptions
         RequiresDedicatedResources = RequiresDedicatedResources,
         RequiresAutoScaling = RequiresAutoScaling,
         RequiresAdvancedMonitoring = RequiresAdvancedMonitoring,
-        RequiresComplianceFeatures = RequiresComplianceFeatures
+        RequiresComplianceFeatures = RequiresComplianceFeatures,
     };
 
     /// <summary>
@@ -157,7 +157,7 @@ public class DatabaseOptions
         RequiresDedicatedResources = RequiresDedicatedResources,
         RequiresAutoScaling = RequiresAutoScaling,
         RequiresAdvancedMonitoring = RequiresAdvancedMonitoring,
-        RequiresComplianceFeatures = RequiresComplianceFeatures
+        RequiresComplianceFeatures = RequiresComplianceFeatures,
     };
 
     /// <summary>
@@ -174,7 +174,7 @@ public class DatabaseOptions
         RequiresDedicatedResources = RequiresDedicatedResources,
         RequiresAutoScaling = RequiresAutoScaling,
         RequiresAdvancedMonitoring = RequiresAdvancedMonitoring,
-        RequiresComplianceFeatures = RequiresComplianceFeatures
+        RequiresComplianceFeatures = RequiresComplianceFeatures,
     };
 
     /// <summary>
@@ -191,7 +191,7 @@ public class DatabaseOptions
         RequiresDedicatedResources = RequiresDedicatedResources,
         RequiresAutoScaling = RequiresAutoScaling,
         RequiresAdvancedMonitoring = RequiresAdvancedMonitoring,
-        RequiresComplianceFeatures = RequiresComplianceFeatures
+        RequiresComplianceFeatures = RequiresComplianceFeatures,
     };
 
     /// <summary>
@@ -208,7 +208,7 @@ public class DatabaseOptions
         RequiresDedicatedResources = enabled,
         RequiresAutoScaling = RequiresAutoScaling,
         RequiresAdvancedMonitoring = RequiresAdvancedMonitoring,
-        RequiresComplianceFeatures = RequiresComplianceFeatures
+        RequiresComplianceFeatures = RequiresComplianceFeatures,
     };
 
     /// <summary>
@@ -225,7 +225,7 @@ public class DatabaseOptions
         RequiresDedicatedResources = RequiresDedicatedResources,
         RequiresAutoScaling = enabled,
         RequiresAdvancedMonitoring = RequiresAdvancedMonitoring,
-        RequiresComplianceFeatures = RequiresComplianceFeatures
+        RequiresComplianceFeatures = RequiresComplianceFeatures,
     };
 
     /// <summary>
@@ -242,7 +242,7 @@ public class DatabaseOptions
         RequiresDedicatedResources = RequiresDedicatedResources,
         RequiresAutoScaling = RequiresAutoScaling,
         RequiresAdvancedMonitoring = enabled,
-        RequiresComplianceFeatures = RequiresComplianceFeatures
+        RequiresComplianceFeatures = RequiresComplianceFeatures,
     };
 
     /// <summary>
@@ -259,7 +259,7 @@ public class DatabaseOptions
         RequiresDedicatedResources = RequiresDedicatedResources,
         RequiresAutoScaling = RequiresAutoScaling,
         RequiresAdvancedMonitoring = RequiresAdvancedMonitoring,
-        RequiresComplianceFeatures = enabled
+        RequiresComplianceFeatures = enabled,
     };
 
     /// <summary>
@@ -292,7 +292,7 @@ public class DatabaseOptions
             RequiresDedicatedResources = requiresDedicatedResources ?? RequiresDedicatedResources,
             RequiresAutoScaling = requiresAutoScaling ?? RequiresAutoScaling,
             RequiresAdvancedMonitoring = requiresAdvancedMonitoring ?? RequiresAdvancedMonitoring,
-            RequiresComplianceFeatures = requiresComplianceFeatures ?? RequiresComplianceFeatures
+            RequiresComplianceFeatures = requiresComplianceFeatures ?? RequiresComplianceFeatures,
         };
 
     /// <summary>
@@ -305,21 +305,44 @@ public class DatabaseOptions
         var multiplier = baseStrategy.CostMultiplier;
 
         if (HasReadReplicas)
+        {
             multiplier += 1.5m;
+        }
+
         if (RequiresGeographicDistribution)
+        {
             multiplier += 0.8m;
+        }
+
         if (RequiresEnhancedBackup)
+        {
             multiplier += 0.3m;
+        }
+
         if (RequiresEncryptionAtRest)
+        {
             multiplier += 0.2m;
+        }
+
         if (RequiresDedicatedResources)
+        {
             multiplier += 1.0m;
+        }
+
         if (RequiresAutoScaling)
+        {
             multiplier += 0.4m;
+        }
+
         if (RequiresAdvancedMonitoring)
+        {
             multiplier += 0.2m;
+        }
+
         if (RequiresComplianceFeatures)
+        {
             multiplier += 0.5m;
+        }
 
         return multiplier;
     }
@@ -352,10 +375,13 @@ public class DatabaseOptions
     /// <summary>
     /// Returns a string representation of the database options.
     /// </summary>
+    /// <returns></returns>
     public override string ToString()
     {
         if (!HasAnyOptions)
+        {
             return "Default";
+        }
 
         var features = new[]
         {
@@ -366,7 +392,7 @@ public class DatabaseOptions
             RequiresDedicatedResources ? "Dedicated Resources" : null,
             RequiresAutoScaling ? "Auto Scaling" : null,
             RequiresAdvancedMonitoring ? "Advanced Monitoring" : null,
-            RequiresComplianceFeatures ? "Compliance Features" : null
+            RequiresComplianceFeatures ? "Compliance Features" : null,
         }.Where(feature => feature != null);
 
         return string.Join(", ", features);

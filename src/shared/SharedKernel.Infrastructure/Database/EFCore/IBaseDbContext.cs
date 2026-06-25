@@ -1,9 +1,8 @@
-namespace SharedKernel.Infrastructure.Database.EFCore
+namespace SharedKernel.Infrastructure.Database.EFCore;
+
+/// <summary>
+/// BaseDbContext interface.
+/// </summary>
+public interface IBaseDbContext : IDisposable
 {
-    /// <summary>
-    /// BaseDbContext interface.
-    /// </summary>
-    public interface IBaseDbContext : IDisposable
-    {
-    }
 }

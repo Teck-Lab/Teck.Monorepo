@@ -10,6 +10,7 @@ namespace Catalog.Application.Suppliers.Features.SetPreferredSupplier.V1;
 public static class SetPreferredSupplierHandler
 {
     /// <summary>Enforces the single-preferred invariant via the domain and saves.</summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task<ErrorOr<Success>> Handle(
         SetPreferredSupplierCommand command,
         CatalogDbContext db,

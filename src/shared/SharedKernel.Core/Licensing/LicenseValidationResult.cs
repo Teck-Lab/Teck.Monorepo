@@ -52,6 +52,7 @@ public sealed class LicenseValidationResult
     /// <summary>
     /// Creates a successful validation result.
     /// </summary>
+    /// <returns></returns>
     public static LicenseValidationResult Success(
         int? maxAccessPoints,
         int? maxDevices,
@@ -76,6 +77,7 @@ public sealed class LicenseValidationResult
     /// Creates a failed validation result.
     /// </summary>
     /// <param name="errorMessage">The error message.</param>
+    /// <returns></returns>
     public static LicenseValidationResult Failure(string errorMessage)
     {
         return new LicenseValidationResult

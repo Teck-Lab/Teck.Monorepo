@@ -12,6 +12,7 @@ namespace Catalog.Application.Products.Features.CreateProduct.V1;
 public static class CreateProductHandler
 {
     /// <summary>Creates the product, persists it, and publishes <see cref="ProductCreatedIntegrationEvent"/>.</summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task<ProductDto> Handle(
         CreateProductCommand command,
         CatalogDbContext db,

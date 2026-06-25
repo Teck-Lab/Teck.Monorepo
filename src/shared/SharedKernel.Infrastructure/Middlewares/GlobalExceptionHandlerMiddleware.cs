@@ -66,9 +66,9 @@ public class GlobalExceptionHandlerMiddleware
                     ["traceId"] = traceId,
                     ["errors"] = new[]
                     {
-                        new { name = "server", reason = "An unexpected error occurred. Please contact support if the problem persists." }
-                    }
-                }
+                        new { name = "server", reason = "An unexpected error occurred. Please contact support if the problem persists." },
+                    },
+                },
             };
 
             context.Response.StatusCode = 500;

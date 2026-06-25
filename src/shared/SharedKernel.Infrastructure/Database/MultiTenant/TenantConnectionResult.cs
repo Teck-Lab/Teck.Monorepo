@@ -85,7 +85,7 @@ public class TenantConnectionResult
             IsSuccess = true,
             IsSafeForMigration = true,
             CustomerApiAvailable = customerApiAvailable,
-            FromCache = fromCache
+            FromCache = fromCache,
         };
     }
 
@@ -101,7 +101,7 @@ public class TenantConnectionResult
             IsSuccess = false,
             IsSafeForMigration = false,
             ErrorMessage = errorMessage,
-            CustomerApiAvailable = false
+            CustomerApiAvailable = false,
         };
     }
 
@@ -128,7 +128,7 @@ public class TenantConnectionResult
             IsSafeForMigration = false,
             WarningMessage = warningMessage,
             CustomerApiAvailable = false,
-            FromCache = true
+            FromCache = true,
         };
     }
 }

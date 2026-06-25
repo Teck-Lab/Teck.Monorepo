@@ -13,6 +13,7 @@ namespace Catalog.Application.Suppliers.Features.LinkVariantSupplier.V1;
 public static class LinkVariantSupplierHandler
 {
     /// <summary>Loads the owning product, links the supplier, and saves.</summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task<ErrorOr<VariantSupplierDto>> Handle(
         LinkVariantSupplierCommand command,
         CatalogDbContext db,

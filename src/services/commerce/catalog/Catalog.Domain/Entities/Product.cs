@@ -35,6 +35,7 @@ public sealed class Product : BaseEntity, IAggregateRoot, ITenantScoped
     public IReadOnlyList<Variant> Variants => _variants;
 
     /// <summary>Creates a product with a single default variant.</summary>
+    /// <returns></returns>
     public static Product Create(string tenantId, string name, string? description, Guid? categoryId, string sku, Money sellPrice)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -59,6 +60,7 @@ public sealed class Product : BaseEntity, IAggregateRoot, ITenantScoped
     }
 
     /// <summary>Adds a non-default variant and raises <see cref="VariantCreated"/>.</summary>
+    /// <returns></returns>
     public Guid AddVariant(string sku, Money sellPrice, IEnumerable<VariantAttribute> attributes)
     {
         var variant = Variant.Create(sku, sellPrice, isDefault: false, attributes: attributes);
@@ -84,6 +86,7 @@ public sealed class Product : BaseEntity, IAggregateRoot, ITenantScoped
     }
 
     /// <summary>Links a supplier to a variant with sourcing details.</summary>
+    /// <returns></returns>
     public Guid LinkSupplier(
         Guid variantId,
         Guid supplierId,

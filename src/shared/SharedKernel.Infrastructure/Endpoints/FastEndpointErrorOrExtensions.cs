@@ -14,6 +14,7 @@ public static class FastEndpointErrorOrExtensions
     /// <summary>
     /// Sends either a successful response or problem details for an ErrorOr result.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     [RequiresDynamicCode("Calls HttpResponse.WriteAsJsonAsync which may require dynamic code at runtime.")]
     public static async Task SendAsync<TResponse>(
         this EndpointWithoutRequest<TResponse> endpoint,
@@ -35,6 +36,7 @@ public static class FastEndpointErrorOrExtensions
     /// <summary>
     /// Sends either a successful response or problem details for an ErrorOr result.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     [RequiresDynamicCode("Calls HttpResponse.WriteAsJsonAsync which may require dynamic code at runtime.")]
     public static async Task SendAsync<TRequest, TResponse>(
         this Endpoint<TRequest, TResponse> endpoint,
@@ -56,6 +58,7 @@ public static class FastEndpointErrorOrExtensions
     /// <summary>
     /// Sends either a no-content success or problem details for an ErrorOr deleted result.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task SendNoContentAsync<TRequest, TResponse>(
         this Endpoint<TRequest, TResponse> endpoint,
         ErrorOr<Deleted> result,
@@ -74,6 +77,7 @@ public static class FastEndpointErrorOrExtensions
     /// <summary>
     /// Sends either a no-content success or problem details for an ErrorOr result.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task SendNoContentAsync<TRequest, TResponse, TValue>(
         this Endpoint<TRequest, TResponse> endpoint,
         ErrorOr<TValue> result,
@@ -92,6 +96,7 @@ public static class FastEndpointErrorOrExtensions
     /// <summary>
     /// Sends either a 200 OK (empty body) or problem details for an ErrorOr Success result.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task SendSuccessAsync<TRequest, TResponse>(
         this Endpoint<TRequest, TResponse> endpoint,
         ErrorOr<Success> result,
@@ -110,6 +115,7 @@ public static class FastEndpointErrorOrExtensions
     /// <summary>
     /// Sends either a created response or problem details for an ErrorOr result.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task SendCreatedAsync<TRequest, TResponse>(
         this Endpoint<TRequest, TResponse> endpoint,
         ErrorOr<TResponse> result,

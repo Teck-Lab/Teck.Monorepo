@@ -9,11 +9,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SharedKernel.Core.Caching;
 using SharedKernel.Core.Pricing;
-using SharedKernel.Infrastructure.HealthChecks;
-using SharedKernel.Infrastructure.MultiTenant;
 using SharedKernel.Infrastructure.Caching;
 using SharedKernel.Infrastructure.Database.EFCore;
 using SharedKernel.Infrastructure.Database.EFCore.Interceptors;
+using SharedKernel.Infrastructure.HealthChecks;
+using SharedKernel.Infrastructure.MultiTenant;
 
 namespace SharedKernel.Infrastructure.Database.MultiTenant;
 

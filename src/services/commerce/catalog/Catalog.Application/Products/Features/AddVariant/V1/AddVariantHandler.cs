@@ -15,6 +15,7 @@ namespace Catalog.Application.Products.Features.AddVariant.V1;
 public static class AddVariantHandler
 {
     /// <summary>Loads the product, adds the variant, saves, and publishes <see cref="VariantCreatedIntegrationEvent"/>.</summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task<ErrorOr<VariantDto>> Handle(
         AddVariantCommand command,
         CatalogDbContext db,

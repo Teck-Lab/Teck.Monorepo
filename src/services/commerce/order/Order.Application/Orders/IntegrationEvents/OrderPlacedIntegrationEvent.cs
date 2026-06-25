@@ -1,7 +1,7 @@
 using MemoryPack;
 using Orders.Application.Orders.Responses;
-using Orders.Domain.Entities;
 using Orders.Domain.DomainEvents;
+using Orders.Domain.Entities;
 using SharedKernel.Core.Events;
 
 namespace Orders.Application.Orders.IntegrationEvents;

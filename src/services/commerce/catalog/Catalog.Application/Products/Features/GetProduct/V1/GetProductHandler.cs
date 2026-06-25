@@ -11,6 +11,7 @@ namespace Catalog.Application.Products.Features.GetProduct.V1;
 public static class GetProductHandler
 {
     /// <summary>Returns the product DTO or a NotFound error.</summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task<ErrorOr<ProductDto>> Handle(
         GetProductQuery query,
         IRepositoryBase<Product> repository,

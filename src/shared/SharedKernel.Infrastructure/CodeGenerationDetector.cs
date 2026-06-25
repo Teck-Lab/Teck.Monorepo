@@ -10,6 +10,7 @@ public static class CodeGenerationDetector
     /// <summary>
     /// Returns true when the current process is running source generation instead of the normal application host.
     /// </summary>
+    /// <returns></returns>
     public static bool IsRunningGeneration()
     {
         return IsRunningOpenApiGeneration() || IsRunningWolverineCodeGeneration();
@@ -18,6 +19,7 @@ public static class CodeGenerationDetector
     /// <summary>
     /// Returns true when the current process is running Wolverine code generation commands.
     /// </summary>
+    /// <returns></returns>
     public static bool IsRunningWolverineCodeGeneration()
     {
         string[] commandLineArgs = Environment.GetCommandLineArgs();
@@ -27,6 +29,7 @@ public static class CodeGenerationDetector
     /// <summary>
     /// Returns true when the current process is running OpenAPI document generation.
     /// </summary>
+    /// <returns></returns>
     public static bool IsRunningOpenApiGeneration()
     {
         string? entryAssemblyName = Assembly.GetEntryAssembly()?.GetName().Name;

@@ -11,6 +11,7 @@ public class OrderDbContext(DbContextOptions options, IMultiTenantContextAccesso
 {
     public DbSet<Order> Orders => Set<Order>();
 
+    /// <inheritdoc/>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Owned-type configurations must run before base.OnModelCreating so that

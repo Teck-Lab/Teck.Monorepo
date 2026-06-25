@@ -11,6 +11,7 @@ namespace Catalog.Application.Suppliers.Features.GetSupplierPriceHistory.V1;
 public static class GetSupplierPriceHistoryHandler
 {
     /// <summary>Loads the owning product, navigates to the link, and maps its history.</summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task<ErrorOr<IReadOnlyList<SupplierPriceHistoryDto>>> Handle(
         GetSupplierPriceHistoryQuery query,
         IRepositoryBase<Product> repository,

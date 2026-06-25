@@ -9,6 +9,7 @@ namespace Catalog.Application.Suppliers.Features.CreateSupplier.V1;
 public static class CreateSupplierHandler
 {
     /// <summary>Creates and persists a supplier. TenantId is stamped by the Host interceptor on save.</summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task<SupplierDto> Handle(
         CreateSupplierCommand command,
         CatalogDbContext db,

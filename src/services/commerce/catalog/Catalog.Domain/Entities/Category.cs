@@ -24,6 +24,7 @@ public sealed class Category : BaseEntity, IAggregateRoot, ITenantScoped
     public Guid? ParentId { get; private set; }
 
     /// <summary>Creates a new category.</summary>
+    /// <returns></returns>
     public static Category Create(string tenantId, string name, string slug, Guid? parentId = null)
     {
         if (string.IsNullOrWhiteSpace(name))

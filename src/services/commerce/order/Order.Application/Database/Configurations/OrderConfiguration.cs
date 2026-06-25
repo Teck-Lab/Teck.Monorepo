@@ -6,6 +6,7 @@ namespace Orders.Application.Database.Configurations;
 
 public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
 {
+    /// <inheritdoc/>
     public void Configure(EntityTypeBuilder<Order> builder)
     {
         builder.ToTable("Orders");

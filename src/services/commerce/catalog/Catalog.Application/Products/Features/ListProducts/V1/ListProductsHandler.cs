@@ -11,6 +11,7 @@ namespace Catalog.Application.Products.Features.ListProducts.V1;
 public static class ListProductsHandler
 {
     /// <summary>Returns product summaries.</summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task<ErrorOr<IReadOnlyList<ProductSummaryDto>>> Handle(
         ListProductsQuery query,
         IRepositoryBase<Product> repository,

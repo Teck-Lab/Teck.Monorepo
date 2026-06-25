@@ -14,6 +14,7 @@ public sealed class Order : BaseEntity, IAggregateRoot, ITenantScoped
 
     public Guid CustomerId { get; private set; }
 
+    /// <inheritdoc/>
     public string TenantId { get; set; } = string.Empty;
 
     public OrderStatus Status { get; private set; } = OrderStatus.Pending;

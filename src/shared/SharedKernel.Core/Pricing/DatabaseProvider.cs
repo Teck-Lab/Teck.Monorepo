@@ -47,5 +47,6 @@ public sealed class DatabaseProvider : SmartEnum<DatabaseProvider>
     /// Checks if this provider is compatible with the specified database options.
     /// With PostgreSQL as the only provider, this is always true for PostgreSQL.
     /// </summary>
+    /// <returns></returns>
     public bool IsCompatibleWith(DatabaseOptions options) => true;
 }

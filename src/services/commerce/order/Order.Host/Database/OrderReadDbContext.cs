@@ -8,6 +8,7 @@ namespace Orders.Host.Database;
 public class OrderReadDbContext(DbContextOptions options, IMultiTenantContextAccessor<TenantDetails> tenantContextAccessor)
     : OrderDbContext(options, tenantContextAccessor)
 {
+    /// <inheritdoc/>
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         base.OnConfiguring(optionsBuilder);
