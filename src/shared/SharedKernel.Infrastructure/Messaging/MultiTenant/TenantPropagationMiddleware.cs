@@ -5,6 +5,13 @@ using Wolverine;
 
 namespace SharedKernel.Infrastructure.Messaging.MultiTenant;
 
+/// <summary>
+/// Wolverine middleware that propagates the tenant context between incoming and outgoing messages,
+/// restoring the previous tenant context once the message has been handled.
+/// </summary>
+/// <param name="tenantContextAccessor">Accessor used to read the current tenant context.</param>
+/// <param name="tenantContextSetter">Setter used to establish the tenant context for the message scope.</param>
+/// <param name="logger">The logger used to record tenant propagation activity.</param>
 public sealed class TenantPropagationMiddleware(
     IMultiTenantContextAccessor<TenantDetails> tenantContextAccessor,
     IMultiTenantContextSetter tenantContextSetter,
@@ -12,6 +19,14 @@ public sealed class TenantPropagationMiddleware(
 {
     private const string TenantHeaderName = "X-TenantId";
 
+    /// <summary>
+    /// Invokes the middleware, establishing the tenant context from the incoming envelope (or stamping
+    /// the current tenant onto the outgoing envelope) for the duration of the pipeline.
+    /// </summary>
+    /// <param name="context">The Wolverine message context for the current envelope.</param>
+    /// <param name="next">The delegate that continues the message handling pipeline.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
     public async ValueTask InvokeAsync(
         IMessageContext context,
         Func<ValueTask> next,
@@ -50,6 +65,18 @@ public sealed class TenantPropagationMiddleware(
         }
     }
 
+    private static void StampOutgoingTenant(IMessageContext context, string tenantId)
+    {
+        var envelope = context.Envelope;
+        if (envelope is null)
+        {
+            return;
+        }
+
+        envelope.TenantId = tenantId;
+        envelope.Headers[TenantHeaderName] = tenantId;
+    }
+
     private void SetTenantContext(string tenantId)
     {
         tenantContextSetter.MultiTenantContext = new MultiTenantContext<TenantDetails>(
@@ -63,17 +90,5 @@ public sealed class TenantPropagationMiddleware(
 
         TenantPropagationContext.CurrentTenantId = tenantId;
         logger.LogDebug("Propagated tenant context {TenantId} from Wolverine envelope.", tenantId);
-    }
-
-    private static void StampOutgoingTenant(IMessageContext context, string tenantId)
-    {
-        var envelope = context.Envelope;
-        if (envelope is null)
-        {
-            return;
-        }
-
-        envelope.TenantId = tenantId;
-        envelope.Headers[TenantHeaderName] = tenantId;
     }
 }

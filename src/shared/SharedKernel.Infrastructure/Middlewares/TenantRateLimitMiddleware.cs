@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Globalization;
-using System.Linq;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -9,6 +8,13 @@ using Microsoft.Extensions.Primitives;
 
 namespace SharedKernel.Infrastructure.Middlewares;
 
+/// <summary>
+/// ASP.NET Core middleware that applies a per-tenant token-bucket rate limit to incoming requests,
+/// responding with HTTP 429 when a tenant exceeds its configured allowance.
+/// </summary>
+/// <param name="next">The next middleware in the request pipeline.</param>
+/// <param name="options">The configured per-tenant rate limit options.</param>
+/// <param name="logger">The logger used to record rate limiting activity.</param>
 public sealed class TenantRateLimitMiddleware(
     RequestDelegate next,
     IOptions<TenantRateLimitOptions> options,
@@ -19,6 +25,12 @@ public sealed class TenantRateLimitMiddleware(
     private readonly ILogger<TenantRateLimitMiddleware> _logger = logger;
     private readonly ConcurrentDictionary<string, RateLimiter> _limiters = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Invokes the middleware, acquiring a rate-limit lease for the resolved tenant and either continuing
+    /// the pipeline or returning an HTTP 429 response when the limit has been exceeded.
+    /// </summary>
+    /// <param name="context">The HTTP context for the current request.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     public async Task InvokeAsync(HttpContext context)
     {
         if (ShouldSkip(context.Request.Path))
@@ -79,25 +91,4 @@ public sealed class TenantRateLimitMiddleware(
     {
         return _options.SkipPaths.Any(skipPath => path.StartsWithSegments(skipPath));
     }
-}
-
-public sealed class TenantRateLimitOptions
-{
-    public const string SectionName = "TenantRateLimit";
-
-    public string HeaderName { get; init; } = "X-TenantId";
-
-    public string MissingTenantId { get; init; } = "anonymous";
-
-    public string[] SkipPaths { get; init; } = ["/health", "/alive"];
-
-    public int TokenLimit { get; init; } = 100;
-
-    public int TokensPerPeriod { get; init; } = 1;
-
-    public TimeSpan ReplenishmentPeriod { get; init; } = TimeSpan.FromSeconds(1);
-
-    public int QueueLimit { get; init; } = 0;
-
-    public bool AutoReplenishment { get; init; } = true;
 }

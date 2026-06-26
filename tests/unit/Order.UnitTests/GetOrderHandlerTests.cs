@@ -1,12 +1,12 @@
 using Ardalis.Specification;
 using ErrorOr;
 using NSubstitute;
-using Order.Application.Orders.Features.GetOrder.V1;
-using Order.Application.Orders.Responses;
-using Order.Domain.Entities;
+using Orders.Application.Orders.Features.GetOrder.V1;
+using Orders.Application.Orders.Responses;
+using Orders.Domain.Entities;
 using Xunit;
 
-namespace Order.UnitTests;
+namespace Orders.UnitTests;
 
 public sealed class GetOrderHandlerTests
 {
@@ -17,7 +17,7 @@ public sealed class GetOrderHandlerTests
         var order = Order.Create(
             customerId,
             "tenant-1",
-            [new Order.Domain.Entities.OrderLine(Guid.NewGuid(), "Test Product", 1, 42m)]);
+            [new Orders.Domain.Entities.OrderLine(Guid.NewGuid(), "Test Product", 1, 42m)]);
         var orderId = order.Id;
 
         var repository = Substitute.For<IRepositoryBase<Order>>();

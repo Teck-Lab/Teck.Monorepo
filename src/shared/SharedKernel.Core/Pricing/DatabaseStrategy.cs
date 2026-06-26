@@ -77,7 +77,7 @@ public sealed class DatabaseStrategy : SmartEnum<DatabaseStrategy>
         _ when this == Shared => 1.0m,
         _ when this == Dedicated => 3.0m,
         _ when this == External => 1.5m,
-        _ => 1.0m
+        _ => 1.0m,
     };
 
     /// <summary>
@@ -88,7 +88,7 @@ public sealed class DatabaseStrategy : SmartEnum<DatabaseStrategy>
         _ when this == Shared => TimeSpan.FromHours(6),
         _ when this == Dedicated => TimeSpan.FromHours(4),
         _ when this == External => TimeSpan.FromHours(12),
-        _ => TimeSpan.FromDays(1)
+        _ => TimeSpan.FromDays(1),
     };
 
     /// <summary>
@@ -99,7 +99,7 @@ public sealed class DatabaseStrategy : SmartEnum<DatabaseStrategy>
         _ when this == Shared => 100,
         _ when this == Dedicated => 500,
         _ when this == External => 1000,
-        _ => 10
+        _ => 10,
     };
 
     /// <summary>
@@ -110,7 +110,7 @@ public sealed class DatabaseStrategy : SmartEnum<DatabaseStrategy>
         _ when this == Shared => "Tenant",
         _ when this == Dedicated => "Database",
         _ when this == External => "Instance",
-        _ => "None"
+        _ => "None",
     };
 
     /// <summary>
@@ -121,7 +121,7 @@ public sealed class DatabaseStrategy : SmartEnum<DatabaseStrategy>
         _ when this == Shared => TimeSpan.FromHours(2),
         _ when this == Dedicated => TimeSpan.FromHours(4),
         _ when this == External => TimeSpan.FromHours(8),
-        _ => TimeSpan.FromHours(1)
+        _ => TimeSpan.FromHours(1),
     };
 
     /// <summary>
@@ -132,7 +132,7 @@ public sealed class DatabaseStrategy : SmartEnum<DatabaseStrategy>
         _ when this == Shared => 99.5m,
         _ when this == Dedicated => 99.9m,
         _ when this == External => 99.95m,
-        _ => 95.0m
+        _ => 95.0m,
     };
 
     /// <summary>
@@ -143,13 +143,24 @@ public sealed class DatabaseStrategy : SmartEnum<DatabaseStrategy>
     public bool IsCompatibleWith(DatabaseOptions options)
     {
         if (options.HasReadReplicas && !SupportsReadReplicas)
+        {
             return false;
+        }
+
         if (options.RequiresAutoScaling && !SupportsAutoScaling)
+        {
             return false;
+        }
+
         if (options.RequiresGeographicDistribution && !SupportsGeographicDistribution)
+        {
             return false;
+        }
+
         if (options.RequiresDedicatedResources && !SupportsDedicatedResources)
+        {
             return false;
+        }
 
         return true;
     }

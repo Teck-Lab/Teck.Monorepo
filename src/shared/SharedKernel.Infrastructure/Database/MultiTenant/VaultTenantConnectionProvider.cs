@@ -3,7 +3,6 @@
 // </copyright>
 
 using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using VaultSharp;
 using VaultSharp.V1.AuthMethods;
@@ -170,55 +169,5 @@ public sealed class VaultTenantConnectionProvider : IVaultTenantConnectionProvid
         }
 
         return new VaultClient(new VaultClientSettings(_options.Url, authMethod));
-    }
-}
-
-/// <summary>
-/// No-op implementation used when OpenBao is not configured (e.g. OpenBao:Url is empty).
-/// Dedicated tenant resolution will fail explicitly if attempted.
-/// </summary>
-public sealed class NullVaultTenantConnectionProvider : IVaultTenantConnectionProvider
-{
-    /// <inheritdoc/>
-    public bool TryGetCached(string tenantIdentifier, out (string Write, string? Read) result)
-    {
-        result = default;
-        return false;
-    }
-
-    /// <inheritdoc/>
-    public Task<(string Write, string? Read)> GetAsync(
-        string tenantIdentifier,
-        CancellationToken ct = default)
-    {
-        throw new TenantConnectionNotFoundException(
-            $"OpenBao is not configured (OpenBao:Url is empty). " +
-            $"Cannot resolve dedicated connection string for tenant '{tenantIdentifier}'.");
-    }
-}
-
-/// <summary>
-/// Thrown when a tenant's connection string cannot be found in OpenBao/Vault.
-/// </summary>
-[SuppressMessage("Design", "CA1032:Implement standard exception constructors", Justification = "Intentionally requires a message; parameterless construction is not meaningful.")]
-public sealed class TenantConnectionNotFoundException : InvalidOperationException
-{
-    /// <summary>
-    /// Initializes a new instance of the <see cref="TenantConnectionNotFoundException"/> class.
-    /// </summary>
-    /// <param name="message">Exception message.</param>
-    public TenantConnectionNotFoundException(string message)
-        : base(message)
-    {
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="TenantConnectionNotFoundException"/> class.
-    /// </summary>
-    /// <param name="message">Exception message.</param>
-    /// <param name="innerException">The inner exception.</param>
-    public TenantConnectionNotFoundException(string message, Exception innerException)
-        : base(message, innerException)
-    {
     }
 }

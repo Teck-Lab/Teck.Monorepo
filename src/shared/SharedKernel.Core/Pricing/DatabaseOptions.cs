@@ -6,6 +6,66 @@ namespace SharedKernel.Core.Pricing;
 public class DatabaseOptions
 {
     /// <summary>
+    /// Gets default database options with no additional features.
+    /// </summary>
+    public static DatabaseOptions Default => new();
+
+    /// <summary>
+    /// Gets database options for high availability scenarios.
+    /// </summary>
+    public static DatabaseOptions HighAvailability => new()
+    {
+        HasReadReplicas = true,
+        RequiresGeographicDistribution = true,
+        RequiresEnhancedBackup = true,
+        RequiresEncryptionAtRest = true,
+        RequiresDedicatedResources = true,
+        RequiresAutoScaling = true,
+        RequiresAdvancedMonitoring = true,
+    };
+
+    /// <summary>
+    /// Gets database options for performance scenarios (read replicas and auto scaling).
+    /// </summary>
+    public static DatabaseOptions Performance => new()
+    {
+        HasReadReplicas = true,
+        RequiresAutoScaling = true,
+        RequiresDedicatedResources = true,
+    };
+
+    /// <summary>
+    /// Gets database options for backup scenarios (enhanced backup only).
+    /// </summary>
+    public static DatabaseOptions Backup => new()
+    {
+        RequiresEnhancedBackup = true,
+    };
+
+    /// <summary>
+    /// Gets database options for security scenarios (encryption and compliance).
+    /// </summary>
+    public static DatabaseOptions Security => new()
+    {
+        RequiresEnhancedBackup = true,
+        RequiresEncryptionAtRest = true,
+        RequiresComplianceFeatures = true,
+        RequiresAdvancedMonitoring = true,
+    };
+
+    /// <summary>
+    /// Gets database options for compliance scenarios (all security and audit features).
+    /// </summary>
+    public static DatabaseOptions Compliance => new()
+    {
+        RequiresGeographicDistribution = true,
+        RequiresEnhancedBackup = true,
+        RequiresEncryptionAtRest = true,
+        RequiresComplianceFeatures = true,
+        RequiresAdvancedMonitoring = true,
+    };
+
+    /// <summary>
     /// Gets or sets a value indicating whether the tenant has dedicated read replicas for improved read performance.
     /// Can be applied to any DatabaseStrategy for an additional cost.
     /// </summary>
@@ -67,66 +127,6 @@ public class DatabaseOptions
         (RequiresComplianceFeatures ? 1 : 0);
 
     /// <summary>
-    /// Gets default database options with no additional features.
-    /// </summary>
-    public static DatabaseOptions Default => new();
-
-    /// <summary>
-    /// Gets database options for high availability scenarios.
-    /// </summary>
-    public static DatabaseOptions HighAvailability => new()
-    {
-        HasReadReplicas = true,
-        RequiresGeographicDistribution = true,
-        RequiresEnhancedBackup = true,
-        RequiresEncryptionAtRest = true,
-        RequiresDedicatedResources = true,
-        RequiresAutoScaling = true,
-        RequiresAdvancedMonitoring = true
-    };
-
-    /// <summary>
-    /// Gets database options for performance scenarios (read replicas and auto scaling).
-    /// </summary>
-    public static DatabaseOptions Performance => new()
-    {
-        HasReadReplicas = true,
-        RequiresAutoScaling = true,
-        RequiresDedicatedResources = true
-    };
-
-    /// <summary>
-    /// Gets database options for backup scenarios (enhanced backup only).
-    /// </summary>
-    public static DatabaseOptions Backup => new()
-    {
-        RequiresEnhancedBackup = true
-    };
-
-    /// <summary>
-    /// Gets database options for security scenarios (encryption and compliance).
-    /// </summary>
-    public static DatabaseOptions Security => new()
-    {
-        RequiresEnhancedBackup = true,
-        RequiresEncryptionAtRest = true,
-        RequiresComplianceFeatures = true,
-        RequiresAdvancedMonitoring = true
-    };
-
-    /// <summary>
-    /// Gets database options for compliance scenarios (all security and audit features).
-    /// </summary>
-    public static DatabaseOptions Compliance => new()
-    {
-        RequiresGeographicDistribution = true,
-        RequiresEnhancedBackup = true,
-        RequiresEncryptionAtRest = true,
-        RequiresComplianceFeatures = true,
-        RequiresAdvancedMonitoring = true
-    };
-
-    /// <summary>
     /// Creates a new instance with read replicas option modified.
     /// </summary>
     /// <param name="enabled">Whether to enable read replicas.</param>
@@ -140,7 +140,7 @@ public class DatabaseOptions
         RequiresDedicatedResources = RequiresDedicatedResources,
         RequiresAutoScaling = RequiresAutoScaling,
         RequiresAdvancedMonitoring = RequiresAdvancedMonitoring,
-        RequiresComplianceFeatures = RequiresComplianceFeatures
+        RequiresComplianceFeatures = RequiresComplianceFeatures,
     };
 
     /// <summary>
@@ -157,7 +157,7 @@ public class DatabaseOptions
         RequiresDedicatedResources = RequiresDedicatedResources,
         RequiresAutoScaling = RequiresAutoScaling,
         RequiresAdvancedMonitoring = RequiresAdvancedMonitoring,
-        RequiresComplianceFeatures = RequiresComplianceFeatures
+        RequiresComplianceFeatures = RequiresComplianceFeatures,
     };
 
     /// <summary>
@@ -174,7 +174,7 @@ public class DatabaseOptions
         RequiresDedicatedResources = RequiresDedicatedResources,
         RequiresAutoScaling = RequiresAutoScaling,
         RequiresAdvancedMonitoring = RequiresAdvancedMonitoring,
-        RequiresComplianceFeatures = RequiresComplianceFeatures
+        RequiresComplianceFeatures = RequiresComplianceFeatures,
     };
 
     /// <summary>
@@ -191,7 +191,7 @@ public class DatabaseOptions
         RequiresDedicatedResources = RequiresDedicatedResources,
         RequiresAutoScaling = RequiresAutoScaling,
         RequiresAdvancedMonitoring = RequiresAdvancedMonitoring,
-        RequiresComplianceFeatures = RequiresComplianceFeatures
+        RequiresComplianceFeatures = RequiresComplianceFeatures,
     };
 
     /// <summary>
@@ -208,7 +208,7 @@ public class DatabaseOptions
         RequiresDedicatedResources = enabled,
         RequiresAutoScaling = RequiresAutoScaling,
         RequiresAdvancedMonitoring = RequiresAdvancedMonitoring,
-        RequiresComplianceFeatures = RequiresComplianceFeatures
+        RequiresComplianceFeatures = RequiresComplianceFeatures,
     };
 
     /// <summary>
@@ -225,7 +225,7 @@ public class DatabaseOptions
         RequiresDedicatedResources = RequiresDedicatedResources,
         RequiresAutoScaling = enabled,
         RequiresAdvancedMonitoring = RequiresAdvancedMonitoring,
-        RequiresComplianceFeatures = RequiresComplianceFeatures
+        RequiresComplianceFeatures = RequiresComplianceFeatures,
     };
 
     /// <summary>
@@ -242,7 +242,7 @@ public class DatabaseOptions
         RequiresDedicatedResources = RequiresDedicatedResources,
         RequiresAutoScaling = RequiresAutoScaling,
         RequiresAdvancedMonitoring = enabled,
-        RequiresComplianceFeatures = RequiresComplianceFeatures
+        RequiresComplianceFeatures = RequiresComplianceFeatures,
     };
 
     /// <summary>
@@ -259,7 +259,7 @@ public class DatabaseOptions
         RequiresDedicatedResources = RequiresDedicatedResources,
         RequiresAutoScaling = RequiresAutoScaling,
         RequiresAdvancedMonitoring = RequiresAdvancedMonitoring,
-        RequiresComplianceFeatures = enabled
+        RequiresComplianceFeatures = enabled,
     };
 
     /// <summary>
@@ -292,7 +292,7 @@ public class DatabaseOptions
             RequiresDedicatedResources = requiresDedicatedResources ?? RequiresDedicatedResources,
             RequiresAutoScaling = requiresAutoScaling ?? RequiresAutoScaling,
             RequiresAdvancedMonitoring = requiresAdvancedMonitoring ?? RequiresAdvancedMonitoring,
-            RequiresComplianceFeatures = requiresComplianceFeatures ?? RequiresComplianceFeatures
+            RequiresComplianceFeatures = requiresComplianceFeatures ?? RequiresComplianceFeatures,
         };
 
     /// <summary>
@@ -305,21 +305,44 @@ public class DatabaseOptions
         var multiplier = baseStrategy.CostMultiplier;
 
         if (HasReadReplicas)
+        {
             multiplier += 1.5m;
+        }
+
         if (RequiresGeographicDistribution)
+        {
             multiplier += 0.8m;
+        }
+
         if (RequiresEnhancedBackup)
+        {
             multiplier += 0.3m;
+        }
+
         if (RequiresEncryptionAtRest)
+        {
             multiplier += 0.2m;
+        }
+
         if (RequiresDedicatedResources)
+        {
             multiplier += 1.0m;
+        }
+
         if (RequiresAutoScaling)
+        {
             multiplier += 0.4m;
+        }
+
         if (RequiresAdvancedMonitoring)
+        {
             multiplier += 0.2m;
+        }
+
         if (RequiresComplianceFeatures)
+        {
             multiplier += 0.5m;
+        }
 
         return multiplier;
     }
@@ -352,10 +375,13 @@ public class DatabaseOptions
     /// <summary>
     /// Returns a string representation of the database options.
     /// </summary>
+    /// <returns>A human-readable summary of the enabled options, or "Default" when none are enabled.</returns>
     public override string ToString()
     {
         if (!HasAnyOptions)
+        {
             return "Default";
+        }
 
         var features = new[]
         {
@@ -366,7 +392,7 @@ public class DatabaseOptions
             RequiresDedicatedResources ? "Dedicated Resources" : null,
             RequiresAutoScaling ? "Auto Scaling" : null,
             RequiresAdvancedMonitoring ? "Advanced Monitoring" : null,
-            RequiresComplianceFeatures ? "Compliance Features" : null
+            RequiresComplianceFeatures ? "Compliance Features" : null,
         }.Where(feature => feature != null);
 
         return string.Join(", ", features);

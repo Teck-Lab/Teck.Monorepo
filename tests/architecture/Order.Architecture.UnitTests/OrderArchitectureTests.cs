@@ -1,19 +1,19 @@
 using System.Reflection;
-using ArchUnitNET.Domain;
 using ArchUnitNET.Loader;
 using ArchUnitNET.xUnitV3;
 using SharedKernel.Core.Domain;
+using Xunit;
 using static ArchUnitNET.Fluent.ArchRuleDefinition;
 
-namespace Order.Architecture.UnitTests;
+namespace Orders.Architecture.UnitTests;
 
 public sealed class OrderArchitectureTests : Teck.Platform.Arch.Tests.SharedTestBase
 {
-    private static readonly Assembly DomainAssembly = typeof(Order.Domain.Entities.Order).Assembly;
-    private static readonly Assembly ApplicationAssembly = typeof(Order.Application.Orders.Features.CreateOrder.V1.CreateOrderHandler).Assembly;
+    private static readonly Assembly DomainAssembly = typeof(Orders.Domain.Entities.Order).Assembly;
+    private static readonly Assembly ApplicationAssembly = typeof(Orders.Application.Orders.Features.CreateOrder.V1.CreateOrderHandler).Assembly;
     private static readonly Assembly HostAssembly = typeof(Program).Assembly;
 
-    private static readonly Architecture OrderArchitecture = new ArchLoader()
+    private static readonly ArchUnitNET.Domain.Architecture OrderArchitecture = new ArchLoader()
         .LoadAssemblies(DomainAssembly, ApplicationAssembly, HostAssembly)
         .Build();
 
@@ -56,7 +56,7 @@ public sealed class OrderArchitectureTests : Teck.Platform.Arch.Tests.SharedTest
     [Fact]
     public void OrderApplicationHandlers_ShouldEndWithHandler()
     {
-        Type[] handlerTypes = ApplicationAssembly
+        System.Type[] handlerTypes = ApplicationAssembly
             .GetTypes()
             .Where(type =>
                 type.IsClass

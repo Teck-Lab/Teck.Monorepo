@@ -7,6 +7,7 @@ namespace Catalog.Application.Products.ReadModels;
 public sealed class ProductsByCategorySpec : Specification<Product>
 {
     /// <summary>Initializes the spec. A null <paramref name="categoryId"/> returns all products.</summary>
+    /// <param name="categoryId">The optional category identifier to filter products by; null returns all products.</param>
     public ProductsByCategorySpec(Guid? categoryId)
     {
         if (categoryId is not null)

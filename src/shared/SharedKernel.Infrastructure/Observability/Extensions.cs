@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using SharedKernel.Infrastructure.Observability.OpenTelemetry;
 using SharedKernel.Infrastructure.Observability.Serilog;
+
 namespace SharedKernel.Infrastructure.Observability;
 
 /// <summary>

@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
-using Wolverine;
 using SharedKernel.Infrastructure.Messaging.Idempotency;
+using Wolverine;
 
 namespace SharedKernel.Infrastructure.Behaviors;
 
@@ -12,6 +12,11 @@ namespace SharedKernel.Infrastructure.Behaviors;
 /// </summary>
 public static class BehaviorExtensions
 {
+    /// <summary>
+    /// Registers Teck custom WolverineFx middleware behaviors (idempotency and license enforcement).
+    /// </summary>
+    /// <param name="opts">The WolverineFx options to configure.</param>
+    /// <returns>The same <see cref="WolverineOptions"/> instance for fluent chaining.</returns>
     public static WolverineOptions AddTeckBehaviors(this WolverineOptions opts)
     {
         opts.Services.AddSingleton<IdempotencyMiddleware>();

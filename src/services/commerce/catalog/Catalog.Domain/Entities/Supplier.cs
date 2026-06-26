@@ -27,6 +27,11 @@ public sealed class Supplier : BaseEntity, IAggregateRoot, ITenantScoped
     public bool IsActive { get; private set; }
 
     /// <summary>Creates a new active supplier.</summary>
+    /// <param name="tenantId">The owning tenant id.</param>
+    /// <param name="name">The supplier name.</param>
+    /// <param name="contactEmail">The optional contact email.</param>
+    /// <param name="contactPhone">The optional contact phone.</param>
+    /// <returns>The newly created supplier.</returns>
     public static Supplier Create(string tenantId, string name, string? contactEmail = null, string? contactPhone = null)
     {
         if (string.IsNullOrWhiteSpace(name))

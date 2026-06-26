@@ -74,6 +74,24 @@ internal sealed class ProviderFilteredMigrationsAssembly : IMigrationsAssembly
         return null;
     }
 
+    private static bool MatchesDbContext(MemberInfo typeInfo, Type contextType)
+    {
+        DbContextAttribute? dbContextAttribute = typeInfo.GetCustomAttribute<DbContextAttribute>();
+        return dbContextAttribute is not null && dbContextAttribute.ContextType == contextType;
+    }
+
+    private static string? ResolveProviderToken(string? providerName)
+    {
+        if (string.IsNullOrWhiteSpace(providerName))
+        {
+            return null;
+        }
+
+        return providerName.Contains("Npgsql", StringComparison.OrdinalIgnoreCase)
+            ? "PostgreSQL"
+            : null;
+    }
+
     [UnconditionalSuppressMessage("Trimming", "IL2072", Justification = "Migration types are discovered from the migrations assembly and will have required members at runtime.")]
     private IReadOnlyDictionary<string, TypeInfo> CreateMigrations()
     {
@@ -138,23 +156,5 @@ internal sealed class ProviderFilteredMigrationsAssembly : IMigrationsAssembly
         return fullName.Contains($".Migrations.{_providerToken}.", StringComparison.OrdinalIgnoreCase)
             || fullName.EndsWith($".Migrations.{_providerToken}", StringComparison.OrdinalIgnoreCase)
             || fullName.Contains(_providerToken, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool MatchesDbContext(MemberInfo typeInfo, Type contextType)
-    {
-        DbContextAttribute? dbContextAttribute = typeInfo.GetCustomAttribute<DbContextAttribute>();
-        return dbContextAttribute is not null && dbContextAttribute.ContextType == contextType;
-    }
-
-    private static string? ResolveProviderToken(string? providerName)
-    {
-        if (string.IsNullOrWhiteSpace(providerName))
-        {
-            return null;
-        }
-
-        return providerName.Contains("Npgsql", StringComparison.OrdinalIgnoreCase)
-            ? "PostgreSQL"
-            : null;
     }
 }

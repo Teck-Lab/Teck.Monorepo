@@ -11,6 +11,22 @@ namespace Catalog.Application.Products.IntegrationEvents;
 [MemoryPackable]
 public partial class ProductCreatedIntegrationEvent : IntegrationEvent
 {
+    /// <summary>Initializes a new instance of the <see cref="ProductCreatedIntegrationEvent"/> class.</summary>
+    [MemoryPackConstructor]
+    public ProductCreatedIntegrationEvent()
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="ProductCreatedIntegrationEvent"/> class from a created product.</summary>
+    /// <param name="product">The product that was created.</param>
+    public ProductCreatedIntegrationEvent(Product product)
+    {
+        ProductId = product.Id;
+        TenantId = product.TenantId;
+        Name = product.Name;
+        VariantIds = product.Variants.Select(v => v.Id).ToList();
+    }
+
     /// <summary>Gets or sets the product id.</summary>
     public Guid ProductId { get; set; }
 
@@ -22,19 +38,4 @@ public partial class ProductCreatedIntegrationEvent : IntegrationEvent
 
     /// <summary>Gets or sets the initial variant ids.</summary>
     public List<Guid> VariantIds { get; set; } = [];
-
-    /// <summary>Serialization constructor.</summary>
-    [MemoryPackConstructor]
-    public ProductCreatedIntegrationEvent()
-    {
-    }
-
-    /// <summary>Builds the event from a created product.</summary>
-    public ProductCreatedIntegrationEvent(Product product)
-    {
-        ProductId = product.Id;
-        TenantId = product.TenantId;
-        Name = product.Name;
-        VariantIds = product.Variants.Select(v => v.Id).ToList();
-    }
 }

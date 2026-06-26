@@ -1,11 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Order.Domain.Entities;
+using Orders.Domain.Entities;
 
-namespace Order.Host.Database.Configurations;
+namespace Orders.Application.Database.Configurations;
 
+/// <summary>
+/// Configures the EF Core mapping for the <see cref="Order"/> aggregate and its owned line items.
+/// </summary>
 public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
 {
+    /// <inheritdoc/>
     public void Configure(EntityTypeBuilder<Order> builder)
     {
         builder.ToTable("Orders");

@@ -1,27 +1,31 @@
-using Order.Application.Orders.Features.GetOrder.V1;
-using Order.Application.Orders.Responses;
+using Orders.Application.Orders.Features.GetOrder.V1;
+using Orders.Application.Orders.Responses;
 using SharedKernel.Infrastructure.Endpoints;
 using Wolverine;
 
-namespace Order.Host.Endpoints.Orders;
+namespace Orders.Host.Endpoints.Orders;
 
+/// <summary>
+/// Endpoint that retrieves a single order by its identifier.
+/// </summary>
+/// <param name="bus">The message bus used to dispatch the get order query.</param>
 public sealed class GetOrderEndpoint(IMessageBus bus) : AuthenticatedEndpoint<GetOrderRequest, OrderDto>
 {
     private readonly IMessageBus _bus = bus;
 
-    protected override void ConfigureEndpoint()
-    {
-        AllowAnonymous();
-        Get("/orders/{id}");
-    }
-
+    /// <inheritdoc/>
     public override async Task HandleAsync(GetOrderRequest request, CancellationToken ct)
     {
         var query = new GetOrderQuery(request.Id);
         var result = await _bus.InvokeAsync<OrderDto>(query, ct);
 
-        await SendAsync(result);
+        await Send.OkAsync(result, ct);
+    }
+
+    /// <inheritdoc/>
+    protected override void ConfigureEndpoint()
+    {
+        AllowAnonymous();
+        Get("/orders/{id}");
     }
 }
-
-public sealed record GetOrderRequest(Guid Id);

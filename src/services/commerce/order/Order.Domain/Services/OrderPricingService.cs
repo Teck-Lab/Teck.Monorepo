@@ -1,9 +1,17 @@
-using Order.Domain.Entities;
+using Orders.Domain.Entities;
 
-namespace Order.Domain.Services;
+namespace Orders.Domain.Services;
 
+/// <summary>
+/// Provides pricing calculations for orders.
+/// </summary>
 public static class OrderPricingService
 {
+    /// <summary>
+    /// Calculates the total monetary amount for the specified order lines.
+    /// </summary>
+    /// <param name="lines">The order lines to total.</param>
+    /// <returns>The sum of all line totals.</returns>
     public static decimal CalculateTotal(IEnumerable<OrderLine> lines)
     {
         ArgumentNullException.ThrowIfNull(lines);

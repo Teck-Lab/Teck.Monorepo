@@ -8,8 +8,22 @@ using Wolverine;
 
 namespace SharedKernel.Infrastructure.Messaging.Idempotency;
 
+/// <summary>
+/// Wolverine middleware that suppresses duplicate processing of messages marked with
+/// <see cref="IdempotentAttribute"/> by recording a Redis-backed idempotency key.
+/// </summary>
+/// <param name="logger">The logger used to record idempotency decisions and key handling.</param>
+/// <param name="database">The Redis database used to store and check idempotency keys.</param>
 public sealed class IdempotencyMiddleware(ILogger<IdempotencyMiddleware> logger, IDatabase database)
 {
+    /// <summary>
+    /// Invokes the middleware, short-circuiting the pipeline when the incoming message is a duplicate
+    /// of one already processed within the configured idempotency window.
+    /// </summary>
+    /// <param name="context">The Wolverine message context for the current envelope.</param>
+    /// <param name="next">The delegate that continues the message handling pipeline.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
     public async ValueTask InvokeAsync(
         IMessageContext context,
         Func<ValueTask> next,

@@ -1,13 +1,15 @@
+using Finbuckle.MultiTenant.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
-using Order.Application.Orders.Features.CreateOrder.V1;
-using Order.Application.Orders.Responses;
-using Order.Domain.Entities;
-using Order.Host.Database;
+using Orders.Application.Database;
+using Orders.Application.Orders.Features.CreateOrder.V1;
+using Orders.Application.Orders.Responses;
+using Orders.Domain.Entities;
+using SharedKernel.Infrastructure.MultiTenant;
 using Wolverine;
 using Xunit;
 
-namespace Order.UnitTests;
+namespace Orders.UnitTests;
 
 public sealed class CreateOrderHandlerTests
 {
@@ -22,7 +24,8 @@ public sealed class CreateOrderHandlerTests
             .UseInMemoryDatabase($"order-unit-tests-{Guid.NewGuid()}")
             .Options;
 
-        var db = Substitute.For<OrderDbContext>(options);
+        var tenantAccessor = Substitute.For<IMultiTenantContextAccessor<TenantDetails>>();
+        var db = Substitute.For<OrderDbContext>(options, tenantAccessor);
         db.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(1));
 
         var bus = Substitute.For<IMessageBus>();

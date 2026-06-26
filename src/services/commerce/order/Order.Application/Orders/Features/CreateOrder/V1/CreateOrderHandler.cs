@@ -1,14 +1,25 @@
-using Order.Application.Orders.Mapping;
-using Order.Application.Orders.IntegrationEvents;
-using Order.Application.Orders.Responses;
-using Order.Domain.Entities;
-using Order.Host.Database;
+using Orders.Application.Database;
+using Orders.Application.Orders.IntegrationEvents;
+using Orders.Application.Orders.Mapping;
+using Orders.Application.Orders.Responses;
+using Orders.Domain.Entities;
 using Wolverine;
 
-namespace Order.Application.Orders.Features.CreateOrder.V1;
+namespace Orders.Application.Orders.Features.CreateOrder.V1;
 
+/// <summary>
+/// Handles the <see cref="CreateOrderCommand"/> by persisting a new order and publishing its placed event.
+/// </summary>
 public static class CreateOrderHandler
 {
+    /// <summary>
+    /// Creates and persists an order, then publishes an <see cref="OrderPlacedIntegrationEvent"/>.
+    /// </summary>
+    /// <param name="command">The command describing the order to create.</param>
+    /// <param name="db">The write-side database context.</param>
+    /// <param name="bus">The message bus used to publish the integration event.</param>
+    /// <param name="ct">A token used to cancel the operation.</param>
+    /// <returns>The created order represented as an <see cref="OrderDto"/>.</returns>
     public static async Task<OrderDto> Handle(
         CreateOrderCommand command,
         OrderDbContext db,
@@ -21,7 +32,7 @@ public static class CreateOrderHandler
         db.Orders.Add(order);
         await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        await bus.PublishAsync(new OrderPlacedIntegrationEvent(order), ct).ConfigureAwait(false);
+        await bus.PublishAsync(new OrderPlacedIntegrationEvent(order)).ConfigureAwait(false);
 
         return OrderMapper.ToDto(order);
     }

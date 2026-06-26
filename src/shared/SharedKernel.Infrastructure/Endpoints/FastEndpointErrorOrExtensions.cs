@@ -14,6 +14,12 @@ public static class FastEndpointErrorOrExtensions
     /// <summary>
     /// Sends either a successful response or problem details for an ErrorOr result.
     /// </summary>
+    /// <typeparam name="TResponse">The type of the successful response value.</typeparam>
+    /// <param name="endpoint">The endpoint whose HTTP context is used to write the response.</param>
+    /// <param name="result">The ErrorOr result containing either the response value or the errors to report.</param>
+    /// <param name="successStatusCode">The HTTP status code to set when the result is successful.</param>
+    /// <param name="cancellation">The token used to cancel writing the response.</param>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     [RequiresDynamicCode("Calls HttpResponse.WriteAsJsonAsync which may require dynamic code at runtime.")]
     public static async Task SendAsync<TResponse>(
         this EndpointWithoutRequest<TResponse> endpoint,
@@ -35,6 +41,13 @@ public static class FastEndpointErrorOrExtensions
     /// <summary>
     /// Sends either a successful response or problem details for an ErrorOr result.
     /// </summary>
+    /// <typeparam name="TRequest">The type of the endpoint's request model.</typeparam>
+    /// <typeparam name="TResponse">The type of the successful response value.</typeparam>
+    /// <param name="endpoint">The endpoint whose HTTP context is used to write the response.</param>
+    /// <param name="result">The ErrorOr result containing either the response value or the errors to report.</param>
+    /// <param name="successStatusCode">The HTTP status code to set when the result is successful.</param>
+    /// <param name="cancellation">The token used to cancel writing the response.</param>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     [RequiresDynamicCode("Calls HttpResponse.WriteAsJsonAsync which may require dynamic code at runtime.")]
     public static async Task SendAsync<TRequest, TResponse>(
         this Endpoint<TRequest, TResponse> endpoint,
@@ -56,6 +69,12 @@ public static class FastEndpointErrorOrExtensions
     /// <summary>
     /// Sends either a no-content success or problem details for an ErrorOr deleted result.
     /// </summary>
+    /// <typeparam name="TRequest">The type of the endpoint's request model.</typeparam>
+    /// <typeparam name="TResponse">The type of the endpoint's response model.</typeparam>
+    /// <param name="endpoint">The endpoint whose HTTP context is used to write the response.</param>
+    /// <param name="result">The ErrorOr deleted result indicating success or the errors to report.</param>
+    /// <param name="cancellation">The token used to cancel writing the response.</param>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task SendNoContentAsync<TRequest, TResponse>(
         this Endpoint<TRequest, TResponse> endpoint,
         ErrorOr<Deleted> result,
@@ -74,6 +93,13 @@ public static class FastEndpointErrorOrExtensions
     /// <summary>
     /// Sends either a no-content success or problem details for an ErrorOr result.
     /// </summary>
+    /// <typeparam name="TRequest">The type of the endpoint's request model.</typeparam>
+    /// <typeparam name="TResponse">The type of the endpoint's response model.</typeparam>
+    /// <typeparam name="TValue">The type of the value carried by the ErrorOr result.</typeparam>
+    /// <param name="endpoint">The endpoint whose HTTP context is used to write the response.</param>
+    /// <param name="result">The ErrorOr result indicating success or the errors to report.</param>
+    /// <param name="cancellation">The token used to cancel writing the response.</param>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task SendNoContentAsync<TRequest, TResponse, TValue>(
         this Endpoint<TRequest, TResponse> endpoint,
         ErrorOr<TValue> result,
@@ -92,6 +118,12 @@ public static class FastEndpointErrorOrExtensions
     /// <summary>
     /// Sends either a 200 OK (empty body) or problem details for an ErrorOr Success result.
     /// </summary>
+    /// <typeparam name="TRequest">The type of the endpoint's request model.</typeparam>
+    /// <typeparam name="TResponse">The type of the endpoint's response model.</typeparam>
+    /// <param name="endpoint">The endpoint whose HTTP context is used to write the response.</param>
+    /// <param name="result">The ErrorOr success result indicating success or the errors to report.</param>
+    /// <param name="cancellation">The token used to cancel writing the response.</param>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task SendSuccessAsync<TRequest, TResponse>(
         this Endpoint<TRequest, TResponse> endpoint,
         ErrorOr<Success> result,
@@ -110,6 +142,13 @@ public static class FastEndpointErrorOrExtensions
     /// <summary>
     /// Sends either a created response or problem details for an ErrorOr result.
     /// </summary>
+    /// <typeparam name="TRequest">The type of the endpoint's request model.</typeparam>
+    /// <typeparam name="TResponse">The type of the successful response value.</typeparam>
+    /// <param name="endpoint">The endpoint whose HTTP context is used to write the response.</param>
+    /// <param name="result">The ErrorOr result containing either the created response value or the errors to report.</param>
+    /// <param name="locationFactory">A delegate that builds the Location header value from the created response value.</param>
+    /// <param name="cancellation">The token used to cancel writing the response.</param>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     public static async Task SendCreatedAsync<TRequest, TResponse>(
         this Endpoint<TRequest, TResponse> endpoint,
         ErrorOr<TResponse> result,

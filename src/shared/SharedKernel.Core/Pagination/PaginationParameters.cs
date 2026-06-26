@@ -1,38 +1,38 @@
-namespace SharedKernel.Core.Pagination
+namespace SharedKernel.Core.Pagination;
+
+/// <summary>
+/// The pagination parameters.
+/// </summary>
+public abstract class PaginationParameters
 {
     /// <summary>
-    /// The pagination parameters.
+    /// Gets or sets the page.
     /// </summary>
-    public abstract class PaginationParameters
+    public virtual int Page { get; set; } = 1;
+
+    /// <summary>
+    /// Gets or sets the size.
+    /// </summary>
+    public int Size
     {
-        /// <summary>
-        /// Gets the max page size.
-        /// </summary>
-        internal virtual int MaxPageSize { get; } = 100;
-
-        /// <summary>
-        /// Gets or sets the default page size.
-        /// </summary>
-        internal virtual int DefaultPageSize { get; set; } = 10;
-
-        /// <summary>
-        /// Gets or sets the page.
-        /// </summary>
-        public virtual int Page { get; set; } = 1;
-
-        /// <summary>
-        /// Gets or sets the size.
-        /// </summary>
-        public int Size
+        get
         {
-            get
-            {
-                return DefaultPageSize;
-            }
-            set
-            {
-                DefaultPageSize = value > MaxPageSize ? MaxPageSize : value;
-            }
+            return DefaultPageSize;
+        }
+
+        set
+        {
+            DefaultPageSize = value > MaxPageSize ? MaxPageSize : value;
         }
     }
+
+    /// <summary>
+    /// Gets the max page size.
+    /// </summary>
+    internal virtual int MaxPageSize { get; } = 100;
+
+    /// <summary>
+    /// Gets or sets the default page size.
+    /// </summary>
+    internal virtual int DefaultPageSize { get; set; } = 10;
 }

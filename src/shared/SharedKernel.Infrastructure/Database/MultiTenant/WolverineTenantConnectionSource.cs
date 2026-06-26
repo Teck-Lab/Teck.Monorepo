@@ -20,11 +20,6 @@ public sealed class WolverineTenantConnectionSource : IDynamicTenantSource<strin
     private bool strictTenantResolution;
 
     /// <summary>
-    /// Gets the default shared-database write connection string.
-    /// </summary>
-    public string DefaultWriteConnectionString { get; }
-
-    /// <summary>
     /// Initializes a new instance of the <see cref="WolverineTenantConnectionSource"/> class.
     /// </summary>
     /// <param name="defaultWriteConnectionString">The default shared database connection string.</param>
@@ -32,6 +27,14 @@ public sealed class WolverineTenantConnectionSource : IDynamicTenantSource<strin
     {
         this.DefaultWriteConnectionString = defaultWriteConnectionString;
     }
+
+    /// <summary>
+    /// Gets the default shared-database write connection string.
+    /// </summary>
+    public string DefaultWriteConnectionString { get; }
+
+    /// <inheritdoc/>
+    public DatabaseCardinality Cardinality => DatabaseCardinality.DynamicMultiple;
 
     /// <inheritdoc/>
     public Task AddTenantAsync(string tenantId, string value)
@@ -86,9 +89,6 @@ public sealed class WolverineTenantConnectionSource : IDynamicTenantSource<strin
 
         return Task.CompletedTask;
     }
-
-    /// <inheritdoc/>
-    public DatabaseCardinality Cardinality => DatabaseCardinality.DynamicMultiple;
 
     /// <summary>
     /// Registers an on-demand resolver used when a tenant mapping is missing.

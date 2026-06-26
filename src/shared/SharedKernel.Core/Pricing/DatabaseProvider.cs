@@ -13,21 +13,6 @@ public sealed class DatabaseProvider : SmartEnum<DatabaseProvider>
     public static readonly DatabaseProvider PostgreSQL = new(nameof(PostgreSQL), 1, "PostgreSQL", "Npgsql", 1.0m);
 
     /// <summary>
-    /// Gets the display name of the provider.
-    /// </summary>
-    public string DisplayName { get; }
-
-    /// <summary>
-    /// Gets the connection string provider name.
-    /// </summary>
-    public string ProviderName { get; }
-
-    /// <summary>
-    /// Gets the cost multiplier for this database provider.
-    /// </summary>
-    public decimal CostMultiplier { get; }
-
-    /// <summary>
     /// Initializes a new instance of the <see cref="DatabaseProvider"/> class.
     /// </summary>
     /// <param name="name">The name of the provider.</param>
@@ -44,8 +29,25 @@ public sealed class DatabaseProvider : SmartEnum<DatabaseProvider>
     }
 
     /// <summary>
+    /// Gets the display name of the provider.
+    /// </summary>
+    public string DisplayName { get; }
+
+    /// <summary>
+    /// Gets the connection string provider name.
+    /// </summary>
+    public string ProviderName { get; }
+
+    /// <summary>
+    /// Gets the cost multiplier for this database provider.
+    /// </summary>
+    public decimal CostMultiplier { get; }
+
+    /// <summary>
     /// Checks if this provider is compatible with the specified database options.
     /// With PostgreSQL as the only provider, this is always true for PostgreSQL.
     /// </summary>
+    /// <param name="options">The database options to evaluate compatibility against.</param>
+    /// <returns><c>true</c> when the provider is compatible with the supplied options.</returns>
     public bool IsCompatibleWith(DatabaseOptions options) => true;
 }

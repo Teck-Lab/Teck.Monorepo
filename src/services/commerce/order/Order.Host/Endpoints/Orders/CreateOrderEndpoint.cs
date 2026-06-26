@@ -1,30 +1,32 @@
-using Order.Application.Orders.Features.CreateOrder.V1;
-using Order.Application.Orders.Responses;
-using FastEndpoints;
+using Orders.Application.Orders.Features.CreateOrder.V1;
+using Orders.Application.Orders.Responses;
 using SharedKernel.Infrastructure.Endpoints;
 using Wolverine;
 
-namespace Order.Host.Endpoints.Orders;
+namespace Orders.Host.Endpoints.Orders;
 
+/// <summary>
+/// Endpoint that creates a new order.
+/// </summary>
+/// <param name="bus">The message bus used to dispatch the create order command.</param>
 public sealed class CreateOrderEndpoint(IMessageBus bus) : AuthenticatedEndpoint<CreateOrderRequest, OrderDto>
 {
     private readonly IMessageBus _bus = bus;
 
-    protected override void ConfigureEndpoint()
-    {
-        AllowAnonymous();
-        Post("/orders");
-    }
-
+    /// <inheritdoc/>
     public override async Task HandleAsync(CreateOrderRequest request, CancellationToken ct)
     {
         var command = new CreateOrderCommand(request.CustomerId, request.Lines);
         var result = await _bus.InvokeAsync<OrderDto>(command, ct);
 
-        HttpContext.Response.StatusCode = StatusCodes.Status201Created;
         HttpContext.Response.Headers.Location = $"/orders/{result.Id}";
-        await SendAsync(result);
+        await Send.ResponseAsync(result, StatusCodes.Status201Created, ct);
+    }
+
+    /// <inheritdoc/>
+    protected override void ConfigureEndpoint()
+    {
+        AllowAnonymous();
+        Post("/orders");
     }
 }
-
-public sealed record CreateOrderRequest(Guid CustomerId, List<CreateOrderLine> Lines);

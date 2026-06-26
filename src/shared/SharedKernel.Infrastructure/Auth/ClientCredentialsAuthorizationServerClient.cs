@@ -1,4 +1,4 @@
-﻿// <copyright file="ClientCredentialsAuthorizationServerClient.cs" company="TeckLab">
+// <copyright file="ClientCredentialsAuthorizationServerClient.cs" company="TeckLab">
 // Copyright (c) TeckLab. All rights reserved.
 // </copyright>
 

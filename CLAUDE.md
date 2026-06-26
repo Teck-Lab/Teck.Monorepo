@@ -41,6 +41,8 @@ bun run generate    # regenerate @teck/api-client TS types from specs/  (run bef
 
 .NET: SDK 10.0.300 (`global.json`), central package versions (`Directory.Packages.props`), `net10.0` / nullable / implicit usings from root `Directory.Build.props`. Solution file is `Teck.Platform.slnx`.
 
+**Analyzers are enforced as build errors** (`TreatWarningsAsErrors=true`). The root `.editorconfig` is an **allowlist** — a `severity = none` floor plus explicitly opted-in StyleCop/IDE rules (using/member ordering, layout, file hygiene, file-scoped namespaces, and public-API XML docs via `stylecop.json`). Document public types/members; keep usings ordered and file-scoped namespaces. Full rule list and rationale: `src/services/AGENTS.md` → "Code Style & Analyzer Enforcement". Don't add blanket suppressions — opt rules into the allowlist instead.
+
 ## Architecture rules that span multiple files
 
 These are the constraints that aren't obvious from any single file and are enforced by ArchUnitNET tests in `tests/architecture/` (they **fail the build**):

@@ -35,6 +35,13 @@ public sealed class Product : BaseEntity, IAggregateRoot, ITenantScoped
     public IReadOnlyList<Variant> Variants => _variants;
 
     /// <summary>Creates a product with a single default variant.</summary>
+    /// <param name="tenantId">The owning tenant id.</param>
+    /// <param name="name">The product name.</param>
+    /// <param name="description">The optional description.</param>
+    /// <param name="categoryId">The optional category id.</param>
+    /// <param name="sku">The stock-keeping unit of the default variant.</param>
+    /// <param name="sellPrice">The sell price of the default variant.</param>
+    /// <returns>The newly created product.</returns>
     public static Product Create(string tenantId, string name, string? description, Guid? categoryId, string sku, Money sellPrice)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -59,6 +66,10 @@ public sealed class Product : BaseEntity, IAggregateRoot, ITenantScoped
     }
 
     /// <summary>Adds a non-default variant and raises <see cref="VariantCreated"/>.</summary>
+    /// <param name="sku">The stock-keeping unit of the new variant.</param>
+    /// <param name="sellPrice">The sell price of the new variant.</param>
+    /// <param name="attributes">The descriptive attributes of the new variant.</param>
+    /// <returns>The id of the newly added variant.</returns>
     public Guid AddVariant(string sku, Money sellPrice, IEnumerable<VariantAttribute> attributes)
     {
         var variant = Variant.Create(sku, sellPrice, isDefault: false, attributes: attributes);
@@ -68,6 +79,8 @@ public sealed class Product : BaseEntity, IAggregateRoot, ITenantScoped
     }
 
     /// <summary>Changes a variant's sell price; raises an event only on a real change.</summary>
+    /// <param name="variantId">The id of the variant to reprice.</param>
+    /// <param name="newPrice">The new sell price.</param>
     public void ChangeVariantSellPrice(Guid variantId, Money newPrice)
     {
         ArgumentNullException.ThrowIfNull(newPrice);
@@ -84,6 +97,14 @@ public sealed class Product : BaseEntity, IAggregateRoot, ITenantScoped
     }
 
     /// <summary>Links a supplier to a variant with sourcing details.</summary>
+    /// <param name="variantId">The id of the variant to source.</param>
+    /// <param name="supplierId">The id of the supplier to link.</param>
+    /// <param name="costPrice">The supplier cost price.</param>
+    /// <param name="supplierSku">The supplier's own SKU for this variant.</param>
+    /// <param name="leadTimeDays">The lead time in days.</param>
+    /// <param name="minOrderQuantity">The minimum order quantity.</param>
+    /// <param name="isPreferred">Whether this becomes the preferred supplier for the variant.</param>
+    /// <returns>The id of the created variant-supplier link.</returns>
     public Guid LinkSupplier(
         Guid variantId,
         Guid supplierId,
@@ -99,6 +120,9 @@ public sealed class Product : BaseEntity, IAggregateRoot, ITenantScoped
     }
 
     /// <summary>Changes a variant↔supplier cost price, recording history.</summary>
+    /// <param name="variantId">The id of the affected variant.</param>
+    /// <param name="supplierId">The id of the supplier whose cost changes.</param>
+    /// <param name="newCost">The new supplier cost price.</param>
     public void ChangeSupplierCost(Guid variantId, Guid supplierId, Money newCost)
     {
         ArgumentNullException.ThrowIfNull(newCost);
@@ -116,6 +140,8 @@ public sealed class Product : BaseEntity, IAggregateRoot, ITenantScoped
     }
 
     /// <summary>Sets the single preferred supplier for a variant.</summary>
+    /// <param name="variantId">The id of the affected variant.</param>
+    /// <param name="supplierId">The id of the supplier to mark as preferred.</param>
     public void SetPreferredSupplier(Guid variantId, Guid supplierId)
     {
         var variant = RequireVariant(variantId);

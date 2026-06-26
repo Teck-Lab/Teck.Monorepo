@@ -1,9 +1,9 @@
-using Order.Application.Orders.Features.CreateOrder.V1;
-using Order.Application.Orders.Mapping;
-using Order.Domain.Entities;
+using Orders.Application.Orders.Features.CreateOrder.V1;
+using Orders.Application.Orders.Mapping;
+using Orders.Domain.Entities;
 using Xunit;
 
-namespace Order.UnitTests;
+namespace Orders.UnitTests;
 
 public sealed class OrderMapperTests
 {
@@ -11,7 +11,7 @@ public sealed class OrderMapperTests
     public void ToDto_WithOrder_MapsCorrectly()
     {
         var customerId = Guid.NewGuid();
-        var orderLine = new Order.Domain.Entities.OrderLine(Guid.NewGuid(), "Test Product", 2, 10m);
+        var orderLine = new Orders.Domain.Entities.OrderLine(Guid.NewGuid(), "Test Product", 2, 10m);
         var order = Order.Create(customerId, "tenant-1", [orderLine]);
 
         var dto = OrderMapper.ToDto(order);

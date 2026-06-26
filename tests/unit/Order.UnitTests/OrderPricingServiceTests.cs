@@ -1,8 +1,8 @@
-using Order.Domain.Entities;
-using Order.Domain.Services;
+using Orders.Domain.Entities;
+using Orders.Domain.Services;
 using Xunit;
 
-namespace Order.UnitTests;
+namespace Orders.UnitTests;
 
 public sealed class OrderPricingServiceTests
 {

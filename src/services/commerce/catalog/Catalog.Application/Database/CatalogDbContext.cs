@@ -10,6 +10,8 @@ namespace Catalog.Application.Database;
 /// The catalog write context (tracked). The DbContext is the unit of work.
 /// Plan 3 adds <c>CatalogReadDbContext : CatalogDbContext</c> (NoTracking) + Npgsql + migrations in the Host.
 /// </summary>
+/// <param name="options">The options used to configure the context.</param>
+/// <param name="tenantContextAccessor">The accessor used to resolve the current tenant for multi-tenant isolation.</param>
 public class CatalogDbContext(DbContextOptions options, IMultiTenantContextAccessor<TenantDetails> tenantContextAccessor)
     : BaseDbContext(options, tenantAccessor: tenantContextAccessor)
 {

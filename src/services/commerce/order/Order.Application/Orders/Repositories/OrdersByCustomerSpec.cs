@@ -1,11 +1,18 @@
 using Ardalis.Specification;
-using Order.Application.Orders.ReadModels;
-using Order.Domain.Entities;
+using Orders.Application.Orders.ReadModels;
+using Orders.Domain.Entities;
 
-namespace Order.Application.Orders.Repositories;
+namespace Orders.Application.Orders.Repositories;
 
+/// <summary>
+/// Specification that projects a customer's most recent orders into summary form.
+/// </summary>
 public sealed class OrdersByCustomerSpec : Specification<Order, OrderSummaryDto>
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="OrdersByCustomerSpec"/> class.
+    /// </summary>
+    /// <param name="customerId">The identifier of the customer whose orders are retrieved.</param>
     public OrdersByCustomerSpec(Guid customerId)
     {
         Query
