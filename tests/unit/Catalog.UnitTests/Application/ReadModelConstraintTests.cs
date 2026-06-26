@@ -11,4 +11,12 @@ public sealed class ReadModelConstraintTests
     {
         Assert.True(typeof(IReadModel<System.Guid>).IsAssignableFrom(typeof(Product)));
     }
+
+    [Fact]
+    public void WriteRepository_DoesNotExposeSaveChanges()
+    {
+        var method = typeof(SharedKernel.Core.Database.IGenericWriteRepository<,>)
+            .GetMethod("SaveChangesAsync");
+        Assert.Null(method);
+    }
 }
