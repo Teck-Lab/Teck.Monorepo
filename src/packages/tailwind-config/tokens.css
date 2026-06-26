@@ -1,0 +1,19 @@
+/* Shared design tokens — the single source of truth for web + native.
+   Values are HSL channels so both Tailwind v4 (@theme) and NativeWind can
+   wrap them in hsl(). Change a value here and BOTH platforms update. */
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  --primary: 221 83% 53%;
+  --primary-foreground: 210 40% 98%;
+  --border: 214 32% 91%;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: 222 47% 11%;
+  --foreground: 210 40% 98%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 222 47% 11%;
+  --border: 217 33% 17%;
+}
