@@ -17,5 +17,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\services\commerce\catalog\Catalog.Domain\Catalog.Domain.csproj" />
     <ProjectReference Include="..\..\..\src\services\commerce\catalog\Catalog.Application\Catalog.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\services\commerce\catalog\Catalog.Host\Catalog.Host.csproj" />
   </ItemGroup>
 </Project>
