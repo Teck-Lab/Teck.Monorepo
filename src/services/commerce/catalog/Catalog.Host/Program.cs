@@ -1,3 +1,4 @@
+using Catalog.Host.Database;
 using Keycloak.AuthServices.Authentication;
 using SharedKernel.Infrastructure.Auth;
 using SharedKernel.Infrastructure.Behaviors;
@@ -9,6 +10,7 @@ using Wolverine;
 var builder = WebApplication.CreateBuilder(args);
 builder.AddTeckCloudObservability();
 builder.Services.AddTeckService(typeof(Program).Assembly, builder.Configuration);
+builder.AddCatalogPersistence();
 builder.Services.AddKeycloak(builder.Configuration, builder.Environment,
     builder.Configuration.GetSection("Keycloak").Get<KeycloakAuthenticationOptions>()!);
 builder.Host.UseWolverine(opts =>
