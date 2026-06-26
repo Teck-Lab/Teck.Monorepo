@@ -6,14 +6,29 @@
     "moduleResolution": "bundler",
     "module": "esnext",
     "target": "es2022",
-    "lib": ["es2022", "dom", "dom.iterable"],
+    "lib": [
+      "es2022",
+      "dom",
+      "dom.iterable"
+    ],
     "jsx": "preserve",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@teck/tailwind-config/*": ["src/packages/tailwind-config/*"]
+      "@teck/tailwind-config/*": [
+        "src/packages/tailwind-config/*"
+      ],
+      "@teck/ui": [
+        "./src/packages/ui/src/index.ts"
+      ],
+      "@teck/ui/*": [
+        "src/packages/ui/src/*"
+      ]
     }
   },
-  "exclude": ["node_modules", "tmp"]
+  "exclude": [
+    "node_modules",
+    "tmp"
+  ]
 }
