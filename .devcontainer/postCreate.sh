@@ -17,6 +17,43 @@ bun install --frozen-lockfile || echo "WARN: bun install reported errors (contin
 echo "==> Ensuring a local HTTPS development certificate exists"
 dotnet dev-certs https || echo "WARN: could not create HTTPS dev cert (continuing)"
 
+# --- Persisted, cross-container credentials --------------------------------
+# `~/.config/gh` and `~/.ssh` are backed by FIXED-name Docker volumes
+# (shared-gh-config / shared-ssh) declared in devcontainer.json, so anything
+# stored there survives rebuilds AND is shared by every container that mounts
+# the same volume names. Fresh volumes are created root-owned, so reclaim them.
+echo "==> Fixing ownership/permissions on persisted credential volumes"
+if command -v sudo >/dev/null 2>&1; then
+  sudo chown -R "$(id -u):$(id -g)" "$HOME/.ssh" "$HOME/.config/gh" 2>/dev/null || true
+fi
+chmod 700 "$HOME/.ssh" 2>/dev/null || true
+
+# Let git reuse the gh token for HTTPS (push/pull, gh pr, etc.). The login
+# itself lives in the shared volume, so you only run `gh auth login` once.
+echo "==> Wiring gh as the git credential helper"
+if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+  gh auth setup-git || echo "WARN: gh auth setup-git failed (continuing)"
+else
+  echo "    gh is not authenticated yet — run 'gh auth login' once; it persists in the shared volume"
+fi
+
+# Enable SSH-based commit signing using the agent VS Code forwards from your
+# host. Only do this if signing is not already configured (so an inherited GPG
+# setup is respected) and a key is actually available.
+echo "==> Configuring SSH commit signing"
+if [ -z "$(git config --global --get commit.gpgsign || true)" ]; then
+  SIGNING_KEY="$(ssh-add -L 2>/dev/null | head -n1 || true)"
+  if [ -n "$SIGNING_KEY" ]; then
+    git config --global gpg.format ssh
+    git config --global user.signingkey "$SIGNING_KEY"
+    git config --global commit.gpgsign true
+    git config --global tag.gpgsign true
+    echo "    SSH commit signing enabled using the forwarded agent key"
+  else
+    echo "    No SSH key in the forwarded agent and no signing configured — commits will be unsigned"
+  fi
+fi
+
 echo "==> Installing low-prompt 'claude' alias in ~/.bashrc"
 ALIAS_LINE="alias claude='claude --dangerously-skip-permissions'"
 if ! grep -qxF "$ALIAS_LINE" "$HOME/.bashrc" 2>/dev/null; then

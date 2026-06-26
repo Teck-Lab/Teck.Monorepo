@@ -12,6 +12,7 @@
     "ghcr.io/devcontainers/features/node:1": {
       "version": "lts"
     },
+    "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },
   "remoteUser": "vscode",
@@ -21,7 +22,9 @@
     "NUGET_XMLDOC_MODE": "skip"
   },
   "mounts": [
-    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume"
+    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
+    "source=shared-gh-config,target=/home/vscode/.config/gh,type=volume",
+    "source=shared-ssh,target=/home/vscode/.ssh,type=volume"
   ],
   "forwardPorts": [18888, 3000, 8080],
   "portsAttributes": {

@@ -19,9 +19,30 @@ In VS Code: Command Palette → **Dev Containers: Reopen in Container** (first b
 | Bun | `1.2.0` | `bun` feature |
 | Node | LTS | `node` feature (Nx runtime) |
 | Docker | Docker-in-Docker | `docker-in-docker` feature |
+| GitHub CLI | latest | `github-cli` feature (`gh`) |
 | Claude Code | latest | `claude-code` feature (CLI + VS Code extension) |
 
-`postCreate.sh` runs `dotnet restore`, `bun install --frozen-lockfile`, creates an HTTPS dev cert, and installs a `claude` shell alias (see Security below).
+`postCreate.sh` runs `dotnet restore`, `bun install --frozen-lockfile`, creates an HTTPS dev cert, wires `gh` as the git credential helper, configures SSH commit signing, and installs a `claude` shell alias (see Security below).
+
+## Git, GitHub & commit signing
+
+The goal: authenticate once, and have it survive rebuilds **and** be shared by every dev container.
+
+- **Git identity & HTTPS push (VS Code):** VS Code automatically copies your host `~/.gitconfig` (so `user.name`/`user.email` are set) and proxies your host git credentials into the container, so `git push` over HTTPS works with no setup.
+- **`gh` CLI:** run **`gh auth login` once**. The token is stored in `~/.config/gh`, which is backed by the fixed-name `shared-gh-config` volume — so the login persists across rebuilds and is reused by any other container that mounts the same volume. `postCreate.sh` also runs `gh auth setup-git`, so git HTTPS operations can fall back to the `gh` token too.
+- **Commit signing (SSH):** if you run a local `ssh-agent` with a key loaded, VS Code forwards the agent into the container. `postCreate.sh` then enables SSH commit signing (`gpg.format=ssh`, `commit.gpgsign=true`) using that key — **no private key is ever copied into the container**, only the agent socket is forwarded. An inherited GPG signing config is left untouched. `~/.ssh` is backed by the `shared-ssh` volume, so `known_hosts` (and anything else you put there) persists and is shared too.
+
+### Persisted & shared across containers
+
+| Path | Volume | Scope |
+|---|---|---|
+| `~/.claude` | `claude-code-config-${devcontainerId}` | **per project** (the `${devcontainerId}` suffix) |
+| `~/.config/gh` | `shared-gh-config` | **shared** by every container mounting this name |
+| `~/.ssh` | `shared-ssh` | **shared** by every container mounting this name |
+
+To share the same credentials with **another repo's** dev container, declare the same fixed-name volumes (`shared-gh-config`, `shared-ssh`) in that repo's `devcontainer.json`. To go back to per-project isolation, add a `-${devcontainerId}` suffix to the volume name. (The `~/.claude` volume is per-project on purpose; give it a fixed name too if you want Claude's auth shared.)
+
+> Alternative: instead of named volumes you can bind-mount the host's real `~/.config/gh` and `~/.ssh` (`source=${localEnv:HOME}/.ssh,...,type=bind`) for a single host+container source of truth. That's more convenient but exposes your real host SSH **private keys** to this convenience-first container — see Security.
 
 ## Running things
 
@@ -40,5 +61,6 @@ This container is **convenience-first**, not hardened:
 - It runs **privileged** (required by Docker-in-Docker).
 - `claude` is aliased to `claude --dangerously-skip-permissions`, so Claude runs tool calls without asking. Run the bare binary path (`$(which claude)`) if you want prompts back.
 - Claude can modify any file in the bind-mounted workspace — **which is your real host repository** — and reach anything the container's network allows (there is no egress firewall).
+- The persisted `gh` token and SSH state live in shared Docker volumes, and the forwarded SSH agent is reachable from inside the container — so Claude can push and sign commits **as you**, unprompted. That's the cost of convenience-first persistence.
 
-**Only use this with trusted code, and monitor what Claude does.** Avoid mounting host secrets (`~/.ssh`, cloud credential files) into the container.
+**Only use this with trusted code, and monitor what Claude does.** SSH agent forwarding and named credential volumes keep your private key material on the host (only the agent socket / a container-local volume is exposed). **Do not bind-mount your host's real `~/.ssh` private keys or cloud credential files** into this container unless you accept that trusted-only code can read them.
