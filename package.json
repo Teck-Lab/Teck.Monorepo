@@ -17,11 +17,13 @@
     "clean": "nx reset"
   },
   "devDependencies": {
+    "@nx/devkit": "latest",
     "@nx/dotnet": "latest",
+    "@nx/expo": "23.0.0",
     "@nx/js": "latest",
     "@nx/next": "latest",
+    "@nx/react": "23.0.0",
     "@nx/storybook": "latest",
-    "@nx/devkit": "latest",
     "nx": "latest",
     "typescript": "^5.7.0"
   },

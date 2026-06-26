@@ -46,6 +46,18 @@
         "buildStorybookTargetName": "build-storybook",
         "serveStorybookTargetName": "storybook"
       }
+    },
+    {
+      "plugin": "@nx/expo/plugin",
+      "include": ["src/apps/mobile"],
+      "options": {
+        "startTargetName": "start",
+        "serveTargetName": "serve",
+        "buildTargetName": "build",
+        "prebuildTargetName": "prebuild",
+        "installTargetName": "install",
+        "exportTargetName": "export"
+      }
     }
   ],
   "targetDefaults": {
