@@ -57,8 +57,7 @@ if [ -n "$SIGNING_KEY" ]; then
   fi
 
   # Register the public key with GitHub as a *signing* key (idempotent). This
-  # is what turns commits "Verified". Needs the admin:ssh_signing_key scope,
-  # which a GH_TOKEN PAT can carry so this is fully non-interactive.
+  # is what turns commits "Verified". Needs the admin:ssh_signing_key scope.
   if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
     KEY_BODY="$(printf '%s' "$SIGNING_KEY" | awk '{print $2}')"
     if gh ssh-key list 2>/dev/null | grep -qF "$KEY_BODY"; then
@@ -71,8 +70,7 @@ if [ -n "$SIGNING_KEY" ]; then
       else
         cat > "$HINT_FILE" <<'HINT'
 [devcontainer] Commits sign locally but are NOT yet "Verified" on GitHub.
-Grant the one-time scope and register the key (or set a GH_TOKEN PAT with the
-admin:ssh_signing_key scope — see .devcontainer/README.md):
+Grant the one-time scope and register the key:
     gh auth refresh -h github.com -s admin:ssh_signing_key
     bash .devcontainer/postCreate.sh
 HINT
@@ -82,7 +80,7 @@ HINT
   else
     cat > "$HINT_FILE" <<'HINT'
 [devcontainer] Commits will sign and become "Verified" once gh is authenticated:
-    gh auth login        # or set a GH_TOKEN PAT, see .devcontainer/README.md
+    gh auth login
     bash .devcontainer/postCreate.sh
 HINT
   fi
