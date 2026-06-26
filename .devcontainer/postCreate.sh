@@ -38,18 +38,43 @@ else
 fi
 
 # Enable SSH-based commit signing using the agent VS Code forwards from your
-# host. Only do this if signing is not already configured (so an inherited GPG
-# setup is respected) and a key is actually available.
+# host, then register the PUBLIC key with GitHub as a signing key so commits
+# show the green "Verified" badge. No private key ever enters the container.
 echo "==> Configuring SSH commit signing"
-if [ -z "$(git config --global --get commit.gpgsign || true)" ]; then
-  SIGNING_KEY="$(ssh-add -L 2>/dev/null | head -n1 || true)"
-  if [ -n "$SIGNING_KEY" ]; then
+SIGNING_KEY="$(ssh-add -L 2>/dev/null | head -n1 || true)"
+if [ -n "$SIGNING_KEY" ]; then
+  # Turn signing on only if it isn't already configured (respect inherited GPG).
+  if [ -z "$(git config --global --get commit.gpgsign || true)" ]; then
     git config --global gpg.format ssh
     git config --global user.signingkey "$SIGNING_KEY"
     git config --global commit.gpgsign true
     git config --global tag.gpgsign true
     echo "    SSH commit signing enabled using the forwarded agent key"
+  fi
+
+  # Register the public key with GitHub as a *signing* key (idempotent). This
+  # is what turns commits "Verified". Needs the admin:ssh_signing_key scope.
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    KEY_BODY="$(printf '%s' "$SIGNING_KEY" | awk '{print $2}')"
+    if gh ssh-key list 2>/dev/null | grep -qF "$KEY_BODY"; then
+      echo "    Signing key already registered on GitHub"
+    else
+      TMP_PUB="$(mktemp)"
+      printf '%s\n' "$SIGNING_KEY" > "$TMP_PUB"
+      if gh ssh-key add "$TMP_PUB" --type signing --title "devcontainer signing key" 2>/dev/null; then
+        echo "    Registered SSH signing key on GitHub — commits will show Verified"
+      else
+        echo "    Could not auto-register the signing key (missing scope?). Run once:"
+        echo "        gh auth refresh -h github.com -s admin:ssh_signing_key"
+        echo "    then re-run: bash .devcontainer/postCreate.sh"
+      fi
+      rm -f "$TMP_PUB"
+    fi
   else
+    echo "    Run 'gh auth login' so the next rebuild can auto-register the signing key"
+  fi
+else
+  if [ -z "$(git config --global --get commit.gpgsign || true)" ]; then
     echo "    No SSH key in the forwarded agent and no signing configured — commits will be unsigned"
   fi
 fi

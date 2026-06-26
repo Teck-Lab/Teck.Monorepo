@@ -30,7 +30,16 @@ The goal: authenticate once, and have it survive rebuilds **and** be shared by e
 
 - **Git identity & HTTPS push (VS Code):** VS Code automatically copies your host `~/.gitconfig` (so `user.name`/`user.email` are set) and proxies your host git credentials into the container, so `git push` over HTTPS works with no setup.
 - **`gh` CLI:** run **`gh auth login` once**. The token is stored in `~/.config/gh`, which is backed by the fixed-name `shared-gh-config` volume — so the login persists across rebuilds and is reused by any other container that mounts the same volume. `postCreate.sh` also runs `gh auth setup-git`, so git HTTPS operations can fall back to the `gh` token too.
-- **Commit signing (SSH):** if you run a local `ssh-agent` with a key loaded, VS Code forwards the agent into the container. `postCreate.sh` then enables SSH commit signing (`gpg.format=ssh`, `commit.gpgsign=true`) using that key — **no private key is ever copied into the container**, only the agent socket is forwarded. An inherited GPG signing config is left untouched. `~/.ssh` is backed by the `shared-ssh` volume, so `known_hosts` (and anything else you put there) persists and is shared too.
+- **Commit signing (SSH) → green "Verified":** if you run a local `ssh-agent` with a key loaded, VS Code forwards the agent into the container. `postCreate.sh` then enables SSH commit signing (`gpg.format=ssh`, `commit.gpgsign=true`) using that key — **no private key is ever copied into the container**, only the agent socket is forwarded. An inherited GPG signing config is left untouched. `~/.ssh` is backed by the `shared-ssh` volume, so `known_hosts` (and anything else you put there) persists and is shared too.
+
+  For commits to show **Verified** on GitHub, your *public* key must be registered as a **Signing Key** (this is separate from any authentication key, even if it's the same key). `postCreate.sh` does this for you automatically via `gh ssh-key add --type signing` — **you never paste anything into github.com**. It needs one extra `gh` scope, granted once:
+
+  ```bash
+  gh auth refresh -h github.com -s admin:ssh_signing_key   # one time, in any container
+  bash .devcontainer/postCreate.sh                          # re-run to register the key now
+  ```
+
+  After that the key is on your GitHub account (and stored in the shared volume), so every container and future rebuild signs with it and your commits are Verified. If `gh` isn't authenticated or lacks the scope yet, signing still happens locally — commits just won't show the badge until the key is registered.
 
 ### Persisted & shared across containers
 
