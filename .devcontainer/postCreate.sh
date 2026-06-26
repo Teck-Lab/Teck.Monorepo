@@ -40,7 +40,11 @@ fi
 # Enable SSH-based commit signing using the agent VS Code forwards from your
 # host, then register the PUBLIC key with GitHub as a signing key so commits
 # show the green "Verified" badge. No private key ever enters the container.
+# Any step we cannot finish non-interactively is written to a hint file that
+# every new shell prints (see the reminder block below) until it is resolved.
 echo "==> Configuring SSH commit signing"
+HINT_FILE="$HOME/.devcontainer-signing-hint"
+rm -f "$HINT_FILE"
 SIGNING_KEY="$(ssh-add -L 2>/dev/null | head -n1 || true)"
 if [ -n "$SIGNING_KEY" ]; then
   # Turn signing on only if it isn't already configured (respect inherited GPG).
@@ -53,30 +57,50 @@ if [ -n "$SIGNING_KEY" ]; then
   fi
 
   # Register the public key with GitHub as a *signing* key (idempotent). This
-  # is what turns commits "Verified". Needs the admin:ssh_signing_key scope.
+  # is what turns commits "Verified". Needs the admin:ssh_signing_key scope,
+  # which a GH_TOKEN PAT can carry so this is fully non-interactive.
   if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
     KEY_BODY="$(printf '%s' "$SIGNING_KEY" | awk '{print $2}')"
     if gh ssh-key list 2>/dev/null | grep -qF "$KEY_BODY"; then
-      echo "    Signing key already registered on GitHub"
+      echo "    Signing key already registered on GitHub — commits will show Verified"
     else
       TMP_PUB="$(mktemp)"
       printf '%s\n' "$SIGNING_KEY" > "$TMP_PUB"
       if gh ssh-key add "$TMP_PUB" --type signing --title "devcontainer signing key" 2>/dev/null; then
         echo "    Registered SSH signing key on GitHub — commits will show Verified"
       else
-        echo "    Could not auto-register the signing key (missing scope?). Run once:"
-        echo "        gh auth refresh -h github.com -s admin:ssh_signing_key"
-        echo "    then re-run: bash .devcontainer/postCreate.sh"
+        cat > "$HINT_FILE" <<'HINT'
+[devcontainer] Commits sign locally but are NOT yet "Verified" on GitHub.
+Grant the one-time scope and register the key (or set a GH_TOKEN PAT with the
+admin:ssh_signing_key scope — see .devcontainer/README.md):
+    gh auth refresh -h github.com -s admin:ssh_signing_key
+    bash .devcontainer/postCreate.sh
+HINT
       fi
       rm -f "$TMP_PUB"
     fi
   else
-    echo "    Run 'gh auth login' so the next rebuild can auto-register the signing key"
+    cat > "$HINT_FILE" <<'HINT'
+[devcontainer] Commits will sign and become "Verified" once gh is authenticated:
+    gh auth login        # or set a GH_TOKEN PAT, see .devcontainer/README.md
+    bash .devcontainer/postCreate.sh
+HINT
   fi
 else
   if [ -z "$(git config --global --get commit.gpgsign || true)" ]; then
     echo "    No SSH key in the forwarded agent and no signing configured — commits will be unsigned"
   fi
+fi
+
+# Surface the pending-setup reminder in every new shell until it is resolved
+# (the hint file is removed above as soon as registration succeeds).
+REMIND_LINE='[ -f "$HOME/.devcontainer-signing-hint" ] && cat "$HOME/.devcontainer-signing-hint"'
+if ! grep -qxF "$REMIND_LINE" "$HOME/.bashrc" 2>/dev/null; then
+  printf '\n# Remind about pending commit-signing setup until it is done\n%s\n' "$REMIND_LINE" >> "$HOME/.bashrc"
+fi
+if [ -f "$HINT_FILE" ]; then
+  echo ""
+  cat "$HINT_FILE"
 fi
 
 echo "==> Installing low-prompt 'claude' alias in ~/.bashrc"

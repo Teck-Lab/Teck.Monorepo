@@ -32,14 +32,24 @@ The goal: authenticate once, and have it survive rebuilds **and** be shared by e
 - **`gh` CLI:** run **`gh auth login` once**. The token is stored in `~/.config/gh`, which is backed by the fixed-name `shared-gh-config` volume — so the login persists across rebuilds and is reused by any other container that mounts the same volume. `postCreate.sh` also runs `gh auth setup-git`, so git HTTPS operations can fall back to the `gh` token too.
 - **Commit signing (SSH) → green "Verified":** if you run a local `ssh-agent` with a key loaded, VS Code forwards the agent into the container. `postCreate.sh` then enables SSH commit signing (`gpg.format=ssh`, `commit.gpgsign=true`) using that key — **no private key is ever copied into the container**, only the agent socket is forwarded. An inherited GPG signing config is left untouched. `~/.ssh` is backed by the `shared-ssh` volume, so `known_hosts` (and anything else you put there) persists and is shared too.
 
-  For commits to show **Verified** on GitHub, your *public* key must be registered as a **Signing Key** (this is separate from any authentication key, even if it's the same key). `postCreate.sh` does this for you automatically via `gh ssh-key add --type signing` — **you never paste anything into github.com**. It needs one extra `gh` scope, granted once:
+  For commits to show **Verified** on GitHub, your *public* key must be registered as a **Signing Key** (this is separate from any authentication key, even if it's the same key). `postCreate.sh` does this for you automatically via `gh ssh-key add --type signing` — **you never paste anything into github.com**.
 
-  ```bash
-  gh auth refresh -h github.com -s admin:ssh_signing_key   # one time, in any container
-  bash .devcontainer/postCreate.sh                          # re-run to register the key now
-  ```
+  **Two ways to make it Verified:**
 
-  After that the key is on your GitHub account (and stored in the shared volume), so every container and future rebuild signs with it and your commits are Verified. If `gh` isn't authenticated or lacks the scope yet, signing still happens locally — commits just won't show the badge until the key is registered.
+  1. **Interactive (`gh auth login`)** — the default. It needs one extra `gh` scope, granted once:
+     ```bash
+     gh auth refresh -h github.com -s admin:ssh_signing_key   # one time, in any container
+     bash .devcontainer/postCreate.sh                          # re-run to register the key now
+     ```
+  2. **Non-interactive (`GH_TOKEN` PAT)** — **no `gh auth login` at all.** Set `GH_TOKEN` in your host environment before opening the container; `devcontainer.json` forwards it (`"GH_TOKEN": "${localEnv:GH_TOKEN}"`). `gh` then uses the token directly, so `postCreate.sh` registers the signing key on first build with nothing interactive. The token needs:
+     - **Classic PAT:** `admin:ssh_signing_key` (signing-key registration) + `repo` (git push over HTTPS).
+     - **Fine-grained PAT:** account permission **"SSH signing keys" → Read and write**, plus **"Contents" → Read and write** on the repos you push to.
+
+  > You only need the registration scope **once** — after the key is on your account, signing itself uses the forwarded SSH agent, not the token. You can drop the PAT afterward if you don't otherwise use `gh`.
+
+  **Won't forget the step:** if registration is still pending (no `gh` auth, or missing scope), `postCreate.sh` writes a hint that **every new terminal prints on startup** until it's done — so the exact commands stay in front of you. It self-clears the moment the key is registered.
+
+  After registration the key is on your GitHub account (and the public side is in the shared `~/.ssh` volume), so every container and future rebuild signs with it and your commits are Verified.
 
 ### Persisted & shared across containers
 
@@ -71,5 +81,6 @@ This container is **convenience-first**, not hardened:
 - `claude` is aliased to `claude --dangerously-skip-permissions`, so Claude runs tool calls without asking. Run the bare binary path (`$(which claude)`) if you want prompts back.
 - Claude can modify any file in the bind-mounted workspace — **which is your real host repository** — and reach anything the container's network allows (there is no egress firewall).
 - The persisted `gh` token and SSH state live in shared Docker volumes, and the forwarded SSH agent is reachable from inside the container — so Claude can push and sign commits **as you**, unprompted. That's the cost of convenience-first persistence.
+- If you use the `GH_TOKEN` PAT path, that token is an env var **readable by anything in the container**, Claude included. Prefer a **fine-grained PAT** scoped to just the SSH-signing-key and contents permissions you need, and revoke it when done.
 
 **Only use this with trusted code, and monitor what Claude does.** SSH agent forwarding and named credential volumes keep your private key material on the host (only the agent socket / a container-local volume is exposed). **Do not bind-mount your host's real `~/.ssh` private keys or cloud credential files** into this container unless you accept that trusted-only code can read them.
