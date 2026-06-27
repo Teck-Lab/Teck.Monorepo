@@ -35,6 +35,10 @@
   <Folder Name="/src/services/gateway/" />
   <Folder Name="/src/apps/" />
   <Folder Name="/src/packages/" />
-  <Folder Name="/tests/" />
+  <Folder Name="/tests/">
+    <Project Path="tests/architecture/Teck.Platform.Arch.Tests/Teck.Platform.Arch.Tests.csproj" />
+    <Project Path="tests/architecture/Order.Architecture.UnitTests/Order.Architecture.UnitTests.csproj" />
+    <Project Path="tests/architecture/Catalog.Architecture.UnitTests/Catalog.Architecture.UnitTests.csproj" />
+  </Folder>
   <Folder Name="/tools/" />
 </Solution>
