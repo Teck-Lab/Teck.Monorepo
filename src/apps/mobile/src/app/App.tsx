@@ -1,8 +1,8 @@
-import '../../global.css';
+import "../../global.css";
 
-import { Button } from '@teck/ui-native';
-import { StatusBar } from 'expo-status-bar';
-import { Text, View } from 'react-native';
+import { Button } from "@teck/ui-native";
+import { StatusBar } from "expo-status-bar";
+import { Text, View } from "react-native";
 
 export const App = () => {
   return (
