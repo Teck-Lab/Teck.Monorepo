@@ -24,9 +24,11 @@ public sealed class SetPreferredSupplierHandlerTests
             await seed.SaveChangesAsync();
         }
         using var db = CatalogTestContext.CreateWithStubbedSave("preferred");
+        var repository = CatalogTestContext.WriteRepo<Product>(db);
+        var unitOfWork = CatalogTestContext.UnitOfWork(db);
 
         var result = await SetPreferredSupplierHandler.Handle(
-            new SetPreferredSupplierCommand(variantId, b), db, CancellationToken.None);
+            new SetPreferredSupplierCommand(variantId, b), repository, unitOfWork, CancellationToken.None);
 
         Assert.False(result.IsError);
         // The handler loaded + mutated the product in `db`'s change tracker; re-querying `db`
@@ -47,9 +49,11 @@ public sealed class SetPreferredSupplierHandlerTests
             await seed.SaveChangesAsync();
         }
         using var db = CatalogTestContext.CreateWithStubbedSave("preferred-missing");
+        var repository = CatalogTestContext.WriteRepo<Product>(db);
+        var unitOfWork = CatalogTestContext.UnitOfWork(db);
 
         var result = await SetPreferredSupplierHandler.Handle(
-            new SetPreferredSupplierCommand(product.Variants[0].Id, Guid.NewGuid()), db, CancellationToken.None);
+            new SetPreferredSupplierCommand(product.Variants[0].Id, Guid.NewGuid()), repository, unitOfWork, CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorOr.ErrorType.NotFound, result.FirstError.Type);

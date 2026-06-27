@@ -1,11 +1,10 @@
-using Ardalis.Specification.EntityFrameworkCore;
-using Catalog.Application.Database;
 using Catalog.Application.Suppliers.Mapping;
 using Catalog.Application.Suppliers.ReadModels;
 using Catalog.Application.Suppliers.Responses;
+using Catalog.Domain.Entities;
 using Catalog.Domain.ValueObjects;
 using ErrorOr;
-using Microsoft.EntityFrameworkCore;
+using SharedKernel.Core.Database;
 
 namespace Catalog.Application.Suppliers.Features.LinkVariantSupplier.V1;
 
@@ -14,17 +13,18 @@ public static class LinkVariantSupplierHandler
 {
     /// <summary>Loads the owning product, links the supplier, and saves.</summary>
     /// <param name="command">The command describing the variant-supplier link to create.</param>
-    /// <param name="db">The catalog write context.</param>
+    /// <param name="repository">The write repository for loading and tracking the product.</param>
+    /// <param name="unitOfWork">The unit of work used to commit changes.</param>
     /// <param name="ct">The cancellation token.</param>
-    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
+    /// <returns>The newly created variant-supplier DTO, or an error if the variant was not found.</returns>
     public static async Task<ErrorOr<VariantSupplierDto>> Handle(
         LinkVariantSupplierCommand command,
-        CatalogDbContext db,
+        IGenericWriteRepository<Product, Guid> repository,
+        IUnitOfWork unitOfWork,
         CancellationToken ct)
     {
-        var product = await db.Products
-            .WithSpecification(new ProductByVariantSpec(command.VariantId))
-            .FirstOrDefaultAsync(ct)
+        var product = await repository
+            .FirstOrDefaultAsync(new ProductByVariantSpec(command.VariantId), enableTracking: true, ct)
             .ConfigureAwait(false);
 
         if (product is null)
@@ -41,7 +41,7 @@ public static class LinkVariantSupplierHandler
             command.MinOrderQuantity,
             command.IsPreferred);
 
-        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);
 
         var link = product.Variants
             .Single(v => v.Id == command.VariantId).Suppliers

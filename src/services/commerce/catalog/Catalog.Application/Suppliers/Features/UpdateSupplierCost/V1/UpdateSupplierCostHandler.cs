@@ -1,11 +1,10 @@
-using Ardalis.Specification.EntityFrameworkCore;
-using Catalog.Application.Database;
 using Catalog.Application.Suppliers.Mapping;
 using Catalog.Application.Suppliers.ReadModels;
 using Catalog.Application.Suppliers.Responses;
+using Catalog.Domain.Entities;
 using Catalog.Domain.ValueObjects;
 using ErrorOr;
-using Microsoft.EntityFrameworkCore;
+using SharedKernel.Core.Database;
 
 namespace Catalog.Application.Suppliers.Features.UpdateSupplierCost.V1;
 
@@ -14,17 +13,18 @@ public static class UpdateSupplierCostHandler
 {
     /// <summary>Changes the cost (appending history via the domain) and saves. Cost stays internal — no event published.</summary>
     /// <param name="command">The command describing the variant, supplier, and new cost.</param>
-    /// <param name="db">The catalog write context.</param>
+    /// <param name="repository">The write repository for loading and tracking the product.</param>
+    /// <param name="unitOfWork">The unit of work used to commit changes.</param>
     /// <param name="ct">The cancellation token.</param>
-    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
+    /// <returns>The updated variant-supplier DTO, or an error if the variant or supplier link was not found.</returns>
     public static async Task<ErrorOr<VariantSupplierDto>> Handle(
         UpdateSupplierCostCommand command,
-        CatalogDbContext db,
+        IGenericWriteRepository<Product, Guid> repository,
+        IUnitOfWork unitOfWork,
         CancellationToken ct)
     {
-        var product = await db.Products
-            .WithSpecification(new ProductByVariantSpec(command.VariantId))
-            .FirstOrDefaultAsync(ct)
+        var product = await repository
+            .FirstOrDefaultAsync(new ProductByVariantSpec(command.VariantId), enableTracking: true, ct)
             .ConfigureAwait(false);
 
         if (product is null)
@@ -40,7 +40,7 @@ public static class UpdateSupplierCostHandler
         }
 
         product.ChangeSupplierCost(command.VariantId, command.SupplierId, new Money(command.CostAmount, command.CostCurrency));
-        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);
 
         return link.ToDto();
     }

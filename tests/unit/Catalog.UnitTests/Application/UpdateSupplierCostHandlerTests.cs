@@ -20,9 +20,11 @@ public sealed class UpdateSupplierCostHandlerTests
             await seed.SaveChangesAsync();
         }
         using var db = CatalogTestContext.CreateWithStubbedSave("cost");
+        var repository = CatalogTestContext.WriteRepo<Product>(db);
+        var unitOfWork = CatalogTestContext.UnitOfWork(db);
         var command = new UpdateSupplierCostCommand(product.Variants[0].Id, supplierId, 6.50m, "USD");
 
-        var result = await UpdateSupplierCostHandler.Handle(command, db, CancellationToken.None);
+        var result = await UpdateSupplierCostHandler.Handle(command, repository, unitOfWork, CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(6.50m, result.Value.CostPriceAmount);
@@ -38,9 +40,11 @@ public sealed class UpdateSupplierCostHandlerTests
             await seed.SaveChangesAsync();
         }
         using var db = CatalogTestContext.CreateWithStubbedSave("cost-missing");
+        var repository = CatalogTestContext.WriteRepo<Product>(db);
+        var unitOfWork = CatalogTestContext.UnitOfWork(db);
         var command = new UpdateSupplierCostCommand(product.Variants[0].Id, Guid.NewGuid(), 6.50m, "USD");
 
-        var result = await UpdateSupplierCostHandler.Handle(command, db, CancellationToken.None);
+        var result = await UpdateSupplierCostHandler.Handle(command, repository, unitOfWork, CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorOr.ErrorType.NotFound, result.FirstError.Type);
@@ -50,9 +54,11 @@ public sealed class UpdateSupplierCostHandlerTests
     public async Task Handle_WithMissingProduct_ReturnsNotFound()
     {
         using var db = CatalogTestContext.CreateWithStubbedSave("cost-missing-product");
+        var repository = CatalogTestContext.WriteRepo<Product>(db);
+        var unitOfWork = CatalogTestContext.UnitOfWork(db);
         var command = new UpdateSupplierCostCommand(Guid.NewGuid(), Guid.NewGuid(), 6.50m, "USD");
 
-        var result = await UpdateSupplierCostHandler.Handle(command, db, CancellationToken.None);
+        var result = await UpdateSupplierCostHandler.Handle(command, repository, unitOfWork, CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorOr.ErrorType.NotFound, result.FirstError.Type);

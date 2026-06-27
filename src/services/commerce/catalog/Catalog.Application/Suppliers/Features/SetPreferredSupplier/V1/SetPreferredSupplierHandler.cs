@@ -1,8 +1,7 @@
-using Ardalis.Specification.EntityFrameworkCore;
-using Catalog.Application.Database;
 using Catalog.Application.Suppliers.ReadModels;
+using Catalog.Domain.Entities;
 using ErrorOr;
-using Microsoft.EntityFrameworkCore;
+using SharedKernel.Core.Database;
 
 namespace Catalog.Application.Suppliers.Features.SetPreferredSupplier.V1;
 
@@ -11,17 +10,18 @@ public static class SetPreferredSupplierHandler
 {
     /// <summary>Enforces the single-preferred invariant via the domain and saves.</summary>
     /// <param name="command">The command identifying the variant and supplier to mark as preferred.</param>
-    /// <param name="db">The catalog write context.</param>
+    /// <param name="repository">The write repository for loading and tracking the product.</param>
+    /// <param name="unitOfWork">The unit of work used to commit changes.</param>
     /// <param name="ct">The cancellation token.</param>
-    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
+    /// <returns>A success result, or an error if the variant or supplier link was not found.</returns>
     public static async Task<ErrorOr<Success>> Handle(
         SetPreferredSupplierCommand command,
-        CatalogDbContext db,
+        IGenericWriteRepository<Product, Guid> repository,
+        IUnitOfWork unitOfWork,
         CancellationToken ct)
     {
-        var product = await db.Products
-            .WithSpecification(new ProductByVariantSpec(command.VariantId))
-            .FirstOrDefaultAsync(ct)
+        var product = await repository
+            .FirstOrDefaultAsync(new ProductByVariantSpec(command.VariantId), enableTracking: true, ct)
             .ConfigureAwait(false);
 
         if (product is null)
@@ -36,7 +36,7 @@ public static class SetPreferredSupplierHandler
         }
 
         product.SetPreferredSupplier(command.VariantId, command.SupplierId);
-        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);
 
         return Result.Success;
     }
