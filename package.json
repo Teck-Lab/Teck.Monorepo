@@ -17,8 +17,6 @@
     "clean": "nx reset"
   },
   "devDependencies": {
-    "@babel/core": "^7.14.5",
-    "@babel/preset-react": "^7.14.5",
     "@nx/devkit": "latest",
     "@nx/dotnet": "latest",
     "@nx/expo": "23.0.0",
@@ -26,12 +24,10 @@
     "@nx/next": "latest",
     "@nx/react": "23.0.0",
     "@nx/storybook": "latest",
-    "@swc/helpers": "~0.5.18",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "nx": "latest",
-    "prettier": "~3.6.2",
     "typescript": "^5.7.0"
   },
   "packageManager": "bun@1.2.0",
