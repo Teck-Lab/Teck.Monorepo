@@ -6,12 +6,12 @@ using SharedKernel.Infrastructure.MultiTenant;
 namespace Orders.Host.Database;
 
 /// <summary>
-/// Read-only database context for orders that disables change tracking.
+/// The order read context (change tracking disabled).
 /// </summary>
-/// <param name="options">The options used to configure the database context.</param>
+/// <param name="options">The options used to configure the context.</param>
 /// <param name="tenantContextAccessor">The accessor providing the current tenant context.</param>
 public class OrderReadDbContext(DbContextOptions options, IMultiTenantContextAccessor<TenantDetails> tenantContextAccessor)
-    : OrderDbContext(options, tenantContextAccessor)
+    : OrderDbContextBase(options, tenantContextAccessor)
 {
     /// <inheritdoc/>
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
