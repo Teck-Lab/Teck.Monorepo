@@ -5,6 +5,7 @@
   "dependencies": {
     "@expo/metro-config": "*",
     "@teck/tailwind-config": "workspace:*",
+    "@teck/ui-native": "workspace:*",
     "expo": "*",
     "expo-splash-screen": "*",
     "expo-status-bar": "*",

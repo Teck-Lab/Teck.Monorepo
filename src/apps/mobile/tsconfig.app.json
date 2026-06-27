@@ -2,6 +2,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "../../../dist/out-tsc",
+    "composite": false,
     "types": ["node"]
   },
   "files": ["../../../node_modules/@nx/expo/typings/svg.d.ts"],
