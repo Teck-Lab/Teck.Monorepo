@@ -1,9 +1,9 @@
-using Ardalis.Specification;
 using Catalog.Application.Products.Mapping;
 using Catalog.Application.Products.ReadModels;
 using Catalog.Application.Products.Responses;
 using Catalog.Domain.Entities;
 using ErrorOr;
+using SharedKernel.Core.Database;
 
 namespace Catalog.Application.Products.Features.GetProduct.V1;
 
@@ -14,10 +14,10 @@ public static class GetProductHandler
     /// <param name="query">The query identifying the product to return.</param>
     /// <param name="repository">The repository used to load the product.</param>
     /// <param name="ct">The cancellation token.</param>
-    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
+    /// <returns>A task resolving to the product DTO or a NotFound error.</returns>
     public static async Task<ErrorOr<ProductDto>> Handle(
         GetProductQuery query,
-        IRepositoryBase<Product> repository,
+        IGenericReadRepository<Product, Guid> repository,
         CancellationToken ct)
     {
         var product = await repository.FirstOrDefaultAsync(new ProductByIdSpec(query.ProductId), ct).ConfigureAwait(false);

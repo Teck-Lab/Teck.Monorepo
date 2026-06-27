@@ -1,9 +1,9 @@
-using Ardalis.Specification;
 using Catalog.Application.Suppliers.Mapping;
 using Catalog.Application.Suppliers.ReadModels;
 using Catalog.Application.Suppliers.Responses;
 using Catalog.Domain.Entities;
 using ErrorOr;
+using SharedKernel.Core.Database;
 
 namespace Catalog.Application.Suppliers.Features.GetSupplier.V1;
 
@@ -14,10 +14,10 @@ public static class GetSupplierHandler
     /// <param name="query">The query identifying the supplier to return.</param>
     /// <param name="repository">The repository used to load the supplier.</param>
     /// <param name="ct">The cancellation token.</param>
-    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
+    /// <returns>A task resolving to the supplier DTO or a NotFound error.</returns>
     public static async Task<ErrorOr<SupplierDto>> Handle(
         GetSupplierQuery query,
-        IRepositoryBase<Supplier> repository,
+        IGenericReadRepository<Supplier, Guid> repository,
         CancellationToken ct)
     {
         var supplier = await repository.FirstOrDefaultAsync(new SupplierByIdSpec(query.SupplierId), ct).ConfigureAwait(false);

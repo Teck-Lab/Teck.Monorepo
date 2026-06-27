@@ -2,6 +2,7 @@ using Ardalis.Specification;
 using Catalog.Application.Suppliers.Features.GetSupplier.V1;
 using Catalog.Domain.Entities;
 using NSubstitute;
+using SharedKernel.Core.Database;
 using Xunit;
 
 namespace Catalog.UnitTests.Application;
@@ -12,7 +13,7 @@ public sealed class GetSupplierHandlerTests
     public async Task Handle_WhenFound_ReturnsDto()
     {
         var supplier = Supplier.Create("tenant-1", "Acme");
-        var repository = Substitute.For<IRepositoryBase<Supplier>>();
+        var repository = Substitute.For<IGenericReadRepository<Supplier, System.Guid>>();
         repository.FirstOrDefaultAsync(Arg.Any<ISpecification<Supplier>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Supplier?>(supplier));
 
@@ -25,7 +26,7 @@ public sealed class GetSupplierHandlerTests
     [Fact]
     public async Task Handle_WhenMissing_ReturnsNotFound()
     {
-        var repository = Substitute.For<IRepositoryBase<Supplier>>();
+        var repository = Substitute.For<IGenericReadRepository<Supplier, System.Guid>>();
         repository.FirstOrDefaultAsync(Arg.Any<ISpecification<Supplier>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Supplier?>(null));
 
