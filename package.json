@@ -17,6 +17,7 @@
     "clean": "nx reset"
   },
   "devDependencies": {
+    "@expo/cli": "~55.0.11",
     "@nx/devkit": "latest",
     "@nx/dotnet": "latest",
     "@nx/expo": "23.0.0",
@@ -27,10 +28,14 @@
     "@swc-node/register": "~1.11.1",
     "@swc/cli": "~0.8.0",
     "@swc/core": "~1.15.5",
+    "@swc/helpers": "~0.5.18",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "babel-preset-expo": "~55.0.7",
+    "metro-config": "~0.83.0",
+    "metro-resolver": "~0.83.0",
     "nx": "latest",
     "tailwindcss": "^4",
     "typescript": "^5.7.0"
@@ -41,13 +46,23 @@
     "src/packages/*"
   ],
   "dependencies": {
+    "@expo/metro-config": "~55.0.8",
+    "@expo/metro-runtime": "~55.0.11",
     "@radix-ui/react-slot": "^1.3.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "expo": "~55.0.26",
+    "expo-splash-screen": "~55.0.21",
+    "expo-status-bar": "~55.0.6",
+    "expo-system-ui": "~55.0.18",
     "lucide-react": "^1.21.0",
     "next": "^16",
     "react": "^19",
     "react-dom": "^19",
+    "react-native": "0.83.6",
+    "react-native-svg": "15.12.1",
+    "react-native-svg-transformer": "~1.5.1",
+    "react-native-web": "~0.21.0",
     "tailwind-merge": "^3.6.0",
     "tslib": "^2.3.0"
   }
