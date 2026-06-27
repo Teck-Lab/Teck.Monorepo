@@ -9,9 +9,7 @@
         },
         "test": {
           "targetName": "test",
-          "dependsOn": [
-            "build"
-          ]
+          "dependsOn": ["build"]
         },
         "restore": {
           "targetName": "restore"
@@ -50,20 +48,19 @@
     },
     {
       "plugin": "@nx/next/plugin",
-      "include": [
-        "src/apps/**/*"
-      ],
+      "include": ["src/apps/**/*"],
       "options": {
+        "startTargetName": "start",
         "buildTargetName": "build",
         "devTargetName": "dev",
-        "startTargetName": "start"
+        "serveStaticTargetName": "serve-static",
+        "buildDepsTargetName": "build-deps",
+        "watchDepsTargetName": "watch-deps"
       }
     },
     {
       "plugin": "@nx/storybook/plugin",
-      "include": [
-        "src/apps/storybook"
-      ],
+      "include": ["src/apps/storybook"],
       "options": {
         "buildStorybookTargetName": "build-storybook",
         "serveStorybookTargetName": "storybook"
@@ -71,9 +68,7 @@
     },
     {
       "plugin": "@nx/expo/plugin",
-      "include": [
-        "src/apps/mobile"
-      ],
+      "include": ["src/apps/mobile"],
       "options": {
         "startTargetName": "start",
         "serveTargetName": "serve",
@@ -86,30 +81,22 @@
   ],
   "targetDefaults": {
     "build": {
-      "dependsOn": [
-        "^build"
-      ],
+      "dependsOn": ["^build"],
       "cache": true
     },
     "test": {
-      "dependsOn": [
-        "build"
-      ],
+      "dependsOn": ["build"],
       "cache": true
     },
     "lint": {
       "cache": true
     },
     "typecheck": {
-      "dependsOn": [
-        "^build"
-      ],
+      "dependsOn": ["^build"],
       "cache": true
     },
     "docker:build": {
-      "dependsOn": [
-        "build"
-      ],
+      "dependsOn": ["build"],
       "cache": true
     }
   },
@@ -130,9 +117,7 @@
     },
     "groups": {
       "commerce": {
-        "projects": [
-          "src/services/commerce/*"
-        ],
+        "projects": ["src/services/commerce/*"],
         "projectsRelationship": "fixed",
         "releaseTag": {
           "pattern": "commerce@{version}"
@@ -143,9 +128,7 @@
         }
       },
       "operations": {
-        "projects": [
-          "src/services/operations/*"
-        ],
+        "projects": ["src/services/operations/*"],
         "projectsRelationship": "fixed",
         "releaseTag": {
           "pattern": "operations@{version}"
@@ -156,9 +139,7 @@
         }
       },
       "content": {
-        "projects": [
-          "src/services/content/*"
-        ],
+        "projects": ["src/services/content/*"],
         "projectsRelationship": "fixed",
         "releaseTag": {
           "pattern": "content@{version}"
@@ -169,9 +150,7 @@
         }
       },
       "gateway": {
-        "projects": [
-          "src/services/gateway/*"
-        ],
+        "projects": ["src/services/gateway/*"],
         "projectsRelationship": "fixed",
         "releaseTag": {
           "pattern": "gateway@{version}"
@@ -182,10 +161,7 @@
         }
       },
       "web": {
-        "projects": [
-          "src/apps/*",
-          "src/packages/*"
-        ],
+        "projects": ["src/apps/*", "src/packages/*"],
         "projectsRelationship": "independent",
         "releaseTag": {
           "pattern": "{projectName}@{version}"
@@ -198,6 +174,12 @@
     "@nx/react": {
       "library": {
         "unitTestRunner": "none"
+      }
+    },
+    "@nx/next": {
+      "application": {
+        "style": "css",
+        "linter": "none"
       }
     }
   }

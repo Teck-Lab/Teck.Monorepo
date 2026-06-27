@@ -24,10 +24,15 @@
     "@nx/next": "latest",
     "@nx/react": "23.0.0",
     "@nx/storybook": "latest",
+    "@swc-node/register": "~1.11.1",
+    "@swc/cli": "~0.8.0",
+    "@swc/core": "~1.15.5",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "nx": "latest",
+    "tailwindcss": "^4",
     "typescript": "^5.7.0"
   },
   "packageManager": "bun@1.2.0",
@@ -40,8 +45,9 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.21.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
+    "next": "^16",
+    "react": "^19",
+    "react-dom": "^19",
     "tailwind-merge": "^3.6.0",
     "tslib": "^2.3.0"
   }
