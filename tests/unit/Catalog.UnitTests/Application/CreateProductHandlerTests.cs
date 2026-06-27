@@ -14,10 +14,12 @@ public sealed class CreateProductHandlerTests
     public async Task Handle_WithValidCommand_PersistsDefaultVariantAndPublishesEvent()
     {
         using var db = CatalogTestContext.CreateInMemory();
+        var repository = CatalogTestContext.WriteRepo<Catalog.Domain.Entities.Product>(db);
+        var unitOfWork = CatalogTestContext.UnitOfWork(db);
         var bus = Substitute.For<IMessageBus>();
         var command = new CreateProductCommand("Widget", "A widget", null, "WIDGET-1", 9.99m, "USD");
 
-        var dto = await CreateProductHandler.Handle(command, db, bus, CancellationToken.None);
+        var dto = await CreateProductHandler.Handle(command, repository, unitOfWork, bus, CancellationToken.None);
 
         Assert.Equal("Widget", dto.Name);
         Assert.True(dto.IsActive);
