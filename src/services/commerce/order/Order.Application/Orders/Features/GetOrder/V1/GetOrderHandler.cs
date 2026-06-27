@@ -1,9 +1,9 @@
-using Ardalis.Specification;
 using ErrorOr;
 using Orders.Application.Orders.Mapping;
 using Orders.Application.Orders.ReadModels;
 using Orders.Application.Orders.Responses;
 using Orders.Domain.Entities;
+using SharedKernel.Core.Database;
 
 namespace Orders.Application.Orders.Features.GetOrder.V1;
 
@@ -21,7 +21,7 @@ public static class GetOrderHandler
     /// <returns>The matching <see cref="OrderDto"/> or a not-found error.</returns>
     public static async Task<ErrorOr<OrderDto>> Handle(
         GetOrderQuery query,
-        IRepositoryBase<Order> repository,
+        IGenericReadRepository<Order, Guid> repository,
         CancellationToken ct)
     {
         var spec = new OrderByIdSpec(query.OrderId);

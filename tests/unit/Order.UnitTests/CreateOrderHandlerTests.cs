@@ -1,10 +1,13 @@
 using Finbuckle.MultiTenant.Abstractions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using Orders.Application.Database;
 using Orders.Application.Orders.Features.CreateOrder.V1;
 using Orders.Application.Orders.Responses;
 using Orders.Domain.Entities;
+using SharedKernel.Core.Database;
+using SharedKernel.Infrastructure.Database.EFCore;
 using SharedKernel.Infrastructure.MultiTenant;
 using Wolverine;
 using Xunit;
@@ -25,12 +28,13 @@ public sealed class CreateOrderHandlerTests
             .Options;
 
         var tenantAccessor = Substitute.For<IMultiTenantContextAccessor<TenantDetails>>();
-        var db = Substitute.For<OrderDbContext>(options, tenantAccessor);
-        db.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(1));
+        var db = new OrderDbContext(options, tenantAccessor);
+        var repository = new GenericWriteRepository<Order, Guid, OrderDbContext>(db, Substitute.For<IHttpContextAccessor>());
+        var unitOfWork = new UnitOfWork<OrderDbContext>(db);
 
         var bus = Substitute.For<IMessageBus>();
 
-        OrderDto result = await CreateOrderHandler.Handle(command, db, bus, CancellationToken.None);
+        OrderDto result = await CreateOrderHandler.Handle(command, repository, unitOfWork, bus, CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(command.CustomerId, result.CustomerId);
