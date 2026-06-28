@@ -17,6 +17,28 @@ bun install --frozen-lockfile || echo "WARN: bun install reported errors (contin
 echo "==> Ensuring a local HTTPS development certificate exists"
 dotnet dev-certs https || echo "WARN: could not create HTTPS dev cert (continuing)"
 
+echo "==> Installing Claude Code plugins into the mounted ~/.claude volume"
+# The committed .claude/settings.json declares these as enabled, but enabled
+# plugins only auto-install behind an interactive trust prompt. Installing them
+# explicitly here is headless and deterministic: `claude plugin install` just
+# git-clones the (public) marketplaces into ~/.claude/plugins/, so it needs no
+# auth and runs before first sign-in. Tolerant of failure so the container still
+# comes up if GitHub is unreachable (the trust-prompt path remains as fallback).
+if command -v claude >/dev/null 2>&1; then
+  claude plugin marketplace add anthropics/claude-plugins-official || echo "WARN: marketplace add (official) failed (continuing)"
+  claude plugin marketplace add jarrodwatts/claude-hud || echo "WARN: marketplace add (claude-hud) failed (continuing)"
+  for p in superpowers microsoft-docs typescript-lsp security-guidance playwright frontend-design csharp-lsp github; do
+    claude plugin install "$p@claude-plugins-official" || echo "WARN: install $p failed (continuing)"
+  done
+  claude plugin install claude-hud@claude-hud || echo "WARN: install claude-hud failed (continuing)"
+
+  echo "==> Seeding claude-hud display config"
+  mkdir -p "$HOME/.claude/plugins/claude-hud"
+  cp .devcontainer/claude-hud-config.json "$HOME/.claude/plugins/claude-hud/config.json" || echo "WARN: could not seed claude-hud config (continuing)"
+else
+  echo "WARN: 'claude' CLI not on PATH; skipping plugin install (continuing)"
+fi
+
 echo "==> Installing low-prompt 'claude' alias in ~/.bashrc"
 ALIAS_LINE="alias claude='claude --dangerously-skip-permissions'"
 if ! grep -qxF "$ALIAS_LINE" "$HOME/.bashrc" 2>/dev/null; then

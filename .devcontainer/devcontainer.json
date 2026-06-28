@@ -1,6 +1,6 @@
 {
   "name": "Teck Platform",
-  "image": "mcr.microsoft.com/devcontainers/dotnet:2.1-10.0-noble",
+  "build": { "dockerfile": "Dockerfile" },
   "features": {
     "ghcr.io/devcontainers/features/dotnet:2": {
       "version": "10.0.300"

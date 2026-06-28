@@ -21,7 +21,13 @@ In VS Code: Command Palette → **Dev Containers: Reopen in Container** (first b
 | Docker | Docker-in-Docker | `docker-in-docker` feature |
 | Claude Code | latest | `claude-code` feature (CLI + VS Code extension) |
 
-`postCreate.sh` runs `dotnet restore`, `bun install --frozen-lockfile`, creates an HTTPS dev cert, and installs a `claude` shell alias (see Security below).
+`postCreate.sh` runs `dotnet restore`, `bun install --frozen-lockfile`, creates an HTTPS dev cert, installs the Claude Code plugins + HUD (see below), and installs a `claude` shell alias (see Security below).
+
+## Claude Code plugins & HUD statusline
+
+The repo's checked-in `.claude/settings.json` is the team source of truth: it declares the enabled plugins (`superpowers`, `microsoft-docs`, `typescript-lsp`, `security-guidance`, `playwright`, `frontend-design`, `csharp-lsp`, `github` from the official marketplace, plus `claude-hud`), the extra `claude-hud` marketplace, the `dark` theme, and the claude-hud **statusLine**. The statusLine resolves `bun` from `PATH` (falling back to `~/.bun/bin/bun`) so it works for any user.
+
+Because enabled plugins normally only install behind an interactive trust prompt, `postCreate.sh` also installs them **explicitly and headlessly** (`claude plugin marketplace add` + `claude plugin install`) into the mounted `~/.claude` volume, and seeds the claude-hud display config from `.devcontainer/claude-hud-config.json`. Edit that JSON to change which HUD elements show. Everything lands in the persistent volume, so it survives rebuilds.
 
 ## Running things
 
@@ -47,6 +53,8 @@ and install `watchman`. Then `bunx expo run:android` builds locally.
 ## Claude Code
 
 Run `claude` in the integrated terminal and follow the browser sign-in. If the callback doesn't reach the container, copy the code from the browser and paste it at the prompt. Your auth and session history persist across rebuilds via a per-project named volume, `claude-code-config-${devcontainerId}` (find it with `docker volume ls | grep claude-code-config`).
+
+The container is built from `.devcontainer/Dockerfile` (a thin layer over the .NET 10 base image) for one reason: it pre-creates `~/.claude` owned by the `vscode` user so the named volume mounted there is **vscode-owned and writable**. Without this, Docker creates the fresh volume owned by `root`, Claude Code (running as `vscode`) can't write `~/.claude/.credentials.json`, and the browser sign-in reports success but never persists ("not signed in"). All other tooling is still installed via the `features` block.
 
 ## Security — read this
 
