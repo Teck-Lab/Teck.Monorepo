@@ -18,8 +18,10 @@
     <PackageReference Include="Keycloak.AuthServices.Authentication" />
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" />
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery.Yarp" />
+    <PackageReference Include="Polly" />
     <PackageReference Include="Treyt.Yarp.ReverseProxy.Swagger" />
     <PackageReference Include="Yarp.ReverseProxy" />
+    <PackageReference Include="ZiggyCreatures.FusionCache" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\shared\SharedKernel.Core\SharedKernel.Core.csproj" />

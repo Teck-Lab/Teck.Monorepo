@@ -26,4 +26,7 @@ public sealed class EdgeContext
 
     /// <summary>Gets or sets the exchanged downstream access token.</summary>
     public string? ExchangedToken { get; set; }
+
+    /// <summary>Gets or sets the YARP cluster id for the matched route, used as the service name in tenant lookups.</summary>
+    public string? ClusterId { get; set; }
 }
