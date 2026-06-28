@@ -2,6 +2,7 @@ using System.Reflection;
 using ArchUnitNET.Loader;
 using ArchUnitNET.xUnitV3;
 using SharedKernel.Core.Domain;
+using Teck.Platform.Arch.Tests.Rules;
 using Xunit;
 using static ArchUnitNET.Fluent.ArchRuleDefinition;
 
@@ -84,4 +85,8 @@ public sealed class OrderArchitectureTests : Teck.Platform.Arch.Tests.SharedTest
         Assert.NotEmpty(handlerTypes);
         Assert.All(handlerTypes, handlerType => Assert.EndsWith("Handler", handlerType.Name, StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void OrderService_ShouldFollowSharedArchitectureRules() =>
+        SharedArchitectureRules.AssertAll(OrderArchitecture, ApplicationAssembly);
 }

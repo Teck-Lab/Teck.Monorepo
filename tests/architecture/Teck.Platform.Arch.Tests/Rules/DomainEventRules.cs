@@ -15,20 +15,24 @@ public static class DomainEventRules
             .ImplementInterface(typeof(IDomainEvent))
             .Should()
             .BeSealed()
-            .Because("domain events should be sealed to prevent inheritance");
+            .Because("domain events should be sealed to prevent inheritance")
+            .WithoutRequiringPositiveResults();
 
         rule.Check(architecture);
     }
 
-    public static void DomainEventsShouldHaveCorrectName(Architecture architecture)
+    public static void DomainEventsShouldResideInDomainEventsNamespace(Architecture architecture)
     {
+        // The codebase names domain events by namespace (e.g. Orders.Domain.DomainEvents.OrderPlaced),
+        // not by a "DomainEvent" suffix, so the convention enforced here is the namespace.
         var rule = ArchRuleDefinition
             .Classes()
             .That()
             .ImplementInterface(typeof(IDomainEvent))
             .Should()
-            .HaveNameEndingWith("DomainEvent")
-            .Because("domain events should follow naming convention");
+            .ResideInNamespaceMatching("Domain.DomainEvents")
+            .Because("domain events should live in the Domain.DomainEvents namespace")
+            .WithoutRequiringPositiveResults();
 
         rule.Check(architecture);
     }

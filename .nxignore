@@ -1,0 +1,9 @@
+# The devcontainer Dockerfile is an environment image, not a deployable
+# Nx project — without this, @nx/docker infers an unnamed project and the
+# project-graph build fails with ProjectsWithNoNameError.
+.devcontainer
+
+# Nested git worktrees created by Claude Code. Their checkouts contain stale
+# .csproj references (e.g. Teck.Cloud.ServiceDefaults) that break the
+# project-graph build when Nx descends into them.
+.claude/worktrees

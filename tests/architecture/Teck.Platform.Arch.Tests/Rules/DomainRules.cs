@@ -19,23 +19,12 @@ public static class DomainRules
         rule.Check(architecture);
     }
 
-    public static void AggregatesShouldTrackDomainEvents(Architecture architecture)
-    {
-        var rule = ArchRuleDefinition.Classes()
-            .That()
-            .ImplementInterface(typeof(IAggregateRoot))
-            .Should()
-            .HaveFieldMemberWithName("_domainEvents")
-            .AndShould()
-            .HaveMethodMemberWithName("AddDomainEvent")
-            .AndShould()
-            .HaveMethodMemberWithName("ClearDomainEvents")
-            .AndShould()
-            .HaveMethodMemberWithName("GetDomainEvents")
-            .Because("aggregates should track domain events");
-
-        rule.Check(architecture);
-    }
+    // NOTE: A previous "AggregatesShouldTrackDomainEvents" rule was removed here. It asserted that
+    // each aggregate declares a `_domainEvents` field and `AddDomainEvent`/`ClearDomainEvents`/
+    // `GetDomainEvents` members. Those members are provided by the `BaseEntity<TId>` base class (and
+    // the getter is a `DomainEvents` property, not a `GetDomainEvents` method), so the rule both
+    // checked for a member that does not exist and duplicated the inherit-from-BaseEntity guarantee
+    // already enforced by EntitiesShouldInheritBaseEntity / AggregatesShouldInheritFromBaseEntity.
 
     public static void EntitiesShouldHavePrivateSetters(Architecture architecture)
     {
@@ -44,6 +33,12 @@ public static class DomainRules
             .HaveNameStartingWith("set_")
             .And()
             .AreDeclaredIn(ArchRuleDefinition.Classes().That().ImplementInterface(typeof(IBaseEntity)))
+            // TenantId is a public-settable property mandated by the ITenantScoped contract (the EF
+            // SaveChanges tenant interceptor assigns it), so it is exempt from the private-setter rule.
+            // (Member names carry their parameter signature, e.g. "set_TenantId(System.String)", so
+            // match by substring rather than exact name.)
+            .And()
+            .DoNotHaveNameContaining("set_TenantId")
             .Should()
             .NotBePublic()
             .Because("entity properties should have private setters for encapsulation")
