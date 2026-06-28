@@ -4,10 +4,19 @@
     {
       "plugin": "@nx/dotnet",
       "options": {
-        "build": { "targetName": "build" },
-        "test": { "targetName": "test", "dependsOn": ["build"] },
-        "restore": { "targetName": "restore" },
-        "publish": { "targetName": "publish" }
+        "build": {
+          "targetName": "build"
+        },
+        "test": {
+          "targetName": "test",
+          "dependsOn": ["build"]
+        },
+        "restore": {
+          "targetName": "restore"
+        },
+        "publish": {
+          "targetName": "publish"
+        }
       }
     },
     {
@@ -16,13 +25,20 @@
         "buildTarget": {
           "name": "docker:build",
           "args": [
-            "--platform", "linux/amd64,linux/arm64",
-            "--label", "org.opencontainers.image.title={projectName}",
-            "--label", "org.opencontainers.image.revision={commitSha}",
-            "--label", "org.opencontainers.image.version={version}",
-            "--build-arg", "VERSION={version}",
-            "--tag", "{imageRef}:{version}",
-            "--tag", "{imageRef}:sha-{shortCommitSha}"
+            "--platform",
+            "linux/amd64,linux/arm64",
+            "--label",
+            "org.opencontainers.image.title={projectName}",
+            "--label",
+            "org.opencontainers.image.revision={commitSha}",
+            "--label",
+            "org.opencontainers.image.version={version}",
+            "--build-arg",
+            "VERSION={version}",
+            "--tag",
+            "{imageRef}:{version}",
+            "--tag",
+            "{imageRef}:sha-{shortCommitSha}"
           ],
           "env": {
             "DOCKER_BUILDKIT": "1"
@@ -32,11 +48,14 @@
     },
     {
       "plugin": "@nx/next/plugin",
-      "include": ["src/apps/**/*"],
+      "include": ["src/apps/web"],
       "options": {
+        "startTargetName": "start",
         "buildTargetName": "build",
         "devTargetName": "dev",
-        "startTargetName": "start"
+        "serveStaticTargetName": "serve-static",
+        "buildDepsTargetName": "build-deps",
+        "watchDepsTargetName": "watch-deps"
       }
     },
     {
@@ -45,6 +64,18 @@
       "options": {
         "buildStorybookTargetName": "build-storybook",
         "serveStorybookTargetName": "storybook"
+      }
+    },
+    {
+      "plugin": "@nx/expo/plugin",
+      "include": ["src/apps/mobile"],
+      "options": {
+        "startTargetName": "start",
+        "serveTargetName": "serve",
+        "buildTargetName": "build",
+        "prebuildTargetName": "prebuild",
+        "installTargetName": "install",
+        "exportTargetName": "export"
       }
     }
   ],
@@ -88,7 +119,9 @@
       "commerce": {
         "projects": ["src/services/commerce/*"],
         "projectsRelationship": "fixed",
-        "releaseTag": { "pattern": "commerce@{version}" },
+        "releaseTag": {
+          "pattern": "commerce@{version}"
+        },
         "docker": {
           "skipVersionActions": true,
           "registryUrl": "ghcr.io/teck-lab/teck-cloud"
@@ -97,7 +130,9 @@
       "operations": {
         "projects": ["src/services/operations/*"],
         "projectsRelationship": "fixed",
-        "releaseTag": { "pattern": "operations@{version}" },
+        "releaseTag": {
+          "pattern": "operations@{version}"
+        },
         "docker": {
           "skipVersionActions": true,
           "registryUrl": "ghcr.io/teck-lab/teck-cloud"
@@ -106,7 +141,9 @@
       "content": {
         "projects": ["src/services/content/*"],
         "projectsRelationship": "fixed",
-        "releaseTag": { "pattern": "content@{version}" },
+        "releaseTag": {
+          "pattern": "content@{version}"
+        },
         "docker": {
           "skipVersionActions": true,
           "registryUrl": "ghcr.io/teck-lab/teck-cloud"
@@ -115,7 +152,9 @@
       "gateway": {
         "projects": ["src/services/gateway/*"],
         "projectsRelationship": "fixed",
-        "releaseTag": { "pattern": "gateway@{version}" },
+        "releaseTag": {
+          "pattern": "gateway@{version}"
+        },
         "docker": {
           "skipVersionActions": true,
           "registryUrl": "ghcr.io/teck-lab/teck-cloud"
@@ -124,9 +163,24 @@
       "web": {
         "projects": ["src/apps/*", "src/packages/*"],
         "projectsRelationship": "independent",
-        "releaseTag": { "pattern": "{projectName}@{version}" }
+        "releaseTag": {
+          "pattern": "{projectName}@{version}"
+        }
       }
     }
   },
-  "defaultBase": "main"
+  "defaultBase": "main",
+  "generators": {
+    "@nx/react": {
+      "library": {
+        "unitTestRunner": "none"
+      }
+    },
+    "@nx/next": {
+      "application": {
+        "style": "css",
+        "linter": "none"
+      }
+    }
+  }
 }
