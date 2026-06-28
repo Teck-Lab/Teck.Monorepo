@@ -2,6 +2,12 @@
 .nx/cache
 .nx/workspace-data
 
+# Claude Code local state / nested git worktrees
+# (Nx must not descend into these worktree checkouts — their stale csproj
+#  references break the project-graph build.)
+.claude/worktrees/
+.claude/settings.local.json
+
 # Build outputs
 dist/
 .next/

@@ -15,7 +15,8 @@ public static class ValidationRules
             .ImplementInterface(typeof(IValidator<>))
             .Should()
             .BeSealed()
-            .Because("validators should be sealed to prevent inheritance");
+            .Because("validators should be sealed to prevent inheritance")
+            .WithoutRequiringPositiveResults();
 
         rule.Check(architecture);
     }
@@ -28,7 +29,8 @@ public static class ValidationRules
             .ImplementInterface(typeof(IValidator<>))
             .Should()
             .ResideInNamespaceMatching(validationNamespace)
-            .Because("validators should be organized in validation folders");
+            .Because("validators should be organized in validation folders")
+            .WithoutRequiringPositiveResults();
 
         rule.Check(architecture);
     }

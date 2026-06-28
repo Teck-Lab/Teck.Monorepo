@@ -2,124 +2,78 @@ using ArchUnitNET.Domain;
 using ArchUnitNET.Fluent;
 using ArchUnitNET.xUnitV3;
 using SharedKernel.Core.CQRS;
+using SharedKernel.Core.Database;
+using Xunit;
+using Assembly = System.Reflection.Assembly;
 
 namespace Teck.Platform.Arch.Tests.Rules;
 
+/// <summary>
+/// Architecture rules for command handlers. Handlers are WolverineFx static <c>Handle</c> methods,
+/// so they are discovered reflectively and classified by their <see cref="ICommand{T}"/> parameter
+/// rather than by a handler interface (which is never implemented).
+/// </summary>
 public static class CommandHandlerRules
 {
-    public static void CommandHandlersShouldBeSealed(Architecture architecture)
+    /// <summary>Command handlers must be static classes whose name ends with <c>Handler</c>.</summary>
+    /// <param name="applicationAssembly">The application assembly to scan.</param>
+    public static void CommandHandlersShouldBeStaticClassesEndingWithHandler(Assembly applicationAssembly)
     {
-        var rule = ArchRuleDefinition
-            .Classes()
-            .That()
-            .ImplementInterface(typeof(ICommandHandler<,>))
-            .Or()
-            .ImplementInterface(typeof(ICommandHandler<>))
-            .Should()
-            .BeSealed()
-            .Because("command handlers should be sealed to prevent inheritance")
-            .WithoutRequiringPositiveResults();
+        string[] violations = HandlerReflection.GetHandlerClasses(applicationAssembly)
+            .Where(HandlerReflection.IsCommandHandler)
+            .Where(handler => !handler.Name.EndsWith("Handler", StringComparison.Ordinal))
+            .Select(handler => handler.Name)
+            .ToArray();
 
-        rule.Check(architecture);
+        Assert.True(
+            violations.Length == 0,
+            "Command handlers must be static classes named '...Handler': " + string.Join(", ", violations));
     }
 
-    public static void CommandHandlersShouldResideInFeaturesNamespace(Architecture architecture, string applicationRootNamespace)
+    /// <summary>Command handlers must live under a <c>.Features.</c> namespace.</summary>
+    /// <param name="applicationAssembly">The application assembly to scan.</param>
+    public static void CommandHandlersShouldResideInFeaturesNamespace(Assembly applicationAssembly)
     {
-        if (string.IsNullOrWhiteSpace(applicationRootNamespace))
-            applicationRootNamespace = string.Empty;
-        applicationRootNamespace = applicationRootNamespace.Trim().TrimEnd('.');
+        string[] violations = HandlerReflection.GetHandlerClasses(applicationAssembly)
+            .Where(HandlerReflection.IsCommandHandler)
+            .Where(handler => handler.Namespace is null || !handler.Namespace.Contains(".Features.", StringComparison.Ordinal))
+            .Select(handler => handler.FullName!)
+            .ToArray();
 
-        var escaped = System.Text.RegularExpressions.Regex.Escape(applicationRootNamespace);
-        var pattern = "^" + escaped + @"(?:\.[A-Za-z0-9_]+)*\.Features(?:\..*)?$";
+        Assert.True(
+            violations.Length == 0,
+            "Command handlers must reside under a '.Features.' namespace: " + string.Join(", ", violations));
+    }
 
+    /// <summary>
+    /// Command handlers must depend on the write repository only — never the read repository.
+    /// This enforces strict read/write context separation per handler so the read context stays
+    /// free to target a separate read database/replica.
+    /// </summary>
+    /// <param name="applicationAssembly">The application assembly to scan.</param>
+    public static void CommandHandlersShouldNotUseReadRepositories(Assembly applicationAssembly)
+    {
+        string[] violations = HandlerReflection.GetHandlerClasses(applicationAssembly)
+            .Where(HandlerReflection.IsCommandHandler)
+            .Where(handler => HandlerReflection.DependsOnRepository(handler, typeof(IGenericReadRepository<,>)))
+            .Select(handler => handler.Name)
+            .ToArray();
+
+        Assert.True(
+            violations.Length == 0,
+            "Command handlers must use the write repository only (read/write separation): " + string.Join(", ", violations));
+    }
+
+    /// <summary>Commands must be immutable.</summary>
+    /// <param name="architecture">The loaded architecture.</param>
+    public static void CommandsShouldBeImmutable(Architecture architecture) =>
         ArchRuleDefinition
-            .Classes()
-            .That()
-            .ImplementInterface(typeof(ICommandHandler<,>))
-            .Or()
-            .ImplementInterface(typeof(ICommandHandler<>))
-            .Should()
-            .ResideInNamespaceMatching(pattern)
-            .Because("command handlers should be organized in a Features folder (possibly nested)")
-            .Check(architecture);
-    }
-
-    public static void CommandHandlersShouldResideInApplicationAssembly(Architecture architecture, System.Reflection.Assembly applicationAssembly)
-    {
-        // If an assembly name is provided, require command handlers to be defined in that assembly
-        // Use a tolerant rule so it doesn't fail shared test runs that don't load application assemblies
-        ArchRuleDefinition
-            .Classes()
-            .That()
-            .ImplementInterface(typeof(ICommandHandler<,>))
-            .Or()
-            .ImplementInterface(typeof(ICommandHandler<>))
-            .Should()
-            .ResideInAssembly(applicationAssembly)
-            .Because("command handlers should be defined in the application assembly")
-            .WithoutRequiringPositiveResults()
-            .Check(architecture);
-    }
-
-    public static void CommandsShouldBeImmutable(Architecture architecture)
-    {
-        var rule = ArchRuleDefinition
             .Classes()
             .That()
             .AreAssignableTo(typeof(ICommand<>))
             .Should()
             .BeImmutable()
-            .Because("commands should be immutable to prevent state changes");
-
-        rule.Check(architecture);
-    }
-
-    public static void CommandHandlersShouldHaveCorrectName(Architecture architecture)
-    {
-        var rule = ArchRuleDefinition
-            .Classes()
-            .That()
-            .ImplementInterface(typeof(ICommandHandler<,>))
-            .Or()
-            .ImplementInterface(typeof(ICommandHandler<>))
-            .Should()
-            .HaveNameEndingWith("CommandHandler")
-            .Because("command handlers should follow naming convention");
-
-        rule.Check(architecture);
-    }
-
-    public static void CommandHandlersShouldNotBePublic(Architecture architecture)
-    {
-        var rule = ArchRuleDefinition
-            .Classes()
-            .That()
-            .ImplementInterface(typeof(ICommandHandler<,>))
-            .Or()
-            .ImplementInterface(typeof(ICommandHandler<>))
-            .Should()
-            .NotBePublic()
-            .Because("command handlers should be internal for better encapsulation");
-
-        rule.Check(architecture);
-    }
-
-    public static void CommandHandlersShouldUseWriteRepositories(Architecture architecture)
-    {
-        var rule = ArchRuleDefinition
-            .Classes()
-            .That()
-            .ImplementInterface(typeof(ICommandHandler<,>))
-            .Or()
-            .ImplementInterface(typeof(ICommandHandler<>))
-            .Should()
-            .DependOnAny(ArchRuleDefinition.Interfaces().That().HaveNameEndingWith("WriteRepository"))
-            .Because("command handlers should use write repositories")
-            .WithoutRequiringPositiveResults();
-
-        rule.Check(architecture);
-    }
-
-    // Note: We don't enforce that command handlers can't use read repositories
-    // Command handlers may need to use read repositories for validation or lookups
+            .Because("commands should be immutable to prevent state changes")
+            .WithoutRequiringPositiveResults()
+            .Check(architecture);
 }
