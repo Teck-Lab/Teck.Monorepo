@@ -17,5 +17,22 @@ public sealed class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         builder.Property(tenant => tenant.DatabaseStrategy).IsRequired().HasMaxLength(64);
         builder.Property(tenant => tenant.DatabaseProvider).IsRequired().HasMaxLength(64);
         builder.Property(tenant => tenant.Status).IsRequired().HasMaxLength(32);
+
+        builder.HasData(new
+        {
+            Id = Guid.Parse("00000000-0000-0000-0000-0000000000a1"),
+            Identifier = "dev",
+            DatabaseStrategy = "shared",
+            DatabaseProvider = "postgres",
+            HasReadReplicas = false,
+            Status = "active",
+            CreatedAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedBy = (string?)null,
+            UpdatedOn = (DateTimeOffset?)null,
+            UpdatedBy = (string?)null,
+            DeletedOn = (DateTimeOffset?)null,
+            DeletedBy = (string?)null,
+            IsDeleted = false,
+        });
     }
 }

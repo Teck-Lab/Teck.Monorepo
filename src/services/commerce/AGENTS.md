@@ -8,7 +8,7 @@ Core e-commerce domain. All 5 services are full clean architecture skeletons (7 
 |---------|-----------------|---------------------------|-------------------------------|
 | **basket** | Cart management, line items, checkout | BasketCheckedOut | ProductPriceChanged, OrderPlaced |
 | **catalog** | Products, categories, variants, pricing | ProductPriceChanged | — |
-| **customer** | Accounts, profiles, preferences | CustomerCreated | — |
+| **customer** | **Platform tenant authority.** Global tenant registry (`Tenant` entity), per-tenant database-strategy metadata, remote `GetTenantDatabaseInfo` gRPC handler (FastEndpoints `ICommandHandler`, not WolverineFx). No HTTP endpoints; no `ITenantScoped` aggregates (the Tenant entity IS the authority). Migration seed: `dev` tenant (id `00000000-0000-0000-0000-0000000000a1`, strategy `shared`). | CustomerCreated | — |
 | **order** | Order lifecycle, line items, fulfillment | OrderPlaced, OrderShipped | BasketCheckedOut, CustomerCreated |
 | **product** | Product catalog, inventory | — | — |
 

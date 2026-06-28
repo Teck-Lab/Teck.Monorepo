@@ -37,7 +37,7 @@ public abstract class BaseDbContext : DbContext, IMultiTenantDbContext
         // (used when Wolverine constructs the context via Activator.CreateInstance with a single options argument).
         var tenantId = options.FindExtension<TenantDbContextOptionsExtension>()?.TenantId;
         TenantDetails = tenantDetails
-            ?? tenantAccessor?.MultiTenantContext.TenantInfo
+            ?? tenantAccessor?.MultiTenantContext?.TenantInfo
             ?? (tenantId is not null ? new TenantDetails { Id = tenantId, Identifier = tenantId, Name = tenantId, IsActive = true } : null);
         _tenantStrategy = tenantStrategy ?? DatabaseStrategy.Shared;
     }

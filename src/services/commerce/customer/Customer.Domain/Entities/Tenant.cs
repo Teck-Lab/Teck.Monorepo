@@ -3,7 +3,7 @@ using SharedKernel.Core.Domain;
 namespace Customers.Domain.Entities;
 
 /// <summary>The global tenant registry record and authority for per-tenant database strategy.</summary>
-public sealed class Tenant : BaseEntity<Guid>, IAggregateRoot
+public sealed class Tenant : BaseEntity, IAggregateRoot
 {
     private Tenant(
         Guid id,

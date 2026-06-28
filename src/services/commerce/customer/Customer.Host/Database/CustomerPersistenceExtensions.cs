@@ -1,7 +1,9 @@
 using Customers.Application.Database;
+using Finbuckle.MultiTenant.Extensions;
 using SharedKernel.Core.Database;
 using SharedKernel.Infrastructure.Database.EFCore;
 using SharedKernel.Infrastructure.Database.MultiTenant;
+using SharedKernel.Infrastructure.MultiTenant;
 
 namespace Customers.Host.Database;
 
@@ -17,6 +19,11 @@ public static class CustomerPersistenceExtensions
             ?? builder.Configuration.GetConnectionString("Default")
             ?? throw new System.InvalidOperationException("Missing 'CustomerWrite'/'Default' connection string.");
         var read = builder.Configuration.GetConnectionString("CustomerRead") ?? write;
+
+        // Register Finbuckle multi-tenant infrastructure so IMultiTenantContextAccessor<TenantDetails>
+        // is available to AddHybridMultiTenantDbContexts. The customer service is the global tenant
+        // authority (no per-request tenant resolution needed), so no strategy or store is added.
+        builder.Services.AddMultiTenant<TenantDetails>();
 
         builder.AddHybridMultiTenantDbContexts<CustomerDbContext, CustomerReadDbContext>(
             migrationsAssembly: typeof(Program).Assembly,
