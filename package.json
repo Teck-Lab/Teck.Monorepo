@@ -21,7 +21,7 @@
     "@biomejs/biome": "1.9.4",
     "@expo/cli": "~55.0.11",
     "@nx/devkit": "latest",
-    "@nx/docker": "23.0.0",
+    "@nx/docker": "23.0.1",
     "@nx/dotnet": "latest",
     "@nx/expo": "23.0.0",
     "@nx/js": "latest",
