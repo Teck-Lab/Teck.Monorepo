@@ -14,7 +14,6 @@
     <ProjectReference Include="..\..\..\..\shared\SharedKernel.Infrastructure\SharedKernel.Infrastructure.csproj" />
     <ProjectReference Include="..\Catalog.Application\Catalog.Application.csproj" />
     <ProjectReference Include="..\Catalog.Domain\Catalog.Domain.csproj" />
-    <ProjectReference Include="..\..\..\..\..\..\Teck.Cloud\src\aspire\Teck.Cloud.ServiceDefaults\Teck.Cloud.ServiceDefaults.csproj" />
   </ItemGroup>
 
   <ItemGroup>
