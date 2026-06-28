@@ -37,7 +37,9 @@
   </Folder>
   <Folder Name="/src/services/operations/" />
   <Folder Name="/src/services/content/" />
-  <Folder Name="/src/services/gateway/" />
+  <Folder Name="/src/services/gateway/">
+    <Project Path="src/services/gateway/public/Gateway.Public.csproj" />
+  </Folder>
   <Folder Name="/src/apps/" />
   <Folder Name="/src/packages/" />
   <Folder Name="/tests/">

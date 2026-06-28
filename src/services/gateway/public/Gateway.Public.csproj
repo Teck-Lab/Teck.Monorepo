@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Gateway.Public</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!--
+      FastEndpoints.Messaging.Remote 8.1.0 carries MessagePack 3.1.4 as a transitive dependency.
+      MessagePack 3.1.4 is the only 3.x release on NuGet; no patched version exists yet.
+      NU1902/NU1903 suppressed so TreatWarningsAsErrors does not block the build.
+    -->
+    <NoWarn>$(NoWarn);NU1902;NU1903</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="FastEndpoints.Messaging.Remote" />
+    <PackageReference Include="Keycloak.AuthServices.Authentication" />
+    <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" />
+    <PackageReference Include="Microsoft.Extensions.ServiceDiscovery.Yarp" />
+    <PackageReference Include="Treyt.Yarp.ReverseProxy.Swagger" />
+    <PackageReference Include="Yarp.ReverseProxy" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\shared\SharedKernel.Core\SharedKernel.Core.csproj" />
+    <ProjectReference Include="..\..\..\shared\SharedKernel.Grpc.Contracts\SharedKernel.Grpc.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\shared\SharedKernel.Infrastructure\SharedKernel.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>
