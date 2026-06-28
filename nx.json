@@ -48,7 +48,7 @@
     },
     {
       "plugin": "@nx/next/plugin",
-      "include": ["src/apps/**/*"],
+      "include": ["src/apps/web"],
       "options": {
         "startTargetName": "start",
         "buildTargetName": "build",

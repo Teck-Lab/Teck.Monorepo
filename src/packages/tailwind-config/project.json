@@ -4,5 +4,13 @@
   "projectType": "library",
   "sourceRoot": "src/packages/tailwind-config",
   "tags": ["scope:shared", "type:config"],
-  "targets": {}
+  "targets": {
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{workspaceRoot}",
+        "command": "biome check src/packages/tailwind-config"
+      }
+    }
+  }
 }

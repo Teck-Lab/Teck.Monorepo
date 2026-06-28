@@ -25,7 +25,7 @@ const buttonTextVariants = cva("text-sm font-medium", {
   defaultVariants: { variant: "default" },
 });
 
-type ButtonProps = React.ComponentPropsWithoutRef<typeof Pressable> &
+export type ButtonProps = React.ComponentPropsWithoutRef<typeof Pressable> &
   VariantProps<typeof buttonVariants> & { asChild?: boolean };
 
 const Button = React.forwardRef<React.ElementRef<typeof Pressable>, ButtonProps>(

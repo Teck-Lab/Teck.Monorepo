@@ -6,6 +6,13 @@
   "tags": [],
   "// targets": "to see all targets run: nx show project mobile --web",
   "targets": {
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{workspaceRoot}",
+        "command": "biome check src/apps/mobile"
+      }
+    },
     "typecheck": {
       "executor": "nx:run-commands",
       "options": {
