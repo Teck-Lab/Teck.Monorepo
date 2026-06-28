@@ -14,6 +14,9 @@ public sealed class CreateOrderEndpoint(IMessageBus bus) : AuthenticatedEndpoint
     private readonly IMessageBus _bus = bus;
 
     /// <inheritdoc/>
+    protected override EndpointPermission Permission => new("order", "create", "public");
+
+    /// <inheritdoc/>
     public override async Task HandleAsync(CreateOrderRequest request, CancellationToken ct)
     {
         var command = new CreateOrderCommand(request.CustomerId, request.Lines);
@@ -26,7 +29,7 @@ public sealed class CreateOrderEndpoint(IMessageBus bus) : AuthenticatedEndpoint
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        AllowAnonymous();
         Post("/orders");
+        Version(0);
     }
 }
