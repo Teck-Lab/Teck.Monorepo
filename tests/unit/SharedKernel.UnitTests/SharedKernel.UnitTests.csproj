@@ -16,5 +16,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\shared\SharedKernel.Infrastructure\SharedKernel.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\shared\SharedKernel.Grpc.Contracts\SharedKernel.Grpc.Contracts.csproj" />
   </ItemGroup>
 </Project>
