@@ -1,5 +1,5 @@
-using Orders.Domain.Entities;
 using Orders.Domain.Services;
+using Orders.Domain.ValueObjects;
 using Xunit;
 
 namespace Orders.UnitTests;

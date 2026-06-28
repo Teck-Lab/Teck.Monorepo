@@ -2,6 +2,7 @@ using Orders.Application.Orders.Features.CreateOrder.V1;
 using Orders.Application.Orders.ReadModels;
 using Orders.Application.Orders.Responses;
 using Orders.Domain.Entities;
+using Orders.Domain.ValueObjects;
 using Riok.Mapperly.Abstractions;
 
 namespace Orders.Application.Orders.Mapping;

@@ -1,4 +1,4 @@
-using Orders.Domain.Entities;
+using Orders.Domain.ValueObjects;
 
 namespace Orders.Domain.Services;
 

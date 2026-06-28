@@ -18,7 +18,7 @@ public sealed class GetOrderHandlerTests
         var order = Order.Create(
             customerId,
             "tenant-1",
-            [new Orders.Domain.Entities.OrderLine(Guid.NewGuid(), "Test Product", 1, 42m)]);
+            [new Orders.Domain.ValueObjects.OrderLine(Guid.NewGuid(), "Test Product", 1, 42m)]);
         var orderId = order.Id;
 
         var repository = Substitute.For<IGenericReadRepository<Order, System.Guid>>();
