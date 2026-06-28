@@ -14,6 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\src\services\commerce\customer\Customer.Application\Customer.Application.csproj" />
     <ProjectReference Include="..\..\..\src\services\commerce\customer\Customer.Domain\Customer.Domain.csproj" />
   </ItemGroup>
 </Project>
