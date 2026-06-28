@@ -29,4 +29,12 @@ public sealed class EdgeContext
 
     /// <summary>Gets or sets the YARP cluster id for the matched route, used as the service name in tenant lookups.</summary>
     public string? ClusterId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the tenant id explicitly requested by the client via the trusted tenant
+    /// header, captured by <see cref="Steps.HeaderFirewallStep"/> before the header is stripped.
+    /// Used by <see cref="Steps.ResolveTenantStep"/> to detect tenant/token mismatches without
+    /// relying on the (now-stripped) request header.
+    /// </summary>
+    public string? ClientRequestedTenantId { get; set; }
 }

@@ -17,8 +17,13 @@ public sealed class CreateOrderTests : OrderIntegrationTestBase
     {
     }
 
-    // TODO(auth-phase-b): re-enable once the shared integration harness gains a mock-auth bearer helper.
-    [Fact(Skip = "re-enabled with gateway mock-auth in Phase B")]
+    // TODO(auth-phase-b): Order.Host boot requires ILicenseValidator (no impl) and Wolverine
+    // messaging infra (RabbitMQ + runtime codegen). Providing a mock ILicenseValidator via
+    // ConfigureTestServices is straightforward, but Wolverine's runtime codegen step fails
+    // before the DI container is built unless handler assemblies are pre-generated.
+    // Re-enable once ILicenseValidator has a no-op impl and Wolverine codegen is skipped in
+    // integration-test mode. See auth follow-ups.
+    [Fact(Skip = "blocked on ILicenseValidator impl + Wolverine messaging infra — see auth follow-ups")]
     public async Task PostOrders_WithValidBody_ReturnsCreatedOrder()
     {
         var response = await Client.PostAsJsonAsync(
@@ -49,8 +54,8 @@ public sealed class CreateOrderTests : OrderIntegrationTestBase
         Assert.Equal($"/orders/{order.Id}", response.Headers.Location!.OriginalString);
     }
 
-    // TODO(auth-phase-b): re-enable once the shared integration harness gains a mock-auth bearer helper.
-    [Fact(Skip = "re-enabled with gateway mock-auth in Phase B")]
+    // TODO(auth-phase-b): blocked on same ILicenseValidator + Wolverine infra as above.
+    [Fact(Skip = "blocked on ILicenseValidator impl + Wolverine messaging infra — see auth follow-ups")]
     public async Task PostOrders_WithEmptyLines_ReturnsBadRequest()
     {
         var response = await Client.PostAsJsonAsync(
@@ -64,8 +69,8 @@ public sealed class CreateOrderTests : OrderIntegrationTestBase
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    // TODO(auth-phase-b): re-enable once the shared integration harness gains a mock-auth bearer helper.
-    [Fact(Skip = "re-enabled with gateway mock-auth in Phase B")]
+    // TODO(auth-phase-b): blocked on same ILicenseValidator + Wolverine infra as above.
+    [Fact(Skip = "blocked on ILicenseValidator impl + Wolverine messaging infra — see auth follow-ups")]
     public async Task GetOrders_AfterCreation_ReturnsCreatedOrder()
     {
         var customerId = Guid.NewGuid();

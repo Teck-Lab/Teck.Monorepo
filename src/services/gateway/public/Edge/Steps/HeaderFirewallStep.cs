@@ -9,8 +9,20 @@ public sealed class HeaderFirewallStep(EdgeTenantOptions tenantOptions) : IEdgeS
     /// <inheritdoc/>
     public Task<EdgeStepResult> ExecuteAsync(EdgeContext context, CancellationToken ct)
     {
+        // Save the client-requested tenant id BEFORE stripping so that ResolveTenantStep
+        // can perform the mismatch check (client header vs. token claims) even after the
+        // header has been removed from the request.
+        context.ClientRequestedTenantId = TryGetHeader(
+            context.HttpContext, tenantOptions.TenantIdHeaderName);
+
         context.HttpContext.Request.Headers.Remove(tenantOptions.TenantIdHeaderName);
         context.HttpContext.Request.Headers.Remove(EdgeHeaders.TenantDbStrategy);
         return Task.FromResult(EdgeStepResult.Proceed);
     }
+
+    private static string? TryGetHeader(HttpContext http, string name) =>
+        http.Request.Headers.TryGetValue(name, out var values) &&
+        !string.IsNullOrWhiteSpace(values.ToString())
+            ? values.ToString().Trim()
+            : null;
 }

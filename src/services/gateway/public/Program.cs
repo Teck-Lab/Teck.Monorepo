@@ -6,6 +6,18 @@ using SharedKernel.Infrastructure.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Guard: mock authentication must never reach Production.
+// The MockBearerAuthenticationHandler lives ONLY in the test assembly and is
+// injected via WebApplicationFactory.ConfigureTestServices — it is never
+// compiled into this binary. This guard is a belt-and-suspenders check so that
+// a misconfigured deploy (appsettings override) cannot activate test-only auth.
+bool mockAuth = builder.Configuration.GetValue<bool>("Testing:UseMockAuthentication");
+if (mockAuth && builder.Environment.IsProduction())
+{
+    throw new InvalidOperationException(
+        "Mock authentication must never be enabled in Production.");
+}
+
 // AuthN: JWT bearer from Keycloak, bound from the "Keycloak" config section.
 KeycloakAuthenticationOptions keycloak =
     builder.Configuration.GetSection("Keycloak").Get<KeycloakAuthenticationOptions>()!;
@@ -37,15 +49,19 @@ app.MapRemote(
     builder.Configuration["Services:CustomerApi:Url"]!,
     remote => remote.Register<GetTenantDatabaseInfoCommand, TenantDatabaseInfoRpcResult>());
 
-// UseAuthentication/UseRouting/UseAuthorization BEFORE the edge middleware so the
+// UseAuthentication/UseRouting/UseAuthorization BEFORE the YARP endpoint so the
 // ClaimsPrincipal is populated and YARP's per-route AuthorizationPolicy rejects
 // unauthenticated callers before any tenant/token-exchange logic runs.
 // UseRouting must precede UseAuthorization so endpoint metadata is available.
+//
+// EdgeEnforcementMiddleware runs INSIDE YARP's inner pipeline (via the MapReverseProxy
+// callback) so that IReverseProxyFeature is already populated when the middleware executes.
+// Placing it in the outer pipeline would mean IReverseProxyFeature is always null and the
+// edge steps would never run.
 app.UseAuthentication();
 app.UseRouting();
 app.UseAuthorization();
-app.UseMiddleware<EdgeEnforcementMiddleware>();
-app.MapReverseProxy();
+app.MapReverseProxy(proxy => proxy.UseMiddleware<EdgeEnforcementMiddleware>());
 
 await app.RunAsync();
 
