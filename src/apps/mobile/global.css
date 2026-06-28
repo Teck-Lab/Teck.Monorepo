@@ -1,0 +1,21 @@
+@import "tailwindcss";
+@import "@teck/tailwind-config/tokens.css";
+
+/* NativeWind v5 is CSS-first (Tailwind v4): scan the app + shared native UI
+   package for class names. The ui-native glob matches nothing until that
+   package is created (Task 6). */
+@source "./src/**/*.{js,jsx,ts,tsx}";
+@source "../../packages/ui-native/src/**/*.{js,jsx,ts,tsx}";
+
+/* Map the shared HSL token channels (from @teck/tailwind-config) to Tailwind v4
+   theme colors so utilities like `bg-background` resolve to the shared tokens.
+   Change a value in tokens.css and BOTH web and native update. */
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-border: hsl(var(--border));
+  --color-ring: hsl(var(--primary));
+  --radius-md: var(--radius);
+}

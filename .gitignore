@@ -32,3 +32,20 @@ Thumbs.db
 
 # SDD controller scratch (ledger, briefs, review packages)
 .superpowers/
+# Next.js
+.next
+out
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Expo
+.expo/
+web-build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+

@@ -27,7 +27,22 @@ In VS Code: Command Palette → **Dev Containers: Reopen in Container** (first b
 
 - Build/test everything: `bun run build`, `bun run test`, or `nx affected -t build test lint typecheck`.
 - Integration tests (Testcontainers) and Aspire work because Docker runs **inside** the container (Docker-in-Docker). The first integration-test run pulls Postgres/RabbitMQ/Redis/Keycloak images into the nested daemon and is slow; later runs are fast because the image store is persisted across rebuilds.
-- Forwarded ports: **18888** Aspire dashboard, **3000** Next.js dev, **8080** service host.
+- Forwarded ports: **18888** Aspire dashboard, **3000** Next.js dev, **8080** service host, **8081** Metro / Expo web, **19000** Expo Go (LAN), **19006** Expo web (legacy).
+
+## Mobile (Expo) — light by default
+
+Expo tooling is light: no Android SDK in the image. Develop via `bunx expo start --web` (port 8081, forwarded) or Expo Go on a device with `bunx expo start --tunnel`; native builds run in the cloud via `bunx eas-cli`. The **Expo Tools** VS Code extension is preinstalled.
+
+### Opt-in: local Android builds (heavy)
+
+Not installed by default (adds gigabytes; needs `/dev/kvm` for emulation; iOS cannot build on Linux). To enable, add to `.devcontainer/devcontainer.json` `features`:
+
+```jsonc
+"ghcr.io/devcontainers/features/java:1": { "version": "17" },
+"ghcr.io/devcontainers/features/android-sdk:1": {}
+```
+
+and install `watchman`. Then `bunx expo run:android` builds locally.
 
 ## Claude Code
 

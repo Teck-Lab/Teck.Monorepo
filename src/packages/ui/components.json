@@ -1,0 +1,13 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "tailwind": {
+    "config": "",
+    "css": "../../apps/web/src/app/globals.css",
+    "baseColor": "slate",
+    "cssVariables": true
+  },
+  "rsc": true,
+  "tsx": true,
+  "aliases": { "components": "@teck/ui/src/components", "utils": "@teck/ui/src/lib/utils" }
+}

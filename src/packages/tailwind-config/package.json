@@ -1,0 +1,8 @@
+{
+  "name": "@teck/tailwind-config",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    "./tokens.css": "./tokens.css"
+  }
+}

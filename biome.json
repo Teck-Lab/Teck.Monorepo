@@ -12,17 +12,14 @@
       "recommended": true
     }
   },
-  "css": {
-    "parser": {
-      "tailwindDirectives": true
-    }
-  },
   "files": {
     "ignoreUnknown": true,
     "ignore": [
       "**/node_modules/**",
       "**/.next/**",
       "**/.nx/**",
+      "**/.expo/**",
+      "**/web-build/**",
       "**/dist/**",
       "**/storybook-static/**",
       "**/bin/**",
