@@ -30,6 +30,7 @@
         "@biomejs/biome": "1.9.4",
         "@expo/cli": "~55.0.11",
         "@nx/devkit": "latest",
+        "@nx/docker": "23.0.0",
         "@nx/dotnet": "latest",
         "@nx/expo": "23.0.0",
         "@nx/js": "latest",
@@ -707,6 +708,8 @@
     "@nx/detox": ["@nx/detox@23.0.0", "", { "dependencies": { "@nx/devkit": "23.0.0", "@nx/eslint": "23.0.0", "@nx/jest": "23.0.0", "@nx/js": "23.0.0", "@nx/react": "23.0.0", "semver": "^7.6.3", "tslib": "^2.3.0" }, "peerDependencies": { "detox": "^20.0.0" }, "optionalPeers": ["detox"] }, "sha512-zjIvTGJz7DnZBlPJ1wnDbT4ueKqMI5YfG6+f11R4V6Ix7c/lhDI51EFthpX9eHKB6vXSJYgrFy0+o5cXQ69RTQ=="],
 
     "@nx/devkit": ["@nx/devkit@23.0.0", "", { "dependencies": { "@zkochan/js-yaml": "0.0.7", "ejs": "5.0.1", "enquirer": "~2.3.6", "minimatch": "10.2.5", "semver": "^7.6.3", "tslib": "^2.3.0", "yargs-parser": "21.1.1" }, "peerDependencies": { "nx": ">= 22 <= 24 || ^23.0.0-0" } }, "sha512-AYZWLcgYVQJjhhYwoKWFiu0u4jlrfMM64zarRbpQ7vwXWSJXCMQ2j2w9c5vzTnH3SeWigyyEYRo9xulfNESJ8w=="],
+
+    "@nx/docker": ["@nx/docker@23.0.0", "", { "dependencies": { "@nx/devkit": "23.0.0", "enquirer": "~2.3.6", "tslib": "^2.3.0" } }, "sha512-Cw+FCNXXRnGJVJ+WzPHhkj9uNM6hJR1NiMiu7rRDyTxB+UDkIL0FPP64VWxWngjoFb+oTICwuRYTrAUSR7NbxQ=="],
 
     "@nx/dotnet": ["@nx/dotnet@23.0.0", "", { "dependencies": { "@nx/devkit": "23.0.0", "ignore": "^7.0.5", "tslib": "^2.3.0" } }, "sha512-Wxd6E5nk+zrdgX779BBHhQcbOJZJ0ejCCAzDQF50Sqi0eWS1+2aZ0sgztrJR5Bb7XkZaWKMhHmN3Yz1b39dcjw=="],
 
