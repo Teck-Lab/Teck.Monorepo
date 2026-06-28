@@ -30,6 +30,9 @@
     <Project Path="src/services/commerce/catalog/Catalog.Domain/Catalog.Domain.csproj" />
     <Project Path="src/services/commerce/catalog/Catalog.Host/Catalog.Host.csproj" />
   </Folder>
+  <Folder Name="/src/services/commerce/customer/">
+    <Project Path="src/services/commerce/customer/Customer.Domain/Customer.Domain.csproj" />
+  </Folder>
   <Folder Name="/src/services/operations/" />
   <Folder Name="/src/services/content/" />
   <Folder Name="/src/services/gateway/" />
@@ -40,6 +43,7 @@
     <Project Path="tests/architecture/Order.Architecture.UnitTests/Order.Architecture.UnitTests.csproj" />
     <Project Path="tests/architecture/Catalog.Architecture.UnitTests/Catalog.Architecture.UnitTests.csproj" />
     <Project Path="tests/unit/SharedKernel.UnitTests/SharedKernel.UnitTests.csproj" />
+    <Project Path="tests/unit/Customer.UnitTests/Customer.UnitTests.csproj" />
   </Folder>
   <Folder Name="/tools/" />
 </Solution>
