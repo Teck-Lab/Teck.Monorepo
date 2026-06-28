@@ -22,7 +22,7 @@ internal sealed class RemoteTenantDatabaseStrategyResolver : ITenantDatabaseStra
     /// <param name="logger">The logger.</param>
     public RemoteTenantDatabaseStrategyResolver(
         IFusionCache fusionCache,
-        ResiliencePipeline circuitBreaker,
+        [FromKeyedServices("tenant-db-strategy")] ResiliencePipeline circuitBreaker,
         ILogger<RemoteTenantDatabaseStrategyResolver> logger)
     {
         this.fusionCache = fusionCache;

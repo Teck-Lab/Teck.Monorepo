@@ -1,5 +1,6 @@
 using Gateway.Public.Edge;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Forwarder;
@@ -13,7 +14,8 @@ public sealed class EdgeEnforcementMiddlewareTests
     private const string TestRouteId = "test-route";
     private const string TestClusterId = "test-cluster";
 
-    private static DefaultHttpContext MakeHttpContext()
+    // Steps are resolved per-request from context.RequestServices (scoped-safe pattern).
+    private static DefaultHttpContext MakeHttpContext(params IEdgeStep[] steps)
     {
         var routeConfig = new RouteConfig { RouteId = TestRouteId, ClusterId = TestClusterId };
         var clusterState = new ClusterState(TestClusterId);
@@ -22,24 +24,32 @@ public sealed class EdgeEnforcementMiddlewareTests
         var http = new DefaultHttpContext();
         http.Response.Body = new MemoryStream();
         http.Features.Set<IReverseProxyFeature>(new FakeProxyFeature(routeModel));
+
+        var services = new ServiceCollection();
+        foreach (IEdgeStep step in steps)
+        {
+            services.AddSingleton<IEdgeStep>(step);
+        }
+
+        http.RequestServices = services.BuildServiceProvider();
         return http;
     }
 
-    private static EdgeEnforcementMiddleware BuildMiddleware(RequestDelegate next, params IEdgeStep[] steps)
+    private static EdgeEnforcementMiddleware BuildMiddleware(RequestDelegate next)
     {
         var policy = new EdgeAccessPolicy(EdgeAccessMode.Authenticated, "order");
-        return new EdgeEnforcementMiddleware(next, new FakeRegistry(TestRouteId, policy), steps);
+        return new EdgeEnforcementMiddleware(next, new FakeRegistry(TestRouteId, policy));
     }
 
     /// <summary>A step that stops with 403 must not call the next delegate and must write the problem to the response.</summary>
     [Fact]
     public async Task StopStep_DoesNotCallNext_AndWritesProblem()
     {
-        var http = MakeHttpContext();
+        var http = MakeHttpContext(new StopStep(403, "test.denied"));
         var nextCalled = false;
         Task Next(HttpContext _) { nextCalled = true; return Task.CompletedTask; }
 
-        var middleware = BuildMiddleware(Next, new StopStep(403, "test.denied"));
+        var middleware = BuildMiddleware(Next);
         await middleware.InvokeAsync(http);
 
         Assert.False(nextCalled);
@@ -50,11 +60,11 @@ public sealed class EdgeEnforcementMiddlewareTests
     [Fact]
     public async Task AllProceedSteps_CallNext()
     {
-        var http = MakeHttpContext();
+        var http = MakeHttpContext(new ProceedStep(), new ProceedStep());
         var nextCalled = false;
         Task Next(HttpContext _) { nextCalled = true; return Task.CompletedTask; }
 
-        var middleware = BuildMiddleware(Next, new ProceedStep(), new ProceedStep());
+        var middleware = BuildMiddleware(Next);
         await middleware.InvokeAsync(http);
 
         Assert.True(nextCalled);

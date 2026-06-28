@@ -7,17 +7,14 @@ public sealed class EdgeEnforcementMiddleware
 {
     private readonly RequestDelegate next;
     private readonly IEdgeAccessPolicyRegistry registry;
-    private readonly IReadOnlyList<IEdgeStep> steps;
 
     /// <summary>Initializes a new instance of the <see cref="EdgeEnforcementMiddleware"/> class.</summary>
     /// <param name="next">The next delegate.</param>
     /// <param name="registry">The route policy registry.</param>
-    /// <param name="steps">The ordered edge steps.</param>
-    public EdgeEnforcementMiddleware(RequestDelegate next, IEdgeAccessPolicyRegistry registry, IEnumerable<IEdgeStep> steps)
+    public EdgeEnforcementMiddleware(RequestDelegate next, IEdgeAccessPolicyRegistry registry)
     {
         this.next = next;
         this.registry = registry;
-        this.steps = steps.ToList();
     }
 
     /// <summary>Executes the middleware.</summary>
@@ -45,6 +42,10 @@ public sealed class EdgeEnforcementMiddleware
             ClusterId = routeConfig.ClusterId,
         };
 
+        // Resolve steps from the per-request DI scope so scoped services are honoured and
+        // registration order (HeaderFirewall → ResolveTenant → ResolveDbStrategy → ExchangeToken)
+        // is preserved via IEnumerable<IEdgeStep>.
+        var steps = context.RequestServices.GetRequiredService<IEnumerable<IEdgeStep>>();
         foreach (IEdgeStep step in steps)
         {
             EdgeStepResult result = await step.ExecuteAsync(edge, context.RequestAborted);
