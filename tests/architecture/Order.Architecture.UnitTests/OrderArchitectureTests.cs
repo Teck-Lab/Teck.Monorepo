@@ -87,6 +87,11 @@ public sealed class OrderArchitectureTests : Teck.Platform.Arch.Tests.SharedTest
     }
 
     [Fact]
+    public void OrderEndpoints_ShouldDeriveFromAuthenticatedEndpoint() =>
+        Teck.Platform.Arch.Tests.Rules.EndpointRules
+            .EndpointsShouldDeriveFromAuthenticatedEndpoint(HostAssembly);
+
+    [Fact]
     public void OrderService_ShouldFollowSharedArchitectureRules() =>
         SharedArchitectureRules.AssertAll(OrderArchitecture, ApplicationAssembly);
 }
