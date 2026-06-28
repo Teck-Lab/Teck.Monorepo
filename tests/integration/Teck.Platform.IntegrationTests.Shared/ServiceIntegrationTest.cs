@@ -1,3 +1,7 @@
+// <copyright file="ServiceIntegrationTest.cs" company="TeckLab">
+// Copyright (c) TeckLab. All rights reserved.
+// </copyright>
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
@@ -5,7 +9,7 @@ using Testcontainers.PostgreSql;
 using Testcontainers.RabbitMq;
 using Xunit;
 
-namespace SharedKernel.Infrastructure.Testing;
+namespace Teck.Platform.IntegrationTests.Shared;
 
 /// <summary>
 /// Base class for integration tests that host a service against ephemeral PostgreSQL and RabbitMQ containers.
@@ -14,11 +18,11 @@ namespace SharedKernel.Infrastructure.Testing;
 public abstract class ServiceIntegrationTest<TProgram> : IAsyncLifetime
     where TProgram : class
 {
-    private readonly PostgreSqlContainer _postgresContainer = new PostgreSqlBuilder().Build();
+    private readonly PostgreSqlContainer postgresContainer = new PostgreSqlBuilder().Build();
 
-    private readonly RabbitMqContainer _rabbitMqContainer = new RabbitMqBuilder().Build();
+    private readonly RabbitMqContainer rabbitMqContainer = new RabbitMqBuilder().Build();
 
-    private WebApplicationFactory<TProgram>? _factory;
+    private WebApplicationFactory<TProgram>? factory;
 
     /// <summary>
     /// Gets the HTTP client used to send requests to the hosted test application.
@@ -28,26 +32,26 @@ public abstract class ServiceIntegrationTest<TProgram> : IAsyncLifetime
     /// <summary>
     /// Gets the service provider of the hosted test application.
     /// </summary>
-    protected IServiceProvider ServiceProvider => _factory?.Services ?? throw new InvalidOperationException("The test host has not been initialized.");
+    protected IServiceProvider ServiceProvider => factory?.Services ?? throw new InvalidOperationException("The test host has not been initialized.");
 
     /// <summary>
     /// Gets the connection string for the ephemeral PostgreSQL container.
     /// </summary>
-    protected string PostgreSqlConnectionString => _postgresContainer.GetConnectionString();
+    protected string PostgreSqlConnectionString => postgresContainer.GetConnectionString();
 
     /// <summary>
     /// Gets the connection string for the ephemeral RabbitMQ container.
     /// </summary>
-    protected string RabbitMqConnectionString => _rabbitMqContainer.GetConnectionString();
+    protected string RabbitMqConnectionString => rabbitMqContainer.GetConnectionString();
 
     /// <inheritdoc/>
     public async ValueTask InitializeAsync()
     {
-        await _postgresContainer.StartAsync();
-        await _rabbitMqContainer.StartAsync();
+        await postgresContainer.StartAsync();
+        await rabbitMqContainer.StartAsync();
 
-        _factory = CreateFactory();
-        HttpClient = _factory.CreateClient();
+        factory = CreateFactory();
+        HttpClient = factory.CreateClient();
     }
 
     /// <inheritdoc/>
@@ -55,10 +59,10 @@ public abstract class ServiceIntegrationTest<TProgram> : IAsyncLifetime
     {
         HttpClient.Dispose();
 
-        _factory?.Dispose();
+        factory?.Dispose();
 
-        await _rabbitMqContainer.DisposeAsync();
-        await _postgresContainer.DisposeAsync();
+        await rabbitMqContainer.DisposeAsync();
+        await postgresContainer.DisposeAsync();
     }
 
     /// <summary>

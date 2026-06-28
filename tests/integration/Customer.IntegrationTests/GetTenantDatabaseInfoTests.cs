@@ -1,12 +1,14 @@
+// <copyright file="GetTenantDatabaseInfoTests.cs" company="TeckLab">
+// Copyright (c) TeckLab. All rights reserved.
+// </copyright>
+
 using Customers.Application.Database;
-using Customers.Host.Database;
 using Customers.Host.Grpc.V1;
-using Finbuckle.MultiTenant.Abstractions;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using SharedKernel.Core.Database;
 using SharedKernel.Grpc.Contracts.Remote.V1.Tenants;
-using SharedKernel.Infrastructure.MultiTenant;
 using Teck.Platform.IntegrationTests.Shared;
 using Xunit;
 
@@ -14,65 +16,51 @@ namespace Customers.IntegrationTests;
 
 /// <summary>
 /// Integration tests for the <see cref="GetTenantDatabaseInfoCommandHandler"/>.
-/// Verifies that the migration-seeded dev tenant is resolvable through the full repository stack.
+/// Verifies that the migration-seeded dev tenant is resolvable through the full host stack.
 ///
-/// Uses a minimal <see cref="IServiceProvider"/> (EF Core + repository + handler only) rather than
-/// <see cref="Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory{TEntryPoint}"/> because
-/// <c>Customer.Host</c> has no HTTP endpoints and <c>AddTeckService</c> calls
-/// <c>AddFastEndpoints</c> which throws when zero endpoint declarations are found.
+/// Boots <c>Customer.Host</c> via <see cref="WebApplicationFactory{TEntryPoint}"/> against a
+/// Testcontainers PostgreSQL database so the test exercises the full DI and EF pipeline.
 /// </summary>
 [Collection("SharedTestcontainers")]
-public sealed class GetTenantDatabaseInfoTests : IAsyncDisposable
+public sealed class GetTenantDatabaseInfoTests : IAsyncLifetime
 {
     /// <summary>The GUID of the dev tenant seeded by the InitialCustomer migration.</summary>
     private static readonly Guid DevTenantId = Guid.Parse("00000000-0000-0000-0000-0000000000a1");
 
-    private readonly ServiceProvider serviceProvider;
+    private readonly SharedTestcontainersFixture fixture;
+    private WebApplicationFactory<Program>? factory;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GetTenantDatabaseInfoTests"/> class.
-    /// Applies the customer migrations against a testcontainer Postgres database and wires a minimal
-    /// service provider with just the EF Core read context, repository, and command handler.
     /// </summary>
     /// <param name="fixture">The shared testcontainers fixture providing Postgres.</param>
     public GetTenantDatabaseInfoTests(SharedTestcontainersFixture fixture)
     {
         ArgumentNullException.ThrowIfNull(fixture);
+        this.fixture = fixture;
+    }
 
-        // Run migrations (including the dev-tenant seed) in the shared test database.
-        // The migrations assembly is Customer.Host (typeof(Program).Assembly.GetName().Name).
-        // We do NOT truncate after the test because the seeded data comes from HasData in the
-        // migration; truncation would remove it and migrations would not re-run on the next
-        // test run since the database already exists.
-        string connectionString = fixture
-            .CreateSharedTestDatabaseAsync(typeof(CustomerDbContext), "Customer.Host")
-            .GetAwaiter()
-            .GetResult();
+    /// <inheritdoc/>
+    public async ValueTask InitializeAsync()
+    {
+        // Run EF migrations (including the dev-tenant seed) against the shared test database.
+        // CreateSharedTestDatabaseAsync is idempotent: the database is created only once per
+        // Postgres container lifetime even when called across multiple test class instances.
+        await fixture.CreateSharedTestDatabaseAsync(typeof(CustomerDbContext), "Customer.Host");
 
-        // Build a minimal DI container — just what the handler needs.
-        // We skip the full host startup (WebApplicationFactory) because Customer.Host has no
-        // HTTP endpoints and FastEndpoints throws when zero endpoint declarations are found.
-        var services = new ServiceCollection();
+        // Build the factory and trigger host startup so errors surface here rather than
+        // inside an individual test method.
+        factory = new CustomerWebApplicationFactory(fixture);
+        _ = factory.Services;
+    }
 
-        services.AddLogging();
-        services.AddHttpContextAccessor();
-
-        // Stub IMultiTenantContextAccessor<TenantDetails>: needed by CustomerReadDbContext
-        // constructor. Customer.Host is the global tenant authority and Tenant is NOT
-        // tenant-scoped, so a null MultiTenantContext (= no tenant filter) is correct here.
-        services.AddSingleton<IMultiTenantContextAccessor<TenantDetails>>(
-            new NullMultiTenantContextAccessor());
-
-        services.AddDbContext<CustomerReadDbContext>((_, opts) =>
+    /// <inheritdoc/>
+    public async ValueTask DisposeAsync()
+    {
+        if (factory is not null)
         {
-            opts.UseNpgsql(connectionString);
-            opts.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
-        });
-
-        services.AddScoped(typeof(IGenericReadRepository<,>), typeof(CustomerReadRepository<,>));
-        services.AddScoped<GetTenantDatabaseInfoCommandHandler>();
-
-        serviceProvider = services.BuildServiceProvider();
+            await factory.DisposeAsync();
+        }
     }
 
     /// <summary>
@@ -83,7 +71,7 @@ public sealed class GetTenantDatabaseInfoTests : IAsyncDisposable
     public async Task RemoteHandler_ResolvesSeededDevTenant()
     {
         // Arrange
-        await using AsyncServiceScope scope = serviceProvider.CreateAsyncScope();
+        await using AsyncServiceScope scope = factory!.Services.CreateAsyncScope();
         var handler = scope.ServiceProvider.GetRequiredService<GetTenantDatabaseInfoCommandHandler>();
         var command = new GetTenantDatabaseInfoCommand
         {
@@ -101,25 +89,33 @@ public sealed class GetTenantDatabaseInfoTests : IAsyncDisposable
         Assert.Equal("dev", result.Identifier);
     }
 
-    /// <inheritdoc/>
-    public async ValueTask DisposeAsync()
-    {
-        await serviceProvider.DisposeAsync();
-    }
-
     /// <summary>
-    /// Stub <see cref="IMultiTenantContextAccessor{TTenantInfo}"/> with no active tenant context.
-    /// Used in tests where the repository must be accessible without tenant isolation
-    /// (the Customer service itself, whose <c>Tenant</c> aggregate is the global authority).
+    /// <see cref="WebApplicationFactory{TEntryPoint}"/> for Customer.Host that injects the
+    /// Testcontainers Postgres connection string into all three connection-string slots so that
+    /// <c>AddCustomerPersistence</c> can resolve the <c>CustomerWrite</c> / <c>Default</c>
+    /// connection strings without throwing.
     /// </summary>
-    private sealed class NullMultiTenantContextAccessor
-        : IMultiTenantContextAccessor<TenantDetails>,
-          IMultiTenantContextAccessor
+    private sealed class CustomerWebApplicationFactory(SharedTestcontainersFixture fixture)
+        : WebApplicationFactory<Program>
     {
         /// <inheritdoc/>
-        public IMultiTenantContext<TenantDetails>? MultiTenantContext => null;
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            // The database was already created and migrated in InitializeAsync before
+            // ConfigureWebHost is invoked, so the connection string is safe to use here.
+            string connectionString = fixture.GetDatabaseConnectionString("testdb_customerdbcontext");
 
-        /// <inheritdoc/>
-        IMultiTenantContext? IMultiTenantContextAccessor.MultiTenantContext => null;
+            // UseSetting applies values at the host level with the highest configuration
+            // priority, ensuring they override the Dev appsettings connection strings.
+            builder.UseSetting("ConnectionStrings:CustomerWrite", connectionString);
+            builder.UseSetting("ConnectionStrings:CustomerRead", connectionString);
+            builder.UseSetting("ConnectionStrings:Default", connectionString);
+
+            // FastEndpoints MapHandlers wires the handler into the remote-command pipeline but
+            // does not add it to the DI container as a resolvable concrete type. Register it
+            // explicitly so the test can resolve it from a scope.
+            builder.ConfigureServices(static services =>
+                services.AddScoped<GetTenantDatabaseInfoCommandHandler>());
+        }
     }
 }

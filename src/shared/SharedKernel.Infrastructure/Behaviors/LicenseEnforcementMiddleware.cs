@@ -19,13 +19,13 @@ public sealed class LicenseEnforcementMiddleware(
         [typeof(List<Error>)]);
 
     /// <summary>
-    /// Validates the license for license-gated requests before invoking the next middleware.
+    /// Executes before the handler, validating the license for license-gated requests.
     /// </summary>
     /// <param name="context">The WolverineFx message context for the current envelope.</param>
     /// <param name="next">The delegate that invokes the next middleware in the pipeline.</param>
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>A task that represents the asynchronous middleware operation.</returns>
-    public async ValueTask InvokeAsync(
+    public async ValueTask BeforeAsync(
         IMessageContext context,
         Func<ValueTask> next,
         CancellationToken cancellationToken)
