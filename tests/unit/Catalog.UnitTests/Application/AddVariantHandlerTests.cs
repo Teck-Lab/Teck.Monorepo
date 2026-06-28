@@ -22,11 +22,13 @@ public sealed class AddVariantHandlerTests
         }
 
         using var db = CatalogTestContext.CreateWithStubbedSave("addvariant");
+        var repository = CatalogTestContext.WriteRepo<Product>(db);
+        var unitOfWork = CatalogTestContext.UnitOfWork(db);
         var bus = Substitute.For<IMessageBus>();
         var command = new AddVariantCommand(product.Id, "WIDGET-2", 12.50m, "USD",
             [new VariantAttributeInput("Size", "Large")]);
 
-        var result = await AddVariantHandler.Handle(command, db, bus, CancellationToken.None);
+        var result = await AddVariantHandler.Handle(command, repository, unitOfWork, bus, CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal("WIDGET-2", result.Value.Sku);
@@ -42,10 +44,12 @@ public sealed class AddVariantHandlerTests
     public async Task Handle_WithMissingProduct_ReturnsNotFound()
     {
         using var db = CatalogTestContext.CreateInMemory("addvariant-missing");
+        var repository = CatalogTestContext.WriteRepo<Product>(db);
+        var unitOfWork = CatalogTestContext.UnitOfWork(db);
         var bus = Substitute.For<IMessageBus>();
         var command = new AddVariantCommand(Guid.NewGuid(), "X", 1m, "USD", []);
 
-        var result = await AddVariantHandler.Handle(command, db, bus, CancellationToken.None);
+        var result = await AddVariantHandler.Handle(command, repository, unitOfWork, bus, CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorOr.ErrorType.NotFound, result.FirstError.Type);

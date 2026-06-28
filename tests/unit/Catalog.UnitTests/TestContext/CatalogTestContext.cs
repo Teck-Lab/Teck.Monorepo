@@ -1,8 +1,12 @@
 using Catalog.Application.Database;
 using Finbuckle.MultiTenant.Abstractions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using NSubstitute.Extensions;
+using SharedKernel.Core.Database;
+using SharedKernel.Core.Domain;
+using SharedKernel.Infrastructure.Database.EFCore;
 using SharedKernel.Infrastructure.MultiTenant;
 
 namespace Catalog.UnitTests.TestContext;
@@ -42,4 +46,13 @@ public static class CatalogTestContext
         ctx.Configure().SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(1));
         return ctx;
     }
+
+    /// <summary>Builds a write repository over the given context (audit accessor is a no-op substitute).</summary>
+    public static IGenericWriteRepository<TEntity, Guid> WriteRepo<TEntity>(CatalogDbContext db)
+        where TEntity : BaseEntity =>
+        new GenericWriteRepository<TEntity, Guid, CatalogDbContext>(db, Substitute.For<IHttpContextAccessor>());
+
+    /// <summary>Builds a unit of work that commits the given context.</summary>
+    public static IUnitOfWork UnitOfWork(CatalogDbContext db) =>
+        new UnitOfWork<CatalogDbContext>(db);
 }

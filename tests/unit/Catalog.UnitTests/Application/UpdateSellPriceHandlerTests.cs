@@ -26,10 +26,12 @@ public sealed class UpdateSellPriceHandlerTests
     {
         var product = await SeedAsync("price-change");
         using var db = CatalogTestContext.CreateWithStubbedSave("price-change");
+        var repository = CatalogTestContext.WriteRepo<Product>(db);
+        var unitOfWork = CatalogTestContext.UnitOfWork(db);
         var bus = Substitute.For<IMessageBus>();
         var command = new UpdateSellPriceCommand(product.Id, product.Variants[0].Id, 14.00m, "USD");
 
-        var result = await UpdateSellPriceHandler.Handle(command, db, bus, CancellationToken.None);
+        var result = await UpdateSellPriceHandler.Handle(command, repository, unitOfWork, bus, CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(14.00m, result.Value.SellPriceAmount);
@@ -45,10 +47,12 @@ public sealed class UpdateSellPriceHandlerTests
     {
         var product = await SeedAsync("price-same");
         using var db = CatalogTestContext.CreateWithStubbedSave("price-same");
+        var repository = CatalogTestContext.WriteRepo<Product>(db);
+        var unitOfWork = CatalogTestContext.UnitOfWork(db);
         var bus = Substitute.For<IMessageBus>();
         var command = new UpdateSellPriceCommand(product.Id, product.Variants[0].Id, 9.99m, "USD");
 
-        var result = await UpdateSellPriceHandler.Handle(command, db, bus, CancellationToken.None);
+        var result = await UpdateSellPriceHandler.Handle(command, repository, unitOfWork, bus, CancellationToken.None);
 
         Assert.False(result.IsError);
         await bus.DidNotReceive().PublishAsync(Arg.Any<ProductPriceChangedIntegrationEvent>());
@@ -58,10 +62,12 @@ public sealed class UpdateSellPriceHandlerTests
     public async Task Handle_WithMissingProduct_ReturnsNotFound()
     {
         using var db = CatalogTestContext.CreateWithStubbedSave("price-missing");
+        var repository = CatalogTestContext.WriteRepo<Product>(db);
+        var unitOfWork = CatalogTestContext.UnitOfWork(db);
         var bus = Substitute.For<IMessageBus>();
         var command = new UpdateSellPriceCommand(Guid.NewGuid(), Guid.NewGuid(), 1m, "USD");
 
-        var result = await UpdateSellPriceHandler.Handle(command, db, bus, CancellationToken.None);
+        var result = await UpdateSellPriceHandler.Handle(command, repository, unitOfWork, bus, CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorOr.ErrorType.NotFound, result.FirstError.Type);

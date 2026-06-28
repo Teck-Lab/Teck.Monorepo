@@ -11,9 +11,11 @@ public sealed class CreateCategoryHandlerTests
     public async Task Handle_WithValidCommand_PersistsAndReturnsDto()
     {
         using var db = CatalogTestContext.CreateInMemory();
+        var repository = CatalogTestContext.WriteRepo<Catalog.Domain.Entities.Category>(db);
+        var unitOfWork = CatalogTestContext.UnitOfWork(db);
         var command = new CreateCategoryCommand("Beverages", "beverages", null);
 
-        var dto = await CreateCategoryHandler.Handle(command, db, CancellationToken.None);
+        var dto = await CreateCategoryHandler.Handle(command, repository, unitOfWork, CancellationToken.None);
 
         Assert.Equal("Beverages", dto.Name);
         Assert.Equal("beverages", dto.Slug);

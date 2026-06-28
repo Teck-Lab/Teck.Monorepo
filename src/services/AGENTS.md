@@ -8,13 +8,19 @@ Each service follows clean architecture: Domain → Application → Host. Postgr
 {service}/
 ├── {Service}.Domain/                    ← entities, value objects, domain events
 ├── {Service}.Application/               ← handlers, requests, validators, read models
-│   └── {Capability}/Features/{UseCase}/V1/
+│   ├── {Capability}/Features/{UseCase}/V1/
+│   └── Database/
+│       ├── {Service}DbContextBase.cs    ← abstract; entity model defined ONCE
+│       └── {Service}DbContext.cs        ← write leaf (tracked); EF migration target
 ├── {Service}.Host/                       ← endpoints + EF Core + DI + migrations + Program.cs
 │   ├── Endpoints/                        ← FastEndpoints endpoint classes ONLY
 │   ├── Database/
 │   │   ├── Migrations/                   ← EF Core auto-generated migrations
-│   │   └── {Service}DbContext.cs
-│   └── Infrastructure/                   ← repository implementations, external clients
+│   │   ├── {Service}ReadDbContext.cs     ← NoTracking leaf; derives from the base
+│   │   ├── {Service}WriteRepository.cs   ← per-service IGenericWriteRepository subclass
+│   │   ├── {Service}ReadRepository.cs    ← per-service IGenericReadRepository subclass
+│   │   └── {Service}PersistenceExtensions.cs ← DI: repos (open generic) + UnitOfWork
+│   └── Infrastructure/                   ← external clients
 └── Directory.Build.props
 ```
 
@@ -30,20 +36,20 @@ Architecture tests in `tests/architecture/` enforce: Host must not contain Reque
 
 ## Data Access (Read/Write Separation)
 
-CQRS is enforced at the DbContext level. Two separate contexts:
+CQRS is enforced at the DbContext level via a three-context shape per service. **Handlers never inject a `DbContext` directly** — they depend only on the SharedKernel repository + unit-of-work abstractions (see "Repository + Unit of Work" below). The contexts exist behind those abstractions:
 
-| Context | Purpose | Tracking | Connection |
-|---------|---------|----------|------------|
-| `{Service}DbContext` | Write operations (commands, domain events) | Full change tracking | Primary (write) connection |
-| `{Service}ReadDbContext` | Read operations (queries, read models) | `AsNoTracking()` by default | Primary or read replica |
+| Context | Layer | Purpose | Tracking |
+|---------|-------|---------|----------|
+| `{Service}DbContextBase` (abstract) | Application | Defines the entity model **once** (`DbSet`s + `OnModelCreating`) | n/a |
+| `{Service}DbContext` (write leaf) | Application | Write operations (commands, domain events); the EF migration target | Full change tracking |
+| `{Service}ReadDbContext` (read leaf) | Host | Read operations (queries, read models) | `AsNoTracking()` by default |
 
 **Rules:**
-- Command handlers inject `{Service}DbContext` — they mutate state and call `SaveChangesAsync()`
-- Query handlers inject `{Service}ReadDbContext` — they read optimized DTOs, never mutate
-- Both contexts share the same entity configurations via `IEntityTypeConfiguration<T>` classes
-- `{Service}ReadDbContext` inherits from `{Service}DbContext` and overrides `OnConfiguring` to disable tracking
-
-- For multi-tenant: both contexts use `TenantConnectionProvider` from SharedKernel.Core for tenant-aware connection resolution
+- The entity model is defined exactly **once**, in `{Service}DbContextBase`. Both leaves derive from the base, so configuration never drifts. `OnModelCreating` calls `ApplyConfigurationsFromAssembly(...)` **before** `base.OnModelCreating(...)` (Finbuckle owned-entity ordering).
+- `{Service}DbContext` (write) is a thin leaf of the base and lives in **Application** — it is the target for `dotnet ef migrations add`.
+- `{Service}ReadDbContext` derives from `{Service}DbContextBase` (**not** from the write context) and overrides `OnConfiguring` to set `QueryTrackingBehavior.NoTracking`. It lives in **Host**.
+- Command handlers never call `SaveChangesAsync()` on a context — they call `IUnitOfWork.SaveChangesAsync()`.
+- For multi-tenant: both leaves use `TenantConnectionProvider` from SharedKernel.Core for tenant-aware connection resolution (write → `{Service}Write`, read → `{Service}Read`).
 
 ### Mapping (Entity ↔ DTO)
 
@@ -87,55 +93,107 @@ public static partial class OrderMapper
 - Never hand-write mapping code — Mapperly generates faster code than manual foreach loops
 - Never map in endpoint classes — mapping belongs in Application, endpoint only calls handler
 
-### Unit of Work (EF Core)
+### Repository + Unit of Work
 
-No separate IUnitOfWork abstraction. EF Core's DbContext IS the unit of work.
+> **This reverses earlier guidance.** A prior version of this file said *"EF Core's DbContext IS the unit of work — never create a separate IUnitOfWork abstraction"* and had handlers inject `{Service}DbContext` / Ardalis `IRepositoryBase<T>` directly. That guidance is **withdrawn.** Do **not** re-introduce a direct-DbContext handler or an Ardalis `IRepositoryBase<T>` injection — an ArchUnit test (`tests/architecture/{Service}.Architecture.UnitTests`) **fails the build** if you do. Full rationale + design: `docs/superpowers/specs/2026-06-26-repository-unitofwork-architecture-design.md`.
+
+Handlers depend on exactly three abstractions from `SharedKernel.Core.Database`, never on a concrete `DbContext`:
+
+| Abstraction | Use | Notes |
+|-------------|-----|-------|
+| `IGenericReadRepository<TEntity, TId>` | Queries (read side) | `AsNoTracking` by default; spec-based |
+| `IGenericWriteRepository<TEntity, TId>` | Command load/add/remove | **Tracking only** — has **no** `SaveChangesAsync` |
+| `IUnitOfWork` | The single commit point | `SaveChangesAsync` lives here, and **only** here |
+
+`TId` is `System.Guid` for all current entities. Entities satisfy the read constraint because `IBaseEntity<TId> : IReadModel<TId>`.
+
+**Why this shape (so a future agent does not "simplify" it back):**
+- **One commit point.** `IUnitOfWork.SaveChangesAsync` is the *only* place a transaction commits. Write repositories track but never save, so "who commits?" has exactly one answer.
+- **Consistency.** Every handler across every service reads/writes the same way — no per-handler decision about injecting a context vs a repository.
+- **Testability.** Handlers are unit-testable against the interfaces (or a real in-memory context wrapped by the generic repo + `UnitOfWork<TContext>`) without taking an EF dependency in the Application layer.
+- **Explicit transactions & swappability.** The commit boundary is a named seam; the persistence implementation can change behind `SharedKernel.Infrastructure` without touching a single handler.
+
+**Create handler — `AddAsync` then commit via the unit of work:**
 
 ```csharp
-// Command handler — SaveChangesAsync() commits all changes as one transaction:
+// Application/Orders/Features/CreateOrder/V1/CreateOrderHandler.cs
+using SharedKernel.Core.Database;
+
 public static async Task<OrderDto> Handle(
     CreateOrderCommand cmd,
-    OrderDbContext db,  // ← IS the unit of work
+    IGenericWriteRepository<Order, Guid> repository,
+    IUnitOfWork unitOfWork,
+    IMessageBus bus,
     CancellationToken ct)
 {
     var order = cmd.ToEntity();
-    db.Orders.Add(order);
-    await db.SaveChangesAsync(ct);  // ← single transaction: order + all domain event side-effects
+    await repository.AddAsync(order, ct).ConfigureAwait(false);
+    await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);   // ← single commit point
+    await bus.PublishAsync(new OrderPlaced(order.Id)).ConfigureAwait(false); // note: PublishAsync takes NO CancellationToken
+    return order.ToDto();
+}
+```
+
+**Load-to-mutate handler — load TRACKED, then commit:**
+
+```csharp
+public static async Task<OrderDto> Handle(
+    UpdateOrderCommand cmd,
+    IGenericWriteRepository<Order, Guid> repository,
+    IUnitOfWork unitOfWork,
+    CancellationToken ct)
+{
+    // enableTracking: true is REQUIRED — spec methods default to AsNoTracking;
+    // without it the mutation is never persisted.
+    var order = await repository
+        .FirstOrDefaultAsync(new OrderByIdSpec(cmd.OrderId), enableTracking: true, ct)
+        .ConfigureAwait(false);
+    if (order is null) return Error.NotFound();
+
+    cmd.ApplyUpdate(order);
+    await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);
     return order.ToDto();
 }
 ```
 
 Rules:
-- Command handlers call SaveChangesAsync() ONCE at the end — never multiple times per handler
-- EF Core tracks all changes in the DbContext; SaveChangesAsync wraps them in a transaction
-- Domain events triggered by entities are dispatched within the same SaveChangesAsync transaction (via WolverineFx outbox)
-- Never create a separate IUnitOfWork or IDbContext abstraction — DbContext is already testable via InMemory/Testcontainers
+- Handlers inject `IGenericReadRepository` / `IGenericWriteRepository` / `IUnitOfWork` — **never** a `DbContext`, **never** Ardalis `IRepositoryBase<T>`.
+- `IUnitOfWork.SaveChangesAsync()` is called ONCE at the end of a command handler — never a context's `SaveChangesAsync`, never multiple times.
+- Write repositories **track but do not commit** — there is no `SaveChangesAsync` on the write repository.
+- Load-then-mutate MUST use `FirstOrDefaultAsync(spec, enableTracking: true, ct)` — the spec overloads default to `AsNoTracking`.
+- Domain events still commit atomically with the data: `IUnitOfWork.SaveChangesAsync` wraps the same EF transaction (WolverineFx outbox).
 
-### Repository + Specification Pattern
+### Repository wiring + Specification Pattern
 
-Ardalis.Specification is the sole query library. No per-entity repository classes. One generic registration per service.
+Ardalis.Specification remains the sole query-definition library (the `Specification<T>` classes). What changed is the *repository* abstraction handlers consume: the SharedKernel generics above, **not** Ardalis `IRepositoryBase<T>`.
 
-**DI Registration (Host):**
+**Per-service repositories + DI (Host):** each service ships thin `{Service}WriteRepository` / `{Service}ReadRepository` subclasses (over the write/read context respectively) registered as **open generics**, plus `UnitOfWork<{Service}DbContext>` bound to the **scoped write context**:
 
 ```csharp
-// Host/Program.cs — one line, all entities:
-builder.Services.AddScoped(typeof(IRepositoryBase<>), typeof(RepositoryBase<>));
+// Host/Database/{Service}PersistenceExtensions.cs — Add{Service}Persistence(builder)
+services.AddScoped(typeof(IGenericWriteRepository<,>), typeof(OrderWriteRepository<,>));
+services.AddScoped(typeof(IGenericReadRepository<,>), typeof(OrderReadRepository<,>));
+// MUST bind UnitOfWork to the SCOPED write context, not the IDbContextFactory ctor —
+// the factory makes a SEPARATE context, so SaveChanges would commit nothing:
+services.AddScoped<IUnitOfWork>(sp => new UnitOfWork<OrderDbContext>(sp.GetRequiredService<OrderDbContext>()));
 ```
 
-**Zero per-entity repository files.** No IOrderRepository. No OrderRepository. The generic `IRepositoryBase<Order>` handles all queries.
+**Zero per-entity repository files.** No `IOrderRepository`, no `OrderRepository`. One generic write repo + one generic read repo per service handle every entity.
 
-**Handler pattern:**
+**Query handler pattern:**
 
 ```csharp
 // Application/Orders/Features/GetOrder/V1/GetOrderHandler.cs
+using SharedKernel.Core.Database;
+
 public static async Task<OrderDto> Handle(
     GetOrderQuery query,
-    IRepositoryBase<Order> repository,  // ← generic, works for any entity
+    IGenericReadRepository<Order, Guid> repository,  // ← generic, works for any entity
     CancellationToken ct)
 {
     var spec = new OrderByIdSpec(query.OrderId);
-    var order = await repository.FirstOrDefaultAsync(spec, ct);
-    return order.ToDto();
+    var order = await repository.FirstOrDefaultAsync(spec, ct).ConfigureAwait(false);
+    return order is null ? Error.NotFound() : order.ToDto();
 }
 ```
 
@@ -158,58 +216,33 @@ public class OrdersByCustomerSpec : Specification<Order, OrderSummaryDto>
 ```
 
 **Rules:**
-- No per-entity repository interfaces or implementations — one `IRepositoryBase<T>` handles all entities
+- No per-entity repository interfaces or implementations — the SharedKernel generics (`IGenericReadRepository<T,TId>` / `IGenericWriteRepository<T,TId>`) handle all entities. The only `*Repository` classes are the **two** per-service generic subclasses (`{Service}WriteRepository<,>` / `{Service}ReadRepository<,>`) in Host.
 - Specifications live in `Application/{Capability}/ReadModels/` — encapsulate all query logic
-- Handlers inject `IRepositoryBase<T>` + specification → execute via generic repository
+- Handlers inject `IGenericReadRepository<T,TId>` / `IGenericWriteRepository<T,TId>` + specification → execute via the generic repository
 - Never scatter LINQ in handlers — put it in a specification
 - Specifications are composable: AddIncludes, AddWhere, etc.
 - Specifications can include projection (Select) for efficient read-model queries
 
-Architecture tests enforce these rules at build time:
+**Architecture test (build-failing).** `tests/architecture/{Service}.Architecture.UnitTests` asserts that no Application type depends on a concrete `DbContext` or on `Ardalis.Specification.IRepositoryBase` — this is what forbids regressing to a direct-DbContext handler:
 
 ```csharp
-// tests/architecture/{service}/RepositoryRules.cs
-
-// Rule 1: No per-entity repository interfaces may exist
 [Fact]
-public void No_PerEntity_Repository_Interfaces()
+public void {Service}Application_ShouldNotDependOnDbContextOrAardalisRepository()
 {
-    Types().That().AreInterfaces().And().HaveNameEndingWith("Repository")
-        .Should().NotExist()
-        .Check();
-}
-
-// Rule 2: No per-entity repository implementations may exist
-[Fact]
-public void No_PerEntity_Repository_Implementations()
-{
-    Types().That().AreClasses().And().HaveNameEndingWith("Repository")
-        .Should().NotExist()
-        .Check();
-}
-
-// Rule 3: Specifications must inherit from Ardalis Specification<T>
-[Fact]
-public void Specifications_MustInheritFromArdalisSpecification()
-{
-    Types().That().HaveNameEndingWith("Spec")
-        .Should().Inherit(typeof(Specification<>))
-        .Or().Inherit(typeof(Specification<,>))
-        .Check();
-}
-
-// Rule 4: Handlers must not contain EF Core LINQ extensions
-[Fact]
-public void QueryHandlers_MustNotContainRawQueryLogic()
-{
-    Types().That().AreClasses().And().HaveNameEndingWith("Handler")
-        .Should().NotDependOnTypesWithFullNameStartingWith(
-            "Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions")
-        .Check();
+    Types().That().ResideInAssembly(ApplicationAssembly)
+        .And().DoNotHaveFullNameContaining("DbContext")   // exclude the context classes themselves
+        .Should()
+        .NotDependOnAny(Types().That().HaveFullNameContaining("DbContext"))
+        .AndShould()
+        .NotDependOnAny(Types().That().HaveFullNameContaining("Ardalis.Specification.IRepositoryBase"))
+        .Because("application handlers must use SharedKernel repository + unit-of-work abstractions")
+        .Check({Service}Architecture);
 }
 ```
 
-These rules fail the build on violation. No exceptions.
+> Note: the rule matches `DbContext` **by name** rather than `AreAssignableTo(typeof(DbContext))` — ArchUnitNET only resolves assignability for assemblies explicitly loaded into the `ArchLoader`, and `DbContext` lives in an unloaded external package, so the type-hierarchy form silently false-negatives.
+
+This test fails the build on violation. No exceptions.
 
 ## DI Registration (ServiceScan)
 
@@ -272,7 +305,8 @@ public class OrderOptions
 // Application/Orders/Features/CreateOrder/V1/CreateOrderHandler.cs — inject via IOptions
 public static async Task<OrderDto> Handle(
     CreateOrderCommand cmd,
-    OrderDbContext db,
+    IGenericWriteRepository<Order, Guid> repository,
+    IUnitOfWork unitOfWork,
     IOptions<OrderOptions> options,
     CancellationToken ct)
 {
@@ -311,7 +345,7 @@ All commerce services are multi-tenant. Tenant context flows through every reque
 // Inject into any handler — resolved automatically by Finbuckle middleware:
 public static async Task<OrderDto> Handle(
     GetOrderQuery query,
-    OrderReadDbContext db,
+    IGenericReadRepository<Order, Guid> repository,
     ITenantInfo tenant,
     CancellationToken ct)
 {

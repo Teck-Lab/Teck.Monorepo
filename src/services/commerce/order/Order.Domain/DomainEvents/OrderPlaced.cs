@@ -1,4 +1,4 @@
-using Orders.Domain.Entities;
+using Orders.Domain.ValueObjects;
 using SharedKernel.Core.Events;
 
 namespace Orders.Domain.DomainEvents;

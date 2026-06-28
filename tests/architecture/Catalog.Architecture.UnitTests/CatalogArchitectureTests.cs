@@ -5,20 +5,20 @@ using SharedKernel.Core.Domain;
 using Xunit;
 using static ArchUnitNET.Fluent.ArchRuleDefinition;
 
-namespace Orders.Architecture.UnitTests;
+namespace Catalog.Architecture.UnitTests;
 
-public sealed class OrderArchitectureTests : Teck.Platform.Arch.Tests.SharedTestBase
+public sealed class CatalogArchitectureTests : Teck.Platform.Arch.Tests.SharedTestBase
 {
-    private static readonly Assembly DomainAssembly = typeof(Orders.Domain.Entities.Order).Assembly;
-    private static readonly Assembly ApplicationAssembly = typeof(Orders.Application.Orders.Features.CreateOrder.V1.CreateOrderHandler).Assembly;
+    private static readonly Assembly DomainAssembly = typeof(Catalog.Domain.Entities.Product).Assembly;
+    private static readonly Assembly ApplicationAssembly = typeof(Catalog.Application.Products.Features.CreateProduct.V1.CreateProductHandler).Assembly;
     private static readonly Assembly HostAssembly = typeof(Program).Assembly;
 
-    private static readonly ArchUnitNET.Domain.Architecture OrderArchitecture = new ArchLoader()
+    private static readonly ArchUnitNET.Domain.Architecture CatalogArchitecture = new ArchLoader()
         .LoadAssemblies(DomainAssembly, ApplicationAssembly, HostAssembly)
         .Build();
 
     [Fact]
-    public void OrderHost_ShouldNotReferenceOrderDomainDirectly()
+    public void CatalogHost_ShouldNotReferenceCatalogDomainDirectly()
     {
         Types()
             .That()
@@ -26,11 +26,11 @@ public sealed class OrderArchitectureTests : Teck.Platform.Arch.Tests.SharedTest
             .Should()
             .NotDependOnAny(Types().That().ResideInAssembly(DomainAssembly))
             .Because("the host must depend on the application layer, not the domain layer directly")
-            .Check(OrderArchitecture);
+            .Check(CatalogArchitecture);
     }
 
     [Fact]
-    public void OrderApplication_ShouldNotReferenceOrderHost()
+    public void CatalogApplication_ShouldNotReferenceCatalogHost()
     {
         Types()
             .That()
@@ -38,23 +38,23 @@ public sealed class OrderArchitectureTests : Teck.Platform.Arch.Tests.SharedTest
             .Should()
             .NotDependOnAny(Types().That().ResideInAssembly(HostAssembly))
             .Because("the application layer must not depend on the host layer")
-            .Check(OrderArchitecture);
+            .Check(CatalogArchitecture);
     }
 
     [Fact]
-    public void OrderDomainAggregateRoots_ShouldImplementTenantScoped()
+    public void CatalogDomainAggregateRoots_ShouldImplementTenantScoped()
     {
         Classes()
             .That()
             .ImplementInterface(typeof(IAggregateRoot))
             .Should()
             .ImplementInterface(typeof(ITenantScoped))
-            .Because("tenant-owned order aggregates must be scoped to a tenant")
-            .Check(OrderArchitecture);
+            .Because("tenant-owned catalog aggregates must be scoped to a tenant")
+            .Check(CatalogArchitecture);
     }
 
     [Fact]
-    public void OrderApplication_ShouldNotDependOnDbContextOrAardalisRepository()
+    public void CatalogApplication_ShouldNotDependOnDbContextOrAardalisRepository()
     {
         Types()
             .That()
@@ -66,11 +66,11 @@ public sealed class OrderArchitectureTests : Teck.Platform.Arch.Tests.SharedTest
             .AndShould()
             .NotDependOnAny(Types().That().HaveFullNameContaining("Ardalis.Specification.IRepositoryBase"))
             .Because("application handlers must use SharedKernel repository + unit-of-work abstractions, not a concrete DbContext or Ardalis IRepositoryBase")
-            .Check(OrderArchitecture);
+            .Check(CatalogArchitecture);
     }
 
     [Fact]
-    public void OrderApplicationHandlers_ShouldEndWithHandler()
+    public void CatalogApplicationHandlers_ShouldEndWithHandler()
     {
         System.Type[] handlerTypes = ApplicationAssembly
             .GetTypes()

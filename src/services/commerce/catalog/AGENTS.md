@@ -20,7 +20,6 @@ inventory is a separate (future) service. See the design spec at
 
 ## Dependencies
 - SharedKernel.*
-- Teck.Cloud.ServiceDefaults
 
 ## Conventions
 Follow `src/services/AGENTS.md` and `src/services/commerce/AGENTS.md`. Mirror the

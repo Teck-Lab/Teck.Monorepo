@@ -102,7 +102,7 @@ public class GenericWriteRepository<[DynamicallyAccessedMembers(DynamicallyAcces
     /// <param name="ids">The ids to soft delete.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
-    public async Task ExcecutSoftDeleteAsync(IReadOnlyCollection<TId> ids, CancellationToken cancellationToken = default)
+    public async Task ExecuteSoftDeleteAsync(IReadOnlyCollection<TId> ids, CancellationToken cancellationToken = default)
     {
         string? currentUserId = HttpContextAccessor?.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         var idList = ids as IList<TId> ?? ids.ToList();
@@ -121,7 +121,7 @@ public class GenericWriteRepository<[DynamicallyAccessedMembers(DynamicallyAcces
     /// <param name="predicate">The predicate used to select entities to soft delete.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
-    public async Task ExcecutSoftDeleteByAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default)
+    public async Task ExecuteSoftDeleteByAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default)
     {
         string? currentUserId = HttpContextAccessor?.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
@@ -139,20 +139,10 @@ public class GenericWriteRepository<[DynamicallyAccessedMembers(DynamicallyAcces
     /// <param name="ids">The ids to hard delete.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
-    public async Task ExcecutHardDeleteAsync(IReadOnlyCollection<TId> ids, CancellationToken cancellationToken = default)
+    public async Task ExecuteHardDeleteAsync(IReadOnlyCollection<TId> ids, CancellationToken cancellationToken = default)
     {
         var idList = ids as IList<TId> ?? ids.ToList();
         await _dbSet.Where(entity => idList.Contains((TId)(object)entity.Id)).ExecuteDeleteAsync(cancellationToken);
-    }
-
-    /// <summary>
-    /// Persists changes to the database.
-    /// </summary>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The number of state entries written to the database.</returns>
-    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        return await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>

@@ -30,6 +30,8 @@ Thumbs.db
 # Logs
 *.log
 
+# SDD controller scratch (ledger, briefs, review packages)
+.superpowers/
 # Next.js
 .next
 out

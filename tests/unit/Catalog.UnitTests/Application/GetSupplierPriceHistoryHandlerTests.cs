@@ -3,6 +3,7 @@ using Catalog.Application.Suppliers.Features.GetSupplierPriceHistory.V1;
 using Catalog.Domain.Entities;
 using Catalog.Domain.ValueObjects;
 using NSubstitute;
+using SharedKernel.Core.Database;
 using Xunit;
 
 namespace Catalog.UnitTests.Application;
@@ -18,7 +19,7 @@ public sealed class GetSupplierPriceHistoryHandlerTests
         product.LinkSupplier(variantId, supplierId, new Money(5m, "USD"), "A", 7, 1, isPreferred: true);
         product.ChangeSupplierCost(variantId, supplierId, new Money(6.50m, "USD"));
 
-        var repository = Substitute.For<IRepositoryBase<Product>>();
+        var repository = Substitute.For<IGenericReadRepository<Product, System.Guid>>();
         repository.FirstOrDefaultAsync(Arg.Any<ISpecification<Product>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Product?>(product));
 
@@ -32,7 +33,7 @@ public sealed class GetSupplierPriceHistoryHandlerTests
     [Fact]
     public async Task Handle_WithMissingProduct_ReturnsNotFound()
     {
-        var repository = Substitute.For<IRepositoryBase<Product>>();
+        var repository = Substitute.For<IGenericReadRepository<Product, System.Guid>>();
         repository.FirstOrDefaultAsync(Arg.Any<ISpecification<Product>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Product?>(null));
 

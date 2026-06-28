@@ -4,6 +4,7 @@ using Catalog.Application.Products.Features.ListProducts.V1;
 using Catalog.Domain.Entities;
 using Catalog.Domain.ValueObjects;
 using NSubstitute;
+using SharedKernel.Core.Database;
 using Xunit;
 
 namespace Catalog.UnitTests.Application;
@@ -14,7 +15,7 @@ public sealed class ProductQueryHandlerTests
     public async Task GetProduct_WhenFound_ReturnsDto()
     {
         var product = Product.Create("tenant-1", "Widget", null, null, "WIDGET-1", new Money(9.99m, "USD"));
-        var repository = Substitute.For<IRepositoryBase<Product>>();
+        var repository = Substitute.For<IGenericReadRepository<Product, System.Guid>>();
         repository.FirstOrDefaultAsync(Arg.Any<ISpecification<Product>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Product?>(product));
 
@@ -27,7 +28,7 @@ public sealed class ProductQueryHandlerTests
     [Fact]
     public async Task GetProduct_WhenMissing_ReturnsNotFound()
     {
-        var repository = Substitute.For<IRepositoryBase<Product>>();
+        var repository = Substitute.For<IGenericReadRepository<Product, System.Guid>>();
         repository.FirstOrDefaultAsync(Arg.Any<ISpecification<Product>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Product?>(null));
 
@@ -42,9 +43,9 @@ public sealed class ProductQueryHandlerTests
     {
         var a = Product.Create("tenant-1", "A", null, null, "A-1", new Money(1m, "USD"));
         var b = Product.Create("tenant-1", "B", null, null, "B-1", new Money(2m, "USD"));
-        var repository = Substitute.For<IRepositoryBase<Product>>();
+        var repository = Substitute.For<IGenericReadRepository<Product, System.Guid>>();
         repository.ListAsync(Arg.Any<ISpecification<Product>>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<List<Product>>([a, b]));
+            .Returns(Task.FromResult<IReadOnlyList<Product>>([a, b]));
 
         var result = await ListProductsHandler.Handle(new ListProductsQuery(null), repository, CancellationToken.None);
 

@@ -19,4 +19,3 @@ Manages the order lifecycle.
 
 ## Dependencies
 - SharedKernel.*
-- Teck.Cloud.ServiceDefaults

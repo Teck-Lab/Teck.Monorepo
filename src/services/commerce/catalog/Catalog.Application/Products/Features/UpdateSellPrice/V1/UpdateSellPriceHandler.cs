@@ -1,13 +1,12 @@
-using Ardalis.Specification.EntityFrameworkCore;
-using Catalog.Application.Database;
 using Catalog.Application.Products.IntegrationEvents;
 using Catalog.Application.Products.Mapping;
 using Catalog.Application.Products.ReadModels;
 using Catalog.Application.Products.Responses;
 using Catalog.Domain.DomainEvents;
+using Catalog.Domain.Entities;
 using Catalog.Domain.ValueObjects;
 using ErrorOr;
-using Microsoft.EntityFrameworkCore;
+using SharedKernel.Core.Database;
 using Wolverine;
 
 namespace Catalog.Application.Products.Features.UpdateSellPrice.V1;
@@ -17,19 +16,20 @@ public static class UpdateSellPriceHandler
 {
     /// <summary>Changes the sell price; publishes <see cref="ProductPriceChangedIntegrationEvent"/> only on a real change.</summary>
     /// <param name="command">The command describing the variant and new sell price.</param>
-    /// <param name="db">The catalog write context.</param>
+    /// <param name="repository">The write repository for loading and tracking the product.</param>
+    /// <param name="unitOfWork">The unit of work used to commit changes.</param>
     /// <param name="bus">The message bus used to publish integration events.</param>
     /// <param name="ct">The cancellation token.</param>
-    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
+    /// <returns>The updated variant DTO, or an error if the product or variant was not found.</returns>
     public static async Task<ErrorOr<VariantDto>> Handle(
         UpdateSellPriceCommand command,
-        CatalogDbContext db,
+        IGenericWriteRepository<Product, Guid> repository,
+        IUnitOfWork unitOfWork,
         IMessageBus bus,
         CancellationToken ct)
     {
-        var product = await db.Products
-            .WithSpecification(new ProductByIdSpec(command.ProductId))
-            .FirstOrDefaultAsync(ct)
+        var product = await repository
+            .FirstOrDefaultAsync(new ProductByIdSpec(command.ProductId), enableTracking: true, ct)
             .ConfigureAwait(false);
 
         if (product is null)
@@ -44,7 +44,7 @@ public static class UpdateSellPriceHandler
         }
 
         product.ChangeVariantSellPrice(command.VariantId, new Money(command.Amount, command.Currency));
-        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);
 
         var priceChange = product.DomainEvents.OfType<VariantSellPriceChanged>().LastOrDefault();
         if (priceChange is not null)

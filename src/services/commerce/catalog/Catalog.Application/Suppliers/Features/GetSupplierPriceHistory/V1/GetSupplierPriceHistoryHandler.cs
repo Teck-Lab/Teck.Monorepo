@@ -1,9 +1,9 @@
-using Ardalis.Specification;
 using Catalog.Application.Suppliers.Mapping;
 using Catalog.Application.Suppliers.ReadModels;
 using Catalog.Application.Suppliers.Responses;
 using Catalog.Domain.Entities;
 using ErrorOr;
+using SharedKernel.Core.Database;
 
 namespace Catalog.Application.Suppliers.Features.GetSupplierPriceHistory.V1;
 
@@ -14,10 +14,10 @@ public static class GetSupplierPriceHistoryHandler
     /// <param name="query">The query identifying the variant and supplier whose price history is requested.</param>
     /// <param name="repository">The repository used to load the owning product.</param>
     /// <param name="ct">The cancellation token.</param>
-    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
+    /// <returns>A task resolving to the price history list or a NotFound error.</returns>
     public static async Task<ErrorOr<IReadOnlyList<SupplierPriceHistoryDto>>> Handle(
         GetSupplierPriceHistoryQuery query,
-        IRepositoryBase<Product> repository,
+        IGenericReadRepository<Product, Guid> repository,
         CancellationToken ct)
     {
         var product = await repository.FirstOrDefaultAsync(new ProductByVariantSpec(query.VariantId), ct).ConfigureAwait(false);

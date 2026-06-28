@@ -11,9 +11,11 @@ public sealed class CreateSupplierHandlerTests
     public async Task Handle_WithValidCommand_PersistsAndReturnsDto()
     {
         using var db = CatalogTestContext.CreateInMemory();
+        var repository = CatalogTestContext.WriteRepo<Catalog.Domain.Entities.Supplier>(db);
+        var unitOfWork = CatalogTestContext.UnitOfWork(db);
         var command = new CreateSupplierCommand("Acme", "sales@acme.test", "+1-555-0100");
 
-        var dto = await CreateSupplierHandler.Handle(command, db, CancellationToken.None);
+        var dto = await CreateSupplierHandler.Handle(command, repository, unitOfWork, CancellationToken.None);
 
         Assert.Equal("Acme", dto.Name);
         Assert.True(dto.IsActive);

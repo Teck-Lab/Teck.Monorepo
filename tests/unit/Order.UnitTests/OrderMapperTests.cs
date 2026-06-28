@@ -11,7 +11,7 @@ public sealed class OrderMapperTests
     public void ToDto_WithOrder_MapsCorrectly()
     {
         var customerId = Guid.NewGuid();
-        var orderLine = new Orders.Domain.Entities.OrderLine(Guid.NewGuid(), "Test Product", 2, 10m);
+        var orderLine = new Orders.Domain.ValueObjects.OrderLine(Guid.NewGuid(), "Test Product", 2, 10m);
         var order = Order.Create(customerId, "tenant-1", [orderLine]);
 
         var dto = OrderMapper.ToDto(order);

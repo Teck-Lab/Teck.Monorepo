@@ -18,10 +18,12 @@ public sealed class LinkVariantSupplierHandlerTests
             await seed.SaveChangesAsync();
         }
         using var db = CatalogTestContext.CreateWithStubbedSave("link");
+        var repository = CatalogTestContext.WriteRepo<Product>(db);
+        var unitOfWork = CatalogTestContext.UnitOfWork(db);
         var supplierId = Guid.NewGuid();
         var command = new LinkVariantSupplierCommand(product.Variants[0].Id, supplierId, 5m, "USD", "ACME-9", 7, 10, true);
 
-        var result = await LinkVariantSupplierHandler.Handle(command, db, CancellationToken.None);
+        var result = await LinkVariantSupplierHandler.Handle(command, repository, unitOfWork, CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(supplierId, result.Value.SupplierId);
@@ -33,9 +35,11 @@ public sealed class LinkVariantSupplierHandlerTests
     public async Task Handle_WithMissingVariant_ReturnsNotFound()
     {
         using var db = CatalogTestContext.CreateWithStubbedSave("link-missing");
+        var repository = CatalogTestContext.WriteRepo<Product>(db);
+        var unitOfWork = CatalogTestContext.UnitOfWork(db);
         var command = new LinkVariantSupplierCommand(Guid.NewGuid(), Guid.NewGuid(), 5m, "USD", "X", 1, 1, false);
 
-        var result = await LinkVariantSupplierHandler.Handle(command, db, CancellationToken.None);
+        var result = await LinkVariantSupplierHandler.Handle(command, repository, unitOfWork, CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorOr.ErrorType.NotFound, result.FirstError.Type);
