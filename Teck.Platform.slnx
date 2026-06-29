@@ -40,6 +40,10 @@
   <Folder Name="/src/services/gateway/">
     <Project Path="src/services/gateway/public/Gateway.Public.csproj" />
   </Folder>
+  <Folder Name="/src/aspire/">
+    <Project Path="src/aspire/Teck.ServiceDefaults/Teck.ServiceDefaults.csproj" />
+    <Project Path="src/aspire/Teck.AppHost/Teck.AppHost.csproj" />
+  </Folder>
   <Folder Name="/src/apps/" />
   <Folder Name="/src/packages/" />
   <Folder Name="/tests/">
