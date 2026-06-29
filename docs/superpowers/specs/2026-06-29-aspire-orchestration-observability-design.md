@@ -109,11 +109,18 @@ already matches (`redis`) or via explicit environment for the RabbitMQ name the 
 reads. Exact RabbitMQ connection-string key to be confirmed against
 `SharedKernel.Infrastructure.Messaging` during implementation and mapped accordingly.
 
-**Frontend:**
-- `web` (Next.js) via `builder.AddBunApp("web", "../../src/apps/web", "dev")` (CommunityToolkit
-  Bun 13.4.0), with `.WithReference(gateway)` / `WithEnvironment` for the gateway URL and
-  `.WithHttpEndpoint`/`PublishAsDockerfile` as appropriate. Exact env var (e.g. the public API
-  base URL the web app reads) confirmed against `src/apps/web` during implementation.
+**Frontend — DEFERRED.** `@teck/web` is currently an empty scaffold (no `next` dependency, no
+`dev` script), so there is nothing runnable to orchestrate. The web app is added to the AppHost
+via `AddBunApp` in the same change that gives it a runnable `dev` script — a one-line addition
+later. Not part of this plan.
+
+**Redis + RabbitMQ — stood up but not yet consumed.** `AddCachingInfrastructure` (Redis) and
+`WolverinePersistenceConfigurator` (RabbitMQ + Postgres Wolverine durability) exist in
+`SharedKernel.Infrastructure` but are **not called by any host yet**. The AppHost runs `redis`
+and `rabbitmq` and injects their connection strings into the services via `.WithReference(...)`
+(connection names `redis` and the RabbitMQ name the messaging layer will read), so they are ready
+the moment a consumer is wired. No service behavior depends on them in this plan, so the smoke
+test does not assert on them.
 
 **Observability:** the AppHost automatically injects `OTEL_EXPORTER_OTLP_ENDPOINT` into every
 service, so the existing OTLP exporters light up the dashboard with no code change.
