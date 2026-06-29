@@ -48,6 +48,11 @@ downgrading the existing Serilog + OpenTelemetry setup.
 - Production/K8s deployment wiring for Aspire (the GitOps/Terraform repos own deploy). Aspire is
   for local/dev orchestration and the dashboard.
 - Changing the observability instrumentation set or sinks.
+- **Reproducing the production Keycloak realm or its authorization configuration.** In production
+  the realm is provisioned by the **Keycloak operator**, and the per-client authorization config
+  (clients, scopes, protected-resource permissions) is created manually. Aspire uses only a
+  **minimal dev realm** sufficient for services to boot against an issuer; fine-grained authz is
+  out of scope here.
 
 ## Design
 
@@ -83,9 +88,12 @@ Uses the `Aspire.AppHost.Sdk` (13.4.6). `Program.cs` builds a `DistributedApplic
   `AddDatabase("order")`, `AddDatabase("customer")`, `AddDatabase("catalog")`.
 - `var rabbitmq = builder.AddRabbitMQ("rabbitmq").WithManagementPlugin()`.
 - `var redis = builder.AddRedis("redis")`.
-- `var keycloak = builder.AddKeycloak("keycloak").WithRealmImport(...)` (realm + clients for the
-  services and gateway), via `Aspire.Hosting.Keycloak` (+ `Keycloak.AuthServices.Aspire.Hosting`
-  for client wiring helpers where useful).
+- `var keycloak = builder.AddKeycloak("keycloak").WithRealmImport(...)` via `Aspire.Hosting.Keycloak`.
+  The realm import is a **minimal dev realm** — just enough for services and the gateway to boot
+  against a valid issuer/JWKS in local dev. It deliberately does **not** reproduce the
+  operator-managed production realm or the manual per-client authz config (scopes, permissions);
+  see Non-goals. (`Keycloak.AuthServices.Aspire.Hosting` may be used for client-wiring helpers if
+  it simplifies injecting the issuer URL into services.)
 
 **Service projects** (each `.WaitFor(...)` its dependencies):
 - `order.Host`  → references `postgres/order`, `rabbitmq`, `redis`, `keycloak`.
@@ -162,5 +170,6 @@ logical names resolve from configuration/DNS — no behavioral change to prod.
 
 - Exact RabbitMQ connection-string key read by the messaging layer (map it in the AppHost).
 - Exact env var the `web` app reads for the gateway/API base URL.
-- Keycloak realm import contents (realm + clients/scopes) to match what services/gateway expect.
+- Minimal dev-realm import contents (issuer/realm name + the bare client(s) needed for services to
+  validate tokens locally). Not the operator realm; not the manual authz config.
 - Final project directory convention (`aspire/` vs `src/aspire/`) per repo layout norms.
