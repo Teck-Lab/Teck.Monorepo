@@ -54,6 +54,7 @@
     <Project Path="tests/unit/SharedKernel.UnitTests/SharedKernel.UnitTests.csproj" />
     <Project Path="tests/unit/Customer.UnitTests/Customer.UnitTests.csproj" />
     <Project Path="tests/unit/Gateway.Public.UnitTests/Gateway.Public.UnitTests.csproj" />
+    <Project Path="tests/unit/Teck.ServiceDefaults.UnitTests/Teck.ServiceDefaults.UnitTests.csproj" />
     <Project Path="tests/integration/Teck.Platform.IntegrationTests.Shared/Teck.Platform.IntegrationTests.Shared.csproj" />
     <Project Path="tests/integration/Customer.IntegrationTests/Customer.IntegrationTests.csproj" />
     <Project Path="tests/integration/Gateway.Public.IntegrationTests/Gateway.Public.IntegrationTests.csproj" />
