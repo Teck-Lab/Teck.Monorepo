@@ -32,6 +32,14 @@ public sealed class EdgeAccessPolicyRegistry : IEdgeAccessPolicyRegistry
                         $"Route '{routeId}' is '{mode}' but has no exchange audience " +
                         $"(set Clusters:{clusterId}:Destinations:*:AccessTokenClientName).");
                 }
+
+                string? authzPolicy = route["AuthorizationPolicy"];
+                if (!string.Equals(authzPolicy, "authenticated", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        $"Route '{routeId}' is '{mode}' but its AuthorizationPolicy is " +
+                        $"'{authzPolicy ?? "(null)"}' — set AuthorizationPolicy to 'authenticated'.");
+                }
             }
 
             map[routeId] = new EdgeAccessPolicy(mode, audience);

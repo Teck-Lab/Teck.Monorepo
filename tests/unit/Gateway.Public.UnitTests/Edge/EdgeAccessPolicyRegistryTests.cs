@@ -7,14 +7,23 @@ namespace Gateway.Public.UnitTests.Edge;
 /// <summary>Unit tests for <see cref="EdgeAccessPolicyRegistry"/>.</summary>
 public sealed class EdgeAccessPolicyRegistryTests
 {
-    private static IConfiguration Config(string routeMode, bool withAudience)
+    private static IConfiguration Config(string routeMode, bool withAudience, string? authzPolicy = "authenticated")
     {
         var dict = new Dictionary<string, string?>
         {
             ["ReverseProxy:Routes:r1:ClusterId"] = "order",
             ["ReverseProxy:Routes:r1:Metadata:EdgeAccess"] = routeMode,
         };
-        if (withAudience) dict["ReverseProxy:Clusters:order:Destinations:primary:AccessTokenClientName"] = "order";
+        if (withAudience)
+        {
+            dict["ReverseProxy:Clusters:order:Destinations:primary:AccessTokenClientName"] = "order";
+        }
+
+        if (authzPolicy is not null)
+        {
+            dict["ReverseProxy:Routes:r1:AuthorizationPolicy"] = authzPolicy;
+        }
+
         return new ConfigurationBuilder().AddInMemoryCollection(dict).Build();
     }
 
@@ -42,7 +51,27 @@ public sealed class EdgeAccessPolicyRegistryTests
     [Fact]
     public void Build_AllowsAnonymousRoute_WithoutAudience()
     {
-        var registry = EdgeAccessPolicyRegistry.Build(Config("Anonymous", withAudience: false));
+        var registry = EdgeAccessPolicyRegistry.Build(Config("Anonymous", withAudience: false, authzPolicy: null));
         Assert.Equal(EdgeAccessMode.Anonymous, registry.ForRoute("r1")!.Mode);
+    }
+
+    /// <summary>Build should throw when a non-anonymous route is missing AuthorizationPolicy == "authenticated".</summary>
+    [Fact]
+    public void Build_Throws_WhenNonAnonymousRouteMissingAuthorizationPolicy()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            EdgeAccessPolicyRegistry.Build(Config("Authenticated", withAudience: true, authzPolicy: null)));
+        Assert.Contains("r1", ex.Message);
+        Assert.Contains("AuthorizationPolicy", ex.Message);
+    }
+
+    /// <summary>Build should throw when a non-anonymous route has AuthorizationPolicy set to a value other than "authenticated".</summary>
+    [Fact]
+    public void Build_Throws_WhenNonAnonymousRouteHasWrongAuthorizationPolicy()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            EdgeAccessPolicyRegistry.Build(Config("Authenticated", withAudience: true, authzPolicy: "allow-anonymous")));
+        Assert.Contains("r1", ex.Message);
+        Assert.Contains("AuthorizationPolicy", ex.Message);
     }
 }
