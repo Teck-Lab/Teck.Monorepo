@@ -17,7 +17,7 @@ namespace Aspire.AppHost.IntegrationTests;
 /// liveness endpoint (mapped by <c>MapDefaultEndpoints</c> in TeckServiceDefaults) is
 /// asserted reachable and returning 200 OK.
 ///
-/// First run pulls Docker images and builds four services — allow up to 10 minutes end-to-end.
+/// First run pulls Docker images and builds four services — allow up to 5 minutes end-to-end.
 /// </summary>
 public sealed class AppHostSmokeTests
 {
@@ -41,7 +41,7 @@ public sealed class AppHostSmokeTests
         // Keycloak, so this implicitly waits for the full dependency chain.
         await app.ResourceNotifications
             .WaitForResourceAsync("gateway", KnownResourceStates.Running)
-            .WaitAsync(TimeSpan.FromMinutes(10));
+            .WaitAsync(TimeSpan.FromMinutes(5));
 
         // Ask Aspire for an HttpClient that resolves to the gateway's dynamic port.
         // "http" matches the WithHttpEndpoint(name: "http") configured in AppHost.cs.
