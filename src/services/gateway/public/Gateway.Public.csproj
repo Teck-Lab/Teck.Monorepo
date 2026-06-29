@@ -24,6 +24,7 @@
     <PackageReference Include="ZiggyCreatures.FusionCache" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\..\aspire\Teck.ServiceDefaults\Teck.ServiceDefaults.csproj" />
     <ProjectReference Include="..\..\..\shared\SharedKernel.Core\SharedKernel.Core.csproj" />
     <ProjectReference Include="..\..\..\shared\SharedKernel.Grpc.Contracts\SharedKernel.Grpc.Contracts.csproj" />
     <ProjectReference Include="..\..\..\shared\SharedKernel.Infrastructure\SharedKernel.Infrastructure.csproj" />

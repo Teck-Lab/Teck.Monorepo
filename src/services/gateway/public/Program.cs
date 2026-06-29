@@ -3,8 +3,10 @@ using Gateway.Public.Edge;
 using Keycloak.AuthServices.Authentication;
 using SharedKernel.Grpc.Contracts.Remote.V1.Tenants;
 using SharedKernel.Infrastructure.Auth;
+using Teck.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddServiceDefaults();
 
 // Guard: mock authentication must never reach Production.
 // The MockBearerAuthenticationHandler lives ONLY in the test assembly and is
@@ -62,6 +64,7 @@ app.UseAuthentication();
 app.UseRouting();
 app.UseAuthorization();
 app.MapReverseProxy(proxy => proxy.UseMiddleware<EdgeEnforcementMiddleware>());
+app.MapDefaultEndpoints();
 
 await app.RunAsync();
 

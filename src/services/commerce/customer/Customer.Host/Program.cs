@@ -9,11 +9,11 @@ using SharedKernel.Infrastructure;
 using SharedKernel.Infrastructure.Behaviors;
 using SharedKernel.Infrastructure.Hosting;
 using SharedKernel.Infrastructure.Messaging.DeadLetter;
-using SharedKernel.Infrastructure.Observability;
+using Teck.ServiceDefaults;
 using Wolverine;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.AddTeckCloudObservability();
+builder.AddServiceDefaults();
 builder.Services.AddTeckService(typeof(Program).Assembly, builder.Configuration);
 builder.AddCustomerPersistence();
 builder.ConfigureInternalServiceTransport();
@@ -26,6 +26,7 @@ builder.Host.UseWolverine(opts =>
 
 var app = builder.Build();
 app.UseTeckService();
+app.MapDefaultEndpoints();
 app.MapHandlers(registry =>
     registry.Register<GetTenantDatabaseInfoCommand, GetTenantDatabaseInfoCommandHandler, TenantDatabaseInfoRpcResult>());
 

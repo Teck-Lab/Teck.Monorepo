@@ -5,11 +5,11 @@ using SharedKernel.Infrastructure.Auth;
 using SharedKernel.Infrastructure.Behaviors;
 using SharedKernel.Infrastructure.Hosting;
 using SharedKernel.Infrastructure.Messaging.DeadLetter;
-using SharedKernel.Infrastructure.Observability;
+using Teck.ServiceDefaults;
 using Wolverine;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.AddTeckCloudObservability();
+builder.AddServiceDefaults();
 builder.Services.AddTeckService(typeof(Program).Assembly, builder.Configuration);
 builder.AddOrderPersistence();
 builder.Services.AddKeycloak(builder.Configuration, builder.Environment,
@@ -25,4 +25,5 @@ builder.Host.UseWolverine(opts =>
 });
 var app = builder.Build();
 app.UseTeckService();
+app.MapDefaultEndpoints();
 return await app.RunTeckServiceAsync(args);

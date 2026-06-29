@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\..\aspire\Teck.ServiceDefaults\Teck.ServiceDefaults.csproj" />
     <ProjectReference Include="..\..\..\..\shared\SharedKernel.Core\SharedKernel.Core.csproj" />
     <ProjectReference Include="..\..\..\..\shared\SharedKernel.Events\SharedKernel.Events.csproj" />
     <ProjectReference Include="..\..\..\..\shared\SharedKernel.Grpc.Contracts\SharedKernel.Grpc.Contracts.csproj" />
