@@ -1,5 +1,3 @@
-using System.Reflection;
-using ErrorOr;
 using SharedKernel.Core.Licensing;
 using Wolverine;
 
@@ -13,11 +11,6 @@ namespace SharedKernel.Infrastructure.Behaviors;
 public sealed class LicenseEnforcementMiddleware(
     ILicenseValidator licenseValidator)
 {
-    private static readonly MethodInfo? _fromMethod = typeof(ErrorOr<object>).GetMethod(
-        nameof(ErrorOr<object>.From),
-        BindingFlags.Public | BindingFlags.Static,
-        [typeof(List<Error>)]);
-
     /// <summary>
     /// Executes before the handler, validating the license for license-gated requests.
     /// </summary>
@@ -39,7 +32,6 @@ public sealed class LicenseEnforcementMiddleware(
 
             if (!validation.IsValid)
             {
-                var errors = new List<Error> { Error.Forbidden("License.Enforcement", validation.ErrorMessage ?? "License validation failed.") };
                 throw new InvalidOperationException(validation.ErrorMessage ?? "License validation failed.");
             }
         }
