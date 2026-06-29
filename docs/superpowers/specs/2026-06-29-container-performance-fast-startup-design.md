@@ -8,6 +8,8 @@
 
 Make the service container images start fast and become *ready* quickly, with a smaller and more secure runtime footprint — without changing application code or slowing the local development inner loop.
 
+**Success criterion:** pod-scheduled → Kubernetes-`Ready` in **under 15 seconds**, *excluding* the migration init container, with the image node-cached and dependencies up. (Estimated app-internal readiness ~1.5–2.5s; probe cadence is the main remaining contributor.)
+
 ## Context & constraints
 
 - **Single shared build file.** This repo owns one `Containerfile.template` parameterized by `SERVICE_NAME` / `PROJECT_PATH` / `VERSION` build args; there are no per-service Dockerfiles. All changes are made to the template.
