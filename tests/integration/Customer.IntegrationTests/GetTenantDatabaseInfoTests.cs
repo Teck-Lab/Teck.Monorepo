@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using SharedKernel.Grpc.Contracts.Remote.V1.Tenants;
 using Teck.Platform.IntegrationTests.Shared;
 using Xunit;
@@ -16,10 +17,12 @@ namespace Customers.IntegrationTests;
 
 /// <summary>
 /// Integration tests for the <see cref="GetTenantDatabaseInfoCommandHandler"/>.
-/// Verifies that the migration-seeded dev tenant is resolvable through the full host stack.
+/// Verifies that the dev tenant is resolvable through the full host stack.
 ///
 /// Boots <c>Customer.Host</c> via <see cref="WebApplicationFactory{TEntryPoint}"/> against a
 /// Testcontainers PostgreSQL database so the test exercises the full DI and EF pipeline.
+/// The dev tenant is seeded explicitly in <see cref="InitializeAsync"/> — the migration no
+/// longer seeds it so that production environments remain clean.
 /// </summary>
 [Collection("SharedTestcontainers")]
 public sealed class GetTenantDatabaseInfoTests : IAsyncLifetime
@@ -43,15 +46,34 @@ public sealed class GetTenantDatabaseInfoTests : IAsyncLifetime
     /// <inheritdoc/>
     public async ValueTask InitializeAsync()
     {
-        // Run EF migrations (including the dev-tenant seed) against the shared test database.
-        // CreateSharedTestDatabaseAsync is idempotent: the database is created only once per
-        // Postgres container lifetime even when called across multiple test class instances.
+        // Run EF migrations against the shared test database. The migration no longer seeds
+        // the dev tenant (removed to prevent it running in production), so we seed it here
+        // explicitly for the test to be self-contained.
         await fixture.CreateSharedTestDatabaseAsync(typeof(CustomerDbContext), "Customer.Host");
+
+        string connectionString = fixture.GetDatabaseConnectionString("testdb_customerdbcontext");
+        await SeedDevTenantAsync(connectionString);
 
         // Build the factory and trigger host startup so errors surface here rather than
         // inside an individual test method.
         factory = new CustomerWebApplicationFactory(fixture);
         _ = factory.Services;
+    }
+
+    private static async Task SeedDevTenantAsync(string connectionString)
+    {
+        await using var conn = new NpgsqlConnection(connectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            INSERT INTO tenants
+                (""Id"", ""Identifier"", ""DatabaseStrategy"", ""DatabaseProvider"",
+                 ""HasReadReplicas"", ""Status"", ""CreatedAt"", ""IsDeleted"")
+            VALUES
+                ('00000000-0000-0000-0000-0000000000a1', 'dev', 'shared', 'postgres',
+                 false, 'active', '2026-01-01 00:00:00+00', false)
+            ON CONFLICT (""Id"") DO NOTHING";
+        await cmd.ExecuteNonQueryAsync();
     }
 
     /// <inheritdoc/>
@@ -64,7 +86,7 @@ public sealed class GetTenantDatabaseInfoTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// Verifies that the dev tenant seeded by the InitialCustomer migration can be resolved
+    /// Verifies that the dev tenant (seeded explicitly in test setup) can be resolved
     /// by the <see cref="GetTenantDatabaseInfoCommandHandler"/> using the full repository stack.
     /// </summary>
     [Fact]

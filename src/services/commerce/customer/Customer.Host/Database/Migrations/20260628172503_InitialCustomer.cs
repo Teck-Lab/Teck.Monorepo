@@ -33,11 +33,6 @@ public partial class InitialCustomer : Migration
                 table.PrimaryKey("PK_tenants", x => x.Id);
             });
 
-        migrationBuilder.InsertData(
-            table: "tenants",
-            columns: new[] { "Id", "CreatedAt", "CreatedBy", "DatabaseProvider", "DatabaseStrategy", "DeletedBy", "DeletedOn", "HasReadReplicas", "Identifier", "IsDeleted", "Status", "UpdatedBy", "UpdatedOn" },
-            values: new object[] { new Guid("00000000-0000-0000-0000-0000000000a1"), new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), null, "postgres", "shared", null, null, false, "dev", false, "active", null, null });
-
         migrationBuilder.CreateIndex(
             name: "IX_tenants_Identifier",
             table: "tenants",

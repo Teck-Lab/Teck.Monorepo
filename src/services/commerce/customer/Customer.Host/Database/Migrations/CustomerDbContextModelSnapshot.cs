@@ -77,19 +77,6 @@ partial class CustomerDbContextModelSnapshot : ModelSnapshot
                     .IsUnique();
 
                 b.ToTable("tenants", (string)null);
-
-                b.HasData(
-                    new
-                    {
-                        Id = new Guid("00000000-0000-0000-0000-0000000000a1"),
-                        CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                        DatabaseProvider = "postgres",
-                        DatabaseStrategy = "shared",
-                        HasReadReplicas = false,
-                        Identifier = "dev",
-                        IsDeleted = false,
-                        Status = "active",
-                    });
             });
 #pragma warning restore 612, 618
     }
