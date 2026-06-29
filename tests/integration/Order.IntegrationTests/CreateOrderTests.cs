@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Finbuckle.MultiTenant.Extensions;
+using JasperFx.CommandLine;
 using Keycloak.AuthServices.Authorization.Requirements;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -8,11 +9,9 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
-using Orders.Application.Orders.Features.CreateOrder.V1;
 using Orders.Application.Orders.Responses;
 using SharedKernel.Infrastructure.MultiTenant;
 using Teck.Platform.IntegrationTests.Shared;
-using Wolverine;
 using Xunit;
 
 namespace Orders.IntegrationTests;
@@ -149,6 +148,16 @@ public abstract class OrderIntegrationTestBase : IDisposable
         SharedTestcontainersFixture fixture,
         string databaseConnectionString) : WebApplicationFactory<Program>
     {
+        static OrderWebApplicationFactory()
+        {
+            // Order.Host/Program.cs runs the host via RunJasperFxCommands so the `codegen write`
+            // command works in container builds. When WebApplicationFactory invokes that entry point
+            // with no command, the JasperFx command runner would return an exit code instead of
+            // starting the in-memory server. AutoStartHost tells JasperFx to start the host normally
+            // in that case, which is exactly what WebApplicationFactory needs.
+            JasperFxEnvironment.AutoStartHost = true;
+        }
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             // UseSetting applies at the highest configuration priority and overrides appsettings
@@ -169,10 +178,10 @@ public abstract class OrderIntegrationTestBase : IDisposable
                 // request and the DbContext factories will fall back to the default connection string.
                 services.AddMultiTenant<TenantDetails>();
 
-                // Wolverine's default assembly scanning roots at the calling assembly (Order.Host) and
-                // may not include Order.Application (a separate project). Register an IWolverineExtension
-                // so that Wolverine includes the handler assembly during its startup phase.
-                services.AddSingleton<IWolverineExtension>(new IncludeOrderApplicationHandlers());
+                // Handler discovery for the Order.Application assembly is configured in
+                // Order.Host/Program.cs (opts.Discovery.IncludeAssembly), so it applies here too —
+                // the test boots the real host via WebApplicationFactory and needs no test-only
+                // discovery wiring.
 
                 // Replace the Keycloak JWT bearer handler with the test-only mock so that
                 // AuthSchemes(JwtBearerDefaults.AuthenticationScheme) in AuthenticatedEndpoint
@@ -230,18 +239,5 @@ public abstract class OrderIntegrationTestBase : IDisposable
 
             return Task.CompletedTask;
         }
-    }
-}
-
-// WolverineFx extension that adds Order.Application to Wolverine's handler discovery.
-// CreateOrderHandler and other application-layer handlers live in a separate assembly
-// from Order.Host. Wolverine scans from the calling assembly (Order.Host) at startup;
-// registering this extension in ConfigureTestServices ensures the handlers are found
-// without touching production code.
-internal sealed class IncludeOrderApplicationHandlers : IWolverineExtension
-{
-    public void Configure(WolverineOptions options)
-    {
-        options.Discovery.IncludeAssembly(typeof(CreateOrderHandler).Assembly);
     }
 }

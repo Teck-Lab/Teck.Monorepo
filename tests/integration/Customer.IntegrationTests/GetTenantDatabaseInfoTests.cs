@@ -4,6 +4,7 @@
 
 using Customers.Application.Database;
 using Customers.Host.Grpc.V1;
+using JasperFx.CommandLine;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
@@ -120,6 +121,15 @@ public sealed class GetTenantDatabaseInfoTests : IAsyncLifetime
     private sealed class CustomerWebApplicationFactory(SharedTestcontainersFixture fixture)
         : WebApplicationFactory<Program>
     {
+        static CustomerWebApplicationFactory()
+        {
+            // Customer.Host/Program.cs runs the host via RunJasperFxCommands so the `codegen write`
+            // command works in container builds. AutoStartHost tells JasperFx to start the in-memory
+            // host (rather than returning a command exit code) when WebApplicationFactory invokes the
+            // entry point with no command.
+            JasperFxEnvironment.AutoStartHost = true;
+        }
+
         /// <inheritdoc/>
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
