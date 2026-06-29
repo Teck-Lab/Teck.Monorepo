@@ -1,6 +1,7 @@
 using Customers.Application.Database;
 using Finbuckle.MultiTenant.Extensions;
 using SharedKernel.Core.Database;
+using SharedKernel.Infrastructure.Database;
 using SharedKernel.Infrastructure.Database.EFCore;
 using SharedKernel.Infrastructure.Database.MultiTenant;
 using SharedKernel.Infrastructure.MultiTenant;
@@ -15,9 +16,7 @@ public static class CustomerPersistenceExtensions
     /// <returns>The same builder for chaining.</returns>
     public static WebApplicationBuilder AddCustomerPersistence(this WebApplicationBuilder builder)
     {
-        var write = builder.Configuration.GetConnectionString("CustomerWrite")
-            ?? builder.Configuration.GetConnectionString("Default")
-            ?? throw new System.InvalidOperationException("Missing 'CustomerWrite'/'Default' connection string.");
+        var write = CodegenConnectionString.ResolveRequired(builder.Configuration, "CustomerWrite", "Default");
         var read = builder.Configuration.GetConnectionString("CustomerRead") ?? write;
 
         // Register Finbuckle multi-tenant infrastructure so IMultiTenantContextAccessor<TenantDetails>

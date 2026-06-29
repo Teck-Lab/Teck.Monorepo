@@ -1,5 +1,6 @@
 using System.Reflection;
 using FastEndpoints;
+using JasperFx;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Configuration;
@@ -114,6 +115,23 @@ public static class TeckServiceExtensions
         });
 
         return app;
+    }
+
+    /// <summary>
+    /// Runs the host through the JasperFx command-line pipeline instead of <c>app.Run()</c>.
+    /// This is required for WolverineFx hosts so that operational commands — notably
+    /// <c>codegen write</c>, which the container build invokes to pre-generate WolverineFx
+    /// handlers before <c>dotnet publish</c> — are actually executed. When the process is
+    /// started with no recognized command (the normal case) the pipeline simply starts the
+    /// web host, so this is a drop-in replacement for <c>app.Run()</c>.
+    /// </summary>
+    /// <param name="app">The web application to run.</param>
+    /// <param name="args">The process command-line arguments (forwarded to the command pipeline).</param>
+    /// <returns>The process exit code; <c>0</c> for a normal host shutdown.</returns>
+    public static Task<int> RunTeckServiceAsync(this WebApplication app, string[] args)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+        return app.RunJasperFxCommands(args);
     }
 
     /// <summary>

@@ -1,4 +1,6 @@
 using ErrorOr;
+using JasperFx;
+using JasperFx.CodeGeneration;
 using JasperFx.CodeGeneration.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -35,6 +37,18 @@ public static class BehaviorExtensions
         // opaque registrations. AllowedButWarn restores the pre-6.0 behaviour: handlers compile
         // using service-location for opaque dependencies and a warning is emitted during startup.
         opts.ServiceLocationPolicy = ServiceLocationPolicy.AllowedButWarn;
+
+        // Production hardening for WolverineFx's runtime code generation. The container build runs
+        // `codegen write` to emit handler source ahead of time (see deploy/AGENTS.md). In production
+        // we then load those pre-generated types statically instead of compiling handlers at runtime
+        // (faster cold start, no Roslyn dependency) and fail fast on startup if any expected type is
+        // missing — which catches an image that was published without the codegen step. Development
+        // keeps the default dynamic, auto-generating mode for a frictionless inner loop.
+        opts.Services.CritterStackDefaults(critter =>
+        {
+            critter.Production.GeneratedCodeMode = TypeLoadMode.Static;
+            critter.Production.AssertAllPreGeneratedTypesExist = true;
+        });
 
         // Register ErrorOr<T> as a Wolverine result type so that handlers returning
         // Task<ErrorOr<T>> are correctly handled by InvokeAsync<T>(). Without this,

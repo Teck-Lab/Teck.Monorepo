@@ -55,3 +55,7 @@ web-build/
 *.mobileprovision
 *.orig.*
 
+
+# WolverineFx runtime-generated handler code. Written by `codegen write` during the container
+# build (and regenerated in-memory during local dev); compiled into the published image, never committed.
+**/Internal/Generated/

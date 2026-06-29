@@ -29,12 +29,14 @@ app.UseTeckService();
 app.MapHandlers(registry =>
     registry.Register<GetTenantDatabaseInfoCommand, GetTenantDatabaseInfoCommandHandler, TenantDatabaseInfoRpcResult>());
 
-if (app.Environment.IsDevelopment())
+// Skip dev seeding when the process is started for a build-time command such as
+// `codegen write`; that path must not touch the database.
+if (!CodeGenerationDetector.IsRunningGeneration() && app.Environment.IsDevelopment())
 {
     await SeedDevTenantAsync(app);
 }
 
-app.Run();
+return await app.RunTeckServiceAsync(args);
 
 // Idempotently inserts the canonical dev tenant in the Development environment.
 // This seed does not run in staging or production — it exists for local development
