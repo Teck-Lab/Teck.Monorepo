@@ -4,31 +4,56 @@ ARG SERVICE_NAME
 ARG PROJECT_PATH
 ARG VERSION=0.0.0
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# Build stage runs on the native CI architecture (no QEMU). crossgen2 then
+# cross-compiles ReadyToRun for the requested TARGETARCH during publish.
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG SERVICE_NAME
 ARG PROJECT_PATH
 ARG VERSION
+ARG TARGETARCH
 WORKDIR /src
 
-# Copy the repository and restore the service project.
+# Map the Docker TARGETARCH to a .NET runtime identifier for R2R publishing.
+RUN case "$TARGETARCH" in \
+        amd64) echo "linux-x64"   > /tmp/rid ;; \
+        arm64) echo "linux-arm64" > /tmp/rid ;; \
+        *) echo "Unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
+    esac
+
+# Copy the repository and restore (host-arch) so WolverineFx has a runnable
+# assembly to execute for code generation.
 COPY . .
 RUN --mount=type=cache,target=/root/.nuget/packages \
     --mount=type=cache,target=/root/.local/share/NuGet/v3-cache \
-    dotnet restore "$PROJECT_PATH" -r linux-x64
+    dotnet restore "$PROJECT_PATH"
 
-# Build first so WolverineFx has an assembly to execute, then emit generated code,
-# then publish the final Host project.
 RUN --mount=type=cache,target=/root/.nuget/packages \
     --mount=type=cache,target=/root/.local/share/NuGet/v3-cache \
     dotnet build "$PROJECT_PATH" -c Release --no-restore /p:Version="$VERSION"
 
-RUN cd "$(dirname "$PROJECT_PATH")" && dotnet "./bin/Release/net10.0/${SERVICE_NAME}.Host.dll" codegen write
+# Emit WolverineFx generated handlers into the project tree (executes the Host).
+RUN cd "$(dirname "$PROJECT_PATH")" && \
+    dotnet "./bin/Release/net10.0/${SERVICE_NAME}.Host.dll" codegen write
 
+# Publish ReadyToRun for the target architecture. Framework-dependent
+# (--self-contained false) to stay small on the chiseled runtime. The publish
+# recompiles the generated sources into the assembly; with TypeLoadMode.Static
+# Wolverine loads them at runtime with no codegen.
 RUN --mount=type=cache,target=/root/.nuget/packages \
     --mount=type=cache,target=/root/.local/share/NuGet/v3-cache \
-    dotnet publish "$PROJECT_PATH" -c Release -o /app/publish --no-build --no-restore /p:Version="$VERSION"
+    RID="$(cat /tmp/rid)" && \
+    dotnet publish "$PROJECT_PATH" -c Release -o /app/publish \
+        -r "$RID" --self-contained false \
+        -p:PublishReadyToRun=true /p:Version="$VERSION"
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+# Normalise the native apphost to a fixed name so the shell-free runtime image
+# can use an exec-form entrypoint. The apphost embeds its managed assembly name
+# at publish time, so renaming the executable file is safe.
+RUN cp "/app/publish/${SERVICE_NAME}.Host" /app/publish/apphost
+
+# Chiseled distroless runtime: non-root by default, minimal size, faster pull.
+# The "-extra" variant bundles ICU + tzdata for full globalization (commerce).
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled-extra AS runtime
 ARG SERVICE_NAME
 ARG VERSION=0.0.0
 WORKDIR /app
@@ -40,7 +65,8 @@ LABEL org.opencontainers.image.title="${SERVICE_NAME}.Host" \
 
 COPY --from=build /app/publish .
 
-ENV SERVICE_DLL="${SERVICE_NAME}.Host.dll"
+ENV ASPNETCORE_HTTP_PORTS=8080 \
+    DOTNET_TieredPGO=1
 
 EXPOSE 8080
-ENTRYPOINT ["sh", "-c", "exec dotnet /app/${SERVICE_DLL}"]
+ENTRYPOINT ["./apphost"]
