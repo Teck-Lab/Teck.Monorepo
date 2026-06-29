@@ -33,9 +33,8 @@ builder.Services.AddAuthorizationBuilder()
 // tenant resolver, keyed circuit-breaker, DB-strategy resolver, ordered steps.
 builder.AddEdgePipeline();
 
-// Service discovery: passthrough is correct here because YARP cluster addresses are
-// plain DNS names (resolved by K8s DNS in production; falls through in dev).
-builder.Services.AddServiceDiscovery();
+// AddServiceDefaults() (called above) already registers service discovery.
+// AddPassThroughServiceEndpointProvider lets plain DNS names fall through in dev/K8s.
 builder.Services.AddPassThroughServiceEndpointProvider();
 
 builder.Services.AddReverseProxy()
