@@ -32,6 +32,15 @@ public sealed class ExchangeTokenStep(IServiceTokenExchangeService exchangeServi
                 .ExchangeTokenAsync(inbound, audience, context.ResolvedTenantId ?? "edge-no-tenant", ct)
                 .ConfigureAwait(false);
 
+            if (string.IsNullOrWhiteSpace(exchanged.AccessToken))
+            {
+                return EdgeStepResult.Stop(new EdgeProblem(
+                    401,
+                    "Unauthorized",
+                    "Token exchange returned an empty access token.",
+                    "authorization.token_exchange_denied"));
+            }
+
             context.ExchangedToken = exchanged.AccessToken;
             context.HttpContext.Items[EdgeHeaders.ExchangedTokenItemKey] = exchanged.AccessToken;
             return EdgeStepResult.Proceed;

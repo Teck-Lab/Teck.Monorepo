@@ -90,6 +90,28 @@ public sealed class ExchangeTokenStepTests
         Assert.Equal(0, fake.CallCount);
     }
 
+    /// <summary>When the exchange service returns a null or blank access token, the step stops with 401 authorization.token_exchange_denied.</summary>
+    [Fact]
+    public async Task BlankExchangedToken_Returns401TokenExchangeDenied()
+    {
+        var http = new DefaultHttpContext();
+        http.Request.Headers["Authorization"] = "Bearer inbound-token";
+        var ctx = new EdgeContext(http, new EdgeAccessPolicy(EdgeAccessMode.Authenticated, "order-api"))
+        {
+            ResolvedTenantId = "t1",
+        };
+        var step = new ExchangeTokenStep(
+            new FakeExchangeService(new ServiceTokenResult(string.Empty, DateTime.UtcNow.AddHours(1))));
+
+        EdgeStepResult result = await step.ExecuteAsync(ctx, default);
+
+        Assert.False(result.Continue);
+        Assert.Equal(401, result.Problem!.StatusCode);
+        Assert.Equal("authorization.token_exchange_denied", result.Problem.ErrorCode);
+        Assert.Equal("Token exchange returned an empty access token.", result.Problem.Detail);
+        Assert.Null(ctx.ExchangedToken);
+    }
+
     /// <summary>No inbound bearer token short-circuits without calling the exchange service.</summary>
     [Fact]
     public async Task NoInboundToken_ProceedsWithoutCallingService()
