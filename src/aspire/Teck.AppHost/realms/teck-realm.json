@@ -1,0 +1,10 @@
+{
+  "realm": "teck",
+  "enabled": true,
+  "sslRequired": "none",
+  "clients": [
+    { "clientId": "order-api", "enabled": true, "publicClient": true, "protocol": "openid-connect" },
+    { "clientId": "catalog-api", "enabled": true, "publicClient": true, "protocol": "openid-connect" },
+    { "clientId": "public-gateway", "enabled": true, "publicClient": true, "protocol": "openid-connect" }
+  ]
+}

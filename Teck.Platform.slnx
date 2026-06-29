@@ -30,15 +30,35 @@
     <Project Path="src/services/commerce/catalog/Catalog.Domain/Catalog.Domain.csproj" />
     <Project Path="src/services/commerce/catalog/Catalog.Host/Catalog.Host.csproj" />
   </Folder>
+  <Folder Name="/src/services/commerce/customer/">
+    <Project Path="src/services/commerce/customer/Customer.Application/Customer.Application.csproj" />
+    <Project Path="src/services/commerce/customer/Customer.Domain/Customer.Domain.csproj" />
+    <Project Path="src/services/commerce/customer/Customer.Host/Customer.Host.csproj" />
+  </Folder>
   <Folder Name="/src/services/operations/" />
   <Folder Name="/src/services/content/" />
-  <Folder Name="/src/services/gateway/" />
+  <Folder Name="/src/services/gateway/">
+    <Project Path="src/services/gateway/public/Gateway.Public.csproj" />
+  </Folder>
+  <Folder Name="/src/aspire/">
+    <Project Path="src/aspire/Teck.ServiceDefaults/Teck.ServiceDefaults.csproj" />
+    <Project Path="src/aspire/Teck.AppHost/Teck.AppHost.csproj" />
+  </Folder>
   <Folder Name="/src/apps/" />
   <Folder Name="/src/packages/" />
   <Folder Name="/tests/">
     <Project Path="tests/architecture/Teck.Platform.Arch.Tests/Teck.Platform.Arch.Tests.csproj" />
     <Project Path="tests/architecture/Order.Architecture.UnitTests/Order.Architecture.UnitTests.csproj" />
     <Project Path="tests/architecture/Catalog.Architecture.UnitTests/Catalog.Architecture.UnitTests.csproj" />
+    <Project Path="tests/architecture/Customer.Architecture.UnitTests/Customer.Architecture.UnitTests.csproj" />
+    <Project Path="tests/unit/SharedKernel.UnitTests/SharedKernel.UnitTests.csproj" />
+    <Project Path="tests/unit/Customer.UnitTests/Customer.UnitTests.csproj" />
+    <Project Path="tests/unit/Gateway.Public.UnitTests/Gateway.Public.UnitTests.csproj" />
+    <Project Path="tests/unit/Teck.ServiceDefaults.UnitTests/Teck.ServiceDefaults.UnitTests.csproj" />
+    <Project Path="tests/integration/Teck.Platform.IntegrationTests.Shared/Teck.Platform.IntegrationTests.Shared.csproj" />
+    <Project Path="tests/integration/Customer.IntegrationTests/Customer.IntegrationTests.csproj" />
+    <Project Path="tests/integration/Gateway.Public.IntegrationTests/Gateway.Public.IntegrationTests.csproj" />
+    <Project Path="tests/integration/Aspire.AppHost.IntegrationTests/Aspire.AppHost.IntegrationTests.csproj" />
   </Folder>
   <Folder Name="/tools/" />
 </Solution>

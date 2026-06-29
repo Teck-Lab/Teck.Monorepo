@@ -1,0 +1,13 @@
+{
+  "targets": {
+    "test": {
+      "command": "echo 'Teck.Platform.IntegrationTests.Shared: shared fixture library — no runnable tests'",
+      "cache": true,
+      "inputs": [],
+      "outputs": [],
+      "options": {
+        "cwd": "{projectRoot}"
+      }
+    }
+  }
+}

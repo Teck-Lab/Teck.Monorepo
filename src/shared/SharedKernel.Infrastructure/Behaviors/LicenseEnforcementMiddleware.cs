@@ -1,5 +1,3 @@
-using System.Reflection;
-using ErrorOr;
 using SharedKernel.Core.Licensing;
 using Wolverine;
 
@@ -13,19 +11,14 @@ namespace SharedKernel.Infrastructure.Behaviors;
 public sealed class LicenseEnforcementMiddleware(
     ILicenseValidator licenseValidator)
 {
-    private static readonly MethodInfo? _fromMethod = typeof(ErrorOr<object>).GetMethod(
-        nameof(ErrorOr<object>.From),
-        BindingFlags.Public | BindingFlags.Static,
-        [typeof(List<Error>)]);
-
     /// <summary>
-    /// Validates the license for license-gated requests before invoking the next middleware.
+    /// Executes before the handler, validating the license for license-gated requests.
     /// </summary>
     /// <param name="context">The WolverineFx message context for the current envelope.</param>
     /// <param name="next">The delegate that invokes the next middleware in the pipeline.</param>
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>A task that represents the asynchronous middleware operation.</returns>
-    public async ValueTask InvokeAsync(
+    public async ValueTask BeforeAsync(
         IMessageContext context,
         Func<ValueTask> next,
         CancellationToken cancellationToken)
@@ -39,7 +32,6 @@ public sealed class LicenseEnforcementMiddleware(
 
             if (!validation.IsValid)
             {
-                var errors = new List<Error> { Error.Forbidden("License.Enforcement", validation.ErrorMessage ?? "License validation failed.") };
                 throw new InvalidOperationException(validation.ErrorMessage ?? "License validation failed.");
             }
         }

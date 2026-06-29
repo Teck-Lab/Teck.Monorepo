@@ -1,5 +1,6 @@
 using Catalog.Application.Database;
 using SharedKernel.Core.Database;
+using SharedKernel.Infrastructure.Database;
 using SharedKernel.Infrastructure.Database.EFCore;
 using SharedKernel.Infrastructure.Database.MultiTenant;
 
@@ -18,9 +19,7 @@ public static class CatalogPersistenceExtensions
     /// <returns>The same builder for chaining.</returns>
     public static WebApplicationBuilder AddCatalogPersistence(this WebApplicationBuilder builder)
     {
-        var write = builder.Configuration.GetConnectionString("CatalogWrite")
-            ?? builder.Configuration.GetConnectionString("Default")
-            ?? throw new System.InvalidOperationException("Missing 'CatalogWrite'/'Default' connection string.");
+        var write = CodegenConnectionString.ResolveRequired(builder.Configuration, "CatalogWrite", "Default");
         var read = builder.Configuration.GetConnectionString("CatalogRead") ?? write;
 
         builder.AddHybridMultiTenantDbContexts<CatalogDbContext, CatalogReadDbContext>(

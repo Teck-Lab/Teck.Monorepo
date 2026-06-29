@@ -34,6 +34,23 @@ public static class Extensions
         IHostEnvironment env,
         KeycloakAuthenticationOptions keycloakOptions)
     {
+        // During build-time code generation (e.g. `codegen write`) the host is constructed only
+        // to discover WolverineFx handlers and emit generated code; it never serves HTTP requests,
+        // so authentication wiring is unnecessary and the Keycloak configuration section is
+        // typically absent. Skip setup so the container can be built without identity configuration.
+        if (CodeGenerationDetector.IsRunningGeneration())
+        {
+            return services;
+        }
+
+        // Fail with a clear message instead of a NullReferenceException deep in setup when the
+        // Keycloak configuration section is missing at runtime.
+        if (keycloakOptions is null)
+        {
+            throw new InvalidOperationException(
+                "Keycloak configuration is missing. Bind the 'Keycloak' section before calling AddKeycloak.");
+        }
+
         bool isProduction = env.IsProduction();
 
         // Configure JWT Bearer authentication from Keycloak

@@ -1,5 +1,6 @@
 using Orders.Application.Database;
 using SharedKernel.Core.Database;
+using SharedKernel.Infrastructure.Database;
 using SharedKernel.Infrastructure.Database.EFCore;
 using SharedKernel.Infrastructure.Database.MultiTenant;
 
@@ -18,9 +19,7 @@ public static class OrderPersistenceExtensions
     /// <returns>The same builder for chaining.</returns>
     public static WebApplicationBuilder AddOrderPersistence(this WebApplicationBuilder builder)
     {
-        var write = builder.Configuration.GetConnectionString("OrderWrite")
-            ?? builder.Configuration.GetConnectionString("Default")
-            ?? throw new System.InvalidOperationException("Missing 'OrderWrite'/'Default' connection string.");
+        var write = CodegenConnectionString.ResolveRequired(builder.Configuration, "OrderWrite", "Default");
         var read = builder.Configuration.GetConnectionString("OrderRead") ?? write;
 
         builder.AddHybridMultiTenantDbContexts<OrderDbContext, OrderReadDbContext>(

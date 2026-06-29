@@ -14,6 +14,9 @@ public sealed class GetOrderEndpoint(IMessageBus bus) : AuthenticatedEndpoint<Ge
     private readonly IMessageBus _bus = bus;
 
     /// <inheritdoc/>
+    protected override EndpointPermission Permission => new("order", "read", "public");
+
+    /// <inheritdoc/>
     public override async Task HandleAsync(GetOrderRequest request, CancellationToken ct)
     {
         var query = new GetOrderQuery(request.Id);
@@ -25,7 +28,7 @@ public sealed class GetOrderEndpoint(IMessageBus bus) : AuthenticatedEndpoint<Ge
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        AllowAnonymous();
         Get("/orders/{id}");
+        Version(0);
     }
 }
