@@ -17,6 +17,15 @@ public sealed class HeaderFirewallStep(EdgeTenantOptions tenantOptions) : IEdgeS
 
         context.HttpContext.Request.Headers.Remove(tenantOptions.TenantIdHeaderName);
         context.HttpContext.Request.Headers.Remove(EdgeHeaders.TenantDbStrategy);
+
+        // Strip the inbound Authorization header on anonymous routes so that client bearer
+        // tokens are never forwarded to upstream services unauthenticated. Authenticated
+        // routes keep the header so ExchangeTokenStep can extract the user token to exchange.
+        if (context.Policy.Mode == EdgeAccessMode.Anonymous)
+        {
+            context.HttpContext.Request.Headers.Remove("Authorization");
+        }
+
         return Task.FromResult(EdgeStepResult.Proceed);
     }
 
