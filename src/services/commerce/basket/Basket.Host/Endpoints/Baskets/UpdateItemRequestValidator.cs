@@ -11,5 +11,6 @@ public sealed class UpdateItemRequestValidator : Validator<UpdateItemRequest>
     {
         RuleFor(request => request.BasketId).NotEmpty();
         RuleFor(request => request.ProductId).NotEmpty();
+        RuleFor(request => request.Quantity).GreaterThan(0);
     }
 }
