@@ -25,6 +25,11 @@
     <Project Path="src/services/commerce/order/Order.Domain/Order.Domain.csproj" />
     <Project Path="src/services/commerce/order/Order.Host/Order.Host.csproj" />
   </Folder>
+  <Folder Name="/src/services/commerce/basket/">
+    <Project Path="src/services/commerce/basket/Basket.Application/Basket.Application.csproj" />
+    <Project Path="src/services/commerce/basket/Basket.Domain/Basket.Domain.csproj" />
+    <Project Path="src/services/commerce/basket/Basket.Host/Basket.Host.csproj" />
+  </Folder>
   <Folder Name="/src/services/commerce/catalog/">
     <Project Path="src/services/commerce/catalog/Catalog.Application/Catalog.Application.csproj" />
     <Project Path="src/services/commerce/catalog/Catalog.Domain/Catalog.Domain.csproj" />
