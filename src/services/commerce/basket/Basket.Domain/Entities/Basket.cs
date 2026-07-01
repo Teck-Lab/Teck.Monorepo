@@ -1,3 +1,4 @@
+using Baskets.Domain.DomainEvents;
 using Baskets.Domain.Services;
 using Baskets.Domain.ValueObjects;
 using SharedKernel.Core.Domain;
@@ -122,6 +123,48 @@ public sealed class Basket : BaseEntity, IAggregateRoot, ITenantScoped
         EnsureActive();
         _items.Clear();
         Recalculate();
+    }
+
+    /// <summary>Marks the basket as checked out and raises <see cref="BasketCheckedOut"/>.</summary>
+    public void Checkout()
+    {
+        EnsureActive();
+        if (_items.Count == 0)
+        {
+            throw new InvalidOperationException("Cannot check out an empty basket.");
+        }
+
+        Status = BasketStatus.CheckedOut;
+        AddDomainEvent(new BasketCheckedOut(
+            Id,
+            CustomerId,
+            TenantId,
+            Subtotal,
+            _items.ToList(),
+            DateTimeOffset.UtcNow));
+    }
+
+    /// <summary>Absorbs the items of another basket (merge by product, summing quantities) and marks it merged.</summary>
+    /// <param name="source">The basket to merge into this one.</param>
+    public void MergeFrom(Basket source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        EnsureActive();
+
+        foreach (BasketItem item in source._items)
+        {
+            AddItem(item.ProductId, item.ProductName, item.UnitPrice, item.Quantity);
+        }
+
+        source.Status = BasketStatus.Merged;
+    }
+
+    /// <summary>Transfers ownership of a guest basket to a customer.</summary>
+    /// <param name="customerId">The customer taking ownership.</param>
+    public void AssignToCustomer(Guid customerId)
+    {
+        CustomerId = customerId;
+        AnonymousToken = null;
     }
 
     private void EnsureActive()
