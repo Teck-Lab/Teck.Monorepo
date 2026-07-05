@@ -39,7 +39,7 @@ internal static class ReservationCommitter
     /// <param name="request">The reservation to commit.</param>
     /// <param name="ct">A cancellation token.</param>
     /// <returns>The commit result describing what happened and what to publish.</returns>
-    public static async Task<ReservationCommitResult> CommitAsync(
+    public static Task<ReservationCommitResult> CommitAsync(
         IGenericWriteRepository<StockItem, Guid> stockItems,
         IGenericWriteRepository<Reservation, Guid> reservations,
         IGenericReadRepository<LocationPriority, Guid> locationPriorities,
@@ -47,11 +47,51 @@ internal static class ReservationCommitter
         IServiceScopeFactory scopeFactory,
         int maxRetries,
         ReservationCommitRequest request,
+        CancellationToken ct) =>
+        ExecuteAsync(stockItems, reservations, locationPriorities, unitOfWork, scopeFactory, maxRetries, request, expiresAt: null, ct);
+
+    /// <summary>
+    /// Attempts to place a <see cref="ReservationStatus.Held"/> reservation that expires at
+    /// <paramref name="expiresAt"/> unless committed first, retrying on optimistic-concurrency
+    /// conflicts exactly as <see cref="CommitAsync"/> does.
+    /// </summary>
+    /// <remarks>See <see cref="CommitAsync"/> for the retry rationale, which applies unchanged here.</remarks>
+    /// <param name="stockItems">The stock write repository for the first (ambient) attempt.</param>
+    /// <param name="reservations">The reservation write repository for the first (ambient) attempt.</param>
+    /// <param name="locationPriorities">The location-priority read repository for the first (ambient) attempt.</param>
+    /// <param name="unitOfWork">The unit of work for the first (ambient) attempt.</param>
+    /// <param name="scopeFactory">Factory used to open a fresh scope (fresh DbContext) per retry.</param>
+    /// <param name="maxRetries">The maximum number of retries after the first attempt.</param>
+    /// <param name="request">The reservation to hold.</param>
+    /// <param name="expiresAt">The point in time at which the hold expires unless committed first.</param>
+    /// <param name="ct">A cancellation token.</param>
+    /// <returns>The commit result describing what happened and what to publish.</returns>
+    public static Task<ReservationCommitResult> HoldForAsync(
+        IGenericWriteRepository<StockItem, Guid> stockItems,
+        IGenericWriteRepository<Reservation, Guid> reservations,
+        IGenericReadRepository<LocationPriority, Guid> locationPriorities,
+        IUnitOfWork unitOfWork,
+        IServiceScopeFactory scopeFactory,
+        int maxRetries,
+        ReservationCommitRequest request,
+        DateTimeOffset expiresAt,
+        CancellationToken ct) =>
+        ExecuteAsync(stockItems, reservations, locationPriorities, unitOfWork, scopeFactory, maxRetries, request, expiresAt, ct);
+
+    private static async Task<ReservationCommitResult> ExecuteAsync(
+        IGenericWriteRepository<StockItem, Guid> stockItems,
+        IGenericWriteRepository<Reservation, Guid> reservations,
+        IGenericReadRepository<LocationPriority, Guid> locationPriorities,
+        IUnitOfWork unitOfWork,
+        IServiceScopeFactory scopeFactory,
+        int maxRetries,
+        ReservationCommitRequest request,
+        DateTimeOffset? expiresAt,
         CancellationToken ct)
     {
         try
         {
-            return await AttemptAsync(stockItems, reservations, locationPriorities, unitOfWork, request, ct)
+            return await AttemptAsync(stockItems, reservations, locationPriorities, unitOfWork, request, expiresAt, ct)
                 .ConfigureAwait(false);
         }
         catch (DbUpdateConcurrencyException)
@@ -73,6 +113,7 @@ internal static class ReservationCommitter
                     sp.GetRequiredService<IGenericReadRepository<LocationPriority, Guid>>(),
                     sp.GetRequiredService<IUnitOfWork>(),
                     request,
+                    expiresAt,
                     ct).ConfigureAwait(false);
             }
             catch (DbUpdateConcurrencyException)
@@ -90,6 +131,7 @@ internal static class ReservationCommitter
         IGenericReadRepository<LocationPriority, Guid> locationPriorities,
         IUnitOfWork unitOfWork,
         ReservationCommitRequest request,
+        DateTimeOffset? expiresAt,
         CancellationToken ct)
     {
         // 1. Idempotency FIRST: a matching reservation means this source has already been committed.
@@ -169,7 +211,9 @@ internal static class ReservationCommitter
             reservationLines.Add(new ReservationLine(line.ProductId, line.Quantity, allocation.BackorderedQuantity, allocation.Allocations));
         }
 
-        Reservation reservation = Reservation.CreateCommitted(request.Source, request.SourceId, request.TenantId, reservationLines);
+        Reservation reservation = expiresAt is null
+            ? Reservation.CreateCommitted(request.Source, request.SourceId, request.TenantId, reservationLines)
+            : Reservation.CreateHeld(request.Source, request.SourceId, request.TenantId, expiresAt.Value, reservationLines);
         await reservations.AddAsync(reservation, ct).ConfigureAwait(false);
 
         await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);

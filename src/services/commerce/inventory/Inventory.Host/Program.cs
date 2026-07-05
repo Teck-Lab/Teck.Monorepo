@@ -14,6 +14,7 @@ builder.AddServiceDefaults();
 builder.Services.AddTeckService(typeof(Program).Assembly, builder.Configuration);
 builder.AddInventoryPersistence();
 builder.Services.Configure<InventoryOptions>(builder.Configuration.GetSection("Inventory"));
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddKeycloak(builder.Configuration, builder.Environment,
     builder.Configuration.GetSection("Keycloak").Get<KeycloakAuthenticationOptions>()!);
 builder.Host.UseWolverine(opts =>

@@ -62,6 +62,36 @@ public sealed class Reservation : BaseEntity, IAggregateRoot, ITenantScoped
         return reservation;
     }
 
+    /// <summary>Creates a reservation that holds stock pending commitment, e.g. because it originates from a checked-out basket.</summary>
+    /// <param name="source">The kind of aggregate that originated the reservation.</param>
+    /// <param name="sourceId">The identifier of the originating source aggregate.</param>
+    /// <param name="tenantId">The owning tenant identifier.</param>
+    /// <param name="expiresAt">The point in time at which the hold expires unless committed first.</param>
+    /// <param name="lines">The product lines and their allocations covered by the reservation.</param>
+    /// <returns>The new, held reservation.</returns>
+    public static Reservation CreateHeld(
+        ReservationSource source,
+        Guid sourceId,
+        string tenantId,
+        DateTimeOffset expiresAt,
+        IReadOnlyList<ReservationLine> lines)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(lines);
+
+        var reservation = new Reservation
+        {
+            SourceType = source,
+            SourceId = sourceId,
+            TenantId = tenantId,
+            Status = ReservationStatus.Held,
+            ExpiresAt = expiresAt,
+        };
+        reservation._lines.AddRange(lines);
+
+        return reservation;
+    }
+
     /// <summary>Releases the reservation, returning its stock to availability.</summary>
     public void Release()
     {
