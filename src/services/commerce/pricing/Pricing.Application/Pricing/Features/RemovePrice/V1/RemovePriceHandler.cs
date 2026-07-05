@@ -4,6 +4,7 @@ using Pricing.Application.Pricing.ReadModels;
 using Pricing.Application.Pricing.Responses;
 using Pricing.Domain.DomainEvents;
 using Pricing.Domain.Entities;
+using Pricing.Domain.ValueObjects;
 using SharedKernel.Core.Database;
 using Wolverine;
 
@@ -30,6 +31,16 @@ public static class RemovePriceHandler
         if (list is null)
         {
             return Error.NotFound(description: $"Price list '{command.PriceListId}' was not found.");
+        }
+
+        if (list.Status == PriceListStatus.Archived)
+        {
+            return Error.Conflict(description: $"Price list '{list.Id}' is archived and cannot be modified.");
+        }
+
+        if (!list.Prices.Any(price => price.ProductId == command.ProductId))
+        {
+            return Error.NotFound(description: $"Product '{command.ProductId}' has no price in list '{list.Id}'.");
         }
 
         list.RemovePrice(command.ProductId);

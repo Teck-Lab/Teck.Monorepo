@@ -35,6 +35,11 @@ public static class AddOrUpdatePriceHandler
             return Error.NotFound(description: $"Price list '{command.PriceListId}' was not found.");
         }
 
+        if (list.Status == PriceListStatus.Archived)
+        {
+            return Error.Conflict(description: $"Price list '{list.Id}' is archived and cannot be modified.");
+        }
+
         string currency = list.Scope.Currency;
         var amount = new Money(command.Amount, currency);
         var tiers = command.Tiers

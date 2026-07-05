@@ -1,6 +1,7 @@
 using ErrorOr;
 using NSubstitute;
 using Pricing.Application.Pricing.Features.AddOrUpdatePrice.V1;
+using Pricing.Application.Pricing.Features.RemovePrice.V1;
 using Pricing.Domain.Entities;
 using Pricing.Domain.ValueObjects;
 using SharedKernel.Core.Database;
@@ -49,5 +50,67 @@ public sealed class PriceCommandHandlerTests
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorType.NotFound, result.FirstError.Type);
+    }
+
+    [Fact]
+    public async Task AddOrUpdatePrice_OnArchivedList_ReturnsConflict()
+    {
+        var list = PriceList.Create("l", new PriceScope("USD", null, null, null), null, null, "tenant-1");
+        list.Activate();
+        list.Archive();
+        var repo = Substitute.For<IGenericWriteRepository<PriceList, Guid>>();
+        var priceRepo = Substitute.For<IGenericWriteRepository<Price, Guid>>();
+        var uow = Substitute.For<IUnitOfWork>();
+        var bus = Substitute.For<IMessageBus>();
+        repo.FirstOrDefaultAsync(Arg.Any<Ardalis.Specification.ISpecification<PriceList>>(), true, Arg.Any<CancellationToken>())
+            .Returns(list);
+
+        var command = new AddOrUpdatePriceCommand(list.Id, Guid.NewGuid(), 10m, []);
+        var result = await AddOrUpdatePriceHandler.Handle(command, repo, priceRepo, uow, bus, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(ErrorType.Conflict, result.FirstError.Type);
+        await uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RemovePrice_MissingProduct_ReturnsNotFound()
+    {
+        var list = PriceList.Create("l", new PriceScope("USD", null, null, null), null, null, "tenant-1");
+        list.Activate();
+        var repo = Substitute.For<IGenericWriteRepository<PriceList, Guid>>();
+        var uow = Substitute.For<IUnitOfWork>();
+        var bus = Substitute.For<IMessageBus>();
+        repo.FirstOrDefaultAsync(Arg.Any<Ardalis.Specification.ISpecification<PriceList>>(), true, Arg.Any<CancellationToken>())
+            .Returns(list);
+
+        var command = new RemovePriceCommand(list.Id, Guid.NewGuid());
+        var result = await RemovePriceHandler.Handle(command, repo, uow, bus, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(ErrorType.NotFound, result.FirstError.Type);
+        await uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RemovePrice_OnArchivedList_ReturnsConflict()
+    {
+        var productId = Guid.NewGuid();
+        var list = PriceList.Create("l", new PriceScope("USD", null, null, null), null, null, "tenant-1");
+        list.AddOrUpdatePrice(productId, new Money(10m, "USD"), []);
+        list.Activate();
+        list.Archive();
+        var repo = Substitute.For<IGenericWriteRepository<PriceList, Guid>>();
+        var uow = Substitute.For<IUnitOfWork>();
+        var bus = Substitute.For<IMessageBus>();
+        repo.FirstOrDefaultAsync(Arg.Any<Ardalis.Specification.ISpecification<PriceList>>(), true, Arg.Any<CancellationToken>())
+            .Returns(list);
+
+        var command = new RemovePriceCommand(list.Id, productId);
+        var result = await RemovePriceHandler.Handle(command, repo, uow, bus, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(ErrorType.Conflict, result.FirstError.Type);
+        await uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }
