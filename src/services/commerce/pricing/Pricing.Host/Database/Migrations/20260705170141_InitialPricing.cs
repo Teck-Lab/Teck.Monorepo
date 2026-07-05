@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -96,8 +95,7 @@ public partial class InitialPricing : Migration
             name: "PriceTiers",
             columns: table => new
             {
-                MinQuantity = table.Column<int>(type: "integer", nullable: false)
-                    .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                MinQuantity = table.Column<int>(type: "integer", nullable: false),
                 PriceId = table.Column<Guid>(type: "uuid", nullable: false),
                 Amount = table.Column<string>(type: "text", nullable: false),
             },

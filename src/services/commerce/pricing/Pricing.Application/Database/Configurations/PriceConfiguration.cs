@@ -59,7 +59,7 @@ public sealed class PriceConfiguration : IEntityTypeConfiguration<Price>
         {
             tier.ToTable("PriceTiers");
             tier.WithOwner().HasForeignKey("PriceId");
-            tier.Property(t => t.MinQuantity);
+            tier.Property(t => t.MinQuantity).ValueGeneratedNever();
             tier.HasKey("PriceId", nameof(PriceTier.MinQuantity));
             tier.Property(t => t.Amount)
                 .HasConversion(MoneyConverter)

@@ -221,10 +221,7 @@ namespace Pricing.Host.Database.Migrations
                                 .HasColumnType("uuid");
 
                             b1.Property<int>("MinQuantity")
-                                .ValueGeneratedOnAdd()
                                 .HasColumnType("integer");
-
-                            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("MinQuantity"));
 
                             b1.Property<string>("Amount")
                                 .IsRequired()

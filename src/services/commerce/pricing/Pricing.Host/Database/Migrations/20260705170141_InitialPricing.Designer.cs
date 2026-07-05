@@ -12,7 +12,7 @@ using Pricing.Application.Database;
 namespace Pricing.Host.Database.Migrations
 {
     [DbContext(typeof(PricingDbContext))]
-    [Migration("20260705165358_InitialPricing")]
+    [Migration("20260705170141_InitialPricing")]
     partial class InitialPricing
     {
         /// <inheritdoc />
@@ -224,10 +224,7 @@ namespace Pricing.Host.Database.Migrations
                                 .HasColumnType("uuid");
 
                             b1.Property<int>("MinQuantity")
-                                .ValueGeneratedOnAdd()
                                 .HasColumnType("integer");
-
-                            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("MinQuantity"));
 
                             b1.Property<string>("Amount")
                                 .IsRequired()
