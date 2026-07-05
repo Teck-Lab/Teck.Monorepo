@@ -186,7 +186,13 @@ Copy of `Basket.Host/Program.cs`: `AddServiceDefaults`, `AddTeckService(typeof(P
 - `ResolvePrice`: no applicable price → `404`; foreign winner with no conversion rate → `422` with a structured reason. Never silently returns an unconverted foreign price.
 - `AddOrUpdatePrice`/`RemovePrice` on an unknown `productId` (remove) → `404`; on an `Archived` list → `409 Conflict`.
 - Overlapping validity windows for the same scope are **allowed**; resolution's most-specific + deterministic tie-break resolves them (documented behavior, not an error).
-- FluentValidation validators enforce ISO currency/country format, `quantity >= 1`, `rate > 0`, required fields at the edge.
+- FluentValidation validators enforce ISO currency/country format, `quantity >= 1`, `rate > 0`, tier `MinQuantity >= 1` + strictly-ascending-unique, required fields at the edge.
+
+> **Implemented reality (platform limitation — 2026-07-05):** the target codes above for the `ErrorOr` / domain-throw paths are **not** what the current platform pipeline emits, and this is deferred as platform-level work (it affects `order`/`basket` identically — pricing mirrors their convention):
+> - **Edge validation → `400`** works as specified (FluentValidation runs before the handler): bad tiers, bad currency/quantity/rate all return `400`.
+> - **`ErrorOr` errors → `200` with a null body, not `404`/`422`.** `AddTeckBehaviors()`/`BehaviorExtensions.UseResultType` unwraps `ErrorOr<T>` by returning `null` on error (not throwing), so `ResolvePrice` no-price / no-rate and `GetPriceList` not-found currently surface as `200` + empty body. A downstream caller must treat a null/empty body as "not resolvable."
+> - **Domain-guard throws → `500`, not `404`/`409`.** `RemovePrice` on a missing product and `AddOrUpdatePrice`/`RemovePrice` on an `Archived` list throw and hit the global `500` handler (the archived-list case currently succeeds silently rather than `409`).
+> Reconciling these to the documented `404`/`409`/`422` requires either a platform-wide `ErrorOr → ProblemDetails` mapping (preferred, affects all services) or per-endpoint mapping in pricing; tracked as a separate follow-up, out of scope for this service build.
 
 ## Testing (`tests/`)
 
