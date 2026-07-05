@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Baskets.Application.Baskets;
-using MassTransit;
 
 namespace Baskets.Host.Infrastructure;
 
@@ -37,5 +36,5 @@ public sealed class BasketIdentityAccessor(IHttpContextAccessor httpContextAcces
     }
 
     /// <inheritdoc/>
-    public Guid EnsureAnonymousToken() => AnonymousToken ?? (_minted ??= NewId.Next().ToGuid());
+    public Guid EnsureAnonymousToken() => AnonymousToken ?? (_minted ??= Guid.NewGuid());
 }
