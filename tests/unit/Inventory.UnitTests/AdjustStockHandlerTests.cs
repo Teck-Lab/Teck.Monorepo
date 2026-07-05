@@ -19,6 +19,14 @@ public sealed class AdjustStockHandlerTests
         return repository;
     }
 
+    private static IGenericWriteRepository<Reservation, Guid> NoBackorderedReservations()
+    {
+        var repository = Substitute.For<IGenericWriteRepository<Reservation, Guid>>();
+        repository.ListAsync(Arg.Any<ISpecification<Reservation>>(), true, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<Reservation>>([]));
+        return repository;
+    }
+
     [Fact]
     public async Task Handle_NegativeAdjustThatDepletes_PublishesStockDepletedAndCommitsOnce()
     {
@@ -27,7 +35,7 @@ public sealed class AdjustStockHandlerTests
         var unitOfWork = Substitute.For<IUnitOfWork>();
         var bus = Substitute.For<IMessageBus>();
 
-        var dto = await AdjustStockHandler.Handle(new AdjustStockCommand(item.Id, -5), repository, unitOfWork, bus, CancellationToken.None);
+        var dto = await AdjustStockHandler.Handle(new AdjustStockCommand(item.Id, -5), repository, NoBackorderedReservations(), unitOfWork, bus, TimeProvider.System, CancellationToken.None);
 
         Assert.Equal(0, dto.Available);
         await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
@@ -46,7 +54,7 @@ public sealed class AdjustStockHandlerTests
         var unitOfWork = Substitute.For<IUnitOfWork>();
         var bus = Substitute.For<IMessageBus>();
 
-        var dto = await AdjustStockHandler.Handle(new AdjustStockCommand(item.Id, 10), repository, unitOfWork, bus, CancellationToken.None);
+        var dto = await AdjustStockHandler.Handle(new AdjustStockCommand(item.Id, 10), repository, NoBackorderedReservations(), unitOfWork, bus, TimeProvider.System, CancellationToken.None);
 
         Assert.Equal(10, dto.Available);
         await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
@@ -65,7 +73,7 @@ public sealed class AdjustStockHandlerTests
         var unitOfWork = Substitute.For<IUnitOfWork>();
         var bus = Substitute.For<IMessageBus>();
 
-        var dto = await AdjustStockHandler.Handle(new AdjustStockCommand(item.Id, -12), repository, unitOfWork, bus, CancellationToken.None);
+        var dto = await AdjustStockHandler.Handle(new AdjustStockCommand(item.Id, -12), repository, NoBackorderedReservations(), unitOfWork, bus, TimeProvider.System, CancellationToken.None);
 
         Assert.Equal(8, dto.Available);
         await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
@@ -87,7 +95,7 @@ public sealed class AdjustStockHandlerTests
         var unitOfWork = Substitute.For<IUnitOfWork>();
         var bus = Substitute.For<IMessageBus>();
 
-        await AdjustStockHandler.Handle(new AdjustStockCommand(item.Id, -1), repository, unitOfWork, bus, CancellationToken.None);
+        await AdjustStockHandler.Handle(new AdjustStockCommand(item.Id, -1), repository, NoBackorderedReservations(), unitOfWork, bus, TimeProvider.System, CancellationToken.None);
 
         await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await bus.DidNotReceive().PublishAsync(Arg.Any<ReorderTriggeredIntegrationEvent>());

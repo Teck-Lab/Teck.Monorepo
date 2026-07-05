@@ -126,4 +126,59 @@ public sealed class Reservation : BaseEntity, IAggregateRoot, ITenantScoped
         Status = ReservationStatus.Expired;
         ExpiresAt = null;
     }
+
+    /// <summary>
+    /// Converts previously backordered quantity for a product into a real allocation now that
+    /// replenished stock covers it: reduces the matching line's
+    /// <see cref="ReservationLine.BackorderedQuantity"/> and extends (or adds) an
+    /// <see cref="Allocation"/> at <paramref name="locationId"/> by <paramref name="quantity"/>.
+    /// </summary>
+    /// <param name="productId">The product identifier of the line being filled.</param>
+    /// <param name="locationId">The location the newly-available stock was replenished at.</param>
+    /// <param name="quantity">
+    /// The quantity of backorder to convert into a real allocation. Must be positive and no more
+    /// than the line's current <see cref="ReservationLine.BackorderedQuantity"/>.
+    /// </param>
+    public void FillBackorder(Guid productId, Guid locationId, int quantity)
+    {
+        if (quantity <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(quantity), "Quantity must be positive.");
+        }
+
+        if (!Status.IsActive)
+        {
+            throw new InvalidOperationException($"Reservation is '{Status.Name}' and cannot fill a backorder.");
+        }
+
+        int index = _lines.FindIndex(line => line.ProductId == productId);
+        if (index < 0)
+        {
+            throw new InvalidOperationException($"Reservation has no line for product '{productId}'.");
+        }
+
+        ReservationLine line = _lines[index];
+        if (quantity > line.BackorderedQuantity)
+        {
+            throw new InvalidOperationException("Cannot fill more than the line's outstanding backordered quantity.");
+        }
+
+        List<Allocation> allocations = line.Allocations.ToList();
+        int allocationIndex = allocations.FindIndex(allocation => allocation.LocationId == locationId);
+        if (allocationIndex >= 0)
+        {
+            Allocation existing = allocations[allocationIndex];
+            allocations[allocationIndex] = existing with { Quantity = existing.Quantity + quantity };
+        }
+        else
+        {
+            allocations.Add(new Allocation(locationId, quantity));
+        }
+
+        _lines[index] = line with
+        {
+            BackorderedQuantity = line.BackorderedQuantity - quantity,
+            Allocations = allocations,
+        };
+    }
 }
