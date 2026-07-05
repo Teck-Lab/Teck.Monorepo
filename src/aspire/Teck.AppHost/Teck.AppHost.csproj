@@ -14,6 +14,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\services\commerce\order\Order.Host\Order.Host.csproj" />
+    <ProjectReference Include="..\..\services\commerce\basket\Basket.Host\Basket.Host.csproj" />
     <ProjectReference Include="..\..\services\commerce\customer\Customer.Host\Customer.Host.csproj" />
     <ProjectReference Include="..\..\services\commerce\catalog\Catalog.Host\Catalog.Host.csproj" />
     <ProjectReference Include="..\..\services\gateway\public\Gateway.Public.csproj" />

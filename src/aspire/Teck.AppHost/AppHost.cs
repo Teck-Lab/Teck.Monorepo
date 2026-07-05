@@ -5,6 +5,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 // collision with the same-named project resources (order, customer, catalog).
 var postgres = builder.AddPostgres("postgres").WithDataVolume();
 var orderDb = postgres.AddDatabase("orderdb");
+var basketDb = postgres.AddDatabase("basketdb");
 var customerDb = postgres.AddDatabase("customerdb");
 var catalogDb = postgres.AddDatabase("catalogdb");
 
@@ -26,6 +27,16 @@ var order = builder.AddProject<Projects.Order_Host>("order")
     .WithEnvironment("ConnectionStrings__OrderRead", orderDb)
     .WithReference(rabbitmq).WithReference(redis).WithReference(keycloak)
     .WaitFor(orderDb).WaitFor(keycloak);
+
+// WithHttpEndpoint registers the "http" endpoint Aspire injects into service-discovery
+// variables (services__basket__http__0, etc.) so YARP destinations like http://basket resolve.
+// basket publishes BasketCheckedOut over rabbitmq, which order consumes to create an order.
+builder.AddProject<Projects.Basket_Host>("basket")
+    .WithHttpEndpoint(name: "http")
+    .WithEnvironment("ConnectionStrings__BasketWrite", basketDb)
+    .WithEnvironment("ConnectionStrings__BasketRead", basketDb)
+    .WithReference(rabbitmq).WithReference(redis).WithReference(keycloak)
+    .WaitFor(basketDb).WaitFor(keycloak);
 
 // WithHttpEndpoint registers the "http" endpoint Aspire injects into service-discovery
 // variables (services__customer__http__0, etc.) so YARP destinations like http://customer resolve.
