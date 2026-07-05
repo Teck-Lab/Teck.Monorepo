@@ -17,4 +17,9 @@
     <PackageReference Include="Ardalis.Specification" />
     <PackageReference Include="ErrorOr" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Price.Create/Update and PriceList's internal mutators are exercised directly by unit tests. -->
+    <InternalsVisibleTo Include="Pricing.UnitTests" />
+  </ItemGroup>
 </Project>
