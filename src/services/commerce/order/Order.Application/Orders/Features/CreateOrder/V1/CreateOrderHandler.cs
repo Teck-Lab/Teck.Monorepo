@@ -1,8 +1,8 @@
-using Orders.Application.Orders.IntegrationEvents;
 using Orders.Application.Orders.Mapping;
 using Orders.Application.Orders.Responses;
 using Orders.Domain.Entities;
 using SharedKernel.Core.Database;
+using SharedKernel.Events;
 using Wolverine;
 
 namespace Orders.Application.Orders.Features.CreateOrder.V1;
@@ -34,7 +34,18 @@ public static class CreateOrderHandler
         await repository.AddAsync(order, ct).ConfigureAwait(false);
         await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        await bus.PublishAsync(new OrderPlacedIntegrationEvent(order)).ConfigureAwait(false);
+        await bus.PublishAsync(new OrderPlacedIntegrationEvent
+        {
+            OrderId = order.Id,
+            CustomerId = order.CustomerId,
+            TenantId = order.TenantId,
+            Status = order.Status.Name,
+            Total = order.Total,
+            CreatedAt = order.CreatedAt,
+            Lines = order.Lines
+                .Select(line => new OrderPlacedLine(line.ProductId, line.ProductName, line.Quantity, line.UnitPrice, line.Total))
+                .ToList(),
+        }).ConfigureAwait(false);
 
         return OrderMapper.ToDto(order);
     }
