@@ -60,6 +60,7 @@
     <Project Path="tests/architecture/Teck.Platform.Arch.Tests/Teck.Platform.Arch.Tests.csproj" />
     <Project Path="tests/architecture/Order.Architecture.UnitTests/Order.Architecture.UnitTests.csproj" />
     <Project Path="tests/architecture/Basket.Architecture.UnitTests/Basket.Architecture.UnitTests.csproj" />
+    <Project Path="tests/architecture/Inventory.Architecture.UnitTests/Inventory.Architecture.UnitTests.csproj" />
     <Project Path="tests/architecture/Catalog.Architecture.UnitTests/Catalog.Architecture.UnitTests.csproj" />
     <Project Path="tests/architecture/Customer.Architecture.UnitTests/Customer.Architecture.UnitTests.csproj" />
     <Project Path="tests/unit/SharedKernel.UnitTests/SharedKernel.UnitTests.csproj" />
