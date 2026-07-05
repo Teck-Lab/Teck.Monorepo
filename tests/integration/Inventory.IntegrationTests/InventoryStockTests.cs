@@ -110,6 +110,13 @@ public abstract class InventoryIntegrationTestBase : IDisposable
 
     protected HttpClient Client { get; }
 
+    /// <summary>
+    /// Gets the host's root service provider, exposed so subclasses can open independent
+    /// <see cref="IServiceScope"/>s (e.g. to resolve one <see cref="Wolverine.IMessageBus"/> per
+    /// concurrent operation, giving each its own scoped DbContext).
+    /// </summary>
+    protected IServiceProvider Services => factory.Services;
+
     public void Dispose()
     {
         Client.Dispose();
