@@ -117,11 +117,18 @@ public sealed class PriceList : BaseEntity, IAggregateRoot, ITenantScoped
         RaiseForAllPrices(PriceChangeType.Upserted);
     }
 
-    /// <summary>Archives the list and emits <see cref="PriceChanged"/> (Removed) for every price.</summary>
+    /// <summary>Archives the list and emits <see cref="PriceChanged"/> (Removed) for every price, but only if the list was previously active.</summary>
     public void Archive()
     {
+        bool wasActive = Status == PriceListStatus.Active;
         Status = PriceListStatus.Archived;
-        RaiseForAllPrices(PriceChangeType.Removed);
+        if (wasActive)
+        {
+            foreach (Price price in _prices)
+            {
+                Raise(price.ProductId, price.Amount, PriceChangeType.Removed);
+            }
+        }
     }
 
     /// <summary>Adds or updates the price for a product; emits Upserted only when the list is active.</summary>

@@ -90,6 +90,18 @@ public sealed class PriceListTests
     }
 
     [Fact]
+    public void Archive_OnDraftList_EmitsNothing()
+    {
+        var list = Draft();
+        list.AddOrUpdatePrice(Product, new Money(10m, "USD"), []);
+
+        list.Archive();
+
+        Assert.Equal(PriceListStatus.Archived, list.Status);
+        Assert.Empty(list.DomainEvents.OfType<PriceChanged>());
+    }
+
+    [Fact]
     public void RemovePrice_Missing_Throws()
     {
         var list = Draft();
