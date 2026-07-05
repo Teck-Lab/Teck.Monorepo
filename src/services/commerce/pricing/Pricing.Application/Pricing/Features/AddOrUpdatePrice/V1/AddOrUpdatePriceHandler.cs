@@ -15,7 +15,8 @@ public static class AddOrUpdatePriceHandler
 {
     /// <summary>Loads the list, upserts the product's price, commits, and publishes effective changes.</summary>
     /// <param name="command">The command.</param>
-    /// <param name="repository">The write repository.</param>
+    /// <param name="repository">The write repository for the owning price list.</param>
+    /// <param name="priceRepository">The write repository for prices, used to explicitly track brand-new prices.</param>
     /// <param name="unitOfWork">The unit of work.</param>
     /// <param name="bus">The message bus.</param>
     /// <param name="ct">A cancellation token.</param>
@@ -23,6 +24,7 @@ public static class AddOrUpdatePriceHandler
     public static async Task<ErrorOr<PriceListDto>> Handle(
         AddOrUpdatePriceCommand command,
         IGenericWriteRepository<PriceList, Guid> repository,
+        IGenericWriteRepository<Price, Guid> priceRepository,
         IUnitOfWork unitOfWork,
         IMessageBus bus,
         CancellationToken ct)
@@ -39,7 +41,24 @@ public static class AddOrUpdatePriceHandler
             .Select(tier => new PriceTier(tier.MinQuantity, new Money(tier.Amount, currency)))
             .ToList();
 
+        // Price has its own identity, primary key, and DbSet (a first-class entity read directly on the
+        // resolution hot path — see PricesByProductSpec) rather than an EF owned type. Its Id is assigned
+        // client-side (BaseEntity's constructor) before it is ever added to the tracked PriceList.Prices
+        // collection, so a brand-new Price reached only through PriceList's navigation fix-up already has a
+        // non-default key: EF Core's change-tracker cannot distinguish that from "an existing row being
+        // reattached" and marks it Modified instead of Added, producing an UPDATE that always affects 0 rows
+        // (DbUpdateConcurrencyException). Explicitly tracking genuinely new prices via AddAsync — exactly like
+        // CreatePriceListHandler/SetExchangeRateHandler already do for their own root entities — sidesteps that
+        // ambiguity entirely.
+        bool isNewPrice = list.Prices.All(price => price.ProductId != command.ProductId);
+
         list.AddOrUpdatePrice(command.ProductId, amount, tiers);
+
+        if (isNewPrice)
+        {
+            Price added = list.Prices.First(price => price.ProductId == command.ProductId);
+            await priceRepository.AddAsync(added, ct).ConfigureAwait(false);
+        }
 
         var events = list.DomainEvents.OfType<PriceChanged>().ToList();
         await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);

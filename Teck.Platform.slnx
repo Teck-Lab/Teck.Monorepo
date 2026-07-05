@@ -71,6 +71,7 @@
     <Project Path="tests/unit/Teck.ServiceDefaults.UnitTests/Teck.ServiceDefaults.UnitTests.csproj" />
     <Project Path="tests/integration/Teck.Platform.IntegrationTests.Shared/Teck.Platform.IntegrationTests.Shared.csproj" />
     <Project Path="tests/integration/Basket.IntegrationTests/Basket.IntegrationTests.csproj" />
+    <Project Path="tests/integration/Pricing.IntegrationTests/Pricing.IntegrationTests.csproj" />
     <Project Path="tests/integration/Customer.IntegrationTests/Customer.IntegrationTests.csproj" />
     <Project Path="tests/integration/Gateway.Public.IntegrationTests/Gateway.Public.IntegrationTests.csproj" />
     <Project Path="tests/integration/Aspire.AppHost.IntegrationTests/Aspire.AppHost.IntegrationTests.csproj" />
