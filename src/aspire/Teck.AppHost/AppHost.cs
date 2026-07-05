@@ -8,6 +8,7 @@ var orderDb = postgres.AddDatabase("orderdb");
 var basketDb = postgres.AddDatabase("basketdb");
 var customerDb = postgres.AddDatabase("customerdb");
 var catalogDb = postgres.AddDatabase("catalogdb");
+var inventoryDb = postgres.AddDatabase("inventorydb");
 
 var rabbitmq = builder.AddRabbitMQ("rabbitmq").WithManagementPlugin();
 var redis = builder.AddRedis("redis");
@@ -37,6 +38,17 @@ builder.AddProject<Projects.Basket_Host>("basket")
     .WithEnvironment("ConnectionStrings__BasketRead", basketDb)
     .WithReference(rabbitmq).WithReference(redis).WithReference(keycloak)
     .WaitFor(basketDb).WaitFor(keycloak);
+
+// WithHttpEndpoint registers the "http" endpoint Aspire injects into service-discovery
+// variables (services__inventory__http__0, etc.) so YARP destinations like http://inventory resolve.
+// inventory consumes BasketCheckedOut/OrderPlaced over rabbitmq; kept out of the gateway's
+// WaitFor chain so the gateway smoke test's startup criteria stay independent of inventory.
+builder.AddProject<Projects.Inventory_Host>("inventory")
+    .WithHttpEndpoint(name: "http")
+    .WithEnvironment("ConnectionStrings__InventoryWrite", inventoryDb)
+    .WithEnvironment("ConnectionStrings__InventoryRead", inventoryDb)
+    .WithReference(rabbitmq).WithReference(redis).WithReference(keycloak)
+    .WaitFor(inventoryDb).WaitFor(keycloak);
 
 // WithHttpEndpoint registers the "http" endpoint Aspire injects into service-discovery
 // variables (services__customer__http__0, etc.) so YARP destinations like http://customer resolve.
