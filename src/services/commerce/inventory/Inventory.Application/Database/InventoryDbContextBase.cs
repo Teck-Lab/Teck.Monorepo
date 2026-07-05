@@ -18,6 +18,12 @@ public abstract class InventoryDbContextBase(DbContextOptions options, IMultiTen
     /// <summary>Gets the set of tracked stock items.</summary>
     public DbSet<StockItem> StockItems => Set<StockItem>();
 
+    /// <summary>Gets the set of tracked stock reservations.</summary>
+    public DbSet<Reservation> Reservations => Set<Reservation>();
+
+    /// <summary>Gets the set of tracked location priority lists.</summary>
+    public DbSet<LocationPriority> LocationPriorities => Set<LocationPriority>();
+
     /// <inheritdoc/>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
