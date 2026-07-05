@@ -198,16 +198,12 @@ internal static class ReservationCommitter
                 item.Reserve(drawn.Quantity);
             }
 
-            if (allocation.BackorderedQuantity > 0)
-            {
-                // The lowest-priority item absorbs the backordered remainder (it is the only item the
-                // allocator lets back-order); its Reserve permits exceeding available. Restocking the
-                // backorder is handled later (Task 19), not here.
-                StockItem tail = ordered[^1];
-                Track(tail);
-                tail.Reserve(allocation.BackorderedQuantity);
-            }
-
+            // The backordered remainder is NOT reserved against any StockItem here: it is stock we owe
+            // but do not physically have, so it must not inflate QuantityReserved. It is recorded only
+            // on the ReservationLine below and becomes a real reserve when stock arrives and
+            // AdjustStockHandler.FillBackordersAsync fills it. This keeps QuantityReserved equal to the
+            // sum of recorded Allocations, so fill never double-counts and expiry releases exactly what
+            // was reserved.
             reservationLines.Add(new ReservationLine(line.ProductId, line.Quantity, allocation.BackorderedQuantity, allocation.Allocations));
         }
 

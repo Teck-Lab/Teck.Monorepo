@@ -157,4 +157,43 @@ public sealed class OrderPlacedHandlerTests
             && evt.Lines[0].ProductId == productId
             && evt.Lines[0].RequestedQuantity == 10));
     }
+
+    [Fact]
+    public async Task Handle_LineExceedsStockWithBackorderOn_ReservesOnlyAvailableAndRecordsBackorder()
+    {
+        var productId = Guid.NewGuid();
+        var orderId = Guid.NewGuid();
+        // On hand 5, backorder allowed; order 8 → the 5 physically-available units are reserved and the
+        // 3-unit shortfall is recorded as backorder. Backordered stock is OWED, not held, so it must NOT
+        // inflate QuantityReserved (doing so would double-count once AdjustStockHandler fills it).
+        var only = StockItem.Create(productId, Guid.NewGuid(), Tenant, quantityOnHand: 5, allowBackorder: true, reorderThreshold: -100);
+        var stockRepo = StockRepoReturning(only);
+        var reservationRepo = ReservationRepo();
+        var locationPriorities = Substitute.For<IGenericReadRepository<LocationPriority, Guid>>();
+        var unitOfWork = Substitute.For<IUnitOfWork>();
+        var bus = Substitute.For<IMessageBus>();
+
+        await OrderPlacedHandler.Handle(
+            OrderFor(orderId, productId, quantity: 8),
+            stockRepo,
+            reservationRepo,
+            locationPriorities,
+            unitOfWork,
+            Substitute.For<IServiceScopeFactory>(),
+            Options.Create(new InventoryOptions()),
+            bus,
+            CancellationToken.None);
+
+        // QuantityReserved reflects ONLY the physically-available units, never the backordered remainder.
+        Assert.Equal(5, only.QuantityReserved);
+        await reservationRepo.Received(1).AddAsync(
+            Arg.Is<Reservation>(r =>
+                r.Status == ReservationStatus.Committed
+                && r.Lines.Count == 1
+                && r.Lines[0].BackorderedQuantity == 3
+                && r.Lines[0].Allocations.Sum(allocation => allocation.Quantity) == 5),
+            Arg.Any<CancellationToken>());
+        await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await bus.Received(1).PublishAsync(Arg.Any<StockReservedIntegrationEvent>());
+    }
 }
