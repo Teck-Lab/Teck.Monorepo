@@ -17,6 +17,8 @@ public sealed class ExchangeRateConfiguration : IEntityTypeConfiguration<Exchang
         builder.Property(rate => rate.FromCurrency).HasMaxLength(3).IsRequired();
         builder.Property(rate => rate.ToCurrency).HasMaxLength(3).IsRequired();
 
-        builder.HasIndex(rate => new { rate.TenantId, rate.FromCurrency, rate.ToCurrency }).IsUnique();
+        builder.HasIndex(rate => new { rate.TenantId, rate.FromCurrency, rate.ToCurrency })
+            .IsUnique()
+            .HasFilter("\"IsDeleted\" = false");
     }
 }

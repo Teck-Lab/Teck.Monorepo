@@ -76,7 +76,8 @@ namespace Pricing.Host.Database.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("TenantId", "FromCurrency", "ToCurrency")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
 
                     b.ToTable("ExchangeRates", (string)null);
                 });

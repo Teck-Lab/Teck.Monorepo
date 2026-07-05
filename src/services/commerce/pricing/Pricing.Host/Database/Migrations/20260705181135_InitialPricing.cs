@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -114,7 +114,8 @@ public partial class InitialPricing : Migration
             name: "IX_ExchangeRates_TenantId_FromCurrency_ToCurrency",
             table: "ExchangeRates",
             columns: new[] { "TenantId", "FromCurrency", "ToCurrency" },
-            unique: true);
+            unique: true,
+            filter: "\"IsDeleted\" = false");
 
         migrationBuilder.CreateIndex(
             name: "IX_PriceLists_TenantId_Status",

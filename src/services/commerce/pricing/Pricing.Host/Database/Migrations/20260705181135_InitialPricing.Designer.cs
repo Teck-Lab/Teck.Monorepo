@@ -12,7 +12,7 @@ using Pricing.Application.Database;
 namespace Pricing.Host.Database.Migrations
 {
     [DbContext(typeof(PricingDbContext))]
-    [Migration("20260705170141_InitialPricing")]
+    [Migration("20260705181135_InitialPricing")]
     partial class InitialPricing
     {
         /// <inheritdoc />
@@ -79,7 +79,8 @@ namespace Pricing.Host.Database.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("TenantId", "FromCurrency", "ToCurrency")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
 
                     b.ToTable("ExchangeRates", (string)null);
                 });
