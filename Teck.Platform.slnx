@@ -30,6 +30,11 @@
     <Project Path="src/services/commerce/basket/Basket.Domain/Basket.Domain.csproj" />
     <Project Path="src/services/commerce/basket/Basket.Host/Basket.Host.csproj" />
   </Folder>
+  <Folder Name="/src/services/commerce/inventory/">
+    <Project Path="src/services/commerce/inventory/Inventory.Application/Inventory.Application.csproj" />
+    <Project Path="src/services/commerce/inventory/Inventory.Domain/Inventory.Domain.csproj" />
+    <Project Path="src/services/commerce/inventory/Inventory.Host/Inventory.Host.csproj" />
+  </Folder>
   <Folder Name="/src/services/commerce/catalog/">
     <Project Path="src/services/commerce/catalog/Catalog.Application/Catalog.Application.csproj" />
     <Project Path="src/services/commerce/catalog/Catalog.Domain/Catalog.Domain.csproj" />
