@@ -8,7 +8,7 @@ using Xunit;
 
 namespace Orders.UnitTests;
 
-public sealed class BasketCheckedOutConsumerTests
+public sealed class BasketCheckedOutHandlerTests
 {
     [Fact]
     public async Task Handle_InvokesCreateOrderWithMappedEventLines()
@@ -27,7 +27,7 @@ public sealed class BasketCheckedOutConsumerTests
         bus.InvokeAsync<OrderDto>(Arg.Any<CreateOrderCommand>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new OrderDto(Guid.NewGuid(), evt.CustomerId!.Value, "Pending", [], 20m, DateTimeOffset.UtcNow)));
 
-        await BasketCheckedOutConsumer.Handle(evt, bus, CancellationToken.None);
+        await BasketCheckedOutHandler.Handle(evt, bus, CancellationToken.None);
 
         // Asserts the per-line field mapping so a Quantity/UnitPrice swap fails the test.
         await bus.Received(1).InvokeAsync<OrderDto>(
@@ -55,7 +55,7 @@ public sealed class BasketCheckedOutConsumerTests
         };
         var bus = Substitute.For<IMessageBus>();
 
-        await BasketCheckedOutConsumer.Handle(evt, bus, CancellationToken.None);
+        await BasketCheckedOutHandler.Handle(evt, bus, CancellationToken.None);
 
         await bus.DidNotReceive().InvokeAsync<OrderDto>(Arg.Any<CreateOrderCommand>(), Arg.Any<CancellationToken>());
     }

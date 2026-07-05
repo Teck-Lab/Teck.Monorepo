@@ -6,7 +6,7 @@ using Wolverine;
 namespace Orders.Application.Orders.EventHandlers.IntegrationEvents;
 
 /// <summary>Creates an order in response to a basket being checked out.</summary>
-public static class BasketCheckedOutConsumer
+public static class BasketCheckedOutHandler
 {
     /// <summary>Maps the checkout event to a create-order command and dispatches it.</summary>
     /// <param name="integrationEvent">The basket checkout event.</param>
