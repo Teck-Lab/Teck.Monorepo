@@ -21,7 +21,7 @@ public sealed class StockSpecsTests
         var sameProductOtherLocation = Make(productId, Guid.NewGuid());
         var sameLocationOtherProduct = Make(Guid.NewGuid(), locationId);
 
-        var result = new StockItemByProductLocationSpec(productId, locationId)
+        var result = new StockItemByProductLocationSpec("tenant-1", productId, locationId)
             .Evaluate(new[] { target, sameProductOtherLocation, sameLocationOtherProduct })
             .ToList();
 
