@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Finbuckle.MultiTenant.Abstractions;
+using Finbuckle.MultiTenant.Extensions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -53,6 +54,18 @@ public static class MultiTenantDbExtensions
         where TReadContext : BaseDbContext
     {
         DatabaseProvider effectiveProvider = defaultProvider ?? DatabaseProvider.PostgreSQL;
+
+        // Register Finbuckle multi-tenant infrastructure (resolver + accessor) so the
+        // IMultiTenantContextAccessor<TenantDetails> required below is always available, and
+        // project a plain ITenantInfo scoped service from it so Application handlers can depend
+        // on ITenantInfo directly (see src/services/AGENTS.md "Multi-Tenancy" — "resolved
+        // automatically by Finbuckle middleware"). Safe to call even if a host also registers
+        // multi-tenancy itself (e.g. integration test harnesses): Finbuckle's registrations are
+        // additive, and the last registration wins when resolved.
+        builder.Services.AddMultiTenant<TenantDetails>();
+        builder.Services.AddScoped<ITenantInfo>(sp =>
+            sp.GetRequiredService<IMultiTenantContextAccessor<TenantDetails>>().MultiTenantContext?.TenantInfo
+                ?? new TenantDetails());
 
         // Bind OpenBao options and register the vault connection provider
         var openBaoOptions = builder.Configuration
