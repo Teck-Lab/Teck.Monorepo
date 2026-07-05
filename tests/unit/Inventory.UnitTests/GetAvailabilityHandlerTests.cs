@@ -18,6 +18,14 @@ public sealed class GetAvailabilityHandlerTests
         return repository;
     }
 
+    private static IGenericReadRepository<Reservation, Guid> NoActiveReservations()
+    {
+        var repository = Substitute.For<IGenericReadRepository<Reservation, Guid>>();
+        repository.ListAsync(Arg.Any<ISpecification<Reservation>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<Reservation>>([]));
+        return repository;
+    }
+
     [Fact]
     public async Task Handle_ProductStockedAtTwoLocations_SumsAvailableAcrossLocations()
     {
@@ -26,7 +34,12 @@ public sealed class GetAvailabilityHandlerTests
         var locationB = StockItem.Create(productId, Guid.NewGuid(), "tenant-1", quantityOnHand: 4, allowBackorder: false, reorderThreshold: 0);
         var repository = RepositoryReturning(locationA, locationB);
 
-        var dto = await GetAvailabilityHandler.Handle(new GetAvailabilityQuery(productId, null), repository, CancellationToken.None);
+        var dto = await GetAvailabilityHandler.Handle(
+            new GetAvailabilityQuery(productId, null),
+            repository,
+            NoActiveReservations(),
+            TimeProvider.System,
+            CancellationToken.None);
 
         Assert.Equal(productId, dto.ProductId);
         Assert.Equal(7, dto.Available);
