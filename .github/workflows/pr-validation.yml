@@ -95,3 +95,5 @@ jobs:
   security-scans:
     name: Security scans
     uses: ./.github/workflows/security-scans.yml
+    # Pass SECOBSERVE_API_TOKEN (and any other repo/org secrets) to the reusable workflow.
+    secrets: inherit
