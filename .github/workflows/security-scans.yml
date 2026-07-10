@@ -9,43 +9,50 @@ on:
   workflow_dispatch:
   workflow_call:
 
+# Findings are imported into SecObserve, which is the single vulnerability-management
+# console. Nothing is written to the GitHub code-scanning / Security tab anymore.
+# Required config (repo or org level):
+#   vars.SECOBSERVE_API_BASE_URL   - SecObserve backend URL
+#   vars.SECOBSERVE_PRODUCT_NAME   - SecObserve product these source scans import into
+#   secrets.SECOBSERVE_API_TOKEN   - SecObserve user API token with the Upload role
+#   vars.DEPENDENCYTRACK_HOSTNAME  - Dependency Track hostname (frontend SBOM upload)
+#   secrets.DEPENDENCYTRACK_API_KEY - Dependency Track API key (frontend SBOM upload)
 permissions:
   contents: read
-  actions: read
-  security-events: write
 
 concurrency:
   group: security-scans-${{ github.ref }}-${{ github.workflow }}
   cancel-in-progress: true
 
+env:
+  SO_API_BASE_URL: ${{ vars.SECOBSERVE_API_BASE_URL }}
+  SO_PRODUCT_NAME: ${{ vars.SECOBSERVE_PRODUCT_NAME }}
+  SO_BRANCH_NAME: ${{ github.ref_name }}
+
 jobs:
-  trivy-filesystem:
-    name: Trivy Filesystem Scan
+  semgrep:
+    name: Semgrep SAST
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run Trivy filesystem scan (non-blocking)
-        uses: aquasecurity/trivy-action@0.35.0
-        continue-on-error: true
+      - name: Semgrep scan + import to SecObserve (C# + TypeScript + React)
+        uses: SecObserve/secobserve_actions_templates/actions/SAST/semgrep@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
         with:
-          version: 'v0.69.3'
-          scan-type: 'fs'
-          scan-ref: .
-          format: sarif
-          output: trivy-fs-results.sarif
-          severity: 'CRITICAL,HIGH'
-          exit-code: 0
-          ignore-unfixed: true
-          scanners: 'vuln,secret,misconfig'
-
-      - name: Upload Trivy SARIF
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-fs-results.sarif
-          category: trivy-filesystem
+          target: .
+          report_name: semgrep.sarif
+          configuration: p/csharp
+          further_parameters: >-
+            --config p/typescript
+            --config p/react
+            --config p/javascript
+            --config p/secrets
+            --config p/r2c-security-audit
+          so_api_base_url: ${{ env.SO_API_BASE_URL }}
+          so_api_token: ${{ secrets.SECOBSERVE_API_TOKEN }}
+          so_product_name: ${{ env.SO_PRODUCT_NAME }}
+          so_branch_name: ${{ env.SO_BRANCH_NAME }}
 
   gitleaks:
     name: Gitleaks Secret Detection
@@ -55,49 +62,37 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Run Gitleaks (non-blocking)
-        uses: gitleaks/gitleaks-action@v2
-        continue-on-error: true
+      - name: Gitleaks scan + import to SecObserve
+        uses: SecObserve/secobserve_actions_templates/actions/secrets/gitleaks@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
+        with:
+          report_name: gitleaks.json
+          so_api_base_url: ${{ env.SO_API_BASE_URL }}
+          so_api_token: ${{ secrets.SECOBSERVE_API_TOKEN }}
+          so_product_name: ${{ env.SO_PRODUCT_NAME }}
+          so_branch_name: ${{ env.SO_BRANCH_NAME }}
 
-  semgrep:
-    name: Semgrep SAST
+  trivy-filesystem:
+    name: Trivy Filesystem SCA
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Trivy filesystem scan + import to SecObserve
+        uses: SecObserve/secobserve_actions_templates/actions/SCA/trivy_filesystem@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
         with:
-          python-version: '3.12'
-
-      - name: Install Semgrep
-        run: python -m pip install --upgrade semgrep
-
-      - name: Run Semgrep (C# + TypeScript + React)
-        env:
-          SEMGREP_SEND_METRICS: 'off'
-        run: |
-          semgrep scan \
-            --config p/csharp \
-            --config p/typescript \
-            --config p/react \
-            --config p/javascript \
-            --config p/secrets \
-            --config p/r2c-security-audit \
-            --sarif \
-            --output semgrep.sarif \
-            || true
-
-      - name: Upload Semgrep SARIF
-        if: always() && hashFiles('semgrep.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: semgrep.sarif
-          category: semgrep
+          target: .
+          report_name: trivy-fs.json
+          so_api_base_url: ${{ env.SO_API_BASE_URL }}
+          so_api_token: ${{ secrets.SECOBSERVE_API_TOKEN }}
+          so_product_name: ${{ env.SO_PRODUCT_NAME }}
+          so_branch_name: ${{ env.SO_BRANCH_NAME }}
 
   dependency-review:
-    name: Dependency Review
+    # GitHub-native pre-merge gate on newly introduced dependencies. This is a PR
+    # check (not the Security tab) and complements Dependency Track's continuous,
+    # post-build SCA. Drop it if you want SCA to live exclusively in DT/SecObserve.
+    name: Dependency Review (pre-merge gate)
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
@@ -111,6 +106,8 @@ jobs:
           comment-summary-in-pr: always
 
   frontend-audit:
+    # Frontend dependency SCA. Frontend SBOMs are not yet pushed to Dependency Track
+    # (only the .NET service images are), so this remains the frontend's SCA coverage.
     name: Frontend Dependency Audit
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -121,3 +118,85 @@ jobs:
 
       - name: Audit frontend dependencies
         run: bun audit || true
+
+  frontend-sbom:
+    # Frontend SCA + licenses. Generates one CycloneDX SBOM for the whole Bun workspace
+    # from the root bun.lock and sends it to Dependency Track (continuous re-scan +
+    # license policy) and SecObserve. Runs off-PR to avoid churning DT project versions;
+    # PR-time frontend SCA is covered by trivy-filesystem + dependency-review above.
+    #
+    # Trivy parses bun.lock reliably; cdxgen@11 does NOT for this lockfileVersion (it
+    # yields an empty BOM), so Trivy is the engine here.
+    #
+    # This is intentionally an AGGREGATE 'frontend' project, not per-app. Per-app SBOMs
+    # are not meaningful yet: this repo declares nearly all frontend dependencies in the
+    # ROOT package.json rather than per app (src/apps/web/package.json declares only
+    # @teck/tailwind-config). Move deps into each app's package.json first, then split
+    # this into per-app DT projects (frontend/web, frontend/mobile, ...).
+    name: Frontend SBOM (SCA -> Dependency Track + SecObserve)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Isolate the workspace lockfile for a fast SBOM
+        # Scanning the repo root would also walk node_modules and the .NET tree; the
+        # root bun.lock alone encodes the full frontend dependency graph.
+        run: |
+          mkdir -p .frontend-sbom
+          cp bun.lock package.json .frontend-sbom/
+
+      - name: Generate CycloneDX SBOM from bun.lock (Trivy)
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          version: 'v0.69.3'
+          scan-type: fs
+          scan-ref: .frontend-sbom
+          format: cyclonedx
+          output: sbom-frontend.cyclonedx.json
+          scanners: license
+
+      - name: Upload frontend SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-frontend-cyclonedx
+          path: sbom-frontend.cyclonedx.json
+          retention-days: 90
+
+      - name: Upload SBOM to Dependency Track
+        uses: DependencyTrack/gh-upload-sbom@cc655d7447ad82945e0034afbd67cd8f571f11b0 # v4.1.0
+        with:
+          serverhostname: ${{ vars.DEPENDENCYTRACK_HOSTNAME }}
+          apikey: ${{ secrets.DEPENDENCYTRACK_API_KEY }}
+          projectname: frontend
+          projectversion: ${{ github.ref_name }}
+          projecttags: frontend
+          bomfilename: sbom-frontend.cyclonedx.json
+          autocreate: 'true'
+          isLatest: ${{ github.ref_name == github.event.repository.default_branch && 'true' || 'false' }}
+
+      - name: Import SBOM into SecObserve
+        uses: SecObserve/secobserve_actions_templates/actions/upload_sbom@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
+        with:
+          so_api_base_url: ${{ env.SO_API_BASE_URL }}
+          so_api_token: ${{ secrets.SECOBSERVE_API_TOKEN }}
+          so_product_name: ${{ env.SO_PRODUCT_NAME }}
+          so_branch_name: ${{ env.SO_BRANCH_NAME }}
+          so_file_name: sbom-frontend.cyclonedx.json
+          so_origin_service: frontend
+
+  security-gate:
+    # Fails the PR when SecObserve's security gate for the product is red, after all
+    # scanners have imported their observations. This replaces the old SARIF-based
+    # branch-protection gate on the GitHub Security tab.
+    name: SecObserve Security Gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: [semgrep, gitleaks, trivy-filesystem]
+    steps:
+      - name: Check SecObserve security gate
+        uses: SecObserve/secobserve_actions_templates/actions/check_security_gate@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
+        with:
+          so_api_base_url: ${{ env.SO_API_BASE_URL }}
+          so_api_token: ${{ secrets.SECOBSERVE_API_TOKEN }}
+          so_product_name: ${{ env.SO_PRODUCT_NAME }}
