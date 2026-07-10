@@ -9,6 +9,7 @@ var basketDb = postgres.AddDatabase("basketdb");
 var customerDb = postgres.AddDatabase("customerdb");
 var catalogDb = postgres.AddDatabase("catalogdb");
 var inventoryDb = postgres.AddDatabase("inventorydb");
+var pricingDb = postgres.AddDatabase("pricingdb");
 
 var rabbitmq = builder.AddRabbitMQ("rabbitmq").WithManagementPlugin();
 var redis = builder.AddRedis("redis");
@@ -67,6 +68,17 @@ var catalog = builder.AddProject<Projects.Catalog_Host>("catalog")
     .WithEnvironment("ConnectionStrings__CatalogRead", catalogDb)
     .WithReference(rabbitmq).WithReference(redis).WithReference(keycloak)
     .WaitFor(catalogDb).WaitFor(keycloak);
+
+// WithHttpEndpoint registers the "http" endpoint Aspire injects into service-discovery
+// variables (services__pricing__http__0, etc.) so YARP destinations like http://pricing resolve.
+// pricing resolves product list prices with multi-currency FX; it emits PriceChanged for
+// future consumers and consumes nothing.
+builder.AddProject<Projects.Pricing_Host>("pricing")
+    .WithHttpEndpoint(name: "http")
+    .WithEnvironment("ConnectionStrings__PricingWrite", pricingDb)
+    .WithEnvironment("ConnectionStrings__PricingRead", pricingDb)
+    .WithReference(rabbitmq).WithReference(redis).WithReference(keycloak)
+    .WaitFor(pricingDb).WaitFor(keycloak);
 
 // WithHttpEndpoint registers a named "http" endpoint so Aspire can inject the correct
 // ASPNETCORE_URLS and the testing framework can resolve it via CreateHttpClient("gateway", "http").
