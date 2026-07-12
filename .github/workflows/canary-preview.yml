@@ -3,29 +3,75 @@ on:
   pull_request:
     types: [labeled, synchronize]
 
+# Runs while the `preview` label is on the PR. Builds each AFFECTED service through the
+# reusable pipeline in STAGING mode: image tagged canary-<pr#>, SBOM uploaded to
+# Dependency Track (FLAGGED, project version pr-<n>) - so you get full container +
+# dependency SCA on every preview push - and the DT release gate is skipped (pre-release
+# may contain vulnerabilities, just flagged). Signing still runs (provenance); the
+# ephemeral preview cluster's admission policy decides whether it requires it.
+permissions:
+  contents: read
+
+concurrency:
+  group: canary-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
-  canary:
-    name: Canary Build
+  discover:
+    name: Discover affected services
     if: contains(github.event.pull_request.labels.*.name, 'preview')
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.discover.outputs.matrix }}
+      has-services: ${{ steps.discover.outputs.has-services }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
       - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: |
-          dotnet restore
-          bun install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
-      - name: Canary build (affected only)
-        run: |
-          nx affected -t docker:build --tag canary-${{ github.event.pull_request.number || github.sha }}
+      - name: Discover affected services
+        id: discover
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          affected=$(bunx nx show projects --affected --base="$BASE_SHA" --head="$HEAD_SHA" --json 2>/dev/null || echo "")
+          [ -n "$affected" ] && export NX_AFFECTED="$affected"
+          services=$(.github/scripts/discover-services.sh)
+          count=$(echo "$services" | jq 'length')
+          echo "matrix=$(echo "$services" | jq -c '{include: .}')" >> "$GITHUB_OUTPUT"
+          echo "has-services=$([ "$count" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "Affected service(s):"; echo "$services" | jq -r '.[].product'
+
+  canary:
+    name: Canary ${{ matrix.product }}
+    needs: discover
+    if: needs.discover.outputs.has-services == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/reusable-build-sign-sbom.yml
+    with:
+      service-group: ${{ matrix.group }}
+      service-name: ${{ matrix.service }}
+      nx-project: ${{ matrix.nxProject }}
+      project-path: ${{ matrix.projectPath }}
+      # Preview "version" = the PR, so DT tracks a single pr-<n> project version that is
+      # re-uploaded (flagged) on every push rather than churning release versions.
+      version: pr-${{ github.event.pull_request.number }}
+      source-ref: ${{ github.event.pull_request.head.sha }}
+      publish-mode: staging
+      staging-tag: canary-${{ github.event.pull_request.number }}
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+      dependencytrack-api-key: ${{ secrets.DEPENDENCYTRACK_API_KEY }}
