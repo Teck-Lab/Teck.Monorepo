@@ -1,0 +1,33 @@
+# The shared Containerfile builds a single .NET service from the repo root context.
+# Keep only what `dotnet restore/build/publish` of a Host project needs (its source +
+# its transitive .NET project refs under src/, plus the root MSBuild props/global.json).
+# Everything else just bloats the build context (node_modules was ~5 GB).
+
+# JS/tooling
+node_modules
+**/node_modules
+.nx
+bun.lock
+
+# VCS / CI / editor / scratch
+.git
+.gitignore
+.github
+.gitlab
+.vscode
+.idea
+.claire
+.claude
+
+# .NET build artifacts (regenerated inside the image)
+**/bin
+**/obj
+
+# Not referenced by a service Host build
+src/apps
+src/packages
+tests
+docs
+specs
+tools
+*.md

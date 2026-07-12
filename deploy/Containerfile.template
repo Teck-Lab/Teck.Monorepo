@@ -11,6 +11,9 @@ ARG SERVICE_NAME
 ARG PROJECT_PATH
 ARG VERSION
 ARG TARGETARCH
+# ReadyToRun (crossgen2) is the slow part of publish; release builds enable it, but
+# preview/prerelease builds pass false to stay fast (IL-only, JIT at runtime).
+ARG PUBLISH_READYTORUN=true
 WORKDIR /src
 
 # Map the Docker TARGETARCH to a .NET runtime identifier for R2R publishing.
@@ -54,7 +57,7 @@ RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
     RID="$(cat /tmp/rid)" && \
     dotnet publish "$PROJECT_PATH" -c Release -o /app/publish \
         -r "$RID" --self-contained false \
-        -p:PublishReadyToRun=true /p:Version="$VERSION"
+        -p:PublishReadyToRun="$PUBLISH_READYTORUN" /p:Version="$VERSION"
 
 # Normalise the native apphost to a fixed name so the shell-free runtime image
 # can use an exec-form entrypoint. The apphost embeds its managed assembly name
