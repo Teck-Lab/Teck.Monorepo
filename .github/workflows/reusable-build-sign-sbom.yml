@@ -417,13 +417,6 @@ jobs:
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
             "$CYCLONEDX_FILE"
 
-      - name: Attest SPDX SBOM
-        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
-        with:
-          subject-name: ${{ needs.build-and-push.outputs.image-name }}
-          subject-digest: ${{ needs.build-and-push.outputs.digest }}
-          sbom-path: sbom-${{ inputs.service-group }}-${{ inputs.service-name }}.spdx.json
-
   generate-vex:
     name: Generate VEX for ${{ inputs.service-group }}/${{ inputs.service-name }}
     runs-on: ubuntu-latest
@@ -552,12 +545,11 @@ jobs:
     # security-gate gates signing: a failed Dependency Track gate (release builds only)
     # leaves the image unsigned, so the downstream cosign-verify deploy policy rejects
     # it. For pre-release/preview builds the gate is skipped, so signing proceeds.
-    needs: [build-and-push, scan-vulnerabilities, security-gate]
+    needs: [build-and-push, scan-vulnerabilities, security-gate, generate-sboms]
     permissions:
       contents: read
       packages: write
       id-token: write
-      attestations: write
     steps:
       - name: Install Cosign
         uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
@@ -584,9 +576,23 @@ jobs:
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
             "$IMAGE_REF"
 
-      - name: Generate build provenance attestation (SLSA L3)
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+      # GitHub's native attestation API (actions/attest-*) is a paid feature for
+      # private repos, so attach the SBOM to the image with cosign instead (keyless,
+      # works on ghcr). Full SLSA build provenance would need that paid feature or a
+      # public repo; the image is cosign-signed, which is what the deploy admission
+      # policy verifies.
+      - name: Download CycloneDX SBOM
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          subject-name: ${{ needs.build-and-push.outputs.image-name }}
-          subject-digest: ${{ needs.build-and-push.outputs.digest }}
-          push-to-registry: true
+          name: sbom-cyclonedx-${{ inputs.service-group }}-${{ inputs.service-name }}
+
+      - name: Attest SBOM to image (cosign)
+        env:
+          IMAGE_REF: ${{ needs.build-and-push.outputs.image-ref }}
+          SERVICE_GROUP: ${{ inputs.service-group }}
+          SERVICE_NAME: ${{ inputs.service-name }}
+        run: |
+          cosign attest --yes \
+            --type cyclonedx \
+            --predicate "sbom-${SERVICE_GROUP}-${SERVICE_NAME}.cyclonedx.json" \
+            "$IMAGE_REF"
