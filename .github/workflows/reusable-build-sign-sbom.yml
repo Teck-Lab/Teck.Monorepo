@@ -134,15 +134,17 @@ jobs:
           PUBLISH_MODE: ${{ inputs.publish-mode }}
         run: |
           SERVICE_ASSEMBLY=$(basename "$PROJECT_PATH" .csproj)
-          # Release builds are multi-arch with ReadyToRun (slow crossgen2); preview and
-          # prerelease builds stay single-arch, IL-only (JIT at runtime) to stay fast.
+          # Always multi-arch (preview/dev clusters may be arm64). Toggle only
+          # ReadyToRun (crossgen2 AOT - the slow part): on for release, off for
+          # preview/prerelease so they stay fast (IL-only, JIT at runtime) while still
+          # producing images for both architectures.
           if [ "$PUBLISH_MODE" = "release" ]; then
-            PLATFORMS="linux/amd64,linux/arm64"; R2R="true"
+            R2R="true"
           else
-            PLATFORMS="linux/amd64"; R2R="false"
+            R2R="false"
           fi
           docker buildx build \
-            --platform "$PLATFORMS" \
+            --platform linux/amd64,linux/arm64 \
             --file deploy/Containerfile.template \
             --build-arg "SERVICE_NAME=${SERVICE_ASSEMBLY}" \
             --build-arg "PROJECT_PATH=${PROJECT_PATH}" \
