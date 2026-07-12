@@ -116,44 +116,66 @@
       }
     },
     "groups": {
-      "commerce": {
-        "projects": ["src/services/commerce/*"],
+      "order": {
+        "projects": ["src/services/commerce/order/*"],
         "projectsRelationship": "fixed",
         "releaseTag": {
-          "pattern": "commerce@{version}"
+          "pattern": "order@{version}"
         },
         "docker": {
           "skipVersionActions": true,
           "registryUrl": "ghcr.io/teck-lab/teck-cloud"
         }
       },
-      "operations": {
-        "projects": ["src/services/operations/*"],
+      "pricing": {
+        "projects": ["src/services/commerce/pricing/*"],
         "projectsRelationship": "fixed",
         "releaseTag": {
-          "pattern": "operations@{version}"
+          "pattern": "pricing@{version}"
         },
         "docker": {
           "skipVersionActions": true,
           "registryUrl": "ghcr.io/teck-lab/teck-cloud"
         }
       },
-      "content": {
-        "projects": ["src/services/content/*"],
+      "basket": {
+        "projects": ["src/services/commerce/basket/*"],
         "projectsRelationship": "fixed",
         "releaseTag": {
-          "pattern": "content@{version}"
+          "pattern": "basket@{version}"
         },
         "docker": {
           "skipVersionActions": true,
           "registryUrl": "ghcr.io/teck-lab/teck-cloud"
         }
       },
-      "gateway": {
-        "projects": ["src/services/gateway/*"],
+      "catalog": {
+        "projects": ["src/services/commerce/catalog/*"],
         "projectsRelationship": "fixed",
         "releaseTag": {
-          "pattern": "gateway@{version}"
+          "pattern": "catalog@{version}"
+        },
+        "docker": {
+          "skipVersionActions": true,
+          "registryUrl": "ghcr.io/teck-lab/teck-cloud"
+        }
+      },
+      "customer": {
+        "projects": ["src/services/commerce/customer/*"],
+        "projectsRelationship": "fixed",
+        "releaseTag": {
+          "pattern": "customer@{version}"
+        },
+        "docker": {
+          "skipVersionActions": true,
+          "registryUrl": "ghcr.io/teck-lab/teck-cloud"
+        }
+      },
+      "gateway-public": {
+        "projects": ["src/services/gateway/public", "src/services/gateway/public/*"],
+        "projectsRelationship": "fixed",
+        "releaseTag": {
+          "pattern": "gateway-public@{version}"
         },
         "docker": {
           "skipVersionActions": true,

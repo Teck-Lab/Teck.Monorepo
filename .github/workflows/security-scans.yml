@@ -10,13 +10,23 @@ on:
   workflow_call:
 
 # Findings are imported into SecObserve, which is the single vulnerability-management
-# console. Nothing is written to the GitHub code-scanning / Security tab anymore.
+# console. Nothing is written to the GitHub code-scanning / Security tab.
+#
+# Topology (see docs and .github/scripts/discover-services.sh):
+#   SecObserve Product Group = repository, Product = service, release-group = a tag.
+# Each backend service is its own SecObserve Product, so source scans import per
+# service and the release gate is per service. Gitleaks is the one exception: it is
+# repo-wide (git history has no service) and stays a CI-fail-only gate - its results
+# are NOT exported to SecObserve.
+#
 # Required config (repo or org level):
-#   vars.SECOBSERVE_API_BASE_URL   - SecObserve backend URL
-#   vars.SECOBSERVE_PRODUCT_NAME   - SecObserve product these source scans import into
-#   secrets.SECOBSERVE_API_TOKEN   - SecObserve user API token with the Upload role
-#   vars.DEPENDENCYTRACK_HOSTNAME  - Dependency Track hostname (frontend SBOM upload)
+#   vars.SECOBSERVE_API_BASE_URL    - SecObserve backend URL
+#   secrets.SECOBSERVE_API_TOKEN    - SecObserve user API token with the Upload role
+#   vars.DEPENDENCYTRACK_HOSTNAME   - Dependency Track hostname (frontend SBOM upload)
 #   secrets.DEPENDENCYTRACK_API_KEY - Dependency Track API key (frontend SBOM upload)
+# Each backend service must have a matching SecObserve Product (name == the `product`
+# field emitted by discover-services.sh, e.g. order, pricing, gateway-public), plus a
+# `frontend` product for the aggregate frontend SBOM.
 permissions:
   contents: read
 
@@ -26,67 +36,117 @@ concurrency:
 
 env:
   SO_API_BASE_URL: ${{ vars.SECOBSERVE_API_BASE_URL }}
-  SO_PRODUCT_NAME: ${{ vars.SECOBSERVE_PRODUCT_NAME }}
   SO_BRANCH_NAME: ${{ github.ref_name }}
 
 jobs:
-  semgrep:
-    name: Semgrep SAST
+  discover-services:
+    name: Discover services
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Semgrep scan + import to SecObserve (C# + TypeScript + React)
-        uses: SecObserve/secobserve_actions_templates/actions/SAST/semgrep@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
-        with:
-          target: .
-          report_name: semgrep.sarif
-          configuration: p/csharp
-          further_parameters: >-
-            --config p/typescript
-            --config p/react
-            --config p/javascript
-            --config p/secrets
-            --config p/r2c-security-audit
-          so_api_base_url: ${{ env.SO_API_BASE_URL }}
-          so_api_token: ${{ secrets.SECOBSERVE_API_TOKEN }}
-          so_product_name: ${{ env.SO_PRODUCT_NAME }}
-          so_branch_name: ${{ env.SO_BRANCH_NAME }}
-
-  gitleaks:
-    name: Gitleaks Secret Detection
-    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.discover.outputs.matrix }}
+      has-services: ${{ steps.discover.outputs.has-services }}
     steps:
       - uses: actions/checkout@v4
         with:
+          # Full history so nx-affected can diff PRs against the base.
           fetch-depth: 0
 
-      - name: Gitleaks scan + import to SecObserve
-        uses: SecObserve/secobserve_actions_templates/actions/secrets/gitleaks@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
-        with:
-          report_name: gitleaks.json
-          so_api_base_url: ${{ env.SO_API_BASE_URL }}
-          so_api_token: ${{ secrets.SECOBSERVE_API_TOKEN }}
-          so_product_name: ${{ env.SO_PRODUCT_NAME }}
-          so_branch_name: ${{ env.SO_BRANCH_NAME }}
+      # On PRs, scan only services affected by the diff (the "only touch what changed"
+      # principle). On push/schedule/dispatch, scan every service for full coverage.
+      - uses: oven-sh/setup-bun@v2
+        if: github.event_name == 'pull_request'
+      - name: Install dependencies (for nx affected)
+        if: github.event_name == 'pull_request'
+        run: bun install --frozen-lockfile
 
-  trivy-filesystem:
-    name: Trivy Filesystem SCA
+      - name: Discover services
+        id: discover
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            # Fall back to scanning all services if affected detection fails.
+            affected=$(bunx nx show projects --affected --base="$BASE_SHA" --head="$HEAD_SHA" --json 2>/dev/null || echo "")
+            [ -n "$affected" ] && export NX_AFFECTED="$affected"
+          fi
+          services=$(.github/scripts/discover-services.sh)
+          count=$(echo "$services" | jq 'length')
+          echo "matrix=$(echo "$services" | jq -c '{include: .}')" >> "$GITHUB_OUTPUT"
+          echo "has-services=$([ "$count" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "Discovered $count service(s):"; echo "$services" | jq -r '.[].product'
+
+  semgrep:
+    name: Semgrep SAST (${{ matrix.product }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: discover-services
+    if: needs.discover-services.outputs.has-services == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover-services.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Semgrep scan + import to SecObserve (C# + SharedKernel)
+        uses: SecObserve/secobserve_actions_templates/actions/SAST/semgrep@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
+        with:
+          # Scans this service plus src/shared (SharedKernel is compiled into every
+          # service, so a flaw there is a real finding for each service's product).
+          target: ${{ matrix.scanPath }}
+          report_name: semgrep-${{ matrix.product }}.sarif
+          configuration: p/csharp
+          further_parameters: >-
+            --config p/secrets
+            --config p/r2c-security-audit
+            src/shared
+          so_api_base_url: ${{ env.SO_API_BASE_URL }}
+          so_api_token: ${{ secrets.SECOBSERVE_API_TOKEN }}
+          so_product_name: ${{ matrix.product }}
+          so_branch_name: ${{ env.SO_BRANCH_NAME }}
+          so_origin_service: ${{ matrix.group }}/${{ matrix.service }}
+
+  trivy-filesystem:
+    name: Trivy Filesystem SCA (${{ matrix.product }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: discover-services
+    if: needs.discover-services.outputs.has-services == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover-services.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Trivy filesystem scan + import to SecObserve
         uses: SecObserve/secobserve_actions_templates/actions/SCA/trivy_filesystem@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
         with:
-          target: .
-          report_name: trivy-fs.json
+          target: ${{ matrix.scanPath }}
+          report_name: trivy-fs-${{ matrix.product }}.json
           so_api_base_url: ${{ env.SO_API_BASE_URL }}
           so_api_token: ${{ secrets.SECOBSERVE_API_TOKEN }}
-          so_product_name: ${{ env.SO_PRODUCT_NAME }}
+          so_product_name: ${{ matrix.product }}
           so_branch_name: ${{ env.SO_BRANCH_NAME }}
+          so_origin_service: ${{ matrix.group }}/${{ matrix.service }}
+
+  gitleaks:
+    name: Gitleaks Secret Detection (CI gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan git history for secrets
+        # Repo-wide, over full history. Fails CI on any finding. Results are NOT
+        # exported to SecObserve: a leaked secret is a repo incident (rotate + purge
+        # history) that maps to no single service product. Run directly (not via the
+        # SecObserve gitleaks action) precisely so nothing is uploaded.
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" \
+            ghcr.io/gitleaks/gitleaks:v8.18.4 \
+            detect --source=/repo --redact --exit-code=1 --verbose
 
   dependency-review:
     # GitHub-native pre-merge gate on newly introduced dependencies. This is a PR
@@ -107,7 +167,7 @@ jobs:
 
   frontend-audit:
     # Frontend dependency SCA. Frontend SBOMs are not yet pushed to Dependency Track
-    # (only the .NET service images are), so this remains the frontend's SCA coverage.
+    # per app (only the aggregate below is), so this remains quick PR-time coverage.
     name: Frontend Dependency Audit
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -123,16 +183,15 @@ jobs:
     # Frontend SCA + licenses. Generates one CycloneDX SBOM for the whole Bun workspace
     # from the root bun.lock and sends it to Dependency Track (continuous re-scan +
     # license policy) and SecObserve. Runs off-PR to avoid churning DT project versions;
-    # PR-time frontend SCA is covered by trivy-filesystem + dependency-review above.
+    # PR-time frontend SCA is covered by dependency-review above.
     #
     # Trivy parses bun.lock reliably; cdxgen@11 does NOT for this lockfileVersion (it
     # yields an empty BOM), so Trivy is the engine here.
     #
-    # This is intentionally an AGGREGATE 'frontend' project, not per-app. Per-app SBOMs
-    # are not meaningful yet: this repo declares nearly all frontend dependencies in the
-    # ROOT package.json rather than per app (src/apps/web/package.json declares only
-    # @teck/tailwind-config). Move deps into each app's package.json first, then split
-    # this into per-app DT projects (frontend/web, frontend/mobile, ...).
+    # AGGREGATE 'frontend' product (SecObserve) / project (DT), tagged 'web' (the nx
+    # release group). Per-app SBOMs are not meaningful yet: this repo declares nearly
+    # all frontend dependencies in the ROOT package.json, not per app. Move deps into
+    # each app's package.json first, then split into per-app products/projects.
     name: Frontend SBOM (SCA -> Dependency Track + SecObserve)
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
@@ -170,7 +229,7 @@ jobs:
           apikey: ${{ secrets.DEPENDENCYTRACK_API_KEY }}
           projectname: frontend
           projectversion: ${{ github.ref_name }}
-          projecttags: frontend
+          projecttags: web
           bomfilename: sbom-frontend.cyclonedx.json
           autocreate: 'true'
           isLatest: ${{ github.ref_name == github.event.repository.default_branch && 'true' || 'false' }}
@@ -180,23 +239,28 @@ jobs:
         with:
           so_api_base_url: ${{ env.SO_API_BASE_URL }}
           so_api_token: ${{ secrets.SECOBSERVE_API_TOKEN }}
-          so_product_name: ${{ env.SO_PRODUCT_NAME }}
+          so_product_name: frontend
           so_branch_name: ${{ env.SO_BRANCH_NAME }}
           so_file_name: sbom-frontend.cyclonedx.json
           so_origin_service: frontend
 
   security-gate:
-    # Fails the PR when SecObserve's security gate for the product is red, after all
-    # scanners have imported their observations. This replaces the old SARIF-based
-    # branch-protection gate on the GitHub Security tab.
-    name: SecObserve Security Gate
+    # Fails the PR when any affected service's SecObserve product security gate is red,
+    # after its scanners have imported. Each service is its own product, so the gate is
+    # per service. Replaces the old SARIF-based branch-protection gate on the GitHub
+    # Security tab.
+    name: SecObserve Security Gate (${{ matrix.product }})
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    needs: [semgrep, gitleaks, trivy-filesystem]
+    if: github.event_name == 'pull_request' && needs.discover-services.outputs.has-services == 'true'
+    needs: [discover-services, semgrep, trivy-filesystem]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover-services.outputs.matrix) }}
     steps:
       - name: Check SecObserve security gate
         uses: SecObserve/secobserve_actions_templates/actions/check_security_gate@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
         with:
           so_api_base_url: ${{ env.SO_API_BASE_URL }}
           so_api_token: ${{ secrets.SECOBSERVE_API_TOKEN }}
-          so_product_name: ${{ env.SO_PRODUCT_NAME }}
+          so_product_name: ${{ matrix.product }}
+          so_branch_name: ${{ env.SO_BRANCH_NAME }}

@@ -11,6 +11,14 @@ on:
         description: Service name (e.g. catalog)
         required: true
         type: string
+      product-name:
+        description: >-
+          SecObserve product name for this service (e.g. order, gateway-public).
+          Flat and globally unique; supplied by .github/scripts/discover-services.sh
+          so the naming rule lives in exactly one place. Image scan results and the
+          release gate target this product.
+        required: true
+        type: string
       nx-project:
         description: Nx project name for the Host project
         required: true
@@ -237,7 +245,7 @@ jobs:
         with:
           so_api_base_url: ${{ vars.SECOBSERVE_API_BASE_URL }}
           so_api_token: ${{ secrets.secobserve-api-token }}
-          so_product_name: ${{ vars.SECOBSERVE_PRODUCT_NAME }}
+          so_product_name: ${{ inputs.product-name }}
           so_branch_name: ${{ inputs.version }}
           so_file_name: trivy-image-${{ inputs.service-group }}-${{ inputs.service-name }}.cyclonedx.json
           so_origin_service: ${{ inputs.service-group }}/${{ inputs.service-name }}
@@ -272,20 +280,19 @@ jobs:
     permissions:
       contents: read
     steps:
-      # Release gate: fails the build (and therefore the release pipeline) when the
-      # SecObserve product's security gate is red. Evaluates observations already
-      # imported into SecObserve (the image scan above). Dependency Track findings are
-      # pulled into SecObserve asynchronously by its server-side DT integration, so
-      # they are enforced by SecObserve continuously rather than at this exact step.
-      # NOTE: the gate is product-level. With a single shared product, an unresolved
-      # finding in one service can block another service's release - split into
-      # per-service SecObserve products if you need independent release gating.
+      # Release gate: fails the build (and therefore the release pipeline) when this
+      # service's SecObserve product security gate is red. Evaluates observations
+      # already imported into SecObserve (the image scan above). Dependency Track
+      # findings are pulled into SecObserve asynchronously by its server-side DT
+      # integration, so they are enforced by SecObserve continuously rather than at
+      # this exact step. The gate is product-level, and each service is its own
+      # product, so a red gate blocks only this service's release - not others.
       - name: Check SecObserve security gate
         uses: SecObserve/secobserve_actions_templates/actions/check_security_gate@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
         with:
           so_api_base_url: ${{ vars.SECOBSERVE_API_BASE_URL }}
           so_api_token: ${{ secrets.secobserve-api-token }}
-          so_product_name: ${{ vars.SECOBSERVE_PRODUCT_NAME }}
+          so_product_name: ${{ inputs.product-name }}
 
   generate-sboms:
     name: Generate SBOMs for ${{ inputs.service-group }}/${{ inputs.service-name }}
