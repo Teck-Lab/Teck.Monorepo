@@ -67,7 +67,7 @@ jobs:
       service-name: ${{ matrix.service }}
       nx-project: ${{ matrix.nxProject }}
       project-path: ${{ matrix.projectPath }}
-      version: next # single, rolling DT project version for the channel
+      version: 0.0.0-next # single, rolling DT project version for the channel (valid semver)
       source-ref: ${{ github.sha }}
       publish-mode: staging # flagged, no gate
       staging-tag: next # moving `:next` tag; reusable also stamps `:sha-<short>`

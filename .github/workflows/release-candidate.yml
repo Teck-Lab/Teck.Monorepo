@@ -71,7 +71,7 @@ jobs:
       service-name: ${{ matrix.service }}
       nx-project: ${{ matrix.nxProject }}
       project-path: ${{ matrix.projectPath }}
-      version: rc-pr${{ github.event.pull_request.number }}.${{ github.run_number }}
+      version: 0.0.0-rc.pr${{ github.event.pull_request.number }}.${{ github.run_number }}
       source-ref: ${{ github.event.pull_request.head.sha }}
       publish-mode: release # gate ON
       is-latest: false # an RC is never DT's latest
