@@ -4,19 +4,13 @@ on:
     branches: [feat/per-service-secobserve-independent-release]
 jobs:
   probe:
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-      attestations: write
-    uses: ./.github/workflows/reusable-build-sign-sbom.yml
+    uses: ./.github/workflows/_zz-stub.yml
     with:
       service-group: commerce
       service-name: order
       nx-project: Order.Host
-      project-path: src/services/commerce/order/Order.Host/Order.Host.csproj
+      project-path: x
       version: probe-0
-      source-ref: ${{ github.sha }}
       publish-mode: staging
       staging-tag: zzprobe
     secrets:

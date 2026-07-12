@@ -1,8 +1,21 @@
 name: zz-stub
 on:
-  workflow_call: {}
+  workflow_call:
+    inputs:
+      service-group: {required: true, type: string}
+      service-name: {required: true, type: string}
+      nx-project: {required: true, type: string}
+      project-path: {required: true, type: string}
+      version: {required: true, type: string}
+      source-ref: {required: false, type: string, default: ''}
+      publish-mode: {required: false, type: string, default: release}
+      staging-tag: {required: false, type: string, default: ''}
+      is-latest: {required: false, type: boolean, default: false}
+    secrets:
+      github-token: {required: true}
+      dependencytrack-api-key: {required: true}
 jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - run: echo ok
+      - run: echo "onblock ok, is-latest=${{ inputs.is-latest }}"
