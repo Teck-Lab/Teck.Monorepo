@@ -25,8 +25,10 @@ on:
 #   vars.DEPENDENCYTRACK_HOSTNAME   - Dependency Track hostname (frontend SBOM upload)
 #   secrets.DEPENDENCYTRACK_API_KEY - Dependency Track API key (frontend SBOM upload)
 # Each backend service must have a matching SecObserve Product (name == the `product`
-# field emitted by discover-services.sh, e.g. order, pricing, gateway-public), plus a
-# `frontend` product for the aggregate frontend SBOM.
+# field emitted by discover-services.sh, e.g. order, pricing, gateway-public).
+# The frontend has NO SecObserve product yet: its SBOM goes to Dependency Track only
+# (aggregate project), so no throwaway product is created before the per-app split.
+# See .github/scripts/discover-frontend.sh for the prepared per-app naming.
 permissions:
   contents: read
 
@@ -181,18 +183,20 @@ jobs:
 
   frontend-sbom:
     # Frontend SCA + licenses. Generates one CycloneDX SBOM for the whole Bun workspace
-    # from the root bun.lock and sends it to Dependency Track (continuous re-scan +
-    # license policy) and SecObserve. Runs off-PR to avoid churning DT project versions;
-    # PR-time frontend SCA is covered by dependency-review above.
+    # from the root bun.lock and sends it to Dependency Track only (continuous re-scan +
+    # license policy). Runs off-PR to avoid churning DT project versions; PR-time
+    # frontend SCA is covered by dependency-review above.
     #
     # Trivy parses bun.lock reliably; cdxgen@11 does NOT for this lockfileVersion (it
     # yields an empty BOM), so Trivy is the engine here.
     #
-    # AGGREGATE 'frontend' product (SecObserve) / project (DT), tagged 'web' (the nx
-    # release group). Per-app SBOMs are not meaningful yet: this repo declares nearly
-    # all frontend dependencies in the ROOT package.json, not per app. Move deps into
-    # each app's package.json first, then split into per-app products/projects.
-    name: Frontend SBOM (SCA -> Dependency Track + SecObserve)
+    # AGGREGATE Dependency Track project 'frontend', tagged 'web'. Deliberately NOT
+    # imported into SecObserve yet: per-app SBOMs are not meaningful while nearly all
+    # frontend dependencies are declared in the ROOT package.json (not per app), and an
+    # aggregate SecObserve product would only have to be retired at the per-app split.
+    # When apps declare their own deps, wire .github/scripts/discover-frontend.sh into a
+    # per-app SBOM job and create the per-app SecObserve products then (created once).
+    name: Frontend SBOM (SCA -> Dependency Track)
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
     steps:
@@ -233,16 +237,6 @@ jobs:
           bomfilename: sbom-frontend.cyclonedx.json
           autocreate: 'true'
           isLatest: ${{ github.ref_name == github.event.repository.default_branch && 'true' || 'false' }}
-
-      - name: Import SBOM into SecObserve
-        uses: SecObserve/secobserve_actions_templates/actions/upload_sbom@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
-        with:
-          so_api_base_url: ${{ env.SO_API_BASE_URL }}
-          so_api_token: ${{ secrets.SECOBSERVE_API_TOKEN }}
-          so_product_name: frontend
-          so_branch_name: ${{ env.SO_BRANCH_NAME }}
-          so_file_name: sbom-frontend.cyclonedx.json
-          so_origin_service: frontend
 
   security-gate:
     # Fails the PR when any affected service's SecObserve product security gate is red,
