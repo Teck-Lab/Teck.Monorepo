@@ -2,28 +2,6 @@ name: zz-probe-reusable
 on:
   push:
     branches: [feat/per-service-secobserve-independent-release]
-
-# TEMPORARY diagnostic: a STATIC (no-matrix) call of the reusable workflow to isolate
-# whether the canary startup_failure is the reusable file itself or the dynamic matrix.
-# If this starts and runs, the reusable is fine and the matrix wiring is the culprit.
-# Delete before merge.
 jobs:
   probe:
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-      attestations: write
-    uses: ./.github/workflows/reusable-build-sign-sbom.yml
-    with:
-      service-group: commerce
-      service-name: order
-      nx-project: Order.Host
-      project-path: src/services/commerce/order/Order.Host/Order.Host.csproj
-      version: probe-0
-      source-ref: ${{ github.sha }}
-      publish-mode: staging
-      staging-tag: zzprobe
-    secrets:
-      github-token: ${{ secrets.GITHUB_TOKEN }}
-      dependencytrack-api-key: ${{ secrets.DEPENDENCYTRACK_API_KEY }}
+    uses: ./.github/workflows/_zz-stub.yml
