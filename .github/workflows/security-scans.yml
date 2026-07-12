@@ -91,45 +91,46 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Scans this service plus src/shared (SharedKernel is compiled into every service,
-      # so a flaw there is a real finding for each service's product).
-      # The SecObserve scanner image's Semgrep (OCaml 5) intermittently crashes at
-      # startup with "Failed to allocate signal stack for domain 0" - a runner/ulimit
-      # flake (~1 in 6, unrelated to our code and to what is scanned). It crashes before
-      # scanning/uploading, so a plain retry is safe. Attempt once, then retry on failure.
-      - name: Semgrep scan + import to SecObserve (attempt 1)
-        id: semgrep
-        continue-on-error: true
-        uses: SecObserve/secobserve_actions_templates/actions/SAST/semgrep@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          target: ${{ matrix.scanPath }}
-          report_name: semgrep-${{ matrix.product }}.sarif
-          configuration: p/csharp
-          further_parameters: >-
-            --config p/secrets
-            --config p/r2c-security-audit
-            src/shared
-          so_api_base_url: ${{ env.SO_API_BASE_URL }}
-          so_api_token: ${{ secrets.SECOBSERVE_API_TOKEN }}
-          so_product_name: ${{ matrix.product }}
-          so_branch_name: ${{ env.SO_BRANCH_NAME }}
-          so_origin_service: ${{ matrix.group }}/${{ matrix.service }}
+          python-version: '3.12'
 
-      - name: Semgrep scan + import to SecObserve (retry)
-        if: steps.semgrep.outcome == 'failure'
-        uses: SecObserve/secobserve_actions_templates/actions/SAST/semgrep@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
+      - name: Install Semgrep
+        run: pip install semgrep==1.97.0
+
+      # Run Semgrep ourselves (native, pinned, controlled environment) instead of via
+      # SecObserve's scanner image - whose bundled Semgrep (OCaml 5) intermittently
+      # aborts at startup ("Failed to allocate signal stack for domain 0") on runners
+      # that hand containers an unlimited RLIMIT_STACK. SecObserve is now just the sink.
+      # Scans this service plus src/shared (SharedKernel is compiled into every service,
+      # so a flaw there is a real finding for each service's product). Exits 0 on
+      # findings (--error is NOT set); the SecObserve gate decides pass/fail.
+      - name: Run Semgrep (SARIF)
+        run: |
+          # Bound the stack so OCaml never sees an unlimited RLIMIT_STACK (the root of
+          # the scanner-image crash); native runners default to 8 MB, this just makes it
+          # deterministic.
+          ulimit -s 8192 || true
+          semgrep scan \
+            --config p/csharp \
+            --config p/secrets \
+            --config p/r2c-security-audit \
+            --sarif --output "semgrep-${{ matrix.product }}.sarif" \
+            --metrics=off \
+            "${{ matrix.scanPath }}" src/shared
+
+      # Upload the SARIF to SecObserve. upload_observations runs the scanner image's
+      # Python uploader (file_upload_observations.sh) - not Semgrep - so it does not hit
+      # the OCaml crash; SecObserve auto-detects the SARIF format.
+      - name: Import Semgrep results into SecObserve
+        uses: SecObserve/secobserve_actions_templates/actions/upload_observations@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
         with:
-          target: ${{ matrix.scanPath }}
-          report_name: semgrep-${{ matrix.product }}.sarif
-          configuration: p/csharp
-          further_parameters: >-
-            --config p/secrets
-            --config p/r2c-security-audit
-            src/shared
           so_api_base_url: ${{ env.SO_API_BASE_URL }}
           so_api_token: ${{ secrets.SECOBSERVE_API_TOKEN }}
           so_product_name: ${{ matrix.product }}
           so_branch_name: ${{ env.SO_BRANCH_NAME }}
+          so_file_name: semgrep-${{ matrix.product }}.sarif
           so_origin_service: ${{ matrix.group }}/${{ matrix.service }}
 
   # Dependency SCA is intentionally NOT run here: Dependency Track owns SCA (it scans
