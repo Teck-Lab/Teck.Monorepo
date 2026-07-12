@@ -132,22 +132,11 @@ jobs:
             ghcr.io/gitleaks/gitleaks:v8.18.4 \
             detect --source=/repo --redact --exit-code=1 --verbose
 
-  dependency-review:
-    # GitHub-native pre-merge gate on newly introduced dependencies. This is a PR
-    # check (not the Security tab) and complements Dependency Track's continuous,
-    # post-build SCA. Drop it if you want SCA to live exclusively in DT/SecObserve.
-    name: Dependency Review (pre-merge gate)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Review dependencies
-        uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: high
-          deny-licenses: GPL-2.0, GPL-3.0
-          comment-summary-in-pr: always
+  # No GitHub-native dependency-review job: it requires GitHub Advanced Security +
+  # Dependency Graph, which this repo doesn't have, and dependency SCA lives in
+  # Dependency Track (fed by the per-service image SBOMs + the frontend SBOM). Re-add
+  # actions/dependency-review-action here if GHAS is ever enabled and you want a
+  # PR-time new-dependency gate on top of DT.
 
   frontend-audit:
     # Frontend dependency SCA. Frontend SBOMs are not yet pushed to Dependency Track

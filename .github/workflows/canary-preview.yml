@@ -56,7 +56,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
     permissions:
-      contents: write # generate-sboms submits a dependency snapshot
+      contents: read
       packages: write
       id-token: write
       attestations: write
