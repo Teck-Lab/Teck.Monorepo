@@ -97,9 +97,10 @@ jobs:
           python-version: '3.12'
 
       - name: Install Semgrep
-        # Python 3.12 no longer bundles setuptools, but Semgrep's transitive
-        # opentelemetry dependency imports pkg_resources (part of setuptools).
-        run: pip install setuptools semgrep==1.97.0
+        # Python 3.12 no longer bundles setuptools, and Semgrep's transitive
+        # opentelemetry dependency imports pkg_resources - which setuptools 81 REMOVED.
+        # Pin setuptools < 81 so pkg_resources is available.
+        run: pip install "setuptools<81" semgrep==1.97.0
 
       # Run Semgrep ourselves (native, pinned, controlled environment) instead of via
       # SecObserve's scanner image - whose bundled Semgrep (OCaml 5) intermittently
