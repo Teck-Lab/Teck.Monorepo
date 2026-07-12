@@ -11,14 +11,6 @@ on:
         description: Service name (e.g. catalog)
         required: true
         type: string
-      product-name:
-        description: >-
-          SecObserve product name for this service (e.g. order, gateway-public).
-          Flat and globally unique; supplied by .github/scripts/discover-services.sh
-          so the naming rule lives in exactly one place. Image scan results and the
-          release gate target this product.
-        required: true
-        type: string
       nx-project:
         description: Nx project name for the Host project
         required: true
@@ -60,11 +52,8 @@ on:
       github-token:
         description: GitHub token for authentication and release uploads
         required: true
-      secobserve-api-token:
-        description: SecObserve user API token (Upload role) for importing image scan results
-        required: true
       dependencytrack-api-key:
-        description: Dependency Track API key for uploading the CycloneDX SBOM
+        description: Dependency Track API key for uploading the SBOM and reading the gate
         required: true
 
 permissions:
@@ -225,32 +214,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.github-token }}
 
-      # NOTE: gating no longer fails the build here. CRITICAL/HIGH severity is
-      # enforced by SecObserve's security gate (see check_security_gate). Results
-      # go to SecObserve, not the GitHub Security tab.
-      - name: Run Trivy vulnerability scanner (CycloneDX for SecObserve)
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        env:
-          TRIVY_USERNAME: ${{ github.actor }}
-          TRIVY_PASSWORD: ${{ secrets.github-token }}
-        with:
-          version: 'v0.69.3'
-          image-ref: ${{ needs.build-and-push.outputs.image-ref }}
-          format: 'cyclonedx'
-          output: 'trivy-image-${{ inputs.service-group }}-${{ inputs.service-name }}.cyclonedx.json'
-          scanners: 'vuln'
-
-      - name: Import Trivy results into SecObserve
-        uses: SecObserve/secobserve_actions_templates/actions/upload_observations@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
-        with:
-          so_api_base_url: ${{ vars.SECOBSERVE_API_BASE_URL }}
-          so_api_token: ${{ secrets.secobserve-api-token }}
-          so_product_name: ${{ inputs.product-name }}
-          so_branch_name: ${{ inputs.version }}
-          so_file_name: trivy-image-${{ inputs.service-group }}-${{ inputs.service-name }}.cyclonedx.json
-          so_origin_service: ${{ inputs.service-group }}/${{ inputs.service-name }}
-          so_origin_docker_image_name_tag: ${{ needs.build-and-push.outputs.image-name }}:${{ needs.build-and-push.outputs.primary-tag }}
-
+      # Dependency SCA is owned by Dependency Track (the image SBOM is uploaded there
+      # and continuously re-scanned); SecObserve imports DT's findings via its server-
+      # side integration, so results are NOT pushed to SecObserve directly here. This
+      # Trivy image scan exists only to source the OpenVEX document below.
       - name: Run Trivy vulnerability scanner (JSON for VEX)
         if: always()
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
@@ -274,25 +241,33 @@ jobs:
           retention-days: 90
 
   security-gate:
-    name: SecObserve release gate for ${{ inputs.service-group }}/${{ inputs.service-name }}
+    name: Dependency Track release gate for ${{ inputs.service-group }}/${{ inputs.service-name }}
     runs-on: ubuntu-latest
-    needs: [scan-vulnerabilities]
+    needs: [upload-sbom-dependency-track]
     permissions:
       contents: read
     steps:
-      # Release gate: fails the build (and therefore the release pipeline) when this
-      # service's SecObserve product security gate is red. Evaluates observations
-      # already imported into SecObserve (the image scan above). Dependency Track
-      # findings are pulled into SecObserve asynchronously by its server-side DT
-      # integration, so they are enforced by SecObserve continuously rather than at
-      # this exact step. The gate is product-level, and each service is its own
-      # product, so a red gate blocks only this service's release - not others.
-      - name: Check SecObserve security gate
-        uses: SecObserve/secobserve_actions_templates/actions/check_security_gate@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
+      # Release gate: enforced ONLY for release/RC builds (publish-mode=release), and
+      # against Dependency Track - the SCA engine that scans the SBOM uploaded just
+      # above. SecObserve pulls DT's findings asynchronously and so cannot gate at this
+      # exact moment; DT can. A failed gate exits non-zero, which fails this job and
+      # therefore skips sign-image, leaving the image unsigned (and rejected by the
+      # cosign-verify deploy policy). Pre-release/preview builds skip the gate: their
+      # SBOM is still in DT (flagged), just not blocking.
+      - name: Checkout repository
+        if: inputs.publish-mode == 'release'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          so_api_base_url: ${{ vars.SECOBSERVE_API_BASE_URL }}
-          so_api_token: ${{ secrets.secobserve-api-token }}
-          so_product_name: ${{ inputs.product-name }}
+          ref: ${{ inputs.source-ref != '' && inputs.source-ref || format('refs/tags/v{0}', inputs.version) }}
+
+      - name: Check Dependency Track security gate
+        if: inputs.publish-mode == 'release'
+        env:
+          DT_HOSTNAME: ${{ vars.DEPENDENCYTRACK_HOSTNAME }}
+          DT_API_KEY: ${{ secrets.dependencytrack-api-key }}
+          DT_PROJECT_NAME: ${{ inputs.service-group }}/${{ inputs.service-name }}
+          DT_PROJECT_VERSION: ${{ inputs.version }}
+        run: bash .github/scripts/dt-security-gate.sh
 
   generate-sboms:
     name: Generate SBOMs for ${{ inputs.service-group }}/${{ inputs.service-name }}
@@ -572,8 +547,9 @@ jobs:
   sign-image:
     name: Sign ${{ inputs.service-group }}/${{ inputs.service-name }} image
     runs-on: ubuntu-latest
-    # security-gate gates signing: a red SecObserve gate leaves the image unsigned,
-    # so the downstream cosign-verify deploy policy rejects it.
+    # security-gate gates signing: a failed Dependency Track gate (release builds only)
+    # leaves the image unsigned, so the downstream cosign-verify deploy policy rejects
+    # it. For pre-release/preview builds the gate is skipped, so signing proceeds.
     needs: [build-and-push, scan-vulnerabilities, security-gate]
     permissions:
       contents: read

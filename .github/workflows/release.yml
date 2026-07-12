@@ -97,12 +97,10 @@ jobs:
     with:
       service-group: ${{ matrix.group }}
       service-name: ${{ matrix.service }}
-      product-name: ${{ matrix.product }}
       nx-project: ${{ matrix.nxProject }}
       project-path: ${{ matrix.projectPath }}
       version: ${{ matrix.version }}
       source-ref: ${{ matrix.sourceRef }}
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
-      secobserve-api-token: ${{ secrets.SECOBSERVE_API_TOKEN }}
       dependencytrack-api-key: ${{ secrets.DEPENDENCYTRACK_API_KEY }}

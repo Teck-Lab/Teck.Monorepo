@@ -109,28 +109,10 @@ jobs:
           so_branch_name: ${{ env.SO_BRANCH_NAME }}
           so_origin_service: ${{ matrix.group }}/${{ matrix.service }}
 
-  trivy-filesystem:
-    name: Trivy Filesystem SCA (${{ matrix.product }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: discover-services
-    if: needs.discover-services.outputs.has-services == 'true'
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.discover-services.outputs.matrix) }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Trivy filesystem scan + import to SecObserve
-        uses: SecObserve/secobserve_actions_templates/actions/SCA/trivy_filesystem@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
-        with:
-          target: ${{ matrix.scanPath }}
-          report_name: trivy-fs-${{ matrix.product }}.json
-          so_api_base_url: ${{ env.SO_API_BASE_URL }}
-          so_api_token: ${{ secrets.SECOBSERVE_API_TOKEN }}
-          so_product_name: ${{ matrix.product }}
-          so_branch_name: ${{ env.SO_BRANCH_NAME }}
-          so_origin_service: ${{ matrix.group }}/${{ matrix.service }}
+  # Dependency SCA is intentionally NOT run here: Dependency Track owns SCA (it scans
+  # each service's image SBOM continuously and feeds SecObserve via the DT integration).
+  # PR-time dependency risk is covered by dependency-review below; a source-level SCA
+  # here would duplicate DT. SecObserve therefore receives only SAST (Semgrep) directly.
 
   gitleaks:
     name: Gitleaks Secret Detection (CI gate)
@@ -239,14 +221,14 @@ jobs:
           isLatest: ${{ github.ref_name == github.event.repository.default_branch && 'true' || 'false' }}
 
   security-gate:
-    # Fails the PR when any affected service's SecObserve product security gate is red,
-    # after its scanners have imported. Each service is its own product, so the gate is
-    # per service. Replaces the old SARIF-based branch-protection gate on the GitHub
-    # Security tab.
-    name: SecObserve Security Gate (${{ matrix.product }})
+    # Merge gate: fails the PR when any affected service's SecObserve product gate is
+    # red after Semgrep (SAST) imports. Each service is its own product, so the gate is
+    # per service. This is the SAST/merge gate; the dependency (SCA) release gate lives
+    # in Dependency Track on the release/RC path, not here.
+    name: SecObserve Merge Gate (${{ matrix.product }})
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && needs.discover-services.outputs.has-services == 'true'
-    needs: [discover-services, semgrep, trivy-filesystem]
+    needs: [discover-services, semgrep]
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.discover-services.outputs.matrix) }}
