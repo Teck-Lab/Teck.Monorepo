@@ -91,11 +91,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Semgrep scan + import to SecObserve (C# + SharedKernel)
+      # Scans this service plus src/shared (SharedKernel is compiled into every service,
+      # so a flaw there is a real finding for each service's product).
+      # The SecObserve scanner image's Semgrep (OCaml 5) intermittently crashes at
+      # startup with "Failed to allocate signal stack for domain 0" - a runner/ulimit
+      # flake (~1 in 6, unrelated to our code and to what is scanned). It crashes before
+      # scanning/uploading, so a plain retry is safe. Attempt once, then retry on failure.
+      - name: Semgrep scan + import to SecObserve (attempt 1)
+        id: semgrep
+        continue-on-error: true
         uses: SecObserve/secobserve_actions_templates/actions/SAST/semgrep@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
         with:
-          # Scans this service plus src/shared (SharedKernel is compiled into every
-          # service, so a flaw there is a real finding for each service's product).
+          target: ${{ matrix.scanPath }}
+          report_name: semgrep-${{ matrix.product }}.sarif
+          configuration: p/csharp
+          further_parameters: >-
+            --config p/secrets
+            --config p/r2c-security-audit
+            src/shared
+          so_api_base_url: ${{ env.SO_API_BASE_URL }}
+          so_api_token: ${{ secrets.SECOBSERVE_API_TOKEN }}
+          so_product_name: ${{ matrix.product }}
+          so_branch_name: ${{ env.SO_BRANCH_NAME }}
+          so_origin_service: ${{ matrix.group }}/${{ matrix.service }}
+
+      - name: Semgrep scan + import to SecObserve (retry)
+        if: steps.semgrep.outcome == 'failure'
+        uses: SecObserve/secobserve_actions_templates/actions/SAST/semgrep@51571f8cbc46bdcf11bdf3d45e1608c86a10bd08 # v2026_06
+        with:
           target: ${{ matrix.scanPath }}
           report_name: semgrep-${{ matrix.product }}.sarif
           configuration: p/csharp
