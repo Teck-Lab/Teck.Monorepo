@@ -162,9 +162,10 @@ jobs:
           echo "release_tag=${SERVICE_GROUP}@${VERSION}" >> "$GITHUB_OUTPUT"
 
       # Build directly against the shared Containerfile template (this repo has no
-      # per-project Dockerfiles, so @nx/docker infers no docker target). The template
-      # takes SERVICE_NAME (the Host assembly base, e.g. Catalog for Catalog.Host),
-      # PROJECT_PATH and VERSION, and does restore/codegen/publish/R2R itself.
+      # per-project Dockerfiles, so @nx/docker infers no docker target). SERVICE_NAME
+      # is the Host assembly name from the csproj filename (Catalog.Host,
+      # Gateway.Public) - the template uses it directly for the dll/apphost, so it
+      # works whether or not the project follows the `.Host` suffix convention.
       - name: Build and push image
         env:
           IMAGE_NAME: ${{ steps.image-vars.outputs.image_name }}
@@ -173,7 +174,7 @@ jobs:
           VERSION: ${{ inputs.version }}
           SERVICE_GROUP: ${{ inputs.service-group }}
         run: |
-          SERVICE_ASSEMBLY=$(basename "$(dirname "$PROJECT_PATH")" | sed 's/\.Host$//')
+          SERVICE_ASSEMBLY=$(basename "$PROJECT_PATH" .csproj)
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
             --file deploy/Containerfile.template \

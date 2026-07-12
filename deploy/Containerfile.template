@@ -33,7 +33,7 @@ RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
 
 # Emit WolverineFx generated handlers into the project tree (executes the Host).
 RUN cd "$(dirname "$PROJECT_PATH")" && \
-    dotnet "./bin/Release/net10.0/${SERVICE_NAME}.Host.dll" codegen write
+    dotnet "./bin/Release/net10.0/${SERVICE_NAME}.dll" codegen write
 
 # Publish ReadyToRun for the target architecture. Framework-dependent
 # (--self-contained false) to stay small on the chiseled runtime. The publish
@@ -49,7 +49,7 @@ RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
 # Normalise the native apphost to a fixed name so the shell-free runtime image
 # can use an exec-form entrypoint. The apphost embeds its managed assembly name
 # at publish time, so renaming the executable file is safe.
-RUN cp "/app/publish/${SERVICE_NAME}.Host" /app/publish/apphost
+RUN cp "/app/publish/${SERVICE_NAME}" /app/publish/apphost
 
 # Chiseled distroless runtime: non-root by default, minimal size, faster pull.
 # The "-extra" variant bundles ICU + tzdata for full globalization (commerce).
@@ -58,7 +58,7 @@ ARG SERVICE_NAME
 ARG VERSION=0.0.0
 WORKDIR /app
 
-LABEL org.opencontainers.image.title="${SERVICE_NAME}.Host" \
+LABEL org.opencontainers.image.title="${SERVICE_NAME}" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.vendor="Teck" \
       org.opencontainers.image.description="Teck Monorepo service host"
