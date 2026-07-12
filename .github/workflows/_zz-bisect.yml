@@ -1,0 +1,346 @@
+name: Reusable Build, Sign, and SBOM Generation (SLSA L3)
+
+on:
+  workflow_call:
+    inputs:
+      service-group:
+        description: Service group (e.g. commerce)
+        required: true
+        type: string
+      service-name:
+        description: Service name (e.g. catalog)
+        required: true
+        type: string
+      nx-project:
+        description: Nx project name for the Host project
+        required: true
+        type: string
+      project-path:
+        description: Relative path to the Host .csproj
+        required: true
+        type: string
+      version:
+        description: Version to build (e.g. 1.0.0)
+        required: true
+        type: string
+      source-ref:
+        description: Git ref to build from (defaults to refs/tags/v<version>)
+        required: false
+        type: string
+        default: ''
+      publish-mode:
+        description: 'Publish mode: release or staging'
+        required: false
+        type: string
+        default: release
+      staging-tag:
+        description: Explicit staging tag when publish-mode=staging
+        required: false
+        type: string
+        default: ''
+      is-latest:
+        description: >-
+          Mark this SBOM as the Dependency Track project's latest version. Only GA
+          releases should (true); RCs, prereleases and previews must not (false).
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      github-token:
+        description: GitHub token for authentication and release uploads
+        required: true
+      dependencytrack-api-key:
+        description: Dependency Track API key for uploading the SBOM and reading the gate
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  generate-wolverine-codegen:
+    name: Generate Wolverine code
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.source-ref != '' && inputs.source-ref || format('refs/tags/v{0}', inputs.version) }}
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5.2.0
+        with:
+          global-json-file: global.json
+
+      - name: Verify Host project path
+        run: test -f "${{ inputs.project-path }}"
+
+      - name: Restore Host project
+        run: dotnet restore "${{ inputs.project-path }}" -r linux-x64
+
+      - name: Run WolverineFx codegen target
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+          Logging__LogLevel__Grpc: Warning
+        run: |
+          dotnet msbuild "${{ inputs.project-path }}" \
+            /t:WolverineCodegenWrite \
+            /p:RunWolverineCodegen=true \
+            /p:Configuration=Release
+
+  build-and-push:
+    name: Build ${{ inputs.service-group }}/${{ inputs.service-name }}
+    runs-on: ubuntu-latest
+    needs: [generate-wolverine-codegen]
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.export-digest.outputs.digest }}
+      image-name: ${{ steps.image-vars.outputs.image_name }}
+      image-ref: ${{ steps.image-ref.outputs.ref }}
+      primary-tag: ${{ steps.image-vars.outputs.primary_tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.source-ref != '' && inputs.source-ref || format('refs/tags/v{0}', inputs.version) }}
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5.2.0
+        with:
+          global-json-file: global.json
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Verify Containerfile template
+        run: |
+          test -f "deploy/Containerfile.template"
+          test -d "."
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.github-token }}
+
+      - name: Prepare image variables
+        id: image-vars
+        env:
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          SERVICE_GROUP: ${{ inputs.service-group }}
+          SERVICE_NAME: ${{ inputs.service-name }}
+          VERSION: ${{ inputs.version }}
+          PUBLISH_MODE: ${{ inputs.publish-mode }}
+          STAGING_TAG_INPUT: ${{ inputs.staging-tag }}
+        run: |
+          REPO_OWNER_LOWER=$(printf '%s' "$REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
+          IMAGE_NAME="ghcr.io/${REPO_OWNER_LOWER}/teck-monorepo/${SERVICE_GROUP}/${SERVICE_NAME}"
+          PRIMARY_TAG="$VERSION"
+          STAGING_TAG=""
+
+          if [ "$PUBLISH_MODE" = "staging" ]; then
+            STAGING_TAG="$STAGING_TAG_INPUT"
+            if [ -z "$STAGING_TAG" ]; then
+              STAGING_TAG="staging-${GITHUB_SHA}"
+            fi
+            PRIMARY_TAG="$STAGING_TAG"
+          fi
+
+          echo "image_name=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
+          echo "primary_tag=$PRIMARY_TAG" >> "$GITHUB_OUTPUT"
+          echo "staging_tag=$STAGING_TAG" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${SERVICE_GROUP}@${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image with Nx
+        env:
+          IMAGE_NAME: ${{ steps.image-vars.outputs.image_name }}
+          PRIMARY_TAG: ${{ steps.image-vars.outputs.primary_tag }}
+          PROJECT_PATH: ${{ inputs.project-path }}
+        run: |
+          SERVICE_ASSEMBLY=$(basename "$(dirname "$PROJECT_PATH")" | sed 's/\.Host$//')
+          bunx nx run "${{ inputs.nx-project }}:docker:build" -- \
+            --tag "${IMAGE_NAME}:${PRIMARY_TAG}" \
+            --tag "${IMAGE_NAME}:sha-${GITHUB_SHA::7}" \
+            --build-arg "SERVICE_NAME=${SERVICE_ASSEMBLY}" \
+            --build-arg "PROJECT_PATH=${{ inputs.project-path }}" \
+            --build-arg "VERSION=${{ inputs.version }}" \
+            --build-arg "SERVICE_GROUP=${{ inputs.service-group }}" \
+            --label "com.teck.release.group=${{ inputs.service-group }}" \
+            --label "com.teck.release.tag=${{ inputs.service-group }}@${{ inputs.version }}"
+
+      - name: Export digest
+        id: export-digest
+        env:
+          IMAGE_NAME: ${{ steps.image-vars.outputs.image_name }}
+          PRIMARY_TAG: ${{ steps.image-vars.outputs.primary_tag }}
+        run: |
+          DIGEST=$(docker buildx imagetools inspect "${IMAGE_NAME}:${PRIMARY_TAG}" --raw | sha256sum | awk '{print "sha256:"$1}')
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Set image reference
+        id: image-ref
+        env:
+          IMAGE_NAME: ${{ steps.image-vars.outputs.image_name }}
+          IMAGE_DIGEST: ${{ steps.export-digest.outputs.digest }}
+        run: echo "ref=${IMAGE_NAME}@${IMAGE_DIGEST}" >> "$GITHUB_OUTPUT"
+
+  scan-vulnerabilities:
+    name: Scan ${{ inputs.service-group }}/${{ inputs.service-name }} vulnerabilities
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.github-token }}
+
+      # Dependency SCA is owned by Dependency Track (the image SBOM is uploaded there
+      # and continuously re-scanned); SecObserve imports DT's findings via its server-
+      # side integration, so results are NOT pushed to SecObserve directly here. This
+      # Trivy image scan exists only to source the OpenVEX document below.
+      - name: Run Trivy vulnerability scanner (JSON for VEX)
+        if: always()
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.github-token }}
+        with:
+          version: 'v0.69.3'
+          image-ref: ${{ needs.build-and-push.outputs.image-ref }}
+          format: 'json'
+          output: 'trivy-results.json'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+          ignore-unfixed: true
+
+      - name: Upload Trivy JSON report
+        if: always() && hashFiles('trivy-results.json') != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: trivy-scan-${{ inputs.service-group }}-${{ inputs.service-name }}
+          path: trivy-results.json
+          retention-days: 90
+
+  security-gate:
+    name: Dependency Track release gate for ${{ inputs.service-group }}/${{ inputs.service-name }}
+    runs-on: ubuntu-latest
+    needs: [upload-sbom-dependency-track]
+    permissions:
+      contents: read
+    steps:
+      # Release gate: enforced ONLY for release/RC builds (publish-mode=release), and
+      # against Dependency Track - the SCA engine that scans the SBOM uploaded just
+      # above. SecObserve pulls DT's findings asynchronously and so cannot gate at this
+      # exact moment; DT can. A failed gate exits non-zero, which fails this job and
+      # therefore skips sign-image, leaving the image unsigned (and rejected by the
+      # cosign-verify deploy policy). Pre-release/preview builds skip the gate: their
+      # SBOM is still in DT (flagged), just not blocking.
+      - name: Checkout repository
+        if: inputs.publish-mode == 'release'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.source-ref != '' && inputs.source-ref || format('refs/tags/v{0}', inputs.version) }}
+
+      - name: Check Dependency Track security gate
+        if: inputs.publish-mode == 'release'
+        env:
+          DT_HOSTNAME: ${{ vars.DEPENDENCYTRACK_HOSTNAME }}
+          DT_API_KEY: ${{ secrets.dependencytrack-api-key }}
+          DT_PROJECT_NAME: ${{ inputs.service-group }}/${{ inputs.service-name }}
+          DT_PROJECT_VERSION: ${{ inputs.version }}
+        run: bash .github/scripts/dt-security-gate.sh
+
+  generate-sboms:
+    name: Generate SBOMs for ${{ inputs.service-group }}/${{ inputs.service-name }}
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    permissions:
+      contents: write
+      packages: read
+    outputs:
+      spdx-sbom: sbom-${{ inputs.service-group }}-${{ inputs.service-name }}.spdx.json
+      cyclonedx-sbom: sbom-${{ inputs.service-group }}-${{ inputs.service-name }}.cyclonedx.json
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.github-token }}
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@57aae528053a48a3f6235f2d9461b05fbcb7366d # v0.23.1
+        with:
+          image: ${{ needs.build-and-push.outputs.image-ref }}
+          format: spdx-json
+          output-file: sbom-${{ inputs.service-group }}-${{ inputs.service-name }}.spdx.json
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.github-token }}
+          dependency-snapshot: true
+
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@57aae528053a48a3f6235f2d9461b05fbcb7366d # v0.23.1
+        with:
+          image: ${{ needs.build-and-push.outputs.image-ref }}
+          format: cyclonedx-json
+          output-file: sbom-${{ inputs.service-group }}-${{ inputs.service-name }}.cyclonedx.json
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.github-token }}
+
+      - name: Upload SPDX SBOM artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-spdx-${{ inputs.service-group }}-${{ inputs.service-name }}
+          path: sbom-${{ inputs.service-group }}-${{ inputs.service-name }}.spdx.json
+          retention-days: 90
+
+      - name: Upload CycloneDX SBOM artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-cyclonedx-${{ inputs.service-group }}-${{ inputs.service-name }}
+          path: sbom-${{ inputs.service-group }}-${{ inputs.service-name }}.cyclonedx.json
+          retention-days: 90
+
+  upload-sbom-dependency-track:
+    name: Upload SBOM to Dependency Track for ${{ inputs.service-group }}/${{ inputs.service-name }}
+    runs-on: ubuntu-latest
+    needs: [generate-sboms]
+    permissions:
+      contents: read
+    steps:
+      - name: Download CycloneDX SBOM
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: sbom-cyclonedx-${{ inputs.service-group }}-${{ inputs.service-name }}
+
+      # Dependency Track becomes the SCA engine + SBOM registry: it re-scans stored
+      # SBOMs continuously as new advisories land, and SecObserve imports its findings
+      # via the server-side Dependency Track integration.
+      - name: Upload CycloneDX SBOM to Dependency Track
+        uses: DependencyTrack/gh-upload-sbom@cc655d7447ad82945e0034afbd67cd8f571f11b0 # v4.1.0
+        with:
+          serverhostname: ${{ vars.DEPENDENCYTRACK_HOSTNAME }}
+          apikey: ${{ secrets.dependencytrack-api-key }}
+          projectname: ${{ inputs.service-group }}/${{ inputs.service-name }}
+          projectversion: ${{ inputs.version }}
+          projecttags: ${{ inputs.service-group }}
+          bomfilename: sbom-${{ inputs.service-group }}-${{ inputs.service-name }}.cyclonedx.json
+          autocreate: 'true'
+          isLatest: ${{ inputs.is-latest }}
+
