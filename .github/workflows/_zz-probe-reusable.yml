@@ -5,11 +5,11 @@ on:
 jobs:
   probe:
     permissions:
-      contents: read
+      contents: write
       packages: write
       id-token: write
       attestations: write
-    uses: ./.github/workflows/_zz-bisect.yml
+    uses: ./.github/workflows/reusable-build-sign-sbom.yml
     with:
       service-group: commerce
       service-name: order
