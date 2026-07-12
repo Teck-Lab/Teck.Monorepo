@@ -81,7 +81,11 @@
   ],
   "targetDefaults": {
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["restore", "^build"],
+      "cache": true
+    },
+    "restore": {
+      "dependsOn": ["^restore"],
       "cache": true
     },
     "test": {
