@@ -38,6 +38,13 @@ on:
         required: false
         type: string
         default: ''
+      is-latest:
+        description: >-
+          Mark this SBOM as the Dependency Track project's latest version. Only GA
+          releases should (true); RCs, prereleases and previews must not (false).
+        required: false
+        type: boolean
+        default: false
       docker-context:
         description: Docker build context path
         required: false
@@ -345,7 +352,7 @@ jobs:
           projecttags: ${{ inputs.service-group }}
           bomfilename: sbom-${{ inputs.service-group }}-${{ inputs.service-name }}.cyclonedx.json
           autocreate: 'true'
-          isLatest: ${{ inputs.publish-mode == 'release' && 'true' || 'false' }}
+          isLatest: ${{ inputs.is-latest }}
 
   sign-sboms:
     name: Sign SBOMs for ${{ inputs.service-group }}/${{ inputs.service-name }}
