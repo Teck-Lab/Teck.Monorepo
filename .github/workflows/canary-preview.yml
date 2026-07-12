@@ -68,7 +68,7 @@ jobs:
       project-path: ${{ matrix.projectPath }}
       # Preview "version" = the PR, so DT tracks a single pr-<n> project version that is
       # re-uploaded (flagged) on every push rather than churning release versions.
-      version: 0.0.0-pr${{ github.event.pull_request.number }}
+      version: ${{ matrix.baseVersion }}-preview.${{ github.run_number }}
       source-ref: ${{ github.event.pull_request.head.sha }}
       publish-mode: staging
       staging-tag: canary-${{ github.event.pull_request.number }}

@@ -23,12 +23,12 @@ RUN case "$TARGETARCH" in \
 # Copy the repository and restore (host-arch) so WolverineFx has a runnable
 # assembly to execute for code generation.
 COPY . .
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    --mount=type=cache,target=/root/.local/share/NuGet/v3-cache \
+RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
+    --mount=type=cache,target=/root/.local/share/NuGet/v3-cache,sharing=locked \
     dotnet restore "$PROJECT_PATH"
 
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    --mount=type=cache,target=/root/.local/share/NuGet/v3-cache \
+RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
+    --mount=type=cache,target=/root/.local/share/NuGet/v3-cache,sharing=locked \
     dotnet build "$PROJECT_PATH" -c Release --no-restore /p:Version="$VERSION"
 
 # Emit WolverineFx generated handlers into the project tree (executes the Host).
@@ -39,8 +39,8 @@ RUN cd "$(dirname "$PROJECT_PATH")" && \
 # (--self-contained false) to stay small on the chiseled runtime. The publish
 # recompiles the generated sources into the assembly; with TypeLoadMode.Static
 # Wolverine loads them at runtime with no codegen.
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    --mount=type=cache,target=/root/.local/share/NuGet/v3-cache \
+RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
+    --mount=type=cache,target=/root/.local/share/NuGet/v3-cache,sharing=locked \
     RID="$(cat /tmp/rid)" && \
     dotnet publish "$PROJECT_PATH" -c Release -o /app/publish \
         -r "$RID" --self-contained false \

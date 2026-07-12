@@ -53,6 +53,19 @@ while IFS= read -r svcdir; do
     product="$service"
   fi
 
+  # baseVersion = the next release version for this service: the highest existing
+  # <product>@X.Y.Z tag with the patch bumped, or 0.1.0 before the first release.
+  # Lanes append a prerelease suffix (e.g. -rc.N) to it; GA uses the nx-computed one.
+  latest=$(git tag -l "${product}@*" 2>/dev/null \
+    | sed "s/^${product}@//" \
+    | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)
+  if [ -z "$latest" ]; then
+    base="0.1.0"
+  else
+    IFS=. read -r ma mi pa <<<"$latest"
+    base="${ma}.${mi}.$((pa + 1))"
+  fi
+
   objs+=("$(jq -nc \
     --arg group "$group" \
     --arg service "$service" \
@@ -60,7 +73,8 @@ while IFS= read -r svcdir; do
     --arg nxproject "$nxproj" \
     --arg projectpath "$host" \
     --arg scanpath "$svcdir" \
-    '{group:$group, service:$service, product:$product, nxProject:$nxproject, projectPath:$projectpath, scanPath:$scanpath}')")
+    --arg baseversion "$base" \
+    '{group:$group, service:$service, product:$product, nxProject:$nxproject, projectPath:$projectpath, scanPath:$scanpath, baseVersion:$baseversion}')")
 done < <(find src/services -mindepth 2 -maxdepth 2 -type d | sort)
 
 printf '%s\n' "${objs[@]}" | jq -s '.'
