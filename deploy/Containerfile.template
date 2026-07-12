@@ -31,9 +31,19 @@ RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
     --mount=type=cache,target=/root/.local/share/NuGet/v3-cache,sharing=locked \
     dotnet build "$PROJECT_PATH" -c Release --no-restore /p:Version="$VERSION"
 
-# Emit WolverineFx generated handlers into the project tree (executes the Host).
+# Emit WolverineFx generated handlers into the project tree (executes the Host via
+# JasperFx's codegen command). Client-only services (e.g. the gateway) register no
+# WolverineFx code collections, so codegen aborts with a non-zero exit and nothing to
+# do - tolerate ONLY that specific case; any other failure is fatal.
 RUN cd "$(dirname "$PROJECT_PATH")" && \
-    dotnet "./bin/Release/net10.0/${SERVICE_NAME}.dll" codegen write
+    if out=$(dotnet "./bin/Release/net10.0/${SERVICE_NAME}.dll" codegen write 2>&1); then \
+        printf '%s\n' "$out"; \
+    elif printf '%s' "$out" | grep -q 'No registered ICodeFileCollection'; then \
+        printf '%s\n' "$out"; \
+        echo 'codegen: no WolverineFx code collections (client-only service) - skipping'; \
+    else \
+        printf '%s\n' "$out"; exit 1; \
+    fi
 
 # Publish ReadyToRun for the target architecture. Framework-dependent
 # (--self-contained false) to stay small on the chiseled runtime. The publish
