@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Inventories.Host</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\aspire\Teck.ServiceDefaults\Teck.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\..\..\..\shared\SharedKernel.Core\SharedKernel.Core.csproj" />
+    <ProjectReference Include="..\..\..\..\shared\SharedKernel.Events\SharedKernel.Events.csproj" />
+    <ProjectReference Include="..\..\..\..\shared\SharedKernel.Grpc.Contracts\SharedKernel.Grpc.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\..\shared\SharedKernel.Infrastructure\SharedKernel.Infrastructure.csproj" />
+    <ProjectReference Include="..\Inventory.Application\Inventory.Application.csproj" />
+    <ProjectReference Include="..\Inventory.Domain\Inventory.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FastEndpoints" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="WolverineFx" />
+    <PackageReference Include="WolverineFx.EntityFrameworkCore" />
+  </ItemGroup>
+</Project>

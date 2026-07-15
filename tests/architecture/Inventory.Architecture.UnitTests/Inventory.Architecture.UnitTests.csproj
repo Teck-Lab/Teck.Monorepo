@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Inventories.Architecture.UnitTests</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="TngTech.ArchUnitNET" />
+    <PackageReference Include="TngTech.ArchUnitNET.xUnitV3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\services\commerce\inventory\Inventory.Application\Inventory.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\services\commerce\inventory\Inventory.Domain\Inventory.Domain.csproj" />
+    <ProjectReference Include="..\..\..\src\services\commerce\inventory\Inventory.Host\Inventory.Host.csproj" />
+    <ProjectReference Include="..\Teck.Platform.Arch.Tests\Teck.Platform.Arch.Tests.csproj" />
+  </ItemGroup>
+</Project>

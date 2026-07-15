@@ -30,6 +30,11 @@
     <Project Path="src/services/commerce/basket/Basket.Domain/Basket.Domain.csproj" />
     <Project Path="src/services/commerce/basket/Basket.Host/Basket.Host.csproj" />
   </Folder>
+  <Folder Name="/src/services/commerce/inventory/">
+    <Project Path="src/services/commerce/inventory/Inventory.Application/Inventory.Application.csproj" />
+    <Project Path="src/services/commerce/inventory/Inventory.Domain/Inventory.Domain.csproj" />
+    <Project Path="src/services/commerce/inventory/Inventory.Host/Inventory.Host.csproj" />
+  </Folder>
   <Folder Name="/src/services/commerce/pricing/">
     <Project Path="src/services/commerce/pricing/Pricing.Application/Pricing.Application.csproj" />
     <Project Path="src/services/commerce/pricing/Pricing.Domain/Pricing.Domain.csproj" />
@@ -60,17 +65,20 @@
     <Project Path="tests/architecture/Teck.Platform.Arch.Tests/Teck.Platform.Arch.Tests.csproj" />
     <Project Path="tests/architecture/Order.Architecture.UnitTests/Order.Architecture.UnitTests.csproj" />
     <Project Path="tests/architecture/Basket.Architecture.UnitTests/Basket.Architecture.UnitTests.csproj" />
+    <Project Path="tests/architecture/Inventory.Architecture.UnitTests/Inventory.Architecture.UnitTests.csproj" />
     <Project Path="tests/architecture/Catalog.Architecture.UnitTests/Catalog.Architecture.UnitTests.csproj" />
     <Project Path="tests/architecture/Customer.Architecture.UnitTests/Customer.Architecture.UnitTests.csproj" />
     <Project Path="tests/architecture/Pricing.Architecture.UnitTests/Pricing.Architecture.UnitTests.csproj" />
     <Project Path="tests/unit/SharedKernel.UnitTests/SharedKernel.UnitTests.csproj" />
     <Project Path="tests/unit/Basket.UnitTests/Basket.UnitTests.csproj" />
+    <Project Path="tests/unit/Inventory.UnitTests/Inventory.UnitTests.csproj" />
     <Project Path="tests/unit/Customer.UnitTests/Customer.UnitTests.csproj" />
     <Project Path="tests/unit/Gateway.Public.UnitTests/Gateway.Public.UnitTests.csproj" />
     <Project Path="tests/unit/Pricing.UnitTests/Pricing.UnitTests.csproj" />
     <Project Path="tests/unit/Teck.ServiceDefaults.UnitTests/Teck.ServiceDefaults.UnitTests.csproj" />
     <Project Path="tests/integration/Teck.Platform.IntegrationTests.Shared/Teck.Platform.IntegrationTests.Shared.csproj" />
     <Project Path="tests/integration/Basket.IntegrationTests/Basket.IntegrationTests.csproj" />
+    <Project Path="tests/integration/Inventory.IntegrationTests/Inventory.IntegrationTests.csproj" />
     <Project Path="tests/integration/Pricing.IntegrationTests/Pricing.IntegrationTests.csproj" />
     <Project Path="tests/integration/Customer.IntegrationTests/Customer.IntegrationTests.csproj" />
     <Project Path="tests/integration/Gateway.Public.IntegrationTests/Gateway.Public.IntegrationTests.csproj" />
