@@ -22,6 +22,7 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
             variant.ToTable("Variants");
             variant.WithOwner().HasForeignKey("ProductId");
             variant.HasKey(v => v.Id);
+            variant.Property(v => v.Id).ValueGeneratedNever();
             variant.Property(v => v.Sku).HasMaxLength(128);
 
             variant.OwnsOne(v => v.SellPrice, money =>
