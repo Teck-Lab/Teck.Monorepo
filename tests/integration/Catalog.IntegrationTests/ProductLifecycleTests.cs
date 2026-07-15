@@ -109,4 +109,24 @@ public sealed class ProductLifecycleTests : CatalogIntegrationTestBase
         var variant = await response.Content.ReadFromJsonAsync<VariantDto>();
         Assert.Equal("SHIRT-RED-L", variant!.Sku);
     }
+
+    [Fact]
+    public async Task UpdateSellPrice_ChangesDefaultVariantPrice()
+    {
+        var created = await Client.PostAsJsonAsync("/products", new
+        {
+            Name = "Priced", Description = (string?)null, CategoryId = (Guid?)null,
+            Sku = "PRICED-1", SellPriceAmount = 10m, SellPriceCurrency = "USD",
+        });
+        var product = await created.Content.ReadFromJsonAsync<ProductDto>();
+        var variantId = product!.Variants[0].Id;
+
+        var updated = await Client.PutAsJsonAsync(
+            $"/products/{product.Id}/variants/{variantId}/sell-price",
+            new { ProductId = product.Id, VariantId = variantId, Amount = 15m, Currency = "USD" });
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+
+        var reFetched = await Client.GetFromJsonAsync<ProductDto>($"/products/{product.Id}");
+        Assert.Equal(15m, reFetched!.Variants[0].SellPriceAmount);
+    }
 }
