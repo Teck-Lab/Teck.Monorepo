@@ -18,6 +18,7 @@
     <Project Path="src/shared/SharedKernel.Infrastructure/SharedKernel.Infrastructure.csproj" />
     <Project Path="src/shared/SharedKernel.Grpc.Contracts/SharedKernel.Grpc.Contracts.csproj" />
   </Folder>
+  <Folder Name="/src/services/" />
 
   <Folder Name="/src/services/commerce/" />
   <Folder Name="/src/services/commerce/order/">
@@ -83,6 +84,9 @@
     <Project Path="tests/integration/Customer.IntegrationTests/Customer.IntegrationTests.csproj" />
     <Project Path="tests/integration/Gateway.Public.IntegrationTests/Gateway.Public.IntegrationTests.csproj" />
     <Project Path="tests/integration/Aspire.AppHost.IntegrationTests/Aspire.AppHost.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/integration/">
+    <Project Path="tests/integration/Catalog.IntegrationTests/Catalog.IntegrationTests.csproj" />
   </Folder>
   <Folder Name="/tools/" />
 </Solution>
