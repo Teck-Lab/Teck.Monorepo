@@ -39,4 +39,22 @@ public sealed class ProductLifecycleTests : CatalogIntegrationTestBase
         var variant = Assert.Single(product.Variants);
         Assert.True(variant.IsDefault);
     }
+
+    [Fact]
+    public async Task GetProduct_AfterCreate_ReturnsProduct()
+    {
+        var created = await Client.PostAsJsonAsync("/products", new
+        {
+            Name = "Gadget", Description = (string?)null, CategoryId = (Guid?)null,
+            Sku = "GADGET-1", SellPriceAmount = 5m, SellPriceCurrency = "USD",
+        });
+        var product = await created.Content.ReadFromJsonAsync<ProductDto>();
+
+        var fetched = await Client.GetAsync(new Uri($"/products/{product!.Id}", UriKind.Relative));
+
+        Assert.Equal(HttpStatusCode.OK, fetched.StatusCode);
+        var body = await fetched.Content.ReadFromJsonAsync<ProductDto>();
+        Assert.Equal(product.Id, body!.Id);
+        Assert.Equal("Gadget", body.Name);
+    }
 }
