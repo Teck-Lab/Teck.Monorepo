@@ -57,4 +57,19 @@ public sealed class ProductLifecycleTests : CatalogIntegrationTestBase
         Assert.Equal(product.Id, body!.Id);
         Assert.Equal("Gadget", body.Name);
     }
+
+    [Fact]
+    public async Task ListProducts_AfterCreate_IncludesProduct()
+    {
+        await Client.PostAsJsonAsync("/products", new
+        {
+            Name = "Listed", Description = (string?)null, CategoryId = (Guid?)null,
+            Sku = "LIST-1", SellPriceAmount = 1m, SellPriceCurrency = "USD",
+        });
+
+        var list = await Client.GetFromJsonAsync<List<ProductSummaryDto>>("/products");
+
+        Assert.NotNull(list);
+        Assert.Contains(list!, p => p.Name == "Listed");
+    }
 }
