@@ -72,4 +72,17 @@ public sealed class ProductLifecycleTests : CatalogIntegrationTestBase
         Assert.NotNull(list);
         Assert.Contains(list!, p => p.Name == "Listed");
     }
+
+    [Fact]
+    public async Task CreateCategory_ReturnsCreated()
+    {
+        var response = await Client.PostAsJsonAsync("/categories", new
+        {
+            Name = "Hardware", Slug = "hardware", ParentId = (Guid?)null,
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var category = await response.Content.ReadFromJsonAsync<CategoryDto>();
+        Assert.Equal("hardware", category!.Slug);
+    }
 }
