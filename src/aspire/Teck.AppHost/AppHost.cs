@@ -58,7 +58,7 @@ var customer = builder.AddProject<Projects.Customer_Host>("customer")
     .WithEnvironment("ConnectionStrings__CustomerWrite", customerDb)
     .WithEnvironment("ConnectionStrings__CustomerRead", customerDb)
     .WithReference(rabbitmq).WithReference(redis).WithReference(keycloak)
-    .WaitFor(customerDb);
+    .WaitFor(customerDb).WaitFor(keycloak);
 
 // WithHttpEndpoint registers the "http" endpoint Aspire injects into service-discovery
 // variables (services__catalog__http__0, etc.) so YARP destinations like http://catalog resolve.

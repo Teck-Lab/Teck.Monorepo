@@ -5,9 +5,11 @@ using Customers.Host.Database;
 using Customers.Host.Grpc.V1;
 using Customers.Host.Infrastructure;
 using FastEndpoints;
+using Keycloak.AuthServices.Authentication;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Grpc.Contracts.Remote.V1.Tenants;
 using SharedKernel.Infrastructure;
+using SharedKernel.Infrastructure.Auth;
 using SharedKernel.Infrastructure.Behaviors;
 using SharedKernel.Infrastructure.Hosting;
 using SharedKernel.Infrastructure.Messaging.DeadLetter;
@@ -19,10 +21,17 @@ builder.AddServiceDefaults();
 builder.Services.AddTeckService(typeof(Program).Assembly, builder.Configuration);
 builder.AddCustomerPersistence();
 builder.Services.AddScoped<ICustomerIdentityAccessor, CustomerIdentityAccessor>();
+builder.Services.AddKeycloak(builder.Configuration, builder.Environment,
+    builder.Configuration.GetSection("Keycloak").Get<KeycloakAuthenticationOptions>()!);
 builder.ConfigureInternalServiceTransport();
 builder.AddHandlerServer();
 builder.Host.UseWolverine(opts =>
 {
+    // Command, query and event handlers live in the Customers.Application assembly, but
+    // Wolverine only scans the entry assembly (Customer.Host) by default. Include the
+    // application assembly so handlers (e.g. CreateCustomerHandler) are discovered at
+    // runtime in every environment (not only in tests).
+    opts.Discovery.IncludeAssembly(typeof(CustomerDbContext).Assembly);
     opts.AddTeckBehaviors();
     opts.AddTeckDeadLetterPolicy(new DeadLetterOptions());
 });
