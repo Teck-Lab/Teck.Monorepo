@@ -1,6 +1,8 @@
+using Customers.Application.Customers;
 using Customers.Application.Database;
 using Customers.Domain.Entities;
 using Customers.Host.Database;
+using Customers.Host.Infrastructure;
 using Customers.Host.Grpc.V1;
 using FastEndpoints;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +18,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.Services.AddTeckService(typeof(Program).Assembly, builder.Configuration);
 builder.AddCustomerPersistence();
+builder.Services.AddScoped<ICustomerIdentityAccessor, CustomerIdentityAccessor>();
 builder.ConfigureInternalServiceTransport();
 builder.AddHandlerServer();
 builder.Host.UseWolverine(opts =>
