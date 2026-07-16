@@ -49,6 +49,7 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
                 link.ToTable("VariantSuppliers");
                 link.WithOwner().HasForeignKey("VariantId");
                 link.HasKey(l => l.Id);
+                link.Property(l => l.Id).ValueGeneratedNever();
                 link.Property(l => l.SupplierSku).HasMaxLength(128);
 
                 link.OwnsOne(l => l.CostPrice, money =>
@@ -63,6 +64,7 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
                     hist.ToTable("SupplierPriceHistory");
                     hist.WithOwner().HasForeignKey("VariantSupplierId");
                     hist.HasKey(h => h.Id);
+                    hist.Property(h => h.Id).ValueGeneratedNever();
 
                     hist.OwnsOne(h => h.CostPrice, money =>
                     {

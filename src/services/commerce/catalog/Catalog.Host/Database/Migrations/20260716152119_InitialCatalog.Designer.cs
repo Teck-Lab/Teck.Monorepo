@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Catalog.Host.Database.Migrations
 {
     [DbContext(typeof(CatalogDbContext))]
-    [Migration("20260715212544_InitialCatalog")]
+    [Migration("20260716152119_InitialCatalog")]
     partial class InitialCatalog
     {
         /// <inheritdoc />
@@ -187,7 +187,6 @@ namespace Catalog.Host.Database.Migrations
                     b.OwnsMany("Catalog.Domain.Entities.Variant", "Variants", b1 =>
                         {
                             b1.Property<Guid>("Id")
-                                .ValueGeneratedOnAdd()
                                 .HasColumnType("uuid");
 
                             b1.Property<DateTimeOffset>("CreatedAt")
@@ -261,7 +260,6 @@ namespace Catalog.Host.Database.Migrations
                             b1.OwnsMany("Catalog.Domain.Entities.VariantSupplier", "Suppliers", b2 =>
                                 {
                                     b2.Property<Guid>("Id")
-                                        .ValueGeneratedOnAdd()
                                         .HasColumnType("uuid");
 
                                     b2.Property<DateTimeOffset>("CreatedAt")
@@ -317,7 +315,6 @@ namespace Catalog.Host.Database.Migrations
                                     b2.OwnsMany("Catalog.Domain.Entities.SupplierPriceHistory", "PriceHistory", b3 =>
                                         {
                                             b3.Property<Guid>("Id")
-                                                .ValueGeneratedOnAdd()
                                                 .HasColumnType("uuid");
 
                                             b3.Property<DateTimeOffset>("CreatedAt")
