@@ -139,6 +139,20 @@ shapes; the table is the intended surface, not a contract.
   gates backward compatibility; `@teck/api-client` regenerated downstream.
 - Environment overlays → Teck.GitOps; infra/Helm → Teck.Terraform. Not in this repo.
 
+### Implementation outcome (2026-07-16)
+
+- **Deploy base created.** `deploy/catalog/base/{deployment,service,kustomization}.yaml`
+  authored by mirroring `deploy/order/base` (the only committed reference base). Image
+  `ghcr.io/teck-lab/teck-monorepo/commerce/catalog-api`, `catalog-postgres`/`catalog-rabbitmq`
+  secretRefs, `--migrate` init-container, `/alive`+`/ready` probes. Matches the `order`
+  naming convention (`-api` suffix), which supersedes the bare `commerce/catalog` sketched above.
+- **OpenAPI spec deferred (follow-up).** No platform spec-generation mechanism exists yet:
+  there is no `nx validate-specs` target, no `specs/*.json`, and **no commerce sibling
+  (`order`/`basket`/`pricing`/`inventory`) has a committed spec**. Per plan task 15, catalog
+  matches siblings and does **not** invent a bespoke catalog-only export pipeline. When the
+  platform establishes OpenAPI generation, run it for catalog and commit
+  `specs/catalog-v1-public.json` (never hand-edited) + regenerate `@teck/api-client`.
+
 ## 9. Definition of done
 
 - All 12 endpoints exist, dispatch-only, with request validators; service boots under
