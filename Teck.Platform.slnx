@@ -52,6 +52,11 @@
     <Project Path="src/services/commerce/customer/Customer.Host/Customer.Host.csproj" />
   </Folder>
   <Folder Name="/src/services/operations/" />
+  <Folder Name="/src/services/operations/billing/">
+    <Project Path="src/services/operations/billing/Billing.Application/Billing.Application.csproj" />
+    <Project Path="src/services/operations/billing/Billing.Domain/Billing.Domain.csproj" />
+    <Project Path="src/services/operations/billing/Billing.Host/Billing.Host.csproj" />
+  </Folder>
   <Folder Name="/src/services/content/" />
   <Folder Name="/src/services/gateway/">
     <Project Path="src/services/gateway/public/Gateway.Public.csproj" />
