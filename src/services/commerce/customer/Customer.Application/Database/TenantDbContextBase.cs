@@ -15,6 +15,9 @@ public abstract class TenantDbContextBase(DbContextOptions options, IMultiTenant
     /// <summary>Gets the set of tenants (global registry; not tenant-filtered).</summary>
     public DbSet<Tenant> Tenants => Set<Tenant>();
 
+    /// <summary>Gets the set of customers.</summary>
+    public DbSet<Customer> Customers => Set<Customer>();
+
     /// <inheritdoc/>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
