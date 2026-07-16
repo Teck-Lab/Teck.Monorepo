@@ -13,4 +13,12 @@ public sealed class PaymentProviderOptions
 
     /// <summary>Gets the name of the configured payment provider.</summary>
     public string ProviderName { get; init; } = "stub";
+
+    /// <summary>
+    /// Gets the ISO currency code applied to payments captured from events that do not carry a
+    /// currency. <see cref="SharedKernel.Events.OrderPlacedIntegrationEvent"/> currently has no
+    /// currency field, so the <c>OrderPlaced</c> consumer falls back to this default until that
+    /// contract is extended.
+    /// </summary>
+    public string DefaultCurrency { get; init; } = "USD";
 }
