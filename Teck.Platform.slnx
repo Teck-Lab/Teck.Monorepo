@@ -72,6 +72,7 @@
     <Project Path="tests/architecture/Order.Architecture.UnitTests/Order.Architecture.UnitTests.csproj" />
     <Project Path="tests/architecture/Basket.Architecture.UnitTests/Basket.Architecture.UnitTests.csproj" />
     <Project Path="tests/architecture/Inventory.Architecture.UnitTests/Inventory.Architecture.UnitTests.csproj" />
+    <Project Path="tests/architecture/Billing.Architecture.UnitTests/Billing.Architecture.UnitTests.csproj" />
     <Project Path="tests/architecture/Catalog.Architecture.UnitTests/Catalog.Architecture.UnitTests.csproj" />
     <Project Path="tests/architecture/Customer.Architecture.UnitTests/Customer.Architecture.UnitTests.csproj" />
     <Project Path="tests/architecture/Pricing.Architecture.UnitTests/Pricing.Architecture.UnitTests.csproj" />
@@ -86,6 +87,7 @@
     <Project Path="tests/integration/Teck.Platform.IntegrationTests.Shared/Teck.Platform.IntegrationTests.Shared.csproj" />
     <Project Path="tests/integration/Basket.IntegrationTests/Basket.IntegrationTests.csproj" />
     <Project Path="tests/integration/Inventory.IntegrationTests/Inventory.IntegrationTests.csproj" />
+    <Project Path="tests/integration/Billing.IntegrationTests/Billing.IntegrationTests.csproj" />
     <Project Path="tests/integration/Pricing.IntegrationTests/Pricing.IntegrationTests.csproj" />
     <Project Path="tests/integration/Customer.IntegrationTests/Customer.IntegrationTests.csproj" />
     <Project Path="tests/integration/Gateway.Public.IntegrationTests/Gateway.Public.IntegrationTests.csproj" />
