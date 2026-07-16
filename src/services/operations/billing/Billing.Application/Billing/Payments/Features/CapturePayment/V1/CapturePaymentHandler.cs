@@ -48,7 +48,7 @@ public static class CapturePaymentHandler
 
         var money = new Money(command.Amount, command.Currency);
         var payment = Payment.Create(tenant.Id ?? string.Empty, command.OrderId, command.CustomerId, money);
-        var result = await provider.CaptureAsync(command.OrderId, money, ct).ConfigureAwait(false);
+        var result = await provider.CaptureAsync(command.OrderId, command.Amount, command.Currency, ct).ConfigureAwait(false);
 
         if (result.Success)
         {

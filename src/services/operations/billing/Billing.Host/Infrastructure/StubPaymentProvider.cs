@@ -1,6 +1,5 @@
 using Billings.Application.Billing;
 using Billings.Application.Billing.Payments;
-using Billings.Domain.ValueObjects;
 using Microsoft.Extensions.Options;
 
 namespace Billings.Host.Infrastructure;
@@ -15,7 +14,7 @@ namespace Billings.Host.Infrastructure;
 public sealed class StubPaymentProvider(IOptions<PaymentProviderOptions> options) : IPaymentProvider
 {
     /// <inheritdoc/>
-    public Task<PaymentProviderResult> CaptureAsync(Guid orderId, Money amount, CancellationToken ct)
+    public Task<PaymentProviderResult> CaptureAsync(Guid orderId, decimal amount, string currency, CancellationToken ct)
     {
         PaymentProviderResult result = options.Value.SimulateSuccess
             ? new PaymentProviderResult(true, $"stub-{orderId:N}", null)

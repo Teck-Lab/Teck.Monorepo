@@ -1,5 +1,3 @@
-using Billings.Domain.ValueObjects;
-
 namespace Billings.Application.Billing.Payments;
 
 /// <summary>
@@ -10,10 +8,11 @@ public interface IPaymentProvider
 {
     /// <summary>Captures payment for the given order.</summary>
     /// <param name="orderId">The identifier of the order being paid for.</param>
-    /// <param name="amount">The amount to capture.</param>
+    /// <param name="amount">The amount to capture, in the given <paramref name="currency"/>.</param>
+    /// <param name="currency">The ISO 4217 currency code of <paramref name="amount"/>.</param>
     /// <param name="ct">The cancellation token.</param>
     /// <returns>The outcome of the capture attempt.</returns>
-    Task<PaymentProviderResult> CaptureAsync(Guid orderId, Money amount, CancellationToken ct);
+    Task<PaymentProviderResult> CaptureAsync(Guid orderId, decimal amount, string currency, CancellationToken ct);
 }
 
 /// <summary>

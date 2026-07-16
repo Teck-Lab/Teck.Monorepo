@@ -36,7 +36,7 @@ public sealed class CapturePaymentHandlerTests
         var (payments, invoices) = Repos();
         var unitOfWork = Substitute.For<IUnitOfWork>();
         var provider = Substitute.For<IPaymentProvider>();
-        provider.CaptureAsync(Arg.Any<Guid>(), Arg.Any<Money>(), Arg.Any<CancellationToken>())
+        provider.CaptureAsync(Arg.Any<Guid>(), Arg.Any<decimal>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new PaymentProviderResult(true, "tok_abc123", null)));
         var tenant = Tenant();
         var bus = Substitute.For<IMessageBus>();
@@ -68,7 +68,7 @@ public sealed class CapturePaymentHandlerTests
         var (payments, invoices) = Repos();
         var unitOfWork = Substitute.For<IUnitOfWork>();
         var provider = Substitute.For<IPaymentProvider>();
-        provider.CaptureAsync(Arg.Any<Guid>(), Arg.Any<Money>(), Arg.Any<CancellationToken>())
+        provider.CaptureAsync(Arg.Any<Guid>(), Arg.Any<decimal>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new PaymentProviderResult(false, null, "declined")));
         var tenant = Tenant();
         var bus = Substitute.For<IMessageBus>();
@@ -110,7 +110,7 @@ public sealed class CapturePaymentHandlerTests
         Assert.Equal("Captured", result.Value.Status);
         Assert.Equal("tok_existing", result.Value.ProviderReference);
 
-        await provider.DidNotReceive().CaptureAsync(Arg.Any<Guid>(), Arg.Any<Money>(), Arg.Any<CancellationToken>());
+        await provider.DidNotReceive().CaptureAsync(Arg.Any<Guid>(), Arg.Any<decimal>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         await payments.DidNotReceive().AddAsync(Arg.Any<Payment>(), Arg.Any<CancellationToken>());
         await invoices.DidNotReceive().AddAsync(Arg.Any<Invoice>(), Arg.Any<CancellationToken>());
         await unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
