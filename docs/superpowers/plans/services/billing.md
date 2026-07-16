@@ -1,6 +1,9 @@
 # Work Package: `billing` service
 
-**Group:** operations · **Tier:** 0 · **Status:** 📁 placeholder · **Branch:** `worktree-billing-service`
+**Group:** operations · **Tier:** 0 · **Status:** 🟢 payments/invoicing core complete (2026-07-16) · **Branch:** `worktree-billing-service`
+
+> **Completed 2026-07-16** (plan `docs/superpowers/plans/2026-07-16-billing-service.md`): first `operations`-group service. `Payment` + `Invoice`(owned `InvoiceLine`) aggregates (`ITenantScoped`), `PaymentStatus` SmartEnum, provider-agnostic `IPaymentProvider` (primitives, stub impl via `IOptions<PaymentProviderOptions>` — no card data), `CapturePayment` CQRS (idempotent by unique `OrderId`, provider capture → invoice → `PaymentCaptured`/`PaymentFailed` after commit), an idempotent `OrderPlaced` consumer (maps → `CapturePaymentCommand` via bus), HTTP endpoints (`POST /payments`, `GET /payments/{id}`, `GET /payments`, `GET /invoices/{id}`), `InitialBilling` migration, Aspire wiring, deploy base (`operations`), and full unit/architecture/integration tests.
+> **Deferred (documented):** (1) **RabbitMQ transport is dormant platform-wide** — the `OrderPlaced` consumer is discovered + unit-tested but receives no cross-service messages until transport is wired (see `docs/superpowers/plans/2026-07-16-wolverine-rabbitmq-transport.md`); (2) tenant resolution dormant like all siblings (`TenantId` empty at runtime); (3) provider webhook endpoint; (4) `PaymentMethod` management; (5) refund flow (status enum has `Refunded`, no feature); (6) real payment-provider SDK; (7) `OrderPlaced` carries no currency → billing applies `PaymentProvider:DefaultCurrency` ("USD") until the contract adds one; (8) no `nx.json` release group (follows the `inventory` precedent).
 **Parallelism:** independent — consumes only the existing `OrderPlaced` contract.
 
 > Scope brief, not a finished plan. Run the full SDD cycle, mirroring **order**/**basket**. Read `src/services/AGENTS.md` and `COORDINATION.md` first. Note this is the **operations** group, not commerce — but the same clean-architecture + conventions apply; do not reference commerce services directly (share via events only).
