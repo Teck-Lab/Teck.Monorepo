@@ -3,6 +3,7 @@ using Gateway.Public.Edge;
 using Keycloak.AuthServices.Authentication;
 using SharedKernel.Grpc.Contracts.Remote.V1.Tenants;
 using SharedKernel.Infrastructure.Auth;
+using SharedKernel.Infrastructure.Hosting;
 using Teck.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -65,7 +66,7 @@ app.UseAuthorization();
 app.MapReverseProxy(proxy => proxy.UseMiddleware<EdgeEnforcementMiddleware>());
 app.MapDefaultEndpoints();
 
-await app.RunAsync();
+return await app.RunTeckServiceAsync(args);
 
 /// <summary>
 /// Entry point for the public-gateway host; exposed as a partial class so

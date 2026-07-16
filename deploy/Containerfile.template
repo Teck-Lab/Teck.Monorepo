@@ -11,6 +11,9 @@ ARG SERVICE_NAME
 ARG PROJECT_PATH
 ARG VERSION
 ARG TARGETARCH
+# ReadyToRun (crossgen2) is the slow part of publish; release builds enable it, but
+# preview/prerelease builds pass false to stay fast (IL-only, JIT at runtime).
+ARG PUBLISH_READYTORUN=true
 WORKDIR /src
 
 # Map the Docker TARGETARCH to a .NET runtime identifier for R2R publishing.
@@ -23,33 +26,43 @@ RUN case "$TARGETARCH" in \
 # Copy the repository and restore (host-arch) so WolverineFx has a runnable
 # assembly to execute for code generation.
 COPY . .
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    --mount=type=cache,target=/root/.local/share/NuGet/v3-cache \
+RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
+    --mount=type=cache,target=/root/.local/share/NuGet/v3-cache,sharing=locked \
     dotnet restore "$PROJECT_PATH"
 
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    --mount=type=cache,target=/root/.local/share/NuGet/v3-cache \
+RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
+    --mount=type=cache,target=/root/.local/share/NuGet/v3-cache,sharing=locked \
     dotnet build "$PROJECT_PATH" -c Release --no-restore /p:Version="$VERSION"
 
-# Emit WolverineFx generated handlers into the project tree (executes the Host).
+# Emit WolverineFx generated handlers into the project tree (executes the Host via
+# JasperFx's codegen command). Client-only services (e.g. the gateway) register no
+# WolverineFx code collections, so codegen aborts with a non-zero exit and nothing to
+# do - tolerate ONLY that specific case; any other failure is fatal.
 RUN cd "$(dirname "$PROJECT_PATH")" && \
-    dotnet "./bin/Release/net10.0/${SERVICE_NAME}.Host.dll" codegen write
+    if out=$(dotnet "./bin/Release/net10.0/${SERVICE_NAME}.dll" codegen write 2>&1); then \
+        printf '%s\n' "$out"; \
+    elif printf '%s' "$out" | grep -q 'No registered ICodeFileCollection'; then \
+        printf '%s\n' "$out"; \
+        echo 'codegen: no WolverineFx code collections (client-only service) - skipping'; \
+    else \
+        printf '%s\n' "$out"; exit 1; \
+    fi
 
 # Publish ReadyToRun for the target architecture. Framework-dependent
 # (--self-contained false) to stay small on the chiseled runtime. The publish
 # recompiles the generated sources into the assembly; with TypeLoadMode.Static
 # Wolverine loads them at runtime with no codegen.
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    --mount=type=cache,target=/root/.local/share/NuGet/v3-cache \
+RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
+    --mount=type=cache,target=/root/.local/share/NuGet/v3-cache,sharing=locked \
     RID="$(cat /tmp/rid)" && \
     dotnet publish "$PROJECT_PATH" -c Release -o /app/publish \
         -r "$RID" --self-contained false \
-        -p:PublishReadyToRun=true /p:Version="$VERSION"
+        -p:PublishReadyToRun="$PUBLISH_READYTORUN" /p:Version="$VERSION"
 
 # Normalise the native apphost to a fixed name so the shell-free runtime image
 # can use an exec-form entrypoint. The apphost embeds its managed assembly name
 # at publish time, so renaming the executable file is safe.
-RUN cp "/app/publish/${SERVICE_NAME}.Host" /app/publish/apphost
+RUN cp "/app/publish/${SERVICE_NAME}" /app/publish/apphost
 
 # Chiseled distroless runtime: non-root by default, minimal size, faster pull.
 # The "-extra" variant bundles ICU + tzdata for full globalization (commerce).
@@ -58,7 +71,7 @@ ARG SERVICE_NAME
 ARG VERSION=0.0.0
 WORKDIR /app
 
-LABEL org.opencontainers.image.title="${SERVICE_NAME}.Host" \
+LABEL org.opencontainers.image.title="${SERVICE_NAME}" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.vendor="Teck" \
       org.opencontainers.image.description="Teck Monorepo service host"

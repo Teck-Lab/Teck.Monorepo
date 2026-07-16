@@ -32,6 +32,12 @@ jobs:
       - name: Commit format check
         uses: wagoid/commitlint-github-action@v6
 
+      # Resolve the affected base/head for both PR and push-to-main; `nx affected`
+      # otherwise defaults to --base=main, which is not a local ref on the runner
+      # (checkout leaves a detached HEAD) -> "unknown revision 'main'".
+      - name: Derive nx affected SHAs
+        uses: nrwl/nx-set-shas@v4
+
       - name: Affected checks
         run: bun run affected:all
 

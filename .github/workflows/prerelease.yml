@@ -1,0 +1,77 @@
+name: Prerelease (next)
+on:
+  push:
+    branches: [next]
+
+# Prerelease channel. A merge into `next` builds each AFFECTED service as a FLAGGED
+# prerelease through the reusable pipeline in staging mode: SBOM -> Dependency Track
+# (flagged, DT project version `next`), image tagged `:next` + `:sha-<short>`, no gate
+# (pre-releases may contain vulnerabilities, just flagged). GA is cut separately when a
+# `ready-to-release` PR merges (release-candidate.yml); plain merges to main do NOT
+# auto-release.
+permissions:
+  contents: read
+
+concurrency:
+  group: prerelease-next
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    name: Discover affected services
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.discover.outputs.matrix }}
+      has-services: ${{ steps.discover.outputs.has-services }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Discover affected services
+        id: discover
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          # First push of the branch reports an all-zero "before"; fall back to all.
+          if [ -n "$BEFORE_SHA" ] && ! printf '%s' "$BEFORE_SHA" | grep -qE '^0+$'; then
+            affected=$(bunx nx show projects --affected --base="$BEFORE_SHA" --head="$HEAD_SHA" --json 2>/dev/null || echo "")
+            [ -n "$affected" ] && export NX_AFFECTED="$affected"
+          fi
+          services=$(.github/scripts/discover-services.sh)
+          count=$(echo "$services" | jq 'length')
+          echo "matrix=$(echo "$services" | jq -c '{include: .}')" >> "$GITHUB_OUTPUT"
+          echo "has-services=$([ "$count" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  prerelease:
+    name: Prerelease ${{ matrix.product }}
+    needs: discover
+    if: needs.discover.outputs.has-services == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/reusable-build-sign-sbom.yml
+    with:
+      service-group: ${{ matrix.group }}
+      service-name: ${{ matrix.service }}
+      nx-project: ${{ matrix.nxProject }}
+      project-path: ${{ matrix.projectPath }}
+      version: ${{ matrix.baseVersion }}-next.${{ github.run_number }}
+      source-ref: ${{ github.sha }}
+      publish-mode: staging # flagged, no gate
+      staging-tag: next # moving `:next` tag; reusable also stamps `:sha-<short>`
+      is-latest: false
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+      dependencytrack-api-key: ${{ secrets.DEPENDENCYTRACK_API_KEY }}
