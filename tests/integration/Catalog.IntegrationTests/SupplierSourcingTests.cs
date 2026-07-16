@@ -48,6 +48,37 @@ public sealed class SupplierSourcingTests : CatalogIntegrationTestBase
     }
 
     [Fact]
+    public async Task SetPreferredSupplier_AfterLink_ReturnsNoContent()
+    {
+        var createdProduct = await Client.PostAsJsonAsync("/products", new
+        {
+            Name = "Preferred", Description = (string?)null, CategoryId = (Guid?)null,
+            Sku = "PREF-1", SellPriceAmount = 8m, SellPriceCurrency = "USD",
+        });
+        var product = await createdProduct.Content.ReadFromJsonAsync<ProductDto>();
+        var variantId = product!.Variants[0].Id;
+
+        var createdSupplier = await Client.PostAsJsonAsync("/suppliers", new
+        {
+            Name = "PrefCo", ContactEmail = (string?)null, ContactPhone = (string?)null,
+        });
+        var supplier = await createdSupplier.Content.ReadFromJsonAsync<SupplierDto>();
+
+        var link = await Client.PostAsJsonAsync($"/variants/{variantId}/suppliers", new
+        {
+            VariantId = variantId, SupplierId = supplier!.Id, CostAmount = 3m, CostCurrency = "USD",
+            SupplierSku = "PC-1", LeadTimeDays = 2, MinOrderQuantity = 1, IsPreferred = false,
+        });
+        Assert.Equal(HttpStatusCode.Created, link.StatusCode);
+
+        var preferred = await Client.PutAsJsonAsync(
+            $"/variants/{variantId}/suppliers/{supplier.Id}/preferred",
+            new { VariantId = variantId, SupplierId = supplier.Id });
+
+        Assert.Equal(HttpStatusCode.NoContent, preferred.StatusCode);
+    }
+
+    [Fact]
     public async Task UpdateSupplierCost_WritesHistoryRow()
     {
         var createdProduct = await Client.PostAsJsonAsync("/products", new
