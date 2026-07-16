@@ -29,14 +29,14 @@ public sealed class Invoice : BaseEntity, IAggregateRoot, ITenantScoped
     /// <summary>Gets the invoice lines.</summary>
     public IReadOnlyList<InvoiceLine> Lines => _lines;
 
-    /// <summary>Creates a new invoice.</summary>
+    /// <summary>Creates a new invoice, building its owned <see cref="InvoiceLine"/>s from the supplied input data.</summary>
     /// <param name="tenantId">The owning tenant identifier.</param>
     /// <param name="orderId">The identifier of the order this invoice was issued for.</param>
     /// <param name="total">The total invoiced amount.</param>
-    /// <param name="lines">The invoice lines.</param>
+    /// <param name="lines">The input data for the invoice lines.</param>
     /// <param name="issuedAt">The timestamp at which the invoice was issued.</param>
     /// <returns>The newly created invoice.</returns>
-    public static Invoice Create(string tenantId, Guid orderId, Money total, IEnumerable<InvoiceLine> lines, DateTimeOffset issuedAt)
+    public static Invoice Create(string tenantId, Guid orderId, Money total, IEnumerable<InvoiceLineInput> lines, DateTimeOffset issuedAt)
     {
         ArgumentNullException.ThrowIfNull(total);
         ArgumentNullException.ThrowIfNull(lines);
@@ -44,6 +44,15 @@ public sealed class Invoice : BaseEntity, IAggregateRoot, ITenantScoped
         if (orderId == Guid.Empty)
         {
             throw new ArgumentException("OrderId is required.", nameof(orderId));
+        }
+
+        var invoiceLines = lines
+            .Select(line => InvoiceLine.Create(line.ProductId, line.Description, line.Quantity, line.UnitPrice))
+            .ToList();
+
+        if (invoiceLines.Count == 0)
+        {
+            throw new ArgumentException("Invoice must contain at least one line.", nameof(lines));
         }
 
         var invoice = new Invoice
@@ -54,12 +63,7 @@ public sealed class Invoice : BaseEntity, IAggregateRoot, ITenantScoped
             IssuedAt = issuedAt,
         };
 
-        invoice._lines.AddRange(lines);
-
-        if (invoice._lines.Count == 0)
-        {
-            throw new ArgumentException("Invoice must contain at least one line.", nameof(lines));
-        }
+        invoice._lines.AddRange(invoiceLines);
 
         return invoice;
     }

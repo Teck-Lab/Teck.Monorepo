@@ -14,7 +14,7 @@ public sealed class InvoiceTests
         var total = new Money(30.00m, "USD");
         var issuedAt = DateTimeOffset.UtcNow;
         var productId = Guid.NewGuid();
-        var line = InvoiceLine.Create(productId, "Widget", 3, new Money(10.00m, "USD"));
+        var line = new InvoiceLineInput(productId, "Widget", 3, new Money(10.00m, "USD"));
 
         var invoice = Invoice.Create(tenantId, orderId, total, [line], issuedAt);
 
@@ -43,7 +43,7 @@ public sealed class InvoiceTests
     public void Create_EmptyOrderId_Throws()
     {
         var total = new Money(10.00m, "USD");
-        var line = InvoiceLine.Create(Guid.NewGuid(), "Widget", 1, new Money(10.00m, "USD"));
+        var line = new InvoiceLineInput(Guid.NewGuid(), "Widget", 1, new Money(10.00m, "USD"));
 
         Assert.Throws<ArgumentException>(() =>
             Invoice.Create("tenant-1", Guid.Empty, total, [line], DateTimeOffset.UtcNow));
@@ -53,35 +53,49 @@ public sealed class InvoiceTests
     public void Create_MultipleLines_PreservesOrder()
     {
         var total = new Money(50.00m, "USD");
-        var lineA = InvoiceLine.Create(Guid.NewGuid(), "Widget A", 1, new Money(20.00m, "USD"));
-        var lineB = InvoiceLine.Create(Guid.NewGuid(), "Widget B", 2, new Money(15.00m, "USD"));
+        var productIdA = Guid.NewGuid();
+        var productIdB = Guid.NewGuid();
+        var lineA = new InvoiceLineInput(productIdA, "Widget A", 1, new Money(20.00m, "USD"));
+        var lineB = new InvoiceLineInput(productIdB, "Widget B", 2, new Money(15.00m, "USD"));
 
         var invoice = Invoice.Create("tenant-1", Guid.NewGuid(), total, [lineA, lineB], DateTimeOffset.UtcNow);
 
         Assert.Equal(2, invoice.Lines.Count);
-        Assert.Same(lineA, invoice.Lines[0]);
-        Assert.Same(lineB, invoice.Lines[1]);
+        Assert.Equal(productIdA, invoice.Lines[0].ProductId);
+        Assert.Equal(productIdB, invoice.Lines[1].ProductId);
     }
-}
 
-public sealed class InvoiceLineTests
-{
     [Fact]
-    public void Create_RejectsEmptyProductId() =>
+    public void Create_LineWithEmptyProductId_Throws()
+    {
+        var total = new Money(10.00m, "USD");
+        var line = new InvoiceLineInput(Guid.Empty, "Widget", 1, new Money(10.00m, "USD"));
+
         Assert.Throws<ArgumentException>(() =>
-            InvoiceLine.Create(Guid.Empty, "Widget", 1, new Money(10.00m, "USD")));
+            Invoice.Create("tenant-1", Guid.NewGuid(), total, [line], DateTimeOffset.UtcNow));
+    }
 
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public void Create_RejectsBlankDescription(string description) =>
+    public void Create_LineWithBlankDescription_Throws(string description)
+    {
+        var total = new Money(10.00m, "USD");
+        var line = new InvoiceLineInput(Guid.NewGuid(), description, 1, new Money(10.00m, "USD"));
+
         Assert.Throws<ArgumentException>(() =>
-            InvoiceLine.Create(Guid.NewGuid(), description, 1, new Money(10.00m, "USD")));
+            Invoice.Create("tenant-1", Guid.NewGuid(), total, [line], DateTimeOffset.UtcNow));
+    }
 
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    public void Create_RejectsNonPositiveQuantity(int quantity) =>
+    public void Create_LineWithNonPositiveQuantity_Throws(int quantity)
+    {
+        var total = new Money(10.00m, "USD");
+        var line = new InvoiceLineInput(Guid.NewGuid(), "Widget", quantity, new Money(10.00m, "USD"));
+
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            InvoiceLine.Create(Guid.NewGuid(), "Widget", quantity, new Money(10.00m, "USD")));
+            Invoice.Create("tenant-1", Guid.NewGuid(), total, [line], DateTimeOffset.UtcNow));
+    }
 }
