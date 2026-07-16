@@ -16,7 +16,9 @@ public sealed class CustomerIdentityAccessor(IHttpContextAccessor httpContextAcc
         {
             var context = httpContextAccessor.HttpContext;
             if (context is null)
+            {
                 return null;
+            }
 
             return context.User?.FindFirstValue("sub") ?? context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
         }
