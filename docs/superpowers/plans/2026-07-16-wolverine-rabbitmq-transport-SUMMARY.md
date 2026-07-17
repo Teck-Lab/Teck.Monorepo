@@ -56,6 +56,15 @@ here for review confirmation. If review prefers Option B (bridge-canonical), the
 configurator/order changes should be reverted and the larger refactor (converting every producer to
 raise-then-bridge-publish) taken instead.
 
+> **Correction (transactional-outbox honesty).** The clause above — "still gets transactional
+> publishing automatically once the outbox is on" — does **not** hold with the current wiring, and is
+> retained only to show the original reasoning. Investigation (see Known issues → "Publish-after-save
+> is not transactional") found no auto-applied outbox transaction: `AutoApplyTransactions()` is never
+> called, no handler is `[Transactional]` or uses `IDbContextOutbox`, and handlers depend on
+> `IUnitOfWork`/`IGenericWriteRepository` rather than a Wolverine-visible `DbContext`. So the explicit
+> `SaveChangesAsync` commits first and the envelope is persisted afterward — a real (narrow)
+> event-loss window if the process crashes between the two.
+
 ## Standalone / local-only boot — confirmed intact (Task 5)
 
 - **Unit level:** `TeckMessagingExtensionsTests.ShouldUseBroker_*` and
@@ -84,7 +93,46 @@ configured.`)**. Confirmed pre-existing and unrelated to this branch:
 - Re-ran the same test project against a clean checkout of `main` (commit `1451bce`) in an isolated
   worktree: identical failure, same 3 tests, same exception, same stack trace.
 
+## Release gate — before any production deploy
+
+**Turning the transport on does NOT by itself make order/inventory (or any wired service)
+production-deployable.** This branch makes cross-service messaging *functional* (proven by the
+Testcontainers suites), but the following MUST be resolved/verified before a production deploy — none
+are fixed here:
+
+1. **Fix the `--migrate` EF-migration path (tracked follow-up, BLOCKING).** The `--migrate` init
+   container that is supposed to create each service's EF **entity** schema is pre-existingly broken:
+   no code handles the `--migrate` argument, JasperFx treats it as an unknown flag, and the process
+   exits **code 1** (it does not migrate and does not no-op). Until this is wired to a real EF-migration
+   command, production has no entity schema, so the service cannot serve. (The `wolverine` message-store
+   schema is unaffected — it self-creates on normal boot — but that does not create the entity tables.)
+2. **Verify the production runtime DB role has DDL rights to create the `wolverine` schema.**
+   `AutoBuildMessageStorageOnStartup = AutoCreate.CreateOrUpdate` runs idempotent, advisory-lock-guarded
+   `CREATE SCHEMA/TABLE` at startup **as the runtime user** (not the migration user). If the production
+   role lacks DDL privileges, the first boot fails. This must be confirmed per environment; nothing in
+   this repo guarantees it.
+3. **Confirm CI actually runs the Docker/Testcontainers suites.** `CrossService.IntegrationTests`
+   (tenant-crosses-the-wire) and `MessageStoreSchemaTests` (schema self-creation) are the **only**
+   regression protection for those two guarantees. They require Docker on the CI runner and are
+   **silently skipped** if it is absent — a green pipeline without them proves nothing. Verify the
+   runner has Docker and that these suites executed (not skipped) before trusting the gate.
+
 ## Known deferrals / issues (unchanged by this branch, listed for the PR)
+
+- **Publish-after-save is not transactional — real (narrow) event-loss window (pre-existing, now
+  load-bearing).** Command handlers do `await unitOfWork.SaveChangesAsync(ct)` then
+  `await bus.PublishAsync(...)`. This is a dual write, not a transactional outbox: `ConfigureCoreRuntime`
+  calls `UseEntityFrameworkCoreTransactions()` (which only takes effect *inside* Wolverine's
+  transactional middleware), but `AutoApplyTransactions()` is never called, no handler is
+  `[Transactional]` or uses `IDbContextOutbox`, and handlers depend on `IUnitOfWork`/
+  `IGenericWriteRepository` rather than a Wolverine-visible `DbContext` (so Wolverine cannot even detect
+  them to auto-wrap). The explicit `SaveChangesAsync` therefore commits the entity first and the outbox
+  envelope is persisted **afterward** by the plain `IMessageBus.PublishAsync`; a crash in between loses
+  the event. At-least-once guards duplicate *delivery*, not this *produce*-side loss window. Pre-existing
+  (predates this branch) but becomes load-bearing now the transport is on. Follow-up (out of scope here):
+  turn on `AutoApplyTransactions()` + make handlers stage the publish in the same `SaveChanges` (via a
+  Wolverine-visible DbContext / `IDbContextOutbox` / cascaded return message), then prove it with a
+  crash-injection test. See the plan's Risks section for the full write-up.
 
 - **Billing (#15) + Task 3b.** `billing` doesn't exist on this branch — it's built separately on
   `worktree-billing-service`/PR #15. Once billing merges to `main` and is wired to `AddTeckMessaging`,
@@ -107,8 +155,15 @@ configured.`)**. Confirmed pre-existing and unrelated to this branch:
   actually uses Redis-backed idempotency or license enforcement. Not fixed here (explicitly out of scope
   per the brief).
 - **`customer` is wired but event-less.** The `customer` host now calls `AddTeckMessaging` (transport is
-  live for it), but `customer` has no producer or consumer integration-event handlers on `main` today —
-  wiring it is forward-looking infrastructure, not a functional change for that service yet.
+  live for it) and consequently now scans `Customers.Application` for Wolverine handlers via
+  `Discovery.IncludeAssembly`, but `customer` has no producer or consumer integration-event handlers on
+  `main` today — the scan finds nothing to publish/consume, so this is benign, forward-looking
+  infrastructure rather than a functional change for that service yet.
+- **`ConfigureStatelessRuntime` is currently unreachable.** `AddTeckMessaging` only ever selects
+  `ConfigureStandardRuntime` (rabbitmq present) or `ConfigureLocalOnlyRuntime` (absent); it never calls
+  `ConfigureStatelessRuntime`. That stateless (no-durable-persistence) path is pre-existing dead code on
+  this branch, kept deliberately for future stateless services (e.g. image-generator/statistic/workers)
+  and not wired to any host yet.
 - **`Gateway.Public.IntegrationTests` pre-existing failure.** See gate section above — 3/3 tests fail with
   "server has not been started" identically on `main`; unrelated to messaging, not touched by this branch,
   not fixed here.

@@ -57,9 +57,11 @@ to route to RabbitMQ exchanges named after internal types — leaking domain int
   `bus.PublishAsync` in command handlers. In the shared runtime, **drop**
   `PublishDomainEventsFromEntityFrameworkCore` (or restrict the bridge so it never routes internal
   domain events outward). Delete `order`'s redundant `DomainEvents/OrderPlacedHandler`. Net: one file
-  removed, one line removed from the shared runtime; every service already conforms. The manual
+  removed, one line removed from the shared runtime; every service already conforms. ⚠️ The manual
   publishes become transactional automatically once the outbox is on (they run inside the Wolverine
-  handler's auto-applied outbox transaction).
+  handler's auto-applied outbox transaction). **[CORRECTION — see Risks: this assumption is false with
+  the current wiring; no auto-applied outbox transaction exists, so publish-after-save has a real
+  event-loss window. Left here verbatim to show the original reasoning.]**
 - **Option B — domain-event-bridge canonical (bigger, arguably "more correct").** Keep the bridge.
   Convert *every* producer to raise a domain event and publish the integration event from a
   `DomainEvents/*Handler` (like order already does), and **remove** all the manual `bus.PublishAsync`
@@ -70,7 +72,9 @@ to route to RabbitMQ exchanges named after internal types — leaking domain int
 internal domain events off the wire, and still gets transactional publishing via the outbox. Option B
 is a larger refactor for a marginal purity gain and expands this task's blast radius across every
 producer. **Whichever is chosen, Task 1 must resolve it before wiring any host — otherwise the Task 2
-pilot double-reserves.**
+pilot double-reserves.** (Note: the "still gets transactional publishing via the outbox" clause above
+is inaccurate with the current wiring — see the Risks section's transactional-outbox entry; neither
+option is transactional today without also turning on the transactional middleware.)
 
 > **DECISION (2026-07-17): Option A chosen** and implemented in this branch, autonomously while the
 > author was away, pending review confirmation. Rationale: matches the platform's established
@@ -126,6 +130,28 @@ pilot double-reserves.**
   `TenantPropagationMiddleware`. They are inert (no service registers Redis `IDatabase` or an
   `ILicenseValidator`), so this is a known-issue carryover for the first Redis/license-using service,
   not fixed here.
+- **Publish-after-save is NOT a transactional outbox — real (narrow) event-loss window (pre-existing, now load-bearing).**
+  Command handlers (e.g. `CreateOrderHandler`) do `await unitOfWork.SaveChangesAsync(ct)` and THEN
+  `await bus.PublishAsync(new XIntegrationEvent{...})`. This is **not** atomic: verified by reading the
+  runtime wiring — `ConfigureCoreRuntime` calls `UseEntityFrameworkCoreTransactions()` (which only
+  enables EF-Core-backed transactions *when* Wolverine's transactional middleware runs) but **nothing
+  turns that middleware on**: `AutoApplyTransactions()` is never called anywhere, no handler is marked
+  `[Transactional]`, and no handler uses `IDbContextOutbox`. Additionally, handlers depend on the
+  custom `IUnitOfWork`/`IGenericWriteRepository` abstractions, not on a `DbContext` parameter, so even
+  if `AutoApplyTransactions()` were enabled Wolverine could not detect these as EF-Core handlers to
+  wrap. Consequently the explicit `SaveChangesAsync` commits the entity in its own transaction, and the
+  outgoing envelope is persisted to the outbox **separately, after** that commit, by the plain
+  `IMessageBus.PublishAsync`. A crash between the two loses the event. (Wolverine's documented
+  requirement: the transactional inbox/outbox applies "inside of its transactional middleware in either
+  message handlers or HTTP endpoints", or via `IDbContextOutbox.SaveChangesAndFlushMessagesAsync` —
+  none of which are in effect here.) At-least-once protects against duplicates on the *delivery* side;
+  it does not close this *produce*-side dual-write window. **This corrects the plan's earlier claim
+  (Option A rationale, above) that manual publishes "become transactional automatically once the outbox
+  is on" — they do not, given the current wiring.** Pre-existing (predates this branch) but becomes
+  load-bearing now the transport is actually on. **Follow-up (out of scope here, do NOT fix in the
+  transport task):** either enable `opts.Policies.AutoApplyTransactions()` AND make handlers use a
+  Wolverine-visible DbContext/`IDbContextOutbox` (or return the event as a cascaded message) so the
+  envelope is staged in the same `SaveChanges`, then confirm with a crash-injection/integration test.
 - **Duplicate delivery** — consumers must stay idempotent (Task 4 pre-check).
 - **Poison messages** — `AddTeckDeadLetterPolicy` already provides retry→error-queue; verify it engages once the real transport is on.
 - **Ordering** — conventional routing is per-type; do not assume cross-type ordering. Consumers are already written order-independent.

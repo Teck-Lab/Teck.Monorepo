@@ -160,8 +160,11 @@ public static class WolverinePersistenceConfigurator
         // deploy/AGENTS.md "Messaging / message-store schema"), so the runtime is the only place it
         // can come from. AutoCreate.CreateOrUpdate is idempotent and Wolverine guards the DDL with a
         // Postgres advisory lock, so multiple replicas booting concurrently converge on the same
-        // schema safely rather than racing. The service's own DB user already performs DDL for its
-        // EF schema, so it has the privileges this needs. Kept unconditional deliberately: gating it
+        // schema safely rather than racing. NOTE: this REQUIRES the runtime DB role to have DDL
+        // privileges (CREATE SCHEMA/TABLE) at startup, since the running service — not the `--migrate`
+        // init container — is what creates this schema. That the runtime role has DDL rights must be
+        // verified per environment (see the release gate in the branch SUMMARY); it is not guaranteed
+        // by anything in this repo. Kept unconditional deliberately: gating it
         // on Development (the previous behaviour) left production with no way to create the schema,
         // so the first outbox publish would fail. Only CodeGeneration.TypeLoadMode above stays
         // environment-gated (Static in prod loads the pre-generated Wolverine codegen from the

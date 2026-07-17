@@ -20,8 +20,12 @@ public sealed class TenantPropagationMiddleware(
     private const string TenantHeaderName = "X-TenantId";
 
     /// <summary>
-    /// Executes before the handler, establishing the tenant context from the incoming envelope (or
-    /// stamping the current tenant onto the outgoing envelope) for the duration of the pipeline.
+    /// Executes before the handler, establishing the tenant context for the duration of the pipeline.
+    /// If the envelope being handled carries a tenant id, that id becomes the ambient tenant; otherwise
+    /// the current ambient tenant (if any) is recorded onto the envelope being handled so it is visible
+    /// for the rest of this pipeline. Propagation of the tenant onto messages this handler *publishes*
+    /// is handled separately by Wolverine's context tenant cascade (validated by the cross-service
+    /// integration test), not by this method.
     /// Uses Wolverine's <c>Before</c>/<c>Finally</c> middleware convention: Wolverine wraps the
     /// handler in a generated <c>try/finally</c>, so the returned <see cref="TenantPropagationScope"/>
     /// is handed back to <see cref="Finally"/> to restore the prior context. Wolverine does not
@@ -67,6 +71,11 @@ public sealed class TenantPropagationMiddleware(
         TenantPropagationContext.CurrentTenantId = scope.PreviousTenantId;
     }
 
+    // Despite the name, this stamps the tenant onto the envelope CURRENTLY being handled (the one on
+    // context.Envelope), not onto any message this handler subsequently publishes. It records the
+    // ambient tenant on the in-flight envelope so it is available for the rest of this pipeline.
+    // Producer-side propagation to PUBLISHED messages happens via Wolverine's context tenant cascade
+    // (exercised by the cross-service integration test), not here.
     private static void StampOutgoingTenant(IMessageContext context, string tenantId)
     {
         var envelope = context.Envelope;
