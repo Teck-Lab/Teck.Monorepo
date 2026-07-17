@@ -154,16 +154,19 @@ public static class WolverinePersistenceConfigurator
 
         ConfigureDatabasePersistence(options, writeConnectionString, tenantSource);
 
-        // The `wolverine` message-store schema (outbox/inbox/durable-queue tables) is not an EF
-        // migration. In production it is created by the migrate init container before the runtime
-        // pods start, so the runtime must not attempt DDL at startup (AutoCreate.None) — this keeps
-        // runtime database credentials free of schema-owner privileges and avoids startup races
-        // across replicas. In local/dev and integration tests there is no init container, so let
-        // Wolverine create-or-update the schema on startup. This mirrors the Development gate used
-        // for EF migrations in LocalDatabaseMigrationExtensions.ShouldApplyMigrations.
-        options.AutoBuildMessageStorageOnStartup = isDevelopment
-            ? AutoCreate.CreateOrUpdate
-            : AutoCreate.None;
+        // Build (create-or-update) the `wolverine` message-store schema (outbox/inbox/durable-queue
+        // tables) on startup in EVERY environment. This schema is NOT an EF migration and is NOT
+        // produced by the `--migrate` init container (which today does not create it — see
+        // deploy/AGENTS.md "Messaging / message-store schema"), so the runtime is the only place it
+        // can come from. AutoCreate.CreateOrUpdate is idempotent and Wolverine guards the DDL with a
+        // Postgres advisory lock, so multiple replicas booting concurrently converge on the same
+        // schema safely rather than racing. The service's own DB user already performs DDL for its
+        // EF schema, so it has the privileges this needs. Kept unconditional deliberately: gating it
+        // on Development (the previous behaviour) left production with no way to create the schema,
+        // so the first outbox publish would fail. Only CodeGeneration.TypeLoadMode above stays
+        // environment-gated (Static in prod loads the pre-generated Wolverine codegen from the
+        // Docker build's WolverineCodegenWrite step; Dynamic in dev/tests generates at runtime).
+        options.AutoBuildMessageStorageOnStartup = AutoCreate.CreateOrUpdate;
         options.UseMemoryPackSerialization();
 
         options.UseEntityFrameworkCoreTransactions();
