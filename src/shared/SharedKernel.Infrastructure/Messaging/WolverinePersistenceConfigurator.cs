@@ -118,13 +118,18 @@ public static class WolverinePersistenceConfigurator
         var persistence = options.PersistMessagesWithPostgresql(writeConnectionString, WolverineSchemaName);
         if (tenantSource is not null)
         {
+            // Dynamic per-tenant message stores (a future capability): each tenant resolves to its
+            // own connection string via the supplied source.
             persistence.RegisterTenants(tenantSource);
         }
-        else
-        {
-            persistence.UseMasterTableTenancy(static _ => { });
-        }
 
+        // When no tenant source is supplied the service uses a single, non-partitioned message
+        // store. Teck multi-tenancy is row-level (one database per service; ITenantScoped + EF
+        // global query filters + envelope TenantId propagation), NOT one database per tenant, so
+        // Wolverine's master-table tenancy does not apply. Configuring it with an empty tenant
+        // table (the previous `UseMasterTableTenancy(_ => { })`) leaves the tenant-lookup query
+        // uninitialized and throws "CommandText property has not been initialized" the moment the
+        // message store initializes at startup.
         persistence.OverrideAutoCreateResources(AutoCreate.CreateOrUpdate);
     }
 
@@ -148,7 +153,17 @@ public static class WolverinePersistenceConfigurator
             : TypeLoadMode.Static;
 
         ConfigureDatabasePersistence(options, writeConnectionString, tenantSource);
-        options.AutoBuildMessageStorageOnStartup = AutoCreate.None;
+
+        // The `wolverine` message-store schema (outbox/inbox/durable-queue tables) is not an EF
+        // migration. In production it is created by the migrate init container before the runtime
+        // pods start, so the runtime must not attempt DDL at startup (AutoCreate.None) — this keeps
+        // runtime database credentials free of schema-owner privileges and avoids startup races
+        // across replicas. In local/dev and integration tests there is no init container, so let
+        // Wolverine create-or-update the schema on startup. This mirrors the Development gate used
+        // for EF migrations in LocalDatabaseMigrationExtensions.ShouldApplyMigrations.
+        options.AutoBuildMessageStorageOnStartup = isDevelopment
+            ? AutoCreate.CreateOrUpdate
+            : AutoCreate.None;
         options.UseMemoryPackSerialization();
 
         options.UseEntityFrameworkCoreTransactions();
