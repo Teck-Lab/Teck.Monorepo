@@ -72,13 +72,21 @@ is a larger refactor for a marginal purity gain and expands this task's blast ra
 producer. **Whichever is chosen, Task 1 must resolve it before wiring any host — otherwise the Task 2
 pilot double-reserves.**
 
+> **DECISION (2026-07-17): Option A chosen** and implemented in this branch, autonomously while the
+> author was away, pending review confirmation. Rationale: matches the platform's established
+> sibling pattern, smallest blast radius, reversible on this branch (PR handoff). If review prefers
+> Option B, revert the Task-1 configurator/order changes and take the larger refactor. Task 1 below
+> is written for Option A.
+
 ## Design
 
 1. **One shared entry point, not per-host divergence.** Add `AddTeckMessaging(this IHostApplicationBuilder builder, Assembly handlerAssembly, string writeConnectionName)` (or fold into the existing `UseWolverine` call via a helper) in `SharedKernel.Infrastructure` so every host calls a single line instead of hand-repeating the block. It:
    - resolves the write connection string (same key the service's persistence uses, e.g. `BillingWrite` → fallback `Default`) and the `rabbitmq` connection string;
    - if `rabbitmq` is present → `ConfigureStandardRuntime(opts, isDev, writeConn, NormalizeRabbitConnectionString(rabbit))`;
-   - if absent → local-only path (`ConfigureDatabasePersistence` + `UseDurableLocalQueues` + domain-event bridge, **no** `UseRabbitMq`) so boot succeeds without a broker;
+   - if absent → local-only path (`ConfigureDatabasePersistence` + `UseDurableLocalQueues`, **no** `UseRabbitMq`) so boot succeeds without a broker;
    - always keeps `Discovery.IncludeAssembly(handlerAssembly)`, `AddTeckBehaviors()`, `AddTeckDeadLetterPolicy(...)`.
+   - **(Option A)** neither runtime wires `PublishDomainEventsFromEntityFrameworkCore` — remove it from
+     `ConfigureStandardRuntime`; integration events are published manually in command handlers as today.
 2. **Message-store creation vs `--migrate`.** The `wolverine` schema is created by Wolverine at startup (`CreateOrUpdate`), not by EF migrations. Confirm this coexists with the `--migrate` init-container pattern (either let Wolverine create its schema on normal boot, or add a startup step in the migrate path). Decide and document; do NOT let two mechanisms fight over the schema.
 3. **Conventional routing agreement.** Producer and consumer both use `UseConventionalRouting()` and share the `SharedKernel.Events` contract types, so exchange/queue names line up automatically. No per-event binding config.
 4. **At-least-once + idempotency.** RabbitMQ + the durable outbox deliver at-least-once; consumers already guard re-delivery by business key (inventory: reservation-by-source; billing: payment-by-OrderId unique index). Verify every existing integration-event consumer is idempotent before enabling (they are, but re-check).
