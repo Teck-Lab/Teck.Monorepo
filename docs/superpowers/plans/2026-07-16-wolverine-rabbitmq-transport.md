@@ -31,6 +31,47 @@
 
 A bare `UseRabbitMq(...)` makes the broker a **hard startup dependency**. Running a single service standalone (`dotnet run`, or a unit-of-service dev loop) without Aspire/broker would then crash on boot. The wiring must be **config-gated**: attach the transport only when a `rabbitmq` connection string is present; otherwise fall back to local-only durable queues so standalone dev and existing single-host integration tests keep working.
 
+## ⚠️ BLOCKING DESIGN FORK (discovered 2026-07-17 during Task 1 groundwork) — decide before implementing
+
+`ConfigureStandardRuntime` (which this task turns on in every host) includes
+`PublishDomainEventsFromEntityFrameworkCore<BaseEntity>(e => e.DomainEvents)` — an EF→Wolverine
+bridge that publishes every entity **domain** event onto the bus after `SaveChanges`. But the
+codebase does **not** currently use that bridge. Verified state on `main`:
+
+- **Every producer** (basket, catalog, inventory, pricing, order) publishes its **integration**
+  events with a **manual `bus.PublishAsync(new XIntegrationEvent{...})` inside the command handler**,
+  after `SaveChangesAsync`. This is the consistent, working, platform-wide mechanism.
+- **Only `order`** *additionally* has `Orders.Application/.../EventHandlers/DomainEvents/OrderPlacedHandler`
+  that republishes `OrderPlacedIntegrationEvent` off the `OrderPlaced` **domain** event (raised by
+  `Order.Create`). It is inert today because no host wires the bridge.
+
+**The collision:** the instant this task wires the bridge, `order` publishes
+`OrderPlacedIntegrationEvent` **twice** (manual handler + domain-event handler) → inventory reserves
+stock twice; billing (once merged + live) would capture payment twice. The bridge also broadcasts
+every service's *internal* domain-event types onto the bus, which `UseConventionalRouting()` would try
+to route to RabbitMQ exchanges named after internal types — leaking domain internals across the wire.
+
+**Two valid resolutions (pick one — this is the platform's canonical event-publishing model):**
+
+- **Option A — manual-publish canonical (smaller, matches the codebase).** Keep the manual
+  `bus.PublishAsync` in command handlers. In the shared runtime, **drop**
+  `PublishDomainEventsFromEntityFrameworkCore` (or restrict the bridge so it never routes internal
+  domain events outward). Delete `order`'s redundant `DomainEvents/OrderPlacedHandler`. Net: one file
+  removed, one line removed from the shared runtime; every service already conforms. The manual
+  publishes become transactional automatically once the outbox is on (they run inside the Wolverine
+  handler's auto-applied outbox transaction).
+- **Option B — domain-event-bridge canonical (bigger, arguably "more correct").** Keep the bridge.
+  Convert *every* producer to raise a domain event and publish the integration event from a
+  `DomainEvents/*Handler` (like order already does), and **remove** all the manual `bus.PublishAsync`
+  calls from command handlers. Ensure internal domain events are not conventionally routed to RabbitMQ
+  (explicit local-only routing for `IDomainEvent` types). Net: touches all 5 producers + routing config.
+
+**Recommendation: Option A.** It matches what 5 of 5 services already do, is a ~2-file change, keeps
+internal domain events off the wire, and still gets transactional publishing via the outbox. Option B
+is a larger refactor for a marginal purity gain and expands this task's blast radius across every
+producer. **Whichever is chosen, Task 1 must resolve it before wiring any host — otherwise the Task 2
+pilot double-reserves.**
+
 ## Design
 
 1. **One shared entry point, not per-host divergence.** Add `AddTeckMessaging(this IHostApplicationBuilder builder, Assembly handlerAssembly, string writeConnectionName)` (or fold into the existing `UseWolverine` call via a helper) in `SharedKernel.Infrastructure` so every host calls a single line instead of hand-repeating the block. It:
