@@ -98,14 +98,34 @@ pilot double-reserves.**
 - [ ] **Task 2 — pilot on one producer/consumer pair.** Wire `order` (produces `OrderPlaced`) and `inventory` (consumes it) to `AddTeckMessaging`. Add an integration test that boots both (or uses the Aspire AppHost harness) and asserts an order placed on `order` results in inventory reserving stock — i.e. the event actually crosses the wire. This proves the transport end-to-end before rollout.
 - [ ] **Task 3 — roll out to all remaining hosts** (`basket`, `catalog`, `pricing`, `customer`, `billing`, gateway if it publishes) — one-line change each; build + each service's integration suite green.
 - [ ] **Task 3b — harden billing's capture against concurrency (prerequisite for billing going live).** Turning on the transport makes concurrent `OrderPlaced` redelivery real, which exposes billing's read-then-act idempotency race (documented in `services/billing.md`): two concurrent captures for the same `OrderId` both pass the guard → the second `SaveChangesAsync` hits the unique `IX_payments_OrderId` (unhandled 500) and a real provider is charged twice. Before enabling billing's consumer end-to-end: (a) in `CapturePaymentHandler`, catch the unique-constraint violation (`EntityFramework.Exceptions` `UniqueConstraintException` — `BaseDbContext` already calls `UseExceptionProcessor()`) on save → re-read by `OrderId` → return the existing payment; (b) pass `OrderId` as a provider idempotency key so the real provider dedupes. Add a concurrency test now that this is exercisable with the real transport.
-- [ ] **Task 4 — message-store / migrate reconciliation.** Verify the `wolverine` schema is created correctly under both normal boot and the `--migrate` init-container flow on a fresh DB; document the outcome in `deploy/AGENTS.md`.
+- [x] **Task 4 — message-store / migrate reconciliation.** DONE. Decision: the `wolverine` message
+  store self-creates on host startup in **every** environment via
+  `AutoBuildMessageStorageOnStartup = AutoCreate.CreateOrUpdate` (unconditional; the previous
+  Development-only gate is removed — it left production with no way to create the schema). This is
+  idempotent + advisory-lock-guarded, so concurrent replicas are safe, and it removes any dependency
+  on an init-container step for the message store. `CodeGeneration.TypeLoadMode` stays
+  environment-gated (Dynamic dev/tests, Static prod). Verified by `MessageStoreSchemaTests`
+  (Inventory.IntegrationTests) asserting the `wolverine_*` envelope tables exist in
+  `information_schema.tables` after a real broker-backed boot. Finding on `--migrate`: no code handles
+  it today — `RunJasperFxCommands(["--migrate"])` treats it as an unknown flag on the default `run`
+  command and, with `AutoStartHost=false` in a real host, exits **code 1** (init container fails; it
+  does NOT migrate and does NOT no-op). **Wiring a real EF-migration command onto the `--migrate`
+  init container is a deferred follow-up** (out of scope; the message store does not depend on it).
+  Full schema-ownership split documented in `deploy/AGENTS.md` → "Messaging / message-store schema".
 - [ ] **Task 5 — standalone-dev + single-host-test regression check.** Confirm every service still boots with NO `rabbitmq` connection string (local-only fallback) so `dotnet run` and existing single-host integration tests are unaffected.
 - [ ] **Task 6 — full gate + docs.** `nx affected -t build test`; update `CLAUDE.md`/`src/services/AGENTS.md` messaging notes (remove "transport not wired platform-wide" caveats); note that `billing`/`inventory` consumers are now live. PR against `main`.
 
 ## Risks / watch-items
 
 - **Broker as hard dependency** — mitigated by the config gate (Task 1 + Task 5).
-- **Schema ownership** — Wolverine `CreateOrUpdate` vs EF `--migrate` (Task 4).
+- **Schema ownership** — RESOLVED (Task 4): Wolverine message store self-creates on boot
+  (`CreateOrUpdate`, all envs); EF `--migrate` init-container command is unimplemented today (exits 1)
+  and its real EF-migration wiring is a deferred follow-up. See `deploy/AGENTS.md`.
+- **Dormant middleware `next`-shape bug** — `IdempotencyMiddleware` / `LicenseEnforcementMiddleware`
+  still use the invalid ASP.NET-style `next`-delegate shape that Task 2 fixed in
+  `TenantPropagationMiddleware`. They are inert (no service registers Redis `IDatabase` or an
+  `ILicenseValidator`), so this is a known-issue carryover for the first Redis/license-using service,
+  not fixed here.
 - **Duplicate delivery** — consumers must stay idempotent (Task 4 pre-check).
 - **Poison messages** — `AddTeckDeadLetterPolicy` already provides retry→error-queue; verify it engages once the real transport is on.
 - **Ordering** — conventional routing is per-type; do not assume cross-type ordering. Consumers are already written order-independent.
