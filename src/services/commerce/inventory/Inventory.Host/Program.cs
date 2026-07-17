@@ -4,11 +4,8 @@ using Inventories.Host.Database;
 using Inventories.Host.Infrastructure;
 using Keycloak.AuthServices.Authentication;
 using SharedKernel.Infrastructure.Auth;
-using SharedKernel.Infrastructure.Behaviors;
 using SharedKernel.Infrastructure.Hosting;
-using SharedKernel.Infrastructure.Messaging.DeadLetter;
 using Teck.ServiceDefaults;
-using Wolverine;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
@@ -19,15 +16,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHostedService<ReservationExpirySweepService>();
 builder.Services.AddKeycloak(builder.Configuration, builder.Environment,
     builder.Configuration.GetSection("Keycloak").Get<KeycloakAuthenticationOptions>()!);
-builder.Host.UseWolverine(opts =>
-{
-    // Command, query and event handlers live in the Inventories.Application assembly, but Wolverine
-    // only scans the entry assembly (Inventory.Host) by default. Include the application assembly so
-    // handlers are discovered at runtime in every environment (not only in tests).
-    opts.Discovery.IncludeAssembly(typeof(InventoryDbContext).Assembly);
-    opts.AddTeckBehaviors();
-    opts.AddTeckDeadLetterPolicy(new DeadLetterOptions());
-});
+builder.AddTeckMessaging(typeof(InventoryDbContext).Assembly, "InventoryWrite");
 var app = builder.Build();
 app.UseTeckService();
 app.MapDefaultEndpoints();
