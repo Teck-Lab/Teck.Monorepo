@@ -1,6 +1,6 @@
 # Platform Task: Wire the WolverineFx → RabbitMQ Transport
 
-> **Type:** platform-wide messaging enablement (spans every service host). **Status:** 📁 planned. **Branch:** `worktree-wolverine-rabbitmq-transport` (own worktree, own PR — not a per-service change).
+> **Type:** platform-wide messaging enablement (spans every service host). **Status:** 🟢 implemented on branch (Tasks 1-6); billing wiring + Task 3b concurrent-capture hardening deferred to PR #15 merge. **Branch:** `worktree-wolverine-rabbitmq-transport` (own worktree, own PR — not a per-service change).
 > **REQUIRED SUB-SKILL:** superpowers:executing-plans or subagent-driven-development.
 
 **Goal:** Actually turn on cross-service messaging. Today every integration-event handler (`inventory` consuming `OrderPlaced`/`BasketCheckedOut`, and — once built — `billing` consuming `OrderPlaced`) is **discovered but inert**: no host attaches the RabbitMQ transport, so `bus.PublishAsync(...)` never leaves the process and no consumer ever receives a cross-service message. This task attaches the transport + durable Postgres outbox to every service host so published integration events flow producer → RabbitMQ → consumer.
@@ -94,9 +94,9 @@ pilot double-reserves.**
 
 ## Tasks
 
-- [ ] **Task 1 — shared `AddTeckMessaging` extension** in `SharedKernel.Infrastructure/Hosting` (or `/Messaging`): the config-gated wiring above, with the local-only fallback. Unit-test the connection-string resolution + gating logic (present → standard, absent → local-only).
-- [ ] **Task 2 — pilot on one producer/consumer pair.** Wire `order` (produces `OrderPlaced`) and `inventory` (consumes it) to `AddTeckMessaging`. Add an integration test that boots both (or uses the Aspire AppHost harness) and asserts an order placed on `order` results in inventory reserving stock — i.e. the event actually crosses the wire. This proves the transport end-to-end before rollout.
-- [ ] **Task 3 — roll out to all remaining hosts** (`basket`, `catalog`, `pricing`, `customer`, `billing`, gateway if it publishes) — one-line change each; build + each service's integration suite green.
+- [x] **Task 1 — shared `AddTeckMessaging` extension** in `SharedKernel.Infrastructure/Hosting` (or `/Messaging`): the config-gated wiring above, with the local-only fallback. Unit-test the connection-string resolution + gating logic (present → standard, absent → local-only).
+- [x] **Task 2 — pilot on one producer/consumer pair.** Wire `order` (produces `OrderPlaced`) and `inventory` (consumes it) to `AddTeckMessaging`. Add an integration test that boots both (or uses the Aspire AppHost harness) and asserts an order placed on `order` results in inventory reserving stock — i.e. the event actually crosses the wire. This proves the transport end-to-end before rollout.
+- [x] **Task 3 — roll out to all remaining hosts** (`basket`, `catalog`, `pricing`, `customer`, `billing`, gateway if it publishes) — one-line change each; build + each service's integration suite green. DONE for basket/catalog/pricing/customer (`billing` does not exist on this branch — deferred until #15 merges; gateway does not publish).
 - [ ] **Task 3b — harden billing's capture against concurrency (prerequisite for billing going live).** Turning on the transport makes concurrent `OrderPlaced` redelivery real, which exposes billing's read-then-act idempotency race (documented in `services/billing.md`): two concurrent captures for the same `OrderId` both pass the guard → the second `SaveChangesAsync` hits the unique `IX_payments_OrderId` (unhandled 500) and a real provider is charged twice. Before enabling billing's consumer end-to-end: (a) in `CapturePaymentHandler`, catch the unique-constraint violation (`EntityFramework.Exceptions` `UniqueConstraintException` — `BaseDbContext` already calls `UseExceptionProcessor()`) on save → re-read by `OrderId` → return the existing payment; (b) pass `OrderId` as a provider idempotency key so the real provider dedupes. Add a concurrency test now that this is exercisable with the real transport.
 - [x] **Task 4 — message-store / migrate reconciliation.** DONE. Decision: the `wolverine` message
   store self-creates on host startup in **every** environment via
@@ -112,8 +112,8 @@ pilot double-reserves.**
   does NOT migrate and does NOT no-op). **Wiring a real EF-migration command onto the `--migrate`
   init container is a deferred follow-up** (out of scope; the message store does not depend on it).
   Full schema-ownership split documented in `deploy/AGENTS.md` → "Messaging / message-store schema".
-- [ ] **Task 5 — standalone-dev + single-host-test regression check.** Confirm every service still boots with NO `rabbitmq` connection string (local-only fallback) so `dotnet run` and existing single-host integration tests are unaffected.
-- [ ] **Task 6 — full gate + docs.** `nx affected -t build test`; update `CLAUDE.md`/`src/services/AGENTS.md` messaging notes (remove "transport not wired platform-wide" caveats); note that `billing`/`inventory` consumers are now live. PR against `main`.
+- [x] **Task 5 — standalone-dev + single-host-test regression check.** Confirm every service still boots with NO `rabbitmq` connection string (local-only fallback) so `dotnet run` and existing single-host integration tests are unaffected. CONFIRMED: `TeckMessagingExtensionsTests`/`WolverinePersistenceConfiguratorTests` (unit) assert the gate and that `ConfigureLocalOnlyRuntime` never calls `UseRabbitMq`; every single-host integration factory (order/inventory/basket/catalog/pricing/customer/gateway) boots without injecting a `rabbitmq` connection string and passes.
+- [x] **Task 6 — full gate + docs.** `nx affected -t build test lint typecheck --base=main --head=HEAD` run; all green except `Gateway.Public.IntegrationTests`, confirmed pre-existing and identical on clean `main`. Updated `CLAUDE.md`/`src/services/AGENTS.md` messaging notes (removed "not yet consumed" / added transport-wiring note); `inventory`'s `OrderPlaced` consumer is now live end-to-end (proven by `CrossService.IntegrationTests`); `billing` deferred to PR #15. No PR opened by this task — controller runs the final whole-branch review + PR.
 
 ## Risks / watch-items
 
