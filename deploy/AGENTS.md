@@ -43,8 +43,15 @@ Two distinct schemas live in each service database, created by **two different m
   multiple replicas booting concurrently converge safely rather than racing. Self-healing: if the
   schema is missing or partial, the next boot repairs it. The service's own DB user already performs
   DDL for its EF schema, so no extra privilege is required.
-- Regression guard: `MessageStoreSchemaTests` (Inventory.IntegrationTests) boots a wired host on the
-  broker-backed runtime and asserts the envelope tables exist via `information_schema.tables`.
+- Schema-build smoke test: `MessageStoreSchemaTests` (Inventory.IntegrationTests) boots a wired host
+  on the broker-backed runtime and asserts the envelope tables exist via `information_schema.tables`.
+  It always runs `UseEnvironment("Development")` (required for `TypeLoadMode.Dynamic` codegen), so
+  `isDevelopment` is always `true` there and it cannot by itself prove
+  `AutoBuildMessageStorageOnStartup` stays `CreateOrUpdate` when `isDevelopment` is `false`.
+  Regression guard for that environment-independence: the unit tests in
+  `WolverinePersistenceConfiguratorTests` (SharedKernel.UnitTests) call
+  `ConfigureLocalOnlyRuntime` with both `isDevelopment: true` and `isDevelopment: false` and assert
+  `AutoBuildMessageStorageOnStartup == AutoCreate.CreateOrUpdate` in both cases.
 
 ### 2. The EF Core entity schema (the service's own tables)
 
