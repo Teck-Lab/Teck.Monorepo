@@ -1,7 +1,12 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "model": "litellm/deepseek-v4-pro",
-  "plugin": ["oh-my-openagent"],
+  "plugin": [
+    "oh-my-openagent",
+    "cc-safety-net",
+    "opencode-mem",
+    "superpowers@git+https://github.com/obra/superpowers.git"
+  ],
   "provider": {
     "litellm": {
       "npm": "@ai-sdk/openai-compatible",

@@ -121,6 +121,14 @@ bump), `Dockerfile` (**install `tmux`** for omo; pre-create
 - **Plugin auto-installs:** `opencode.json` lists `oh-my-openagent` in its
   `plugin` array; OpenCode installs it via Bun on the first `opencode` launch (no
   interactive `bunx oh-my-openagent install` TUI). First launch needs network.
+- **Other OpenCode plugins** in the same `plugin` array (auto-install on launch):
+  `cc-safety-net` (npm `cc-safety-net`, a PreToolUse hook blocking destructive
+  commands), `opencode-mem` (npm, local SQLite+vector memory; optional
+  auto-capture config at `~/.config/opencode/opencode-mem.jsonc`, not seeded), and
+  `superpowers` (obra's skills framework, git-backed:
+  `superpowers@git+https://github.com/obra/superpowers.git`, auto-registers its
+  skills dir). cc-safety-net's README suggests a CLI install, but it's a proper
+  npm `@opencode-ai/plugin` package so the declarative `plugin`-array form is used.
 - **Split routing:** `postCreate.sh` seeds `~/.config/opencode/oh-my-openagent.json`.
   The 8 non-GPT agents map to `litellm/<model>` (`multimodal-looker` →
   `gemini-2.5-flash`, the only vision route). The GPT-family agents (`hephaestus`,

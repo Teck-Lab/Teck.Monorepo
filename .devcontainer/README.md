@@ -109,11 +109,23 @@ interactive login is needed once the gateway has keys.
 
 - **OpenCode** — `~/.config/opencode/opencode.json` (from `.devcontainer/opencode/`)
   registers a `litellm` provider (`@ai-sdk/openai-compatible`) at
-  `http://localhost:4000/v1` exposing all 17 per-model ids; default model
+  `http://localhost:4000/v1` exposing all per-model pools; default model
   `litellm/deepseek-v4-pro`. Just run `opencode`.
 - **Codex** — `~/.codex/config.toml` (from `.devcontainer/codex/`) points at the
   same gateway (`base_url` + `env_key = LITELLM_MASTER_KEY`, `wire_api = "chat"`),
   default model `deepseek-v4-pro`. Just run `codex`.
+
+**OpenCode plugins auto-install** on first launch — `opencode.json`'s `plugin`
+array is fetched via Bun (needs network once):
+
+- `oh-my-openagent` — the multi-agent system (details below).
+- `cc-safety-net` — PreToolUse hook that blocks destructive commands (`rm -rf`,
+  `git reset --hard`, …) before an agent runs them. Works out of the box.
+- `opencode-mem` — local agent memory (SQLite + on-device vector search, no
+  external service). Auto-capture is optional and configured via
+  `~/.config/opencode/opencode-mem.jsonc` (not seeded — add it if you want it).
+- `superpowers` — obra's skills framework, installed as a git-backed plugin
+  (`superpowers@git+…`); it auto-registers its skills directory.
 
 **omo (oh-my-openagent) is auto-installed & pre-wired — zero manual steps:**
 `opencode.json` lists `oh-my-openagent` in its `plugin` array, so OpenCode
