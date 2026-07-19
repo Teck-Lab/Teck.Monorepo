@@ -127,7 +127,14 @@ model_list:
     litellm_params: { model: openai/north-mini-code-free, api_base: *ocz_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 30 }
 
   # ============================ gemini ===============================
-  - model_name: gemini-2.5-flash           # Google Gemini (free ~10 RPM)
+  # WARNING: the Gemini free tier's binding limit is 20 requests per DAY
+  # (GenerateRequestsPerDayPerProjectPerModel-FreeTier), NOT per minute — `rpm`
+  # cannot express a daily cap, so it only guards bursts. This is also a
+  # SINGLE-ROUTE pool and LiteLLM does no cross-model fallback, so once the daily
+  # quota is spent every call 429s hard. Keep high-frequency traffic off it
+  # (that's why opencode-mem auto-capture uses deepseek-v4-flash); reserve it for
+  # low-frequency vision work. Add a second Gemini key here to widen the pool.
+  - model_name: gemini-2.5-flash           # Google Gemini (free tier: 20 req/DAY)
     litellm_params: { model: gemini/gemini-2.5-flash, api_key: os.environ/GEMINI_API_KEY, rpm: 10, timeout: 60 }
 
   # ============================ llama-3.3-70b ========================

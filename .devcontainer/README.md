@@ -123,7 +123,9 @@ array is fetched via Bun (needs network once):
   `git reset --hard`, …) before an agent runs them. Works out of the box.
 - `opencode-mem` — local agent memory (SQLite + on-device vector search, no
   external service). **Config seeded** (`.devcontainer/opencode/opencode-mem.jsonc`):
-  auto-capture on via the litellm gateway (`gemini-2.5-flash`); memories stored
+  auto-capture on via the litellm gateway (`deepseek-v4-flash` — a 5-route pool,
+  since capture fires on every prompt; **not** Gemini, whose free tier is 20
+  req/**day** and single-route); memories stored
   under the **persisted** `~/.local/share/opencode` volume so they survive
   rebuilds; memory web UI at `http://localhost:4747`.
 - `superpowers` — obra's skills framework, installed as a git-backed plugin
