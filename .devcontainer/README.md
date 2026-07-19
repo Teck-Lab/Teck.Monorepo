@@ -146,8 +146,9 @@ don't hit provider limits.
   so it keeps working if its primary is down — gateway pool cooled, or the sub
   unavailable. GPT agents fall back to gateway models (DeepSeek/Gemini/GLM);
   gateway agents fall back across Kimi → the GPT sub → other gateway models.
-  **Category** overrides route delegated work through the gateway too; `deep` /
-  `ultrabrain` stay on omo's GPT defaults (your sub).
+- **Categories** (delegated work) also each have a primary + `fallback_models`
+  chain: `deep`/`ultrabrain` primary on the GPT sub → gateway fallbacks;
+  visual/artistry on Gemini; the rest Kimi/gateway with GPT-sub fallbacks.
 - **Team mode is enabled** (`team_mode.enabled`, 12 `team_*` tools; opt-in per
   use). tmux member-pane visualization on; team specs persist under the opencode
   volume.

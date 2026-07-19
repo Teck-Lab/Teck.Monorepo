@@ -137,9 +137,9 @@ bump), `Dockerfile` (**install `tmux`** for omo; pre-create
   prometheus, metis, atlas, sisyphus-junior) → **Kimi** (guide's top
   Claude-alternative; deepseek/minimax/qwen discouraged for these roles); utility
   (explore, librarian) → **Qwen**; vision (multimodal-looker) → `gemini-2.5-flash`.
-  **Category** overrides (visual/artistry/quick/unspecified-*/writing) route
-  delegated work through the gateway; `deep`/`ultrabrain` stay on omo's GPT
-  defaults. The GPT-family agents (`hephaestus`, `oracle`, `momus`) are primary on
+  All 8 **categories** have a primary + `fallback_models` chain too
+  (CategoryConfigSchema supports it): `deep`/`ultrabrain` primary on the GPT sub →
+  gateway fallbacks; visual/artistry on Gemini; the rest Kimi/gateway. The GPT-family agents (`hephaestus`, `oracle`, `momus`) are primary on
   OpenCode's **native OpenAI/ChatGPT provider** (the user's ChatGPT subscription
   via `opencode auth login`), satisfying guards like `no-hephaestus-non-gpt`.
 - **Per-agent `fallback_models` chains** (from the guide's per-agent fallback
