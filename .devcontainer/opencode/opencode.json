@@ -27,6 +27,8 @@
         "kimi-k2.6": { "name": "Kimi K2.6" },
         "qwen3.7-max": { "name": "Qwen 3.7 Max" },
         "qwen3.7-plus": { "name": "Qwen 3.7 Plus" },
+        "qwen3.6-plus": { "name": "Qwen 3.6 Plus" },
+        "qwen3.5-plus": { "name": "Qwen 3.5 Plus" },
         "hy3": { "name": "Hy3 (pool)" },
         "nemotron-3-ultra": { "name": "Nemotron 3 Ultra (free)" },
         "north-mini-code": { "name": "North Mini Code (free)" },

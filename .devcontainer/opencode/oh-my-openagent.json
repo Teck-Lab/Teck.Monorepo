@@ -82,7 +82,7 @@
       "variant": "high",
       "fallback_models": [
         "litellm/gemini-2.5-flash",
-        "litellm/deepseek-v3.2",
+        "litellm/deepseek-v4-flash",
         "litellm/glm-5.2"
       ]
     },
@@ -101,7 +101,7 @@
   "categories": {
     "visual-engineering": {
       "model": "litellm/gemini-2.5-flash",
-      "fallback_models": ["litellm/qwen3.7-max", "litellm/glm-5.2"]
+      "fallback_models": ["litellm/qwen3.7-max", "litellm/qwen3.6-plus", "litellm/qwen3.5-plus"]
     },
     "artistry": {
       "model": "litellm/gemini-2.5-flash",
