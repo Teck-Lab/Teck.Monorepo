@@ -152,14 +152,16 @@ don't hit provider limits.
 - **Team mode is enabled** (`team_mode.enabled`, 12 `team_*` tools; opt-in per
   use). tmux member-pane visualization on; team specs persist under the opencode
   volume.
-- **Superpowers TDD is wired in.** The superpowers plugin registers its skills
-  into OpenCode's `skill` tool; a committed directive
+- **Superpowers skills are nudged in.** The superpowers plugin registers its
+  skills into OpenCode's `skill` tool; a committed directive
   (`.devcontainer/opencode/superpowers-skills.md`, seeded to `~/.config/opencode/`)
   is `prompt_append`-ed onto the implementer agents (sisyphus, hephaestus,
-  sisyphus-junior) and the `deep` category, telling them to invoke the
-  `test-driven-development` skill (write a failing test first) before any
-  implementation — plus `brainstorming`/`systematic-debugging` when apt. Edit that
-  file to tune the directive.
+  sisyphus-junior) and the `deep` category, telling them to follow superpowers'
+  own discipline — use a skill when it applies (`test-driven-development` as the
+  default for real implementation, `brainstorming` before building,
+  `systematic-debugging` on bugs). It's **not forced**: TDD's own exception is
+  throwaway prototypes, and a skill that doesn't fit can be skipped. Edit that file
+  to tune the directive.
 - The GPT-family agents (`hephaestus`, `oracle`, `momus`) are **not** overridden —
   they keep omo's built-in OpenAI defaults and run on OpenCode's **native OpenAI/
   ChatGPT provider**, connected directly (`opencode auth login` → OpenAI, one

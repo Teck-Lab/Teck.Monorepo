@@ -153,9 +153,12 @@ bump), `Dockerfile` (**install `tmux`** for omo; pre-create
   skills into OpenCode's `skill` tool + injects awareness into every conversation;
   a committed directive (`.devcontainer/opencode/superpowers-skills.md`, seeded to
   `~/.config/opencode/`) is `prompt_append`-ed onto the implementer agents
-  (sisyphus, hephaestus, sisyphus-junior) + the `deep` category so they invoke
-  `test-driven-development` (failing test first) before implementation. Plain
-  plugin install makes skills *available*; the prompt_append makes omo *use* them.
+  (sisyphus, hephaestus, sisyphus-junior) + the `deep` category so they follow
+  superpowers' own discipline — use a skill when it applies (`test-driven-
+  development` as the *default* for real implementation, not a forced gate; its own
+  exception is throwaway prototypes). Plain plugin install makes skills
+  *available*; the prompt_append makes omo *lean into* them, modeled on the
+  `using-superpowers` skill rather than a stricter home-grown rule.
 - Chosen: **OpenCode Ultimate edition only** (Codex Light `npx lazycodex-ai
   install` not run — can be added later). GPT agents need a one-time
   `opencode auth login`.
