@@ -22,6 +22,12 @@ Common skills and when they apply (per each skill's own "when to use"):
   proposing a fix.
 - `verification-before-completion` — before claiming work is done: run the checks
   and show the evidence.
+- `security-review` (**project skill**, `.opencode/skills/`) — before declaring
+  implementation work complete or pushing, run `./tools/security-scan.sh` to
+  execute the same scans as CI (Semgrep SAST, Gitleaks secrets, Trivy SCA) and
+  **triage** the findings — confirm each against the real code rather than
+  dumping scanner output. Especially after touching auth, crypto, input handling,
+  shell execution, SQL, or dependency manifests.
 
 Use the `skill` tool to list the rest. Priority when names collide: project >
 personal > superpowers skills.
