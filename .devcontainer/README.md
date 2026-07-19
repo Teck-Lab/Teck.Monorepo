@@ -140,9 +140,14 @@ don't hit provider limits.
 - Agent→model mapping follows omo's **agent-model-matching guide**, adapted to
   gateway models: communicators (sisyphus/prometheus/metis/atlas/sisyphus-junior)
   on **Kimi** (guide's top Claude-alternative, Kimi > GLM), utility
-  (explore/librarian) on **Qwen**, vision (multimodal-looker) on `gemini-2.5-flash`.
-  **Category** overrides route delegated work through the gateway too. `deep` /
-  `ultrabrain` are left to omo's GPT defaults (on your ChatGPT sub).
+  (explore/librarian) on **Qwen**, vision (multimodal-looker) on `gemini-2.5-flash`,
+  deep specialists (hephaestus/oracle/momus) on **GPT** via your ChatGPT sub.
+- **Every agent has a `fallback_models` chain** (from the guide's per-agent chains)
+  so it keeps working if its primary is down — gateway pool cooled, or the sub
+  unavailable. GPT agents fall back to gateway models (DeepSeek/Gemini/GLM);
+  gateway agents fall back across Kimi → the GPT sub → other gateway models.
+  **Category** overrides route delegated work through the gateway too; `deep` /
+  `ultrabrain` stay on omo's GPT defaults (your sub).
 - **Team mode is enabled** (`team_mode.enabled`, 12 `team_*` tools; opt-in per
   use). tmux member-pane visualization on; team specs persist under the opencode
   volume.

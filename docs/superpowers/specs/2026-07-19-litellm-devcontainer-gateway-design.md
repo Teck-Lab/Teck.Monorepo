@@ -139,10 +139,14 @@ bump), `Dockerfile` (**install `tmux`** for omo; pre-create
   (explore, librarian) → **Qwen**; vision (multimodal-looker) → `gemini-2.5-flash`.
   **Category** overrides (visual/artistry/quick/unspecified-*/writing) route
   delegated work through the gateway; `deep`/`ultrabrain` stay on omo's GPT
-  defaults. The GPT-family agents (`hephaestus`, `oracle`, `momus`) are **not**
-  overridden — they run on OpenCode's **native OpenAI/ChatGPT provider** (the
-  user's ChatGPT subscription via `opencode auth login`), which the guide requires
-  and which satisfies guards like `no-hephaestus-non-gpt`.
+  defaults. The GPT-family agents (`hephaestus`, `oracle`, `momus`) are primary on
+  OpenCode's **native OpenAI/ChatGPT provider** (the user's ChatGPT subscription
+  via `opencode auth login`), satisfying guards like `no-hephaestus-non-gpt`.
+- **Per-agent `fallback_models` chains** (from the guide's per-agent fallback
+  chains, adapted to available providers) on all 11 agents: GPT agents fall back to
+  gateway models (DeepSeek for autonomous coding, Gemini/GLM for advisory); gateway
+  agents fall back Kimi → GPT sub → other gateway models. Keeps an agent working
+  when its primary is cooled/unavailable.
 - **Team mode enabled** (`team_mode.enabled`, 12 `team_*` tools, opt-in per use;
   `tmux_visualization` on; `base_dir` under the persisted opencode volume).
 - Chosen: **OpenCode Ultimate edition only** (Codex Light `npx lazycodex-ai
