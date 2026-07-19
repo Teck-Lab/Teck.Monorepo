@@ -69,6 +69,8 @@ model_list:
     litellm_params: { model: openrouter/xiaomi/mimo-v2.5, api_key: os.environ/OPENROUTER_API_KEY, rpm: 20, timeout: 30 }
 
   # ============================ kimi (coder) =========================
+  - model_name: kimi-k3                     # OpenCode Go (flat-rate)
+    litellm_params: { model: openai/kimi-k3, api_base: *oc_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 30 }
   - model_name: kimi-k2.7-code             # OpenCode Go (flat-rate) — primary coder
     litellm_params: { model: openai/kimi-k2.7-code, api_base: *oc_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 30 }
   - model_name: kimi-k2.6                   # OpenCode Go (flat-rate)
