@@ -16,6 +16,13 @@
 # CLI) is still layered on via the `features` block in devcontainer.json.
 FROM mcr.microsoft.com/devcontainers/dotnet:2.1-10.0-noble
 
+# tmux — required by oh-my-openagent (omo): its `interactive_bash` tool and the
+# Team Mode / background-subagent pane visualization shell out to tmux, so it must
+# be installed and on PATH. (System package → installed here, not via a feature.)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tmux \
+    && rm -rf /var/lib/apt/lists/*
+
 # Same rationale applies to OpenCode's data dir: ~/.local/share/opencode holds
 # auth.json (the `opencode auth login` / ChatGPT-subscription credentials) and
 # plugin state. Pre-create it vscode-owned so its named volume is writable and the

@@ -15,5 +15,14 @@
     "explore": { "model": "litellm/deepseek-v4-flash" },
     "librarian": { "model": "litellm/deepseek-v4-flash" },
     "multimodal-looker": { "model": "litellm/gemini-2.5-flash" }
+  },
+
+  "//tmux": "tmux is installed in the image (Dockerfile). This spawns omo's background subagents into separate tmux panes. It ACTIVATES only when you launch opencode inside a tmux session (`tmux` then `opencode`); outside tmux it's a harmless no-op and the interactive_bash tool still works. Failures never block agents.",
+  "tmux": {
+    "enabled": true,
+    "layout": "main-vertical",
+    "main_pane_size": 60,
+    "main_pane_min_width": 120,
+    "agent_pane_min_width": 40
   }
 }

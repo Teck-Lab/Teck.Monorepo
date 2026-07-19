@@ -93,7 +93,8 @@ abstract tier).
 | `.devcontainer/opencode/oh-my-openagent.json` | yes | omo agent→`litellm/<model>` config template (seeded to `~/.config/opencode/`) |
 
 Config changes: `devcontainer.json` (postStartCommand, port `4000`, `opencode` +
-`codex` features, **`opencode-data` named-volume mount**), `Dockerfile` (pre-create
+`codex` features, **`opencode-data` named-volume mount**, `NODE_OPTIONS` heap
+bump), `Dockerfile` (**install `tmux`** for omo; pre-create
 `~/.local/share/opencode` vscode-owned so that volume is writable), `.gitignore`
 (ignore `litellm/litellm.env`), `postCreate.sh` (seed agent configs + export
 `LITELLM_MASTER_KEY`), `.devcontainer/README.md`.
@@ -130,6 +131,10 @@ Config changes: `devcontainer.json` (postStartCommand, port `4000`, `opencode` +
 - Chosen: **OpenCode Ultimate edition only** (Codex Light `npx lazycodex-ai
   install` not run — can be added later). GPT agents need a one-time
   `opencode auth login`.
+- **tmux** is installed in the image (omo's `interactive_bash` tool + Team
+  Mode/background-subagent panes shell out to it). omo's tmux integration is
+  enabled in `oh-my-openagent.json` (`"tmux": { "enabled": true }`); it only
+  activates when OpenCode runs inside a tmux session, else no-ops harmlessly.
 - **Auth persists across rebuilds.** `~/.local/share/opencode` (holding
   `auth.json`) is mounted on the per-project named volume
   `opencode-data-${devcontainerId}` (mirroring the Claude Code volume), with the

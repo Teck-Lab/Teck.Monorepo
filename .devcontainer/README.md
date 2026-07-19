@@ -21,7 +21,8 @@ In VS Code: Command Palette → **Dev Containers: Reopen in Container** (first b
 | Docker | Docker-in-Docker | `docker-in-docker` feature |
 | Claude Code | latest | `claude-code` feature (CLI + VS Code extension) |
 | OpenCode | latest | `opencode` feature (devcontainers-extra) |
-| Codex CLI | latest | `npm-package` feature → `@openai/codex` (devcontainers-extra) |
+| Codex CLI | latest | `dirien/codex` feature (installs `@openai/codex`) |
+| tmux | apt | Dockerfile (`apt-get install tmux`) — required by omo |
 
 `postCreate.sh` runs `dotnet restore`, `bun install --frozen-lockfile`, creates an HTTPS dev cert, installs the Claude Code plugins + HUD (see below), and installs a `claude` shell alias (see Security below).
 
@@ -130,6 +131,11 @@ don't hit provider limits.
   ChatGPT provider**, connected directly (`opencode auth login` → OpenAI, one
   time), **not** the gateway. This also satisfies omo's model-family guards
   (`no-hephaestus-non-gpt`).
+- **tmux** is installed (Dockerfile) and omo's tmux integration is enabled
+  (`"tmux": { "enabled": true }`), so background subagents spawn into panes. It
+  only activates when you launch OpenCode **inside** a tmux session (`tmux`, then
+  `opencode`); outside tmux it's a harmless no-op and omo's `interactive_bash`
+  tool still works.
 
 Edit the committed templates under `.devcontainer/{opencode,codex}/` to change
 models/agents — they re-seed on every rebuild (the in-container copies are
