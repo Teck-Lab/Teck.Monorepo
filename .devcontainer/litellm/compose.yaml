@@ -1,0 +1,23 @@
+# LiteLLM gateway for the dev container. Brought up by ../start-litellm.sh from
+# the devcontainer postStartCommand (via docker-in-docker). Single stateless
+# service — no Redis/Postgres (see config.yaml for why). Relative paths resolve
+# against this file's directory (.devcontainer/litellm/).
+services:
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    container_name: litellm-gateway
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    env_file:
+      - ./litellm.env
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    healthcheck:
+      # The image has python but not necessarily curl — probe with urllib.
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness').status==200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s

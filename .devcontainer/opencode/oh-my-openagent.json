@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json",
+
+  "//": "omo (oh-my-openagent) agent config, seeded to ~/.config/opencode/oh-my-openagent.json by postCreate.sh. The plugin itself auto-installs via opencode.json's `plugin` field on first `opencode` launch — no `bunx oh-my-openagent install` TUI needed.",
+
+  "//split": "The non-GPT agents below are pinned to the local LiteLLM gateway's per-model pools (litellm/<model>), which load-balances free/cheap routes. The GPT-family agents (hephaestus, oracle, momus) are intentionally NOT overridden here — they keep omo's built-in OpenAI defaults and run on OpenCode's native OpenAI/ChatGPT provider (connected directly via `opencode auth login`), NOT the gateway. This also satisfies omo's model-family guards (e.g. no-hephaestus-non-gpt).",
+
+  "//agents": "Mapped by role to your gateway models. multimodal-looker -> gemini-2.5-flash (your only vision route). Edit freely; run `bunx oh-my-openagent doctor` to check model resolution.",
+  "agents": {
+    "sisyphus": { "model": "litellm/deepseek-v4-pro" },
+    "prometheus": { "model": "litellm/deepseek-v4-pro" },
+    "metis": { "model": "litellm/glm-5.2" },
+    "atlas": { "model": "litellm/glm-5.2" },
+    "sisyphus-junior": { "model": "litellm/deepseek-v4-flash" },
+    "explore": { "model": "litellm/deepseek-v4-flash" },
+    "librarian": { "model": "litellm/deepseek-v4-flash" },
+    "multimodal-looker": { "model": "litellm/gemini-2.5-flash" }
+  }
+}

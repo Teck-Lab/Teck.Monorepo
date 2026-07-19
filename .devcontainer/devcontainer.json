@@ -13,7 +13,9 @@
       "version": "lts"
     },
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
-    "ghcr.io/devcontainers/features/github-cli:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers-extra/features/opencode:1": {},
+    "ghcr.io/dirien/devcontainer-feature-codex/codex:0": {}
   },
   "remoteUser": "vscode",
   "containerEnv": {
@@ -22,11 +24,13 @@
     "NUGET_XMLDOC_MODE": "skip"
   },
   "mounts": [
-    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume"
+    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
+    "source=opencode-data-${devcontainerId},target=/home/vscode/.local/share/opencode,type=volume"
   ],
-  "forwardPorts": [18888, 3000, 8080, 8081, 19000, 19006],
+  "forwardPorts": [18888, 4000, 3000, 8080, 8081, 19000, 19006],
   "portsAttributes": {
     "18888": { "label": "Aspire dashboard" },
+    "4000": { "label": "LiteLLM gateway" },
     "3000": { "label": "Next.js dev" },
     "8080": { "label": "Service host" },
     "8081": { "label": "Metro / Expo web" },
@@ -34,6 +38,7 @@
     "19006": { "label": "Expo web (legacy)" }
   },
   "postCreateCommand": "bash .devcontainer/postCreate.sh",
+  "postStartCommand": "bash .devcontainer/start-litellm.sh",
   "customizations": {
     "vscode": {
       "extensions": [

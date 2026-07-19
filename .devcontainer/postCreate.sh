@@ -45,4 +45,27 @@ if ! grep -qxF "$ALIAS_LINE" "$HOME/.bashrc" 2>/dev/null; then
   printf '\n# Convenience-first: run Claude Code without permission prompts inside the isolated container\n%s\n' "$ALIAS_LINE" >> "$HOME/.bashrc"
 fi
 
+echo "==> Seeding agent CLI configs (Codex + OpenCode) pointed at the LiteLLM gateway"
+# The committed templates are the source of truth; re-copied on every rebuild.
+# Both authenticate to the gateway via the LITELLM_MASTER_KEY env var (below), so
+# neither needs an interactive login.
+mkdir -p "$HOME/.codex" "$HOME/.config/opencode"
+cp .devcontainer/codex/config.toml "$HOME/.codex/config.toml" || echo "WARN: could not seed codex config (continuing)"
+cp .devcontainer/opencode/opencode.json "$HOME/.config/opencode/opencode.json" || echo "WARN: could not seed opencode config (continuing)"
+# omo (oh-my-openagent) agent config. The plugin itself is declared in opencode.json's
+# `plugin` array and auto-installs via Bun on the first `opencode` launch; this file
+# just points its agents at the LiteLLM gateway so no guided-install TUI is needed.
+cp .devcontainer/opencode/oh-my-openagent.json "$HOME/.config/opencode/oh-my-openagent.json" || echo "WARN: could not seed omo config (continuing)"
+
+echo "==> Exposing LITELLM_MASTER_KEY to agent CLIs via ~/.bashrc"
+# Codex (env_key) and OpenCode ({env:LITELLM_MASTER_KEY}) read the gateway key
+# from the shell env. Load it dynamically from the gitignored key file so the
+# single source of truth stays .devcontainer/litellm/litellm.env (which may not
+# exist yet at postCreate time — the guard handles that per shell).
+ENV_FILE_ABS="$(pwd)/.devcontainer/litellm/litellm.env"
+KEY_LINE="[ -f \"$ENV_FILE_ABS\" ] && export LITELLM_MASTER_KEY=\"\$(grep -E '^LITELLM_MASTER_KEY=' \"$ENV_FILE_ABS\" | cut -d= -f2-)\""
+if ! grep -qF "$ENV_FILE_ABS" "$HOME/.bashrc" 2>/dev/null; then
+  printf '\n# Expose the LiteLLM gateway master key to agent CLIs (Codex/OpenCode)\n%s\n' "$KEY_LINE" >> "$HOME/.bashrc"
+fi
+
 echo "==> postCreate complete"

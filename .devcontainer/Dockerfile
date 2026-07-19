@@ -16,5 +16,9 @@
 # CLI) is still layered on via the `features` block in devcontainer.json.
 FROM mcr.microsoft.com/devcontainers/dotnet:2.1-10.0-noble
 
-RUN mkdir -p /home/vscode/.claude \
-    && chown -R vscode:vscode /home/vscode/.claude
+# Same rationale applies to OpenCode's data dir: ~/.local/share/opencode holds
+# auth.json (the `opencode auth login` / ChatGPT-subscription credentials) and
+# plugin state. Pre-create it vscode-owned so its named volume is writable and the
+# login survives rebuilds — otherwise a root-owned volume silently loses the auth.
+RUN mkdir -p /home/vscode/.claude /home/vscode/.local/share/opencode \
+    && chown -R vscode:vscode /home/vscode/.claude /home/vscode/.local

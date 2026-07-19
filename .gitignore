@@ -33,6 +33,9 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# LiteLLM gateway secrets (real keys; template committed as litellm.env.example)
+.devcontainer/litellm/litellm.env
+
 # Logs
 *.log
 
