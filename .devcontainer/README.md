@@ -135,7 +135,10 @@ don't hit provider limits.
   (`"tmux": { "enabled": true }`), so background subagents spawn into panes. It
   only activates when you launch OpenCode **inside** a tmux session (`tmux`, then
   `opencode`); outside tmux it's a harmless no-op and omo's `interactive_bash`
-  tool still works.
+  tool still works. The layout is tuned for a **tall/narrow terminal** (VS Code
+  panel docked right): `main-horizontal` stacks the main pane on top and
+  subagents below. Docking the terminal at the bottom (wide/short)? switch
+  `layout` back to `main-vertical` and raise `main_pane_min_width` to ~120.
 
 Edit the committed templates under `.devcontainer/{opencode,codex}/` to change
 models/agents — they re-seed on every rebuild (the in-container copies are

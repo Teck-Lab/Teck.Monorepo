@@ -17,12 +17,12 @@
     "multimodal-looker": { "model": "litellm/gemini-2.5-flash" }
   },
 
-  "//tmux": "tmux is installed in the image (Dockerfile). This spawns omo's background subagents into separate tmux panes. It ACTIVATES only when you launch opencode inside a tmux session (`tmux` then `opencode`); outside tmux it's a harmless no-op and the interactive_bash tool still works. Failures never block agents.",
+  "//tmux": "tmux is installed in the image (Dockerfile). Spawns omo's background subagents into panes; activates only when opencode is launched inside a tmux session (`tmux` then `opencode`), else a harmless no-op (interactive_bash still works). TUNED for a TALL/NARROW terminal (VS Code panel docked right, top-to-bottom): main-horizontal stacks the main pane on TOP and subagents BELOW (splits by height, not width), and the min-widths are at the schema floor so panes still spawn in a narrow column. If you move the terminal to the bottom (wide/short), switch layout back to main-vertical and raise main_pane_min_width to ~120.",
   "tmux": {
     "enabled": true,
-    "layout": "main-vertical",
+    "layout": "main-horizontal",
     "main_pane_size": 60,
-    "main_pane_min_width": 120,
-    "agent_pane_min_width": 40
+    "main_pane_min_width": 40,
+    "agent_pane_min_width": 20
   }
 }
