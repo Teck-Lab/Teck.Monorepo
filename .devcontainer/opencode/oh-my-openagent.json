@@ -97,14 +97,61 @@
     }
   },
 
-  "//categories": "Agents delegate work by CATEGORY, not model. Override the categories whose omo defaults we can't serve directly (visual-engineering/artistry default to google/gemini-3.1-pro — we route a Gemini via the gateway instead). `deep` and `ultrabrain` are intentionally left to omo's GPT defaults (deep/max-reasoning work = GPT per the guide), served by the ChatGPT subscription.",
+  "//categories": "Agents delegate work by CATEGORY, not model. Each category has a primary + `fallback_models` chain (from the guide's category chains, adapted to our providers). GPT categories (deep/ultrabrain, per the guide = GPT work) are primary on the ChatGPT sub and fall back to gateway models (DeepSeek/Kimi/Gemini/GLM). visual/artistry are primary Gemini (guide's visual family; Qwen is the substitute). Categories accept fallback_models per omo's CategoryConfigSchema.",
   "categories": {
-    "visual-engineering": { "model": "litellm/gemini-2.5-flash" },
-    "artistry": { "model": "litellm/gemini-2.5-flash" },
-    "quick": { "model": "litellm/deepseek-v4-flash" },
-    "unspecified-high": { "model": "litellm/kimi-k3" },
-    "unspecified-low": { "model": "litellm/kimi-k2.7-code" },
-    "writing": { "model": "litellm/kimi-k3" }
+    "visual-engineering": {
+      "model": "litellm/gemini-2.5-flash",
+      "fallback_models": ["litellm/qwen3.7-max", "litellm/glm-5.2"]
+    },
+    "artistry": {
+      "model": "litellm/gemini-2.5-flash",
+      "fallback_models": [{ "model": "openai/gpt-5.5", "variant": "high" }, "litellm/qwen3.7-max"]
+    },
+    "ultrabrain": {
+      "model": "openai/gpt-5.6-sol",
+      "variant": "xhigh",
+      "fallback_models": [
+        { "model": "openai/gpt-5.5", "variant": "xhigh" },
+        "litellm/deepseek-v4-pro",
+        "litellm/gemini-2.5-flash",
+        "litellm/glm-5.2"
+      ]
+    },
+    "deep": {
+      "model": "openai/gpt-5.6-terra",
+      "variant": "xhigh",
+      "fallback_models": [
+        { "model": "openai/gpt-5.5", "variant": "medium" },
+        "litellm/deepseek-v4-pro",
+        "litellm/kimi-k2.6",
+        "litellm/glm-5.2"
+      ]
+    },
+    "quick": {
+      "model": "litellm/deepseek-v4-flash",
+      "fallback_models": ["litellm/minimax-m3", "litellm/gemini-2.5-flash"]
+    },
+    "unspecified-high": {
+      "model": "litellm/kimi-k3",
+      "fallback_models": [
+        { "model": "openai/gpt-5.5", "variant": "high" },
+        "litellm/kimi-k2.7",
+        "litellm/glm-5.2"
+      ]
+    },
+    "unspecified-low": {
+      "model": "litellm/kimi-k2.7-code",
+      "fallback_models": [
+        "litellm/kimi-k2.6",
+        { "model": "openai/gpt-5.5", "variant": "medium" },
+        "litellm/gemini-2.5-flash",
+        "litellm/minimax-m3"
+      ]
+    },
+    "writing": {
+      "model": "litellm/kimi-k3",
+      "fallback_models": ["litellm/gemini-2.5-flash", "litellm/kimi-k2.6", "litellm/minimax-m3"]
+    }
   },
 
   "//tmux": "tmux is installed in the image (Dockerfile). Spawns omo's background subagents into panes; activates only when opencode is launched inside a tmux session (`tmux` then `opencode`), else a harmless no-op (interactive_bash still works). TUNED for a TALL/NARROW terminal (VS Code panel docked right, top-to-bottom): main-horizontal stacks the main pane on TOP and subagents BELOW (splits by height, not width), and the min-widths are at the schema floor so panes still spawn in a narrow column. If you move the terminal to the bottom (wide/short), switch layout back to main-vertical and raise main_pane_min_width to ~120.",
