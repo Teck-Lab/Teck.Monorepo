@@ -1,0 +1,31 @@
+{
+  // opencode-mem config, seeded to ~/.config/opencode/opencode-mem.jsonc by
+  // postCreate.sh. The plugin auto-installs via opencode.json's `plugin` array.
+
+  // Storage lives UNDER the persisted opencode data volume (~/.local/share/opencode
+  // is a named volume, see devcontainer.json mounts), so captured memories survive
+  // container rebuilds. (Default would be ~/.opencode-mem/data — ephemeral.)
+  "storagePath": "~/.local/share/opencode/opencode-mem/data",
+
+  // On-device embedding model, downloaded from HuggingFace on first use (needs
+  // network once; no API key). No external DB — SQLite + local vector index.
+  "embeddingModel": "Xenova/nomic-embed-text-v1",
+
+  // Memory web UI at http://127.0.0.1:4747 (port forwarded in devcontainer.json).
+  "webServerEnabled": true,
+  "webServerPort": 4747,
+
+  // Auto-capture summarizes technical work into memory via a background AI request.
+  "autoCaptureEnabled": true,
+  "autoCaptureLanguage": "auto",
+  "showAutoCaptureToasts": true,
+
+  // Route capture through the local LiteLLM gateway (opencode owns auth/routing).
+  // Pinned to gemini-2.5-flash: fast, free-tier, and reliable at the structured /
+  // tool-call output that capture requires. Provider name must match an entry in
+  // `opencode providers list` (our custom provider is `litellm`).
+  // Alternative: set "opencodeModel": "inherit" to capture with whatever model
+  // answered each prompt (only works if that model supports structured output).
+  "opencodeProvider": "litellm",
+  "opencodeModel": "gemini-2.5-flash"
+}

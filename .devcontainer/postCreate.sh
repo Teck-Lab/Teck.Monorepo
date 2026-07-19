@@ -56,6 +56,10 @@ cp .devcontainer/opencode/opencode.json "$HOME/.config/opencode/opencode.json" |
 # `plugin` array and auto-installs via Bun on the first `opencode` launch; this file
 # just points its agents at the LiteLLM gateway so no guided-install TUI is needed.
 cp .devcontainer/opencode/oh-my-openagent.json "$HOME/.config/opencode/oh-my-openagent.json" || echo "WARN: could not seed omo config (continuing)"
+# opencode-mem config: enables auto-capture through the litellm gateway, stores
+# memories under the persisted ~/.local/share/opencode volume, and serves the
+# memory web UI on :4747. The plugin itself auto-installs via opencode.json.
+cp .devcontainer/opencode/opencode-mem.jsonc "$HOME/.config/opencode/opencode-mem.jsonc" || echo "WARN: could not seed opencode-mem config (continuing)"
 
 echo "==> Exposing LITELLM_MASTER_KEY to agent CLIs via ~/.bashrc"
 # Codex (env_key) and OpenCode ({env:LITELLM_MASTER_KEY}) read the gateway key

@@ -122,8 +122,10 @@ array is fetched via Bun (needs network once):
 - `cc-safety-net` — PreToolUse hook that blocks destructive commands (`rm -rf`,
   `git reset --hard`, …) before an agent runs them. Works out of the box.
 - `opencode-mem` — local agent memory (SQLite + on-device vector search, no
-  external service). Auto-capture is optional and configured via
-  `~/.config/opencode/opencode-mem.jsonc` (not seeded — add it if you want it).
+  external service). **Config seeded** (`.devcontainer/opencode/opencode-mem.jsonc`):
+  auto-capture on via the litellm gateway (`gemini-2.5-flash`); memories stored
+  under the **persisted** `~/.local/share/opencode` volume so they survive
+  rebuilds; memory web UI at `http://localhost:4747`.
 - `superpowers` — obra's skills framework, installed as a git-backed plugin
   (`superpowers@git+…`); it auto-registers its skills directory.
 
@@ -169,7 +171,7 @@ gateway via env, so it has no stored credential to persist.)
 
 - Build/test everything: `bun run build`, `bun run test`, or `nx affected -t build test lint typecheck`.
 - Integration tests (Testcontainers) and Aspire work because Docker runs **inside** the container (Docker-in-Docker). The first integration-test run pulls Postgres/RabbitMQ/Redis/Keycloak images into the nested daemon and is slow; later runs are fast because the image store is persisted across rebuilds.
-- Forwarded ports: **18888** Aspire dashboard, **3000** Next.js dev, **8080** service host, **8081** Metro / Expo web, **19000** Expo Go (LAN), **19006** Expo web (legacy).
+- Forwarded ports: **18888** Aspire dashboard, **4000** LiteLLM gateway, **4747** opencode-mem UI, **3000** Next.js dev, **8080** service host, **8081** Metro / Expo web, **19000** Expo Go (LAN), **19006** Expo web (legacy).
 
 ## Mobile (Expo) — light by default
 

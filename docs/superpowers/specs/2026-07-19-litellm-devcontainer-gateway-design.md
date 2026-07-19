@@ -91,6 +91,7 @@ abstract tier).
 | `.devcontainer/codex/config.toml` | yes | Codex config template → gateway (seeded to `~/.codex/`) |
 | `.devcontainer/opencode/opencode.json` | yes | OpenCode config template → gateway; registers `oh-my-openagent` in `plugin` (seeded to `~/.config/opencode/`) |
 | `.devcontainer/opencode/oh-my-openagent.json` | yes | omo agent→`litellm/<model>` config template (seeded to `~/.config/opencode/`) |
+| `.devcontainer/opencode/opencode-mem.jsonc` | yes | opencode-mem config (auto-capture via gateway, persisted storage, :4747 UI) |
 
 Config changes: `devcontainer.json` (postStartCommand, port `4000`, `opencode` +
 `codex` features, **`opencode-data` named-volume mount**, `NODE_OPTIONS` heap
@@ -123,8 +124,10 @@ bump), `Dockerfile` (**install `tmux`** for omo; pre-create
   interactive `bunx oh-my-openagent install` TUI). First launch needs network.
 - **Other OpenCode plugins** in the same `plugin` array (auto-install on launch):
   `cc-safety-net` (npm `cc-safety-net`, a PreToolUse hook blocking destructive
-  commands), `opencode-mem` (npm, local SQLite+vector memory; optional
-  auto-capture config at `~/.config/opencode/opencode-mem.jsonc`, not seeded), and
+  commands), `opencode-mem` (npm, local SQLite+vector memory; config **seeded** at
+  `~/.config/opencode/opencode-mem.jsonc` — auto-capture via the litellm gateway
+  `gemini-2.5-flash`, storage under the persisted `~/.local/share/opencode`
+  volume, web UI on forwarded port 4747), and
   `superpowers` (obra's skills framework, git-backed:
   `superpowers@git+https://github.com/obra/superpowers.git`, auto-registers its
   skills dir). cc-safety-net's README suggests a CLI install, but it's a proper
