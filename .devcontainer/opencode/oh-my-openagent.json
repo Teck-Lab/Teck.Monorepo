@@ -26,10 +26,11 @@
     "agent_pane_min_width": 20
   },
 
-  "//background_task": "High concurrency for parallel agent work. Priority: modelConcurrency > providerConcurrency > defaultConcurrency. NOTE: `litellm` isn't listed, so all litellm/* agents (most of them) fall back to defaultConcurrency (8). Add a `\"litellm\": N` entry here to raise/lower that — the gateway itself fans each request across many upstream providers.",
+  "//background_task": "High concurrency for parallel agent work. Priority: modelConcurrency > providerConcurrency > defaultConcurrency. `litellm` (the local gateway, used by most agents) is set high because the gateway itself fans each request across many upstream providers; providers not listed here use defaultConcurrency.",
   "background_task": {
     "defaultConcurrency": 8,
     "providerConcurrency": {
+      "litellm": 15,
       "anthropic": 5,
       "openai": 5,
       "google": 10,
