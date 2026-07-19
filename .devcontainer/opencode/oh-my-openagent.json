@@ -7,7 +7,7 @@
 
   "//agents": "Mapped by role to your gateway models. multimodal-looker -> gemini-2.5-flash (your only vision route). Edit freely; run `bunx oh-my-openagent doctor` to check model resolution.",
   "agents": {
-    "sisyphus": { "model": "litellm/deepseek-v4-pro" },
+    "sisyphus": { "model": "litellm/kimi-k3" },
     "prometheus": { "model": "litellm/deepseek-v4-pro" },
     "metis": { "model": "litellm/glm-5.2" },
     "atlas": { "model": "litellm/glm-5.2" },
