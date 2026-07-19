@@ -3,18 +3,28 @@
 
   "//": "omo (oh-my-openagent) agent config, seeded to ~/.config/opencode/oh-my-openagent.json by postCreate.sh. The plugin itself auto-installs via opencode.json's `plugin` field on first `opencode` launch — no `bunx oh-my-openagent install` TUI needed.",
 
-  "//split": "The non-GPT agents below are pinned to the local LiteLLM gateway's per-model pools (litellm/<model>), which load-balances free/cheap routes. The GPT-family agents (hephaestus, oracle, momus) are intentionally NOT overridden here — they keep omo's built-in OpenAI defaults and run on OpenCode's native OpenAI/ChatGPT provider (connected directly via `opencode auth login`), NOT the gateway. This also satisfies omo's model-family guards (e.g. no-hephaestus-non-gpt).",
+  "//split": "Aligned to omo's agent-model-matching guide, mapped onto our gateway models. COMMUNICATORS (sisyphus/prometheus/metis/atlas/sisyphus-junior) use Kimi — the guide's top Claude-alternative (Kimi > GLM; deepseek/minimax/qwen are explicitly discouraged for these roles, esp. as orchestrator). UTILITY runners (explore/librarian) use Qwen (fast, the guide's utility pick). VISION (multimodal-looker) uses gemini-2.5-flash. The DEEP SPECIALISTS (hephaestus/oracle/momus) are intentionally NOT overridden — they keep omo's built-in GPT defaults and run on OpenCode's native OpenAI/ChatGPT provider (connected via `opencode auth login`), which the guide requires and which satisfies guards like no-hephaestus-non-gpt.",
 
-  "//agents": "Mapped by role to your gateway models. multimodal-looker -> gemini-2.5-flash (your only vision route). Edit freely; run `bunx oh-my-openagent doctor` to check model resolution.",
+  "//agents": "Run `bunx oh-my-openagent doctor` to verify resolution. atlas is on kimi-k2.7 because the guide lists a tuned Atlas prompt path for K2.7; the maintainer's example config uses kimi-k3 there too if you prefer the newer model.",
   "agents": {
     "sisyphus": { "model": "litellm/kimi-k3" },
-    "prometheus": { "model": "litellm/deepseek-v4-pro" },
-    "metis": { "model": "litellm/glm-5.2" },
-    "atlas": { "model": "litellm/glm-5.2" },
-    "sisyphus-junior": { "model": "litellm/deepseek-v4-flash" },
-    "explore": { "model": "litellm/deepseek-v4-flash" },
-    "librarian": { "model": "litellm/deepseek-v4-flash" },
+    "prometheus": { "model": "litellm/kimi-k2.7-code" },
+    "metis": { "model": "litellm/kimi-k2.7" },
+    "atlas": { "model": "litellm/kimi-k2.7" },
+    "sisyphus-junior": { "model": "litellm/kimi-k2.6" },
+    "explore": { "model": "litellm/qwen3.7-plus" },
+    "librarian": { "model": "litellm/qwen3.7-plus" },
     "multimodal-looker": { "model": "litellm/gemini-2.5-flash" }
+  },
+
+  "//categories": "Agents delegate work by CATEGORY, not model. Override the categories whose omo defaults we can't serve directly (visual-engineering/artistry default to google/gemini-3.1-pro — we route a Gemini via the gateway instead). `deep` and `ultrabrain` are intentionally left to omo's GPT defaults (deep/max-reasoning work = GPT per the guide), served by the ChatGPT subscription.",
+  "categories": {
+    "visual-engineering": { "model": "litellm/gemini-2.5-flash" },
+    "artistry": { "model": "litellm/gemini-2.5-flash" },
+    "quick": { "model": "litellm/deepseek-v4-flash" },
+    "unspecified-high": { "model": "litellm/kimi-k3" },
+    "unspecified-low": { "model": "litellm/kimi-k2.7-code" },
+    "writing": { "model": "litellm/kimi-k3" }
   },
 
   "//tmux": "tmux is installed in the image (Dockerfile). Spawns omo's background subagents into panes; activates only when opencode is launched inside a tmux session (`tmux` then `opencode`), else a harmless no-op (interactive_bash still works). TUNED for a TALL/NARROW terminal (VS Code panel docked right, top-to-bottom): main-horizontal stacks the main pane on TOP and subagents BELOW (splits by height, not width), and the min-widths are at the schema floor so panes still spawn in a narrow column. If you move the terminal to the bottom (wide/short), switch layout back to main-vertical and raise main_pane_min_width to ~120.",
@@ -41,5 +51,14 @@
 
   "//aids": "Enable all coding aids. hashline_edit = hash-anchored edit tool (no stale-line errors). experimental.task_system defaults true since v3.14; aggressive_truncation defaults false.",
   "hashline_edit": true,
-  "experimental": { "aggressive_truncation": true, "task_system": true }
+  "experimental": { "aggressive_truncation": true, "task_system": true },
+
+  "//team_mode": "Parallel multi-agent coordination (12 team_* tools), OFF by default in omo — enabled here. Opt-in per use: enabling it only makes the tools available. tmux_visualization gives each member a pane (activates only inside a tmux session, like the tmux block above). base_dir is set under the persisted ~/.local/share/opencode volume so user-scope team specs survive rebuilds (project-scope teams live in <repo>/.omo and persist via the bind mount).",
+  "team_mode": {
+    "enabled": true,
+    "max_parallel_members": 4,
+    "max_members": 8,
+    "tmux_visualization": true,
+    "base_dir": "~/.local/share/opencode/omo"
+  }
 }

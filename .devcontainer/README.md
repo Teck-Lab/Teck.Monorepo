@@ -137,9 +137,15 @@ install` TUI). `postCreate.sh` also seeds `~/.config/opencode/oh-my-openagent.js
 `litellm/<model>` pools — the gateway load-balances routes within each model so you
 don't hit provider limits.
 
-- 8 non-GPT agents (sisyphus, prometheus, metis, atlas, sisyphus-junior, explore,
-  librarian, multimodal-looker) map to your gateway models; `multimodal-looker` →
-  `gemini-2.5-flash` (only vision route).
+- Agent→model mapping follows omo's **agent-model-matching guide**, adapted to
+  gateway models: communicators (sisyphus/prometheus/metis/atlas/sisyphus-junior)
+  on **Kimi** (guide's top Claude-alternative, Kimi > GLM), utility
+  (explore/librarian) on **Qwen**, vision (multimodal-looker) on `gemini-2.5-flash`.
+  **Category** overrides route delegated work through the gateway too. `deep` /
+  `ultrabrain` are left to omo's GPT defaults (on your ChatGPT sub).
+- **Team mode is enabled** (`team_mode.enabled`, 12 `team_*` tools; opt-in per
+  use). tmux member-pane visualization on; team specs persist under the opencode
+  volume.
 - The GPT-family agents (`hephaestus`, `oracle`, `momus`) are **not** overridden —
   they keep omo's built-in OpenAI defaults and run on OpenCode's **native OpenAI/
   ChatGPT provider**, connected directly (`opencode auth login` → OpenAI, one

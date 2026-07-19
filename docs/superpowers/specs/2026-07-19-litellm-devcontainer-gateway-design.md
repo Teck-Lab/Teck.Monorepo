@@ -132,13 +132,19 @@ bump), `Dockerfile` (**install `tmux`** for omo; pre-create
   `superpowers@git+https://github.com/obra/superpowers.git`, auto-registers its
   skills dir). cc-safety-net's README suggests a CLI install, but it's a proper
   npm `@opencode-ai/plugin` package so the declarative `plugin`-array form is used.
-- **Split routing:** `postCreate.sh` seeds `~/.config/opencode/oh-my-openagent.json`.
-  The 8 non-GPT agents map to `litellm/<model>` (`multimodal-looker` →
-  `gemini-2.5-flash`, the only vision route). The GPT-family agents (`hephaestus`,
-  `oracle`, `momus`) are **not** overridden — they keep omo's built-in OpenAI
-  defaults and run on OpenCode's **native OpenAI/ChatGPT provider** (the user's
-  ChatGPT subscription, connected directly via `opencode auth login`), not the
-  gateway. This also satisfies omo's model-family guards (`no-hephaestus-non-gpt`).
+- **Split routing** (aligned to omo's agent-model-matching guide): `postCreate.sh`
+  seeds `~/.config/opencode/oh-my-openagent.json`. Communicators (sisyphus,
+  prometheus, metis, atlas, sisyphus-junior) → **Kimi** (guide's top
+  Claude-alternative; deepseek/minimax/qwen discouraged for these roles); utility
+  (explore, librarian) → **Qwen**; vision (multimodal-looker) → `gemini-2.5-flash`.
+  **Category** overrides (visual/artistry/quick/unspecified-*/writing) route
+  delegated work through the gateway; `deep`/`ultrabrain` stay on omo's GPT
+  defaults. The GPT-family agents (`hephaestus`, `oracle`, `momus`) are **not**
+  overridden — they run on OpenCode's **native OpenAI/ChatGPT provider** (the
+  user's ChatGPT subscription via `opencode auth login`), which the guide requires
+  and which satisfies guards like `no-hephaestus-non-gpt`.
+- **Team mode enabled** (`team_mode.enabled`, 12 `team_*` tools, opt-in per use;
+  `tmux_visualization` on; `base_dir` under the persisted opencode volume).
 - Chosen: **OpenCode Ultimate edition only** (Codex Light `npx lazycodex-ai
   install` not run — can be added later). GPT agents need a one-time
   `opencode auth login`.
