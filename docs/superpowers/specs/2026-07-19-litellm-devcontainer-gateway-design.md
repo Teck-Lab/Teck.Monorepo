@@ -149,6 +149,13 @@ bump), `Dockerfile` (**install `tmux`** for omo; pre-create
   when its primary is cooled/unavailable.
 - **Team mode enabled** (`team_mode.enabled`, 12 `team_*` tools, opt-in per use;
   `tmux_visualization` on; `base_dir` under the persisted opencode volume).
+- **Superpowers TDD wired via `prompt_append`.** The superpowers plugin registers
+  skills into OpenCode's `skill` tool + injects awareness into every conversation;
+  a committed directive (`.devcontainer/opencode/superpowers-skills.md`, seeded to
+  `~/.config/opencode/`) is `prompt_append`-ed onto the implementer agents
+  (sisyphus, hephaestus, sisyphus-junior) + the `deep` category so they invoke
+  `test-driven-development` (failing test first) before implementation. Plain
+  plugin install makes skills *available*; the prompt_append makes omo *use* them.
 - Chosen: **OpenCode Ultimate edition only** (Codex Light `npx lazycodex-ai
   install` not run — can be added later). GPT agents need a one-time
   `opencode auth login`.

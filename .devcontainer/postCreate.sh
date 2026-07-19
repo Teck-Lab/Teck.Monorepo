@@ -60,6 +60,10 @@ cp .devcontainer/opencode/oh-my-openagent.json "$HOME/.config/opencode/oh-my-ope
 # memories under the persisted ~/.local/share/opencode volume, and serves the
 # memory web UI on :4747. The plugin itself auto-installs via opencode.json.
 cp .devcontainer/opencode/opencode-mem.jsonc "$HOME/.config/opencode/opencode-mem.jsonc" || echo "WARN: could not seed opencode-mem config (continuing)"
+# Directive appended (via omo prompt_append) to the implementer agents/categories,
+# telling them to use the superpowers skills — TDD in particular — through
+# OpenCode's `skill` tool. The superpowers plugin itself auto-installs via opencode.json.
+cp .devcontainer/opencode/superpowers-skills.md "$HOME/.config/opencode/superpowers-skills.md" || echo "WARN: could not seed superpowers directive (continuing)"
 
 echo "==> Exposing LITELLM_MASTER_KEY to agent CLIs via ~/.bashrc"
 # Codex (env_key) and OpenCode ({env:LITELLM_MASTER_KEY}) read the gateway key

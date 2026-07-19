@@ -9,6 +9,7 @@
   "agents": {
     "sisyphus": {
       "model": "litellm/kimi-k3",
+      "prompt_append": "file://~/.config/opencode/superpowers-skills.md",
       "fallback_models": [
         "litellm/kimi-k2.7",
         "litellm/kimi-k2.6",
@@ -42,6 +43,7 @@
     },
     "sisyphus-junior": {
       "model": "litellm/kimi-k2.6",
+      "prompt_append": "file://~/.config/opencode/superpowers-skills.md",
       "fallback_models": [
         { "model": "openai/gpt-5.5", "variant": "medium" },
         "litellm/minimax-m3",
@@ -72,6 +74,7 @@
     "hephaestus": {
       "model": "openai/gpt-5.6-sol",
       "variant": "medium",
+      "prompt_append": "file://~/.config/opencode/superpowers-skills.md",
       "fallback_models": [
         { "model": "openai/gpt-5.5", "variant": "medium" },
         "litellm/deepseek-v4-pro"
@@ -120,6 +123,7 @@
     "deep": {
       "model": "openai/gpt-5.6-terra",
       "variant": "xhigh",
+      "prompt_append": "file://~/.config/opencode/superpowers-skills.md",
       "fallback_models": [
         { "model": "openai/gpt-5.5", "variant": "medium" },
         "litellm/deepseek-v4-pro",
