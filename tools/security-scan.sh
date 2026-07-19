@@ -9,6 +9,7 @@
 #   ./tools/security-scan.sh            # changed files vs the base branch (fast)
 #   ./tools/security-scan.sh --all      # whole repo
 #   ./tools/security-scan.sh --secrets  # gitleaks only (fast; the CI hard gate)
+#   ./tools/security-scan.sh --staged   # gitleaks on staged changes (pre-commit hook)
 #
 # Exit codes: 0 = clean, 1 = findings, 2 = could not run (docker/network).
 set -uo pipefail
@@ -21,13 +22,17 @@ BASE_REF="${SECURITY_SCAN_BASE:-origin/main}"
 # .github/workflows/security-scans.yml — keep them in sync or local != CI.
 SEMGREP_IMAGE="semgrep/semgrep:1.97.0"
 SEMGREP_CONFIGS=(--config p/csharp --config p/secrets --config p/r2c-security-audit)
-GITLEAKS_IMAGE="zricethezav/gitleaks:v8.28.0"
+# Exact image+tag CI uses (security-scans.yml). Do NOT "upgrade" this casually:
+# a newer gitleaks has different rules and will report findings the CI gate does
+# not, which is how local scans lose their meaning.
+GITLEAKS_IMAGE="ghcr.io/gitleaks/gitleaks:v8.18.4"
 TRIVY_IMAGE="aquasec/trivy:0.58.0"
 
 MODE="changed"
 case "${1:-}" in
   --all)     MODE="all" ;;
   --secrets) MODE="secrets" ;;
+  --staged)  MODE="staged" ;;
   ""|--changed) MODE="changed" ;;
   -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
   *) echo "unknown arg: $1 (try --help)"; exit 2 ;;
@@ -46,15 +51,17 @@ echo "=============================================="
 # Gitleaks is a HARD GATE in CI, so it runs in every mode.
 echo
 echo "--- [1] Gitleaks: secret detection ---"
+GITLEAKS_CMD=(detect)
+[ "$MODE" = "staged" ] && GITLEAKS_CMD=(protect --staged)
 if docker run --rm -v "$REPO_ROOT:/repo" "$GITLEAKS_IMAGE" \
-     detect --source=/repo --redact --no-banner \
+     "${GITLEAKS_CMD[@]}" --source=/repo --redact --no-banner \
      --report-format=json --report-path=/repo/.security/gitleaks.json 2>&1 | tail -20; then
   echo "PASS: no secrets detected"
 else
   echo "FAIL: secrets detected -> .security/gitleaks.json (this BLOCKS merge in CI)"
   FAILED=1
 fi
-[ "$MODE" = "secrets" ] && { echo; echo "done (secrets-only)"; exit $FAILED; }
+if [ "$MODE" = "secrets" ] || [ "$MODE" = "staged" ]; then echo; echo "done ($MODE-only)"; exit $FAILED; fi
 
 # ------------------------------------------------------------------- SAST ----
 echo
