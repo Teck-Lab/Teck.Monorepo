@@ -22,8 +22,13 @@ From the repo root:
 ```bash
 ./tools/security-scan.sh            # changed files vs base branch (fast — default)
 ./tools/security-scan.sh --secrets  # gitleaks only (seconds; the CI hard gate)
+./tools/security-scan.sh --staged   # gitleaks on staged changes (what the pre-commit hook runs)
 ./tools/security-scan.sh --all      # whole repo
 ```
+
+Git hooks now enforce the front of this pipeline: `pre-commit` runs `biome check
+--staged` plus the `--staged` secrets scan; `pre-push` runs the default changed-files
+scan. When a hook blocks, apply the triage below — never advise `--no-verify` as a fix.
 
 Exit code `0` = clean, `1` = findings, `2` = could not run.
 Reports land in `.security/` (gitignored): `semgrep.sarif`, `gitleaks.json`.

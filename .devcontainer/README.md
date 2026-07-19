@@ -24,7 +24,7 @@ In VS Code: Command Palette → **Dev Containers: Reopen in Container** (first b
 | Codex CLI | latest | `dirien/codex` feature (installs `@openai/codex`) |
 | tmux | apt | Dockerfile (`apt-get install tmux`) — required by omo |
 
-`postCreate.sh` runs `dotnet restore`, `bun install --frozen-lockfile`, creates an HTTPS dev cert, installs the Claude Code plugins + HUD (see below), and installs a `claude` shell alias (see Security below).
+`postCreate.sh` runs `dotnet restore`, `bun install --frozen-lockfile`, creates an HTTPS dev cert, installs the Claude Code plugins + HUD (see below), and installs a `claude` shell alias (see Security below). The `bun install` also fires the root `prepare` script, which installs the Husky git hooks (`core.hooksPath` → `.husky/_`): pre-commit runs Biome on staged files plus a staged Gitleaks scan, pre-push runs the full local CI mirror (`tools/security-scan.sh`) — so the security gates are active on every fresh container with no manual step.
 
 ## Claude Code plugins & HUD statusline
 
