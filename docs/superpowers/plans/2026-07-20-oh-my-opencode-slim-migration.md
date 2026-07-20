@@ -457,14 +457,24 @@ omos() {
   for (( i=0; i<${#args[@]}; i++ )); do
     case "${args[i]}" in
       --port=*) port="${args[i]#--port=}"; break ;;
-      --port)   port="${args[i+1]}"; break ;;
+      --port)
+        if (( i + 1 < ${#args[@]} )); then
+          port="${args[i+1]:-}"
+        else
+          # Trailing --port with no value: treat it as "no port specified"
+          # and drop the dangling flag so it never reaches opencode next to
+          # an auto-picked --port.
+          unset 'args[i]'
+        fi
+        break
+        ;;
     esac
   done
   if [ -z "$port" ]; then
     port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')" || return 1
-    OPENCODE_PORT="$port" command opencode --port "$port" "$@"
+    OPENCODE_PORT="$port" command opencode --port "$port" "${args[@]}"
   else
-    OPENCODE_PORT="$port" command opencode "$@"
+    OPENCODE_PORT="$port" command opencode "${args[@]}"
   fi
 }
 OMOS_EOF
