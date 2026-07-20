@@ -686,14 +686,28 @@ Expected: `non-comment changes exit=1` (no output — every changed line is a co
 output here means a functional line was altered, violating the "comment updates only"
 constraint.
 
-Then prove the gateway still loads it:
+Then prove the gateway still loads it. **The gateway is not currently running** (its container
+exited earlier), so this both validates your edit and brings it back up:
 
 ```bash
 docker compose -f .devcontainer/litellm/compose.yaml up -d --force-recreate
-sleep 5 && curl -fsS http://localhost:4000/health/liveliness >/dev/null && echo "gateway reloaded config OK"
+for _ in $(seq 1 20); do curl -fsS http://localhost:4000/health/liveliness >/dev/null 2>&1 && { echo "gateway reloaded config OK"; break; }; sleep 2; done
 ```
 
 Expected: `gateway reloaded config OK`.
+
+**If it does NOT come up, do not assume your edit caused it.** This config carries live
+provider credentials that may have expired independently. Establish whether the failure
+pre-dates your change before reporting it as one:
+
+```bash
+git stash && docker compose -f .devcontainer/litellm/compose.yaml up -d --force-recreate
+sleep 10 && curl -fsS http://localhost:4000/health/liveliness >/dev/null && echo "PRE-EXISTING failure — not caused by this task" || echo "still down on the unmodified config too"
+git stash pop
+```
+
+Report which case you observed. A pre-existing failure is out of scope for this task —
+note it and move on; do not attempt to fix provider credentials.
 
 - [ ] **Step 4: Rewrite the README omo section**
 
