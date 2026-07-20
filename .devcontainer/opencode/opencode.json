@@ -8,6 +8,10 @@
     "opencode-snip@1.6.1",
     "superpowers@git+https://github.com/obra/superpowers.git"
   ],
+  "agent": {
+    "explore": { "disable": true },
+    "general": { "disable": true }
+  },
   "mcp": {
     "context7": {
       "type": "remote",
