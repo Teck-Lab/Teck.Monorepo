@@ -84,6 +84,11 @@
         "skills": [
           "codemap",
           "simplify",
+          // It writes the code, so it plans its own verification. This repo
+          // fails the build on ArchUnit tests and analyzer errors, so "did I
+          // check it" is not optional here. Shared with @oracle deliberately —
+          // oracle plans verification when advising, fixer when implementing.
+          "verification-planning",
           "dotnet-best-practices",
           "nx-monorepo",
           "nextjs-architect",
