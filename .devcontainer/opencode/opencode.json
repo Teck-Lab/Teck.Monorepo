@@ -5,6 +5,7 @@
     "oh-my-opencode-slim",
     "cc-safety-net",
     "opencode-mem",
+    "opencode-snip@1.6.1",
     "superpowers@git+https://github.com/obra/superpowers.git"
   ],
   "provider": {

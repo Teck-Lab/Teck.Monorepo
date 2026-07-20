@@ -34,6 +34,29 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends tmux \
     && rm -rf /var/lib/apt/lists/*
 
+# snip — required by the `opencode-snip` OpenCode plugin, which prefixes shell
+# commands with `snip` to filter their output before it reaches the model
+# context (the project claims 60-90% fewer tokens on noisy commands). The plugin
+# is declared in opencode.json's `plugin` array and shells out to this binary, so
+# without it on PATH the plugin is inert.
+#
+# Installed from the upstream prebuilt release rather than `go install`: there is
+# no Go toolchain in this image and adding one for a single static binary would
+# be a large layer for no benefit. Pinned per the repo convention — never `latest`.
+ARG SNIP_VERSION=0.22.0
+RUN arch="$(dpkg --print-architecture)" \
+    && case "$arch" in \
+         amd64) snip_arch="amd64" ;; \
+         arm64) snip_arch="arm64" ;; \
+         *) echo "unsupported arch for snip: $arch" >&2; exit 1 ;; \
+       esac \
+    && curl -fsSL "https://github.com/edouard-claude/snip/releases/download/v${SNIP_VERSION}/snip_${SNIP_VERSION}_linux_${snip_arch}.tar.gz" \
+       -o /tmp/snip.tar.gz \
+    && tar -xzf /tmp/snip.tar.gz -C /tmp snip \
+    && install -m 0755 /tmp/snip /usr/local/bin/snip \
+    && rm -f /tmp/snip.tar.gz /tmp/snip \
+    && snip --version
+
 # Same rationale applies to OpenCode's data dir: ~/.local/share/opencode holds
 # auth.json (the `opencode auth login` / ChatGPT-subscription credentials) and
 # plugin state. Pre-create it vscode-owned so its named volume is writable and the
