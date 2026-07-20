@@ -22,6 +22,29 @@ echo "==> Installing Claude Code plugins into the mounted Claude config volume"
 # tree onto the mounted volume. Fall back to ~/.claude if it's somehow unset so
 # this script still works outside the dev container.
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+
+# SELF-HEAL: the plugin registries store ABSOLUTE installPath/installLocation
+# values, and they live on the persisted volume. If the config dir ever moves
+# (as it did when CLAUDE_CONFIG_DIR was introduced), the registries travel with
+# the volume still pointing at the OLD path — and every install then fails with
+# "Source path does not exist: <old path>" while `claude plugin install` silently
+# no-ops because the registry claims the plugin is already installed. Purging the
+# two registry files makes them rebuild against the current path; the installs
+# below repopulate them. Only triggers when a stale path is actually present.
+MKT_REG="$CLAUDE_DIR/plugins/known_marketplaces.json"
+PLG_REG="$CLAUDE_DIR/plugins/installed_plugins.json"
+stale=0
+if command -v jq >/dev/null 2>&1; then
+  # Any recorded location that isn't under the CURRENT config dir is stale.
+  [ -f "$MKT_REG" ] && [ "$(jq -r --arg d "$CLAUDE_DIR" \
+      '[.[]?.installLocation // empty | select(startswith($d) | not)] | length' "$MKT_REG" 2>/dev/null || echo 0)" != "0" ] && stale=1
+  [ -f "$PLG_REG" ] && [ "$(jq -r --arg d "$CLAUDE_DIR" \
+      '[.plugins[]?[]?.installPath // empty | select(startswith($d) | not)] | length' "$PLG_REG" 2>/dev/null || echo 0)" != "0" ] && stale=1
+fi
+if [ "$stale" = "1" ]; then
+  echo "    stale plugin registry paths detected — purging so they rebuild at $CLAUDE_DIR"
+  rm -f "$MKT_REG" "$PLG_REG"
+fi
 # The committed .claude/settings.json declares these as enabled, but enabled
 # plugins only auto-install behind an interactive trust prompt. Installing them
 # explicitly here is headless and deterministic: `claude plugin install` just
