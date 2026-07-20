@@ -76,4 +76,44 @@ if ! grep -qF "$ENV_FILE_ABS" "$HOME/.bashrc" 2>/dev/null; then
   printf '\n# Expose the LiteLLM gateway master key to agent CLIs (Codex/OpenCode)\n%s\n' "$KEY_LINE" >> "$HOME/.bashrc"
 fi
 
+echo "==> Enabling OpenCode background subagents (required by oh-my-opencode-slim)"
+# Slim's default orchestration dispatches specialists as background subagents,
+# which OpenCode gates behind this experimental flag. Without it the
+# orchestrator silently runs everything inline and no multiplexer panes appear.
+BG_LINE='export OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true'
+if ! grep -qxF "$BG_LINE" "$HOME/.bashrc" 2>/dev/null; then
+  printf '\n# Required by oh-my-opencode-slim background orchestration\n%s\n' "$BG_LINE" >> "$HOME/.bashrc"
+fi
+
+echo "==> Installing the 'omos' OpenCode launcher (explicit --port, for tmux panes)"
+# Multiplexer panes attach with `opencode attach`, which needs a real TCP
+# listener. OpenCode's default (`--port 0`) doesn't create one, so subagent
+# panes never appear. Upstream ships a zsh helper; this is the bash equivalent.
+# Honours an explicit --port if you pass one; otherwise picks a free loopback
+# port and passes it through. Plain `opencode` remains available, unwrapped.
+if ! grep -qF 'omos()' "$HOME/.bashrc" 2>/dev/null; then
+  cat >> "$HOME/.bashrc" <<'OMOS_EOF'
+
+# Launch OpenCode with an explicit port so oh-my-opencode-slim can open
+# subagent panes in tmux. Usage: `tmux` then `omos`.
+omos() {
+  local port=""
+  local -a args=("$@")
+  local i
+  for (( i=0; i<${#args[@]}; i++ )); do
+    case "${args[i]}" in
+      --port=*) port="${args[i]#--port=}"; break ;;
+      --port)   port="${args[i+1]}"; break ;;
+    esac
+  done
+  if [ -z "$port" ]; then
+    port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')" || return 1
+    OPENCODE_PORT="$port" command opencode --port "$port" "$@"
+  else
+    OPENCODE_PORT="$port" command opencode "$@"
+  fi
+}
+OMOS_EOF
+fi
+
 echo "==> postCreate complete"
