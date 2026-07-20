@@ -101,6 +101,16 @@ if ! grep -qF "$ENV_FILE_ABS" "$HOME/.bashrc" 2>/dev/null; then
   printf '\n# Expose the LiteLLM gateway master key to agent CLIs (Codex/OpenCode)\n%s\n' "$KEY_LINE" >> "$HOME/.bashrc"
 fi
 
+echo "==> Exposing GITHUB_TOKEN (from gh) to OpenCode via ~/.bashrc"
+# opencode.json references it as {env:GITHUB_TOKEN} for the github MCP's
+# Authorization header. Read live from `gh auth token` rather than copied, so it
+# tracks re-auth automatically and no token is written to a file. ~/.config/gh is
+# on its own volume, so the login itself survives rebuilds.
+GH_LINE='command -v gh >/dev/null 2>&1 && export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"'
+if ! grep -qxF "$GH_LINE" "$HOME/.bashrc" 2>/dev/null; then
+  printf '\n# Expose the GitHub token to OpenCode (github MCP)\n%s\n' "$GH_LINE" >> "$HOME/.bashrc"
+fi
+
 echo "==> Exposing CRAWL4AI_API_TOKEN to OpenCode via ~/.bashrc"
 # opencode.json references it as {env:CRAWL4AI_API_TOKEN} for the crawl4ai MCP's
 # Authorization header. Same dynamic-load pattern as the gateway key above: the

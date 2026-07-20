@@ -68,5 +68,12 @@ RUN arch="$(dpkg --print-architecture)" \
 # that would silently vanish on every rebuild. postCreate.sh still re-seeds
 # config.toml from the committed template on top of the volume, so the template
 # stays the source of truth for configuration while auth persists.
-RUN mkdir -p /home/vscode/.claude-config /home/vscode/.local/share/opencode /home/vscode/.codex \
-    && chown -R vscode:vscode /home/vscode/.claude-config /home/vscode/.local /home/vscode/.codex
+# ~/.config/gh is on the same list: `gh auth login` writes its OAuth token to
+# ~/.config/gh/hosts.yml, which is NOT under any other mounted path — so without
+# its own volume every rebuild silently logged you out of GitHub. The github MCP
+# server reads that token via `gh auth token`, so losing it also breaks the
+# librarian's repo access, not just the CLI.
+RUN mkdir -p /home/vscode/.claude-config /home/vscode/.local/share/opencode \
+      /home/vscode/.codex /home/vscode/.config/gh \
+    && chown -R vscode:vscode /home/vscode/.claude-config /home/vscode/.local \
+      /home/vscode/.codex /home/vscode/.config
