@@ -572,12 +572,21 @@ git rm .devcontainer/opencode/oh-my-openagent.json .devcontainer/opencode/superp
 
 ```bash
 bash -n .devcontainer/postCreate.sh && echo "syntax OK"
-grep -rn 'oh-my-openagent\|superpowers-skills' .devcontainer/ --exclude=README.md ; echo "exit=$?"
+grep -rn 'oh-my-openagent\|superpowers-skills' .devcontainer/ \
+  --exclude=README.md --exclude=Dockerfile --exclude=config.yaml ; echo "exit=$?"
 ```
 
 Expected: `syntax OK`, then `exit=1` (grep exit 1 = no matches).
 
-`README.md` is **excluded on purpose** — it still contains omo references at this point and is rewritten in Task 6. Do not "fix" the README here; that work belongs to the next task and splitting it would make both commits incoherent.
+Three files are **excluded on purpose** — every one still carries an omo mention that Task 6 rewrites: `README.md` (the plugin section), `Dockerfile` (the tmux rationale comment), and `litellm/config.yaml` (the fallback-ownership comments). Do not "fix" them here; that work belongs to the next task, and splitting it would make both commits incoherent.
+
+To confirm the exclusions are the *only* remaining mentions, run:
+
+```bash
+grep -rln 'oh-my-openagent' .devcontainer/
+```
+
+Expected: exactly `README.md`, `Dockerfile`, and `litellm/config.yaml` — nothing else. Anything further is a genuine miss.
 
 - [ ] **Step 5: Commit**
 
