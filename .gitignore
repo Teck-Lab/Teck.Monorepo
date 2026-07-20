@@ -66,3 +66,7 @@ web-build/
 .omo
 # Local security scan reports (tools/security-scan.sh)
 .security/
+
+# Generated MCP backend secrets (see .devcontainer/start-mcp.sh)
+.devcontainer/mcp/mcp.env
+.devcontainer/mcp/searxng/settings.yml
