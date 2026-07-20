@@ -22,7 +22,7 @@ In VS Code: Command Palette → **Dev Containers: Reopen in Container** (first b
 | Claude Code | latest | `claude-code` feature (CLI + VS Code extension) |
 | OpenCode | latest | `opencode` feature (devcontainers-extra) |
 | Codex CLI | latest | `dirien/codex` feature (installs `@openai/codex`) |
-| tmux | apt | Dockerfile (`apt-get install tmux`) — required by omo |
+| tmux | apt | Dockerfile (`apt-get install tmux`) — required by oh-my-opencode-slim panes |
 
 `postCreate.sh` runs `dotnet restore`, `bun install --frozen-lockfile`, creates an HTTPS dev cert, installs the Claude Code plugins + HUD (see below), and installs a `claude` shell alias (see Security below). The `bun install` also fires the root `prepare` script, which installs the Husky git hooks (`core.hooksPath` → `.husky/_`): pre-commit runs Biome on staged files plus a staged Gitleaks scan, pre-push runs the full local CI mirror (`tools/security-scan.sh`) — so the security gates are active on every fresh container with no manual step.
 
@@ -42,7 +42,7 @@ per request, respects each provider's `rpm`, cools down any that 429, and falls
 back to a paid net so a request never hard-fails. It runs stateless (no database)
 from `.devcontainer/litellm/config.yaml`.
 
-**Per-model pools** (structured for [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent),
+**Per-model pools** (structured for [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim),
 which pins each agent to a specific `provider/model`). Each `model_name` is a REAL
 model id — clients call it as `litellm/<model_name>` — and under each name sits a
 pool of every route that serves that exact model (flat-rate OpenCode Go, free
@@ -58,8 +58,8 @@ deepseek-r1-distill-qwen-32b   qwen2.5-coder-32b   nemotron-3-ultra   north-mini
 `routing_strategy: usage-based-routing-v2` sends each request to the route with
 the most `rpm`/`tpm` headroom, so one model never hits a single provider's limit;
 a route that 429s is cooled and traffic shifts to the rest. **Cross-model**
-fallback (agent's model down → try another) is owned by omo's per-agent
-`fallback_models`, not LiteLLM — the gateway only balances routes *within* a
+fallback (agent's model down → try another) is owned by slim's top-level
+`fallback` block, not LiteLLM — the gateway only balances routes *within* a
 model. `.devcontainer/start-litellm.sh` brings it up with **docker compose**
 (service defined in `.devcontainer/litellm/compose.yaml`) via docker-in-docker
 from the `postStartCommand`, so it comes up on **every** container start. `up -d`
@@ -118,7 +118,7 @@ interactive login is needed once the gateway has keys.
 **OpenCode plugins auto-install** on first launch — `opencode.json`'s `plugin`
 array is fetched via Bun (needs network once):
 
-- `oh-my-openagent` — the multi-agent system (details below).
+- `oh-my-opencode-slim` — the multi-agent system (details below).
 - `cc-safety-net` — PreToolUse hook that blocks destructive commands (`rm -rf`,
   `git reset --hard`, …) before an agent runs them. Works out of the box.
 - `opencode-mem` — local agent memory (SQLite + on-device vector search, no
@@ -131,63 +131,69 @@ array is fetched via Bun (needs network once):
 - `superpowers` — obra's skills framework, installed as a git-backed plugin
   (`superpowers@git+…`); it auto-registers its skills directory.
 
-**omo (oh-my-openagent) is auto-installed & pre-wired — zero manual steps:**
-`opencode.json` lists `oh-my-openagent` in its `plugin` array, so OpenCode
-installs it via Bun on the first `opencode` launch (no `bunx oh-my-openagent
-install` TUI). `postCreate.sh` also seeds `~/.config/opencode/oh-my-openagent.json`
-(`.devcontainer/opencode/oh-my-openagent.json`), which maps omo's agents to your
-`litellm/<model>` pools — the gateway load-balances routes within each model so you
-don't hit provider limits.
+**oh-my-opencode-slim is auto-installed & pre-wired — zero manual steps except auth:**
+`opencode.json` lists `oh-my-opencode-slim` in its `plugin` array, so OpenCode
+installs it via Bun on the first `opencode` launch (the upstream `bunx
+oh-my-opencode-slim install` TUI is **never** run — it's interactive and would
+fight the committed template). `postCreate.sh` seeds
+`~/.config/opencode/oh-my-opencode-slim.json` from
+`.devcontainer/opencode/oh-my-opencode-slim.json`.
 
-- Agent→model mapping follows omo's **agent-model-matching guide**, adapted to
-  gateway models: communicators (sisyphus/prometheus/metis/atlas/sisyphus-junior)
-  on **Kimi** (guide's top Claude-alternative, Kimi > GLM), utility
-  (explore/librarian) on **Qwen**, vision (multimodal-looker) on `gemini-2.5-flash`,
-  deep specialists (hephaestus/oracle/momus) on **GPT** via your ChatGPT sub.
-- **Every agent has a `fallback_models` chain** (from the guide's per-agent chains)
-  so it keeps working if its primary is down — gateway pool cooled, or the sub
-  unavailable. GPT agents fall back to gateway models (DeepSeek/Gemini/GLM);
-  gateway agents fall back across Kimi → the GPT sub → other gateway models.
-- **Categories** (delegated work) also each have a primary + `fallback_models`
-  chain: `deep`/`ultrabrain` primary on the GPT sub → gateway fallbacks;
-  visual/artistry on Gemini; the rest Kimi/gateway with GPT-sub fallbacks.
-- **Team mode is enabled** (`team_mode.enabled`, 12 `team_*` tools; opt-in per
-  use). tmux member-pane visualization on; team specs persist under the opencode
-  volume.
-- **Superpowers skills are nudged in.** The superpowers plugin registers its
-  skills into OpenCode's `skill` tool; a committed directive
-  (`.devcontainer/opencode/superpowers-skills.md`, seeded to `~/.config/opencode/`)
-  is `prompt_append`-ed onto the implementer agents (sisyphus, hephaestus,
-  sisyphus-junior) and the `deep` category, telling them to follow superpowers'
-  own discipline — use a skill when it applies (`test-driven-development` as the
-  default for real implementation, `brainstorming` before building,
-  `systematic-debugging` on bugs). It's **not forced**: TDD's own exception is
-  throwaway prototypes, and a skill that doesn't fit can be skipped. Edit that file
-  to tune the directive.
-- The GPT-family agents (`hephaestus`, `oracle`, `momus`) are **not** overridden —
-  they keep omo's built-in OpenAI defaults and run on OpenCode's **native OpenAI/
-  ChatGPT provider**, connected directly (`opencode auth login` → OpenAI, one
-  time), **not** the gateway. This also satisfies omo's model-family guards
-  (`no-hephaestus-non-gpt`).
-- **tmux** is installed (Dockerfile) and omo's tmux integration is enabled
-  (`"tmux": { "enabled": true }`), so background subagents spawn into panes. It
-  only activates when you launch OpenCode **inside** a tmux session (`tmux`, then
-  `opencode`); outside tmux it's a harmless no-op and omo's `interactive_bash`
-  tool still works. The layout is tuned for a **tall/narrow terminal** (VS Code
-  panel docked right): `main-horizontal` stacks the main pane on top and
-  subagents below. Docking the terminal at the bottom (wide/short)? switch
-  `layout` back to `main-vertical` and raise `main_pane_min_width` to ~120.
+- **Seven agents:** orchestrator, explorer, oracle, council, librarian, designer,
+  fixer — plus a custom `fast-generic` for mechanical git/lint/test work.
+- **Hybrid routing.** Reasoning-heavy agents run on the **native OpenAI provider**
+  (`opencode auth login` → OpenAI, one time), *not* the gateway: `oracle` runs
+  `openai/gpt-5.6-sol` (variant `xhigh`) — the strongest available reasoning
+  tier, `orchestrator` runs `openai/gpt-5.6-terra` (variant `xhigh`), and
+  `librarian`/`explorer` run `openai/gpt-5.6-luna` (variant `low`). Cost-sensitive
+  agents stay on the **LiteLLM gateway** pools: `designer` → `glm-5.2`, `fixer` →
+  `kimi-k2.7-code`, `fast-generic` → `deepseek-v4-flash`.
+- **No agent uses `gemini-2.5-flash`.** Its free tier is 20 requests per **day**,
+  single-route, with no cross-model fallback — it would brick an agent by
+  mid-morning. (The upstream author's preset uses Gemini here; we deliberately
+  don't.)
+- **Council** runs cross-vendor consensus (`gpt-5.6-sol` + `glm-5.2` +
+  `deepseek-v4-pro`) so councillors don't share a failure mode.
+- **Fallback layering:** slim's top-level `fallback` block owns *cross-model*
+  failover; LiteLLM balances routes *within* one model pool. Two distinct layers —
+  keep them that way.
+- **Superpowers skills are nudged in** via committed, project-local prompt
+  appends: `.opencode/oh-my-opencode-slim/orchestrator_append.md` and
+  `fixer_append.md`. Unlike omo's seeded `prompt_append`, these are
+  version-controlled, reviewable in PRs, and survive rebuilds with no seeding
+  step. Edit them to tune the directive.
+- **The desktop companion is disabled** — it's a GUI app and this container is
+  headless.
+
+**tmux panes: launch with `omos`, not `opencode`.**
+Slim spawns background subagents into live tmux panes. Two requirements:
+`OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true` (exported into `~/.bashrc` by
+`postCreate.sh`) and an **explicit port** — pane attachment uses `opencode
+attach`, which needs a real TCP listener, and OpenCode's default `--port 0`
+doesn't create one. `postCreate.sh` installs an `omos` bash function that picks a
+free port and passes it through:
+
+```bash
+tmux      # start a session first
+omos      # instead of `opencode`
+```
+
+Outside tmux `omos` is a harmless no-op wrapper. Layout is `main-horizontal`
+(main pane on top, subagents below), tuned for a **tall/narrow** terminal — the
+VS Code panel docked right. Docking at the bottom instead (wide/short)? Switch
+`multiplexer.layout` to `main-vertical` in the template.
 
 Edit the committed templates under `.devcontainer/{opencode,codex}/` to change
 models/agents — they re-seed on every rebuild (the in-container copies are
-ephemeral). First `opencode` launch needs network to fetch the plugin; the GPT
-agents need the one-time `opencode auth login`.
+ephemeral). First `opencode` launch needs network to fetch the plugin; the
+OpenAI-backed agents need the one-time `opencode auth login`.
 
 **Auth persists across rebuilds.** OpenCode's data dir `~/.local/share/opencode`
 (holding `auth.json` **and** `mcp-auth.json`) is mounted on a per-project named
 volume (`opencode-data-${devcontainerId}`, alongside the Claude Code one). So
-`opencode auth login` (your ChatGPT subscription) — and omo's bundled-MCP auth —
-are **one-time** steps that survive container rebuilds. (The gateway master key isn't stored here; it's
+`opencode auth login` (your ChatGPT subscription) is a **one-time** step that
+survives container rebuilds — oh-my-opencode-slim has no bundled MCP servers
+to authenticate separately (every agent's `mcps` list is empty). (The gateway master key isn't stored here; it's
 loaded live from `litellm/litellm.env` per shell. Codex authenticates to the
 gateway via env, so it has no stored credential to persist.)
 

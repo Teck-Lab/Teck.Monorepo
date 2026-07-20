@@ -16,9 +16,12 @@
 # CLI) is still layered on via the `features` block in devcontainer.json.
 FROM mcr.microsoft.com/devcontainers/dotnet:2.1-10.0-noble
 
-# tmux — required by oh-my-openagent (omo): its `interactive_bash` tool and the
-# Team Mode / background-subagent pane visualization shell out to tmux, so it must
-# be installed and on PATH. (System package → installed here, not via a feature.)
+# tmux — required by oh-my-opencode-slim's multiplexer integration: background
+# subagents are spawned into live tmux panes, so tmux must be installed and on
+# PATH. Launch OpenCode via the `omos` helper (see postCreate.sh) so it binds an
+# explicit port — pane attachment needs a real TCP listener, which OpenCode's
+# default `--port 0` does not provide. (System package → installed here, not via
+# a feature.)
 RUN apt-get update \
     && apt-get install -y --no-install-recommends tmux \
     && rm -rf /var/lib/apt/lists/*
