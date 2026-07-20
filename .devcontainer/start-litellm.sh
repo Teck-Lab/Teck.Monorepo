@@ -30,8 +30,20 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 
 echo "==> LiteLLM: docker compose up -d"
-docker compose -f "$COMPOSE_FILE" up -d \
-  || { echo "WARN: LiteLLM: 'docker compose up' failed (continuing)."; exit 0; }
+if ! docker compose -f "$COMPOSE_FILE" up -d; then
+  # Known docker-in-docker failure after a devcontainer rebuild:
+  #   "RWLayer of container <id> is unexpectedly nil"
+  # The DinD daemon persists /var/lib/docker across rebuilds (that's what keeps
+  # the image cache), so the old container RECORD survives — but its read-write
+  # layer is invalidated when the outer container is recreated. `up -d` then
+  # can't start it and a plain retry won't help; the stale record has to go.
+  # Recreating is safe: this container is stateless, defined entirely by
+  # compose.yaml + config.yaml.
+  echo "    'up -d' failed — removing any stale container record and retrying once"
+  docker rm -f litellm-gateway >/dev/null 2>&1 || true
+  docker compose -f "$COMPOSE_FILE" up -d \
+    || { echo "WARN: LiteLLM: 'docker compose up' failed after retry (continuing)."; exit 0; }
+fi
 
 echo "==> LiteLLM: waiting for /health/liveliness ..."
 for _ in $(seq 1 30); do
