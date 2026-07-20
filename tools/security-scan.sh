@@ -51,11 +51,29 @@ echo "=============================================="
 # Gitleaks is a HARD GATE in CI, so it runs in every mode.
 echo
 echo "--- [1] Gitleaks: secret detection ---"
+
+# Linked worktrees use a gitfile (.git is a file). The gitfile and the
+# worktree-specific Git metadata point to absolute paths outside the source
+# tree, so Gitleaks inside Docker needs the worktree and both Git directories
+# mounted at their original absolute paths.
+GITLEAKS_SOURCE="/repo"
+GITLEAKS_REPORT="/repo/.security/gitleaks.json"
+GITLEAKS_MOUNTS=(-v "$REPO_ROOT:/repo")
+if [ -f "$REPO_ROOT/.git" ]; then
+  GITDIR=$(git -C "$REPO_ROOT" rev-parse --git-dir 2>/dev/null) || GITDIR=""
+  COMMONDIR=$(git -C "$REPO_ROOT" rev-parse --git-common-dir 2>/dev/null) || COMMONDIR=""
+  if [ -n "$GITDIR" ] && [ -n "$COMMONDIR" ] && [ "$GITDIR" != "$COMMONDIR" ]; then
+    GITLEAKS_SOURCE="$REPO_ROOT"
+    GITLEAKS_REPORT="$REPO_ROOT/.security/gitleaks.json"
+    GITLEAKS_MOUNTS=(-v "$REPO_ROOT:$REPO_ROOT" -v "$GITDIR:$GITDIR:ro" -v "$COMMONDIR:$COMMONDIR:ro")
+  fi
+fi
+
 GITLEAKS_CMD=(detect)
 [ "$MODE" = "staged" ] && GITLEAKS_CMD=(protect --staged)
-if docker run --rm -v "$REPO_ROOT:/repo" "$GITLEAKS_IMAGE" \
-     "${GITLEAKS_CMD[@]}" --source=/repo --redact --no-banner \
-     --report-format=json --report-path=/repo/.security/gitleaks.json 2>&1 | tail -20; then
+if docker run --rm "${GITLEAKS_MOUNTS[@]}" "$GITLEAKS_IMAGE" \
+     "${GITLEAKS_CMD[@]}" --source="$GITLEAKS_SOURCE" --redact --no-banner \
+     --report-format=json --report-path="$GITLEAKS_REPORT" 2>&1 | tail -20; then
   echo "PASS: no secrets detected"
 else
   echo "FAIL: secrets detected -> .security/gitleaks.json (this BLOCKS merge in CI)"
@@ -68,9 +86,14 @@ echo
 echo "--- [2] Semgrep SAST (${SEMGREP_IMAGE##*:}) ---"
 SEMGREP_TARGET="/src"
 if [ "$MODE" = "changed" ]; then
-  mapfile -t CHANGED < <(git -C "$REPO_ROOT" diff --name-only --diff-filter=ACMR "$BASE_REF"...HEAD 2>/dev/null;
-                         git -C "$REPO_ROOT" diff --name-only --diff-filter=ACMR HEAD 2>/dev/null)
-  mapfile -t CHANGED < <(printf '%s\n' "${CHANGED[@]}" | sort -u | grep -v '^$')
+  # Collect changed paths but keep only regular tracked files (modes 100644/100755).
+  # Symlinks (120000) and other git objects must not be passed to Semgrep because
+  # their targets may resolve outside the Docker /src mount and fail the scan.
+  mapfile -t CHANGED < <(git -C "$REPO_ROOT" diff --raw --diff-filter=ACMR "$BASE_REF"...HEAD 2>/dev/null;
+                         git -C "$REPO_ROOT" diff --raw --diff-filter=ACMR HEAD 2>/dev/null)
+  mapfile -t CHANGED < <(printf '%s\n' "${CHANGED[@]}" | \
+    awk -F'\t' 'NF>=2 {split($1,a," "); m=a[2]; if (m=="100644" || m=="100755") { gsub(/^"|"$/,"",$NF); print $NF }}' | \
+    sort -u | grep -v '^$')
   if [ "${#CHANGED[@]}" -eq 0 ]; then
     echo "no changed files vs $BASE_REF — skipping SAST (use --all to force)"
     SEMGREP_TARGET=""
