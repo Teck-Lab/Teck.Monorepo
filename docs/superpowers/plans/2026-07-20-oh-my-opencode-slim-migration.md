@@ -19,6 +19,8 @@
 - **`postCreate.sh` is failure-tolerant by design.** Every new step follows the existing `|| echo "WARN: ... (continuing)"` style and must never fail the container build.
 - **`.bashrc` edits must be idempotent**, using the existing `grep -qxF` / `grep -qF` guard pattern.
 - **Commit signing is mandatory** (`commit.gpgsign=true`, key `FF4693E3D74495BA`, author `jl@tecklab.dk`). Never bypass it. If signing fails, stop and surface it.
+- **Pin every external image and package to an explicit version. Never use `latest`.** This repo pins throughout: LiteLLM is `ghcr.io/berriai/litellm:main-stable`, every devcontainer feature is locked to a sha256 digest in `devcontainer-lock.json`, and `CLAUDE.md` forbids `latest`. Container images take an explicit version tag; `npx`/`bunx` invocations take `pkg@x.y.z`. Discover the current version first, then pin it — do not guess a version number.
+- **Work happens on `feat/opencode-slim-migration`**, never on `main`.
 - **Multiplexer layout is `main-horizontal`** (deviation D3), not the author's `main-vertical` — tuned for a right-docked VS Code terminal panel.
 - **`companion.enabled` is `false`** (deviation D2) — headless container, no display server.
 - **Do not route any agent at `gemini-2.5-flash`** (deviation D1) — free tier is 20 requests/**day**, single-route, no fallback.
@@ -122,6 +124,10 @@ Create `.devcontainer/opencode/oh-my-opencode-slim.json`. **Substitute the three
 
 ```jsonc
 {
+  // `@latest` here is a deliberate exception to the pinning constraint: this URL
+  // is an editor/IDE validation hint, never fetched or executed at runtime, and
+  // it must track the plugin's actual installed version — which auto-updates.
+  // Pinning it would eventually validate this file against the WRONG schema.
   "$schema": "https://unpkg.com/oh-my-opencode-slim@latest/oh-my-opencode-slim.schema.json",
 
   // Active preset. Mirrors the upstream author's preset structure
@@ -859,10 +865,16 @@ If `gh mcp NOT available`, this `gh` build predates the built-in MCP server. Rep
 ```json
     "github": {
       "type": "local",
-      "command": ["npx", "-y", "@modelcontextprotocol/server-github"],
+      "command": ["npx", "-y", "@modelcontextprotocol/server-github@<VERSION>"],
       "environment": { "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_TOKEN}" },
       "enabled": true
     }
+```
+
+Resolve `<VERSION>` first — per the global pinning constraint, do not ship a bare package name:
+
+```bash
+npm view @modelcontextprotocol/server-github version
 ```
 
 and export `GITHUB_TOKEN` in `~/.bashrc` via `postCreate.sh` using `gh auth token`. Record which variant you used.
@@ -931,9 +943,21 @@ df -h /var/lib/docker 2>/dev/null || df -h /
 
 Expected: at least 5 GB free. If not, stop and reclaim space — a failed mid-pull leaves a broken layer cache.
 
-- [ ] **Step 2: Create the compose file**
+- [ ] **Step 2: Discover current image versions to pin**
 
-Create `.devcontainer/mcp/compose.yaml`:
+Per the global pinning constraint, resolve real version tags before writing the compose file — do not guess:
+
+```bash
+skopeo list-tags docker://docker.io/searxng/searxng 2>/dev/null | tail -20 \
+  || curl -fsS "https://hub.docker.com/v2/repositories/searxng/searxng/tags?page_size=20" | python3 -c "import sys,json;print('\n'.join(t['name'] for t in json.load(sys.stdin)['results']))"
+curl -fsS "https://hub.docker.com/v2/repositories/unclecode/crawl4ai/tags?page_size=20" | python3 -c "import sys,json;print('\n'.join(t['name'] for t in json.load(sys.stdin)['results']))"
+```
+
+Pick the newest **non-`latest`, non-prerelease** tag from each (searxng publishes date-stamped tags like `2026.7.1-abc1234`; crawl4ai publishes semver like `0.7.4`). Record both — they are substituted into Step 3.
+
+- [ ] **Step 3: Create the compose file**
+
+Create `.devcontainer/mcp/compose.yaml`, substituting the two tags from Step 2 for `<SEARXNG_TAG>` and `<CRAWL4AI_TAG>`:
 
 ```yaml
 # Self-hosted MCP backends for oh-my-opencode-slim's research agents.
@@ -944,7 +968,8 @@ Create `.devcontainer/mcp/compose.yaml`:
 #   docker compose -f .devcontainer/mcp/compose.yaml up -d --force-recreate
 services:
   searxng:
-    image: searxng/searxng:latest
+    # Pinned per the global constraint — never `latest`. Bump deliberately.
+    image: searxng/searxng:<SEARXNG_TAG>
     container_name: teck-searxng
     ports:
       - "8888:8080"
@@ -962,7 +987,8 @@ services:
       retries: 6
 
   crawl4ai:
-    image: unclecode/crawl4ai:latest
+    # Pinned per the global constraint — never `latest`. Bump deliberately.
+    image: unclecode/crawl4ai:<CRAWL4AI_TAG>
     container_name: teck-crawl4ai
     ports:
       - "11235:11235"
@@ -980,7 +1006,7 @@ volumes:
   searxng-config:
 ```
 
-- [ ] **Step 3: Create the start script**
+- [ ] **Step 4: Create the start script**
 
 Create `.devcontainer/start-mcp.sh` (mode `755`):
 
@@ -1022,7 +1048,7 @@ echo "     (continuing; images may still be pulling on first start)"
 exit 0
 ```
 
-- [ ] **Step 4: Chain the start script into `devcontainer.json`**
+- [ ] **Step 5: Chain the start script into `devcontainer.json`**
 
 Change:
 
@@ -1043,18 +1069,19 @@ Add `8888` and `11235` to `forwardPorts`, and to `portsAttributes`:
     "11235": { "label": "crawl4ai" },
 ```
 
-- [ ] **Step 5: Verify script syntax and compose validity**
+- [ ] **Step 6: Verify script syntax and compose validity**
 
 ```bash
 bash -n .devcontainer/start-mcp.sh && echo "syntax OK"
 chmod 755 .devcontainer/start-mcp.sh
 docker compose -f .devcontainer/mcp/compose.yaml config >/dev/null && echo "compose OK"
 python3 -c "import json;json.load(open('.devcontainer/devcontainer.json'));print('devcontainer.json OK')"
+grep -c '<SEARXNG_TAG>\|<CRAWL4AI_TAG>\|<VERSION>\|:latest' .devcontainer/mcp/compose.yaml .devcontainer/opencode/opencode.json
 ```
 
-Expected: `syntax OK`, `compose OK`, `devcontainer.json OK`.
+Expected: `syntax OK`, `compose OK`, `devcontainer.json OK`, and `0` for both files on the last check — unsubstituted tokens or a `latest` tag violate the global pinning constraint.
 
-- [ ] **Step 6: Bring the stack up and confirm health**
+- [ ] **Step 7: Bring the stack up and confirm health**
 
 ```bash
 bash .devcontainer/start-mcp.sh
@@ -1063,7 +1090,7 @@ docker compose -f .devcontainer/mcp/compose.yaml ps
 
 Expected: both containers `running (healthy)`.
 
-- [ ] **Step 7: Verify searxng actually returns JSON**
+- [ ] **Step 8: Verify searxng actually returns JSON**
 
 ```bash
 curl -fsS "http://localhost:8888/search?q=wolverinefx&format=json" | head -c 200
@@ -1071,7 +1098,7 @@ curl -fsS "http://localhost:8888/search?q=wolverinefx&format=json" | head -c 200
 
 Expected: JSON, not an error. A `403`/HTML response means `SEARXNG_SEARCH_FORMATS` didn't apply — fix before wiring the MCP.
 
-- [ ] **Step 8: Verify LiteLLM survived the added load**
+- [ ] **Step 9: Verify LiteLLM survived the added load**
 
 ```bash
 curl -fsS http://localhost:4000/health/liveliness >/dev/null && echo "litellm still healthy"
@@ -1080,14 +1107,14 @@ docker stats --no-stream --format '{{.Name}}\t{{.MemUsage}}' | head -10
 
 Expected: `litellm still healthy`, and memory headroom remaining. This is the resource-contention check from the spec.
 
-- [ ] **Step 9: Wire the MCP entries**
+- [ ] **Step 10: Wire the MCP entries**
 
 Add to `opencode.json`'s `mcp` block:
 
 ```json
     "searxng": {
       "type": "local",
-      "command": ["npx", "-y", "mcp-searxng"],
+      "command": ["npx", "-y", "mcp-searxng@<VERSION>"],
       "environment": { "SEARXNG_URL": "http://localhost:8888" },
       "enabled": true
     },
@@ -1105,11 +1132,11 @@ Update the slim template's `mcps` arrays:
 - `fixer.mcps`: `["searxng", "crawl4ai"]`
 - `orchestrator.mcps`: unchanged — `["*", "!context7", "!github"]`
 
-- [ ] **Step 10: Re-run the dangling-reference guard from Task 8 Step 4**
+- [ ] **Step 11: Re-run the dangling-reference guard from Task 8 Step 4**
 
 Expected: `no dangling references`.
 
-- [ ] **Step 11: Verify end-to-end and commit**
+- [ ] **Step 12: Verify end-to-end and commit**
 
 Restart OpenCode, then: `ask the oracle to research current WolverineFx outbox patterns`
 
