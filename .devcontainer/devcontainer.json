@@ -22,11 +22,14 @@
     "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
     "DOTNET_NOLOGO": "1",
     "NUGET_XMLDOC_MODE": "skip",
-    "NODE_OPTIONS": "--max-old-space-size=4096"
+    "NODE_OPTIONS": "--max-old-space-size=4096",
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude-config"
   },
   "mounts": [
-    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
-    "source=opencode-data-${devcontainerId},target=/home/vscode/.local/share/opencode,type=volume"
+    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude-config,type=volume",
+    "source=opencode-data-${devcontainerId},target=/home/vscode/.local/share/opencode,type=volume",
+    "source=codex-config-${devcontainerId},target=/home/vscode/.codex,type=volume",
+    "source=${localEnv:HOME}/.gnupg,target=/home/vscode/.gnupg-host,type=bind,readonly"
   ],
   "forwardPorts": [18888, 4000, 4747, 3000, 8080, 8081, 19000, 19006],
   "portsAttributes": {

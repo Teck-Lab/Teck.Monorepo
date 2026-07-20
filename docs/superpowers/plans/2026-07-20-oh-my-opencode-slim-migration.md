@@ -4,7 +4,7 @@
 
 **Goal:** Replace the `oh-my-openagent` (omo) dev-container setup with `oh-my-opencode-slim`, configured from the upstream author's preset, with tmux multiplexer panes and hybrid `openai/` + `litellm/` model routing.
 
-**Architecture:** Slim is declared in `opencode.json`'s `plugin` array and auto-installs via Bun on first launch. Its configuration comes from a **committed repo template** (`.devcontainer/opencode/oh-my-opencode-slim.json`) `cp`'d into `~/.config/opencode/` by `postCreate.sh` — the upstream installer is never run, matching the convention every other agent config here already follows. Reasoning-heavy agents use the native `openai/` provider (GPT-5 Pro subscription via `opencode auth login`); cost-sensitive agents keep using the LiteLLM gateway on `:4000`, which is otherwise untouched.
+**Architecture:** Slim is declared in `opencode.json`'s `plugin` array and auto-installs via Bun on first launch. Its configuration comes from a **committed repo template** (`.devcontainer/opencode/oh-my-opencode-slim.jsonc`) `cp`'d into `~/.config/opencode/` by `postCreate.sh` — the upstream installer is never run, matching the convention every other agent config here already follows. Reasoning-heavy agents use the native `openai/` provider (GPT-5 Pro subscription via `opencode auth login`); cost-sensitive agents keep using the LiteLLM gateway on `:4000`, which is otherwise untouched.
 
 **Tech Stack:** OpenCode, oh-my-opencode-slim, Bun, tmux, LiteLLM (docker compose), bash, JSONC.
 
@@ -109,7 +109,7 @@ git commit -m "chore(devcontainer): record resolved OpenAI model IDs for slim mi
 ### Task 2: Add the slim config template and swap the plugin
 
 **Files:**
-- Create: `.devcontainer/opencode/oh-my-opencode-slim.json`
+- Create: `.devcontainer/opencode/oh-my-opencode-slim.jsonc`
 - Modify: `.devcontainer/opencode/opencode.json` (the `plugin` array)
 
 **Interfaces:**
@@ -123,7 +123,7 @@ Expected: one match on the `plugin` array line.
 
 - [ ] **Step 2: Create the slim template**
 
-Create `.devcontainer/opencode/oh-my-opencode-slim.json`. **Substitute the three Task 1 IDs verbatim** — do not leave the angle-bracket tokens in the committed file.
+Create `.devcontainer/opencode/oh-my-opencode-slim.jsonc`. **Substitute the three Task 1 IDs verbatim** — do not leave the angle-bracket tokens in the committed file.
 
 ```jsonc
 {
@@ -234,13 +234,13 @@ Create `.devcontainer/opencode/oh-my-opencode-slim.json`. **Substitute the three
 - [ ] **Step 3: Verify the template is valid JSONC and has no unsubstituted tokens**
 
 ```bash
-grep -c '<ORCH_MODEL>\|<PRO_MODEL>\|<ECON_MODEL>' .devcontainer/opencode/oh-my-opencode-slim.json
+grep -c '<ORCH_MODEL>\|<PRO_MODEL>\|<ECON_MODEL>' .devcontainer/opencode/oh-my-opencode-slim.jsonc
 ```
 
 Expected: `0`. If non-zero, Task 1's IDs were not substituted — fix before continuing.
 
 ```bash
-node -e "const s=require('fs').readFileSync('.devcontainer/opencode/oh-my-opencode-slim.json','utf8'); JSON.parse(s.replace(/^\s*\/\/.*$/gm,'')); console.log('parses OK')"
+node -e "const s=require('fs').readFileSync('.devcontainer/opencode/oh-my-opencode-slim.jsonc','utf8'); JSON.parse(s.replace(/^\s*\/\/.*$/gm,'')); console.log('parses OK')"
 ```
 
 Expected: `parses OK`.
@@ -281,7 +281,7 @@ Expected: `0`, then `4`.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add .devcontainer/opencode/oh-my-opencode-slim.json .devcontainer/opencode/opencode.json
+git add .devcontainer/opencode/oh-my-opencode-slim.jsonc .devcontainer/opencode/opencode.json
 git commit -m "feat(devcontainer): add oh-my-opencode-slim config template and swap plugin"
 ```
 
@@ -546,7 +546,7 @@ with:
 # pins each agent's model so the upstream install TUI is never needed. The committed
 # template is the source of truth — do NOT run `bunx oh-my-opencode-slim install`,
 # which is interactive and refuses to overwrite an existing config anyway.
-cp .devcontainer/opencode/oh-my-opencode-slim.json "$HOME/.config/opencode/oh-my-opencode-slim.json" || echo "WARN: could not seed slim config (continuing)"
+cp .devcontainer/opencode/oh-my-opencode-slim.jsonc "$HOME/.config/opencode/oh-my-opencode-slim.jsonc" || echo "WARN: could not seed slim config (continuing)"
 ```
 
 - [ ] **Step 2: Remove the now-dead superpowers-skills seeding block**
@@ -726,8 +726,8 @@ Replace the whole block at lines 134-184 with:
 installs it via Bun on the first `opencode` launch (the upstream `bunx
 oh-my-opencode-slim install` TUI is **never** run — it's interactive and would
 fight the committed template). `postCreate.sh` seeds
-`~/.config/opencode/oh-my-opencode-slim.json` from
-`.devcontainer/opencode/oh-my-opencode-slim.json`.
+`~/.config/opencode/oh-my-opencode-slim.jsonc` from
+`.devcontainer/opencode/oh-my-opencode-slim.jsonc`.
 
 - **Seven agents:** orchestrator, explorer, oracle, council, librarian, designer,
   fixer — plus a custom `fast-generic` for mechanical git/lint/test work.
@@ -814,7 +814,7 @@ Expected: no `WARN:` lines mentioning `slim`, `omos`, or `BACKGROUND_SUBAGENTS`.
 - [ ] **Step 2: Verify the seeded config matches the template**
 
 ```bash
-diff .devcontainer/opencode/oh-my-opencode-slim.json ~/.config/opencode/oh-my-opencode-slim.json && echo "template matches"
+diff .devcontainer/opencode/oh-my-opencode-slim.jsonc ~/.config/opencode/oh-my-opencode-slim.jsonc && echo "template matches"
 ```
 
 Expected: `template matches`.
@@ -885,7 +885,7 @@ git commit -m "chore(devcontainer): record phase 1 slim verification results"
 
 **Files:**
 - Modify: `.devcontainer/opencode/opencode.json` (add `mcp` block)
-- Modify: `.devcontainer/opencode/oh-my-opencode-slim.json` (populate `mcps` arrays)
+- Modify: `.devcontainer/opencode/oh-my-opencode-slim.jsonc` (populate `mcps` arrays)
 
 - [ ] **Step 1: Add the `mcp` block to `opencode.json`**
 
@@ -947,7 +947,7 @@ node -e "
 const fs=require('fs');
 const strip=s=>s.replace(/^\s*\/\/.*$/gm,'');
 const oc=JSON.parse(strip(fs.readFileSync('.devcontainer/opencode/opencode.json','utf8')));
-const sl=JSON.parse(strip(fs.readFileSync('.devcontainer/opencode/oh-my-opencode-slim.json','utf8')));
+const sl=JSON.parse(strip(fs.readFileSync('.devcontainer/opencode/oh-my-opencode-slim.jsonc','utf8')));
 const defined=new Set(Object.keys(oc.mcp||{}));
 const refs=new Set();
 const walk=o=>{for(const k in o){if(k==='mcps')o[k].forEach(m=>{const n=m.replace(/^!/,'');if(n!=='*')refs.add(n)});else if(typeof o[k]==='object'&&o[k])walk(o[k])}};
@@ -986,7 +986,7 @@ Heaviest phase. crawl4ai pulls a Chromium-bearing image (~2 GB+) into the nested
 - Create: `.devcontainer/start-mcp.sh`
 - Modify: `.devcontainer/devcontainer.json` (`postStartCommand`, `forwardPorts`, `portsAttributes`)
 - Modify: `.devcontainer/opencode/opencode.json` (`mcp` block)
-- Modify: `.devcontainer/opencode/oh-my-opencode-slim.json` (`mcps` arrays)
+- Modify: `.devcontainer/opencode/oh-my-opencode-slim.jsonc` (`mcps` arrays)
 
 - [ ] **Step 1: Check available disk before pulling images**
 
@@ -1207,7 +1207,7 @@ git commit -m "feat(devcontainer): add self-hosted searxng and crawl4ai MCP back
 **This task may end in deliberate removal.** `codegraph`'s value depends on C# support, which is unverified. Do not force it in.
 
 **Files:**
-- Modify: `.devcontainer/opencode/opencode.json`, `.devcontainer/opencode/oh-my-opencode-slim.json`
+- Modify: `.devcontainer/opencode/opencode.json`, `.devcontainer/opencode/oh-my-opencode-slim.jsonc`
 - Delete: `docs/superpowers/plans/2026-07-20-model-ids.md`
 
 - [ ] **Step 1: Check language support BEFORE any wiring**

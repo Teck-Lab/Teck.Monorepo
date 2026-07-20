@@ -136,8 +136,8 @@ array is fetched via Bun (needs network once):
 installs it via Bun on the first `opencode` launch (the upstream `bunx
 oh-my-opencode-slim install` TUI is **never** run — it's interactive and would
 fight the committed template). `postCreate.sh` seeds
-`~/.config/opencode/oh-my-opencode-slim.json` from
-`.devcontainer/opencode/oh-my-opencode-slim.json`.
+`~/.config/opencode/oh-my-opencode-slim.jsonc` from
+`.devcontainer/opencode/oh-my-opencode-slim.jsonc`.
 
 - **Seven agents:** orchestrator, explorer, oracle, council, librarian, designer,
   fixer — plus a custom `fast-generic` for mechanical git/lint/test work.
@@ -196,6 +196,53 @@ survives container rebuilds — oh-my-opencode-slim has no bundled MCP servers
 to authenticate separately (every agent's `mcps` list is empty). (The gateway master key isn't stored here; it's
 loaded live from `litellm/litellm.env` per shell. Codex authenticates to the
 gateway via env, so it has no stored credential to persist.)
+
+## What survives a rebuild (auth & state)
+
+| Path | Persisted by | Holds |
+|---|---|---|
+| `/home/vscode/.claude-config` | volume `claude-code-config-*` | **all** Claude Code state — `.credentials.json`, `.claude.json`, settings, plugins, transcripts |
+| `/home/vscode/.local/share/opencode` | volume `opencode-data-*` | OpenCode `auth.json`, `mcp-auth.json`, memory DB |
+| `/home/vscode/.codex` | volume `codex-config-*` | Codex `auth.json` if you ever `codex login` |
+| `/home/vscode/.gnupg` | copied from host bind mount | GPG signing key (see below) |
+| `~/.config/opencode` | **not** persisted — by design | re-seeded from `.devcontainer/opencode/` every build |
+
+**`CLAUDE_CONFIG_DIR` is load-bearing.** It's set to `/home/vscode/.claude-config` in
+`devcontainer.json` and relocates Claude Code's *entire* state tree onto one volume.
+This exists because mounting `~/.claude` alone was **not enough**: Claude Code also keeps
+`~/.claude.json` — which holds the OAuth *session* — as a **sibling** of `~/.claude`, not
+inside it. That file sat on the container's ephemeral filesystem, so every rebuild wiped
+it and forced a fresh sign-in even though the token in `.credentials.json` had persisted
+perfectly. One env var + one mount now covers both.
+
+It must be an **absolute path**. `devcontainer.json`'s `containerEnv` is not shell-processed,
+so a leading `~` is taken literally and you get a directory named `~` in your workspace.
+
+## Commit signing (GPG)
+
+Commits are GPG-signed with key `FF4693E3D74495BA`. The host keyring is bind-mounted
+**read-only** at `~/.gnupg-host` and copied to `~/.gnupg` by `postCreate.sh`, so gpg-agent
+runs **inside** the container against real local key material.
+
+**Why not VS Code's built-in GPG forwarding:** it worked, until it didn't. Forwarding is an
+implicit, undeclared socket bind to the host agent that drops on window reloads, container
+restarts, host-agent exit, and WSL2 sleep/resume. Worse, when it drops a **local keyless
+agent answers on the same socket path**, so `gpg` reports `No secret key` rather than a
+connection error — it looks like your key vanished. There is nothing to disconnect now.
+
+**Why copy instead of using the mount directly:** gpg requires `0700` on its home directory
+and writes sockets/`trustdb`/`random_seed` at runtime, so a read-only mount can't serve as
+`GNUPGHOME`. Mounting read-**write** would let this container corrupt the host keyring, so
+we don't. The copy is ephemeral and refreshed each build; the host keyring stays the single
+source of truth.
+
+`postCreate.sh` sets a 400-day agent cache and verifies a secret key is genuinely reachable,
+printing a loud warning if not — so a broken setup surfaces at build time rather than
+mid-way through a long unattended agent run. If your key has a passphrase, unlock it once
+per container: `echo test | gpg --clearsign > /dev/null`.
+
+> A key mounted here is usable by anything running in the container, agents included. That
+> is the accepted trade for unattended signing.
 
 ## Running things
 

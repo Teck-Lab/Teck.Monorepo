@@ -17,7 +17,11 @@ bun install --frozen-lockfile || echo "WARN: bun install reported errors (contin
 echo "==> Ensuring a local HTTPS development certificate exists"
 dotnet dev-certs https || echo "WARN: could not create HTTPS dev cert (continuing)"
 
-echo "==> Installing Claude Code plugins into the mounted ~/.claude volume"
+echo "==> Installing Claude Code plugins into the mounted Claude config volume"
+# CLAUDE_CONFIG_DIR (set in devcontainer.json) relocates the whole Claude state
+# tree onto the mounted volume. Fall back to ~/.claude if it's somehow unset so
+# this script still works outside the dev container.
+CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 # The committed .claude/settings.json declares these as enabled, but enabled
 # plugins only auto-install behind an interactive trust prompt. Installing them
 # explicitly here is headless and deterministic: `claude plugin install` just
@@ -33,8 +37,8 @@ if command -v claude >/dev/null 2>&1; then
   claude plugin install claude-hud@claude-hud || echo "WARN: install claude-hud failed (continuing)"
 
   echo "==> Seeding claude-hud display config"
-  mkdir -p "$HOME/.claude/plugins/claude-hud"
-  cp .devcontainer/claude-hud-config.json "$HOME/.claude/plugins/claude-hud/config.json" || echo "WARN: could not seed claude-hud config (continuing)"
+  mkdir -p "$CLAUDE_DIR/plugins/claude-hud"
+  cp .devcontainer/claude-hud-config.json "$CLAUDE_DIR/plugins/claude-hud/config.json" || echo "WARN: could not seed claude-hud config (continuing)"
 else
   echo "WARN: 'claude' CLI not on PATH; skipping plugin install (continuing)"
 fi
@@ -57,7 +61,7 @@ cp .devcontainer/opencode/opencode.json "$HOME/.config/opencode/opencode.json" |
 # pins each agent's model so the upstream install TUI is never needed. The committed
 # template is the source of truth — do NOT run `bunx oh-my-opencode-slim install`,
 # which is interactive and refuses to overwrite an existing config anyway.
-cp .devcontainer/opencode/oh-my-opencode-slim.json "$HOME/.config/opencode/oh-my-opencode-slim.json" || echo "WARN: could not seed slim config (continuing)"
+cp .devcontainer/opencode/oh-my-opencode-slim.jsonc "$HOME/.config/opencode/oh-my-opencode-slim.jsonc" || echo "WARN: could not seed slim config (continuing)"
 # opencode-mem config: enables auto-capture through the litellm gateway, stores
 # memories under the persisted ~/.local/share/opencode volume, and serves the
 # memory web UI on :4747. The plugin itself auto-installs via opencode.json.
@@ -122,6 +126,59 @@ omos() {
   fi
 }
 OMOS_EOF
+fi
+
+echo "==> Setting up GPG commit signing from the mounted host keyring"
+# WHY THIS EXISTS: signing kept dying. The container never held key material —
+# it relied on VS Code's *implicit* gpg-agent forwarding to the host, an
+# undeclared socket bind that drops on window reloads, container restarts, host
+# agent exit, and WSL2 sleep/resume. When it drops, a LOCAL keyless agent answers
+# on the same socket path, so gpg reports "No secret key" instead of a connection
+# error — it looks like the key vanished. ~/.gnupg was also not persisted, so a
+# rebuild wiped it.
+#
+# FIX: the host keyring is bind-mounted READ-ONLY at ~/.gnupg-host and copied to
+# ~/.gnupg here. The agent then runs INSIDE the container against real local key
+# material — no forwarding, nothing to disconnect.
+#
+# Why copy instead of using the mount directly: gpg demands 0700 on its home and
+# writes sockets/trustdb/random_seed at runtime, so a read-only mount can't serve
+# as GNUPGHOME. Mounting read-WRITE instead would let this container corrupt the
+# host keyring, so we don't. The copy is ephemeral and refreshed every rebuild;
+# the host keyring stays the single source of truth.
+if [ -d "$HOME/.gnupg-host" ]; then
+  mkdir -p "$HOME/.gnupg"
+  cp -r "$HOME/.gnupg-host/." "$HOME/.gnupg/" 2>/dev/null || echo "WARN: partial GPG keyring copy (continuing)"
+  # Stale sockets copied from the host point at an agent that isn't ours.
+  rm -f "$HOME/.gnupg"/S.gpg-agent* 2>/dev/null
+  chmod 700 "$HOME/.gnupg"
+  find "$HOME/.gnupg" -type d -exec chmod 700 {} + 2>/dev/null
+  find "$HOME/.gnupg" -type f -exec chmod 600 {} + 2>/dev/null
+
+  # Cache the passphrase for the container's whole life (400 days) so a long
+  # unattended agent run isn't interrupted by a re-prompt mid-session.
+  # allow-loopback-pinentry lets gpg prompt without a GUI pinentry present.
+  cat > "$HOME/.gnupg/gpg-agent.conf" <<'AGENT_EOF'
+default-cache-ttl 34560000
+max-cache-ttl 34560000
+allow-loopback-pinentry
+AGENT_EOF
+  echo 'pinentry-mode loopback' > "$HOME/.gnupg/gpg.conf"
+  chmod 600 "$HOME/.gnupg/gpg-agent.conf" "$HOME/.gnupg/gpg.conf"
+  gpgconf --kill gpg-agent >/dev/null 2>&1 || true
+
+  # Prove a secret key is actually reachable, rather than assuming. This is the
+  # exact check that silently failed before: a keyless agent answers happily.
+  if gpg --list-secret-keys >/dev/null 2>&1 && [ -n "$(gpg --list-secret-keys --with-colons 2>/dev/null | grep '^sec')" ]; then
+    echo "    secret key present: $(gpg --list-secret-keys --keyid-format=long --with-colons 2>/dev/null | awk -F: '/^sec/{print $5; exit}')"
+  else
+    echo "WARN: host keyring mounted but NO SECRET KEY is reachable — commits will fail."
+    echo "      On the HOST run: gpg -K   and confirm a 'sec' line exists in ~/.gnupg."
+    echo "      If the key lives on a smartcard/YubiKey it cannot be mounted this way."
+  fi
+else
+  echo "WARN: no host keyring at ~/.gnupg-host — commits will FAIL (commit.gpgsign is true)."
+  echo "      The bind mount in devcontainer.json expects ~/.gnupg to exist on the host."
 fi
 
 echo "==> postCreate complete"
