@@ -83,10 +83,10 @@ model_list:
     litellm_params: { model: openai/kimi-k2.7-code, api_base: *oc_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 30 }
   - model_name: kimi-k2.7-code             # OpenCode Go sub B
     litellm_params: { model: openai/kimi-k2.7-code, api_base: *oc_base, api_key: *oc_key2, extra_headers: *oc_ua, timeout: 30 }
-  - model_name: kimi-k2.7                   # OpenCode Go sub A (flat-rate) — general (non-code) variant
-    litellm_params: { model: openai/kimi-k2.7, api_base: *oc_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 30 }
-  - model_name: kimi-k2.7                   # OpenCode Go sub B
-    litellm_params: { model: openai/kimi-k2.7, api_base: *oc_base, api_key: *oc_key2, extra_headers: *oc_ua, timeout: 30 }
+  # NOTE: there is no plain `kimi-k2.7` on OpenCode Go — the Go /models endpoint
+  # serves kimi-k2.5, kimi-k2.6, kimi-k2.7-code, kimi-k3. Use kimi-k2.7-code for
+  # the K2.7 generation. (A `kimi-k2.7` group used to live here and could never
+  # resolve.) Verify ids against /zen/go/v1/models before adding a route.
   - model_name: kimi-k2.6                   # OpenCode Go sub A (flat-rate)
     litellm_params: { model: openai/kimi-k2.6, api_base: *oc_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 30 }
   - model_name: kimi-k2.6                   # OpenCode Go sub B
@@ -158,7 +158,25 @@ router_settings:
   # authoritative. (Prod shared them across HPA replicas via Redis.)
   num_retries: 2         # retry a failed call on another route in the SAME model pool
   allowed_fails: 2       # 2 failures -> cool that route down
-  cooldown_time: 60      # ...for 60s, then it re-enters rotation
+  cooldown_time: 900     # ...for 15min. NOT 60s: the failure we actually hit is an
+                         # OpenCode Go spend-cap, whose window resets in HOURS. At 60s
+                         # the capped sub re-entered rotation every minute and the user
+                         # saw the billing error over and over.
+
+  # THE IMPORTANT BIT — why two subscriptions didn't help.
+  # OpenCode Go answers a blown spend cap with "Insufficient balance", and LiteLLM
+  # maps that to AuthenticationError. Auth errors are NON-RETRYABLE by default (a
+  # bad key won't fix itself), so the router surfaced the error instead of trying
+  # the other subscription sitting in the same pool. These policies make an
+  # auth-class failure retry on a DIFFERENT deployment and bench the dead one fast.
+  retry_policy:
+    AuthenticationErrorRetries: 2   # retry on another route (i.e. the other sub)
+    RateLimitErrorRetries: 2
+    TimeoutErrorRetries: 2
+    InternalServerErrorRetries: 2
+  allowed_fails_policy:
+    AuthenticationErrorAllowedFails: 1   # one "Insufficient balance" -> cool it down
+    RateLimitErrorAllowedFails: 2
   # No cross-model `fallbacks` — omo owns cross-model fallback via per-agent
   # `fallback_models`; LiteLLM only balances routes within one model.
 

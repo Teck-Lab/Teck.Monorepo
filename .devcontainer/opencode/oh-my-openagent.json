@@ -11,7 +11,7 @@
       "model": "litellm/kimi-k3",
       "prompt_append": "file://~/.config/opencode/superpowers-skills.md",
       "fallback_models": [
-        "litellm/kimi-k2.7",
+        "litellm/kimi-k2.7-code",
         "litellm/kimi-k2.6",
         { "model": "openai/gpt-5.5", "variant": "medium" },
         "litellm/glm-5.2"
@@ -26,7 +26,7 @@
       ]
     },
     "metis": {
-      "model": "litellm/kimi-k2.7",
+      "model": "litellm/kimi-k2.7-code",
       "fallback_models": [
         { "model": "openai/gpt-5.5", "variant": "high" },
         "litellm/glm-5.2",
@@ -34,7 +34,7 @@
       ]
     },
     "atlas": {
-      "model": "litellm/kimi-k2.7",
+      "model": "litellm/kimi-k2.7-code",
       "fallback_models": [
         "litellm/kimi-k2.6",
         { "model": "openai/gpt-5.5", "variant": "medium" },
@@ -52,24 +52,15 @@
     },
     "explore": {
       "model": "litellm/qwen3.7-plus",
-      "fallback_models": [
-        "litellm/minimax-m3",
-        "litellm/deepseek-v4-flash"
-      ]
+      "fallback_models": ["litellm/minimax-m3", "litellm/deepseek-v4-flash"]
     },
     "librarian": {
       "model": "litellm/qwen3.7-plus",
-      "fallback_models": [
-        "litellm/minimax-m3",
-        "litellm/deepseek-v4-flash"
-      ]
+      "fallback_models": ["litellm/minimax-m3", "litellm/deepseek-v4-flash"]
     },
     "multimodal-looker": {
       "model": "litellm/gemini-2.5-flash",
-      "fallback_models": [
-        "litellm/kimi-k2.6",
-        { "model": "openai/gpt-5.5", "variant": "medium" }
-      ]
+      "fallback_models": ["litellm/kimi-k2.6", { "model": "openai/gpt-5.5", "variant": "medium" }]
     },
     "hephaestus": {
       "model": "openai/gpt-5.6-sol",
@@ -139,7 +130,7 @@
       "model": "litellm/kimi-k3",
       "fallback_models": [
         { "model": "openai/gpt-5.5", "variant": "high" },
-        "litellm/kimi-k2.7",
+        "litellm/kimi-k2.7-code",
         "litellm/glm-5.2"
       ]
     },
