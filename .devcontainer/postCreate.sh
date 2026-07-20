@@ -52,18 +52,16 @@ echo "==> Seeding agent CLI configs (Codex + OpenCode) pointed at the LiteLLM ga
 mkdir -p "$HOME/.codex" "$HOME/.config/opencode"
 cp .devcontainer/codex/config.toml "$HOME/.codex/config.toml" || echo "WARN: could not seed codex config (continuing)"
 cp .devcontainer/opencode/opencode.json "$HOME/.config/opencode/opencode.json" || echo "WARN: could not seed opencode config (continuing)"
-# omo (oh-my-openagent) agent config. The plugin itself is declared in opencode.json's
+# oh-my-opencode-slim agent config. The plugin itself is declared in opencode.json's
 # `plugin` array and auto-installs via Bun on the first `opencode` launch; this file
-# just points its agents at the LiteLLM gateway so no guided-install TUI is needed.
-cp .devcontainer/opencode/oh-my-openagent.json "$HOME/.config/opencode/oh-my-openagent.json" || echo "WARN: could not seed omo config (continuing)"
+# pins each agent's model so the upstream install TUI is never needed. The committed
+# template is the source of truth — do NOT run `bunx oh-my-opencode-slim install`,
+# which is interactive and refuses to overwrite an existing config anyway.
+cp .devcontainer/opencode/oh-my-opencode-slim.json "$HOME/.config/opencode/oh-my-opencode-slim.json" || echo "WARN: could not seed slim config (continuing)"
 # opencode-mem config: enables auto-capture through the litellm gateway, stores
 # memories under the persisted ~/.local/share/opencode volume, and serves the
 # memory web UI on :4747. The plugin itself auto-installs via opencode.json.
 cp .devcontainer/opencode/opencode-mem.jsonc "$HOME/.config/opencode/opencode-mem.jsonc" || echo "WARN: could not seed opencode-mem config (continuing)"
-# Directive appended (via omo prompt_append) to the implementer agents/categories,
-# telling them to use the superpowers skills — TDD in particular — through
-# OpenCode's `skill` tool. The superpowers plugin itself auto-installs via opencode.json.
-cp .devcontainer/opencode/superpowers-skills.md "$HOME/.config/opencode/superpowers-skills.md" || echo "WARN: could not seed superpowers directive (continuing)"
 
 echo "==> Exposing LITELLM_MASTER_KEY to agent CLIs via ~/.bashrc"
 # Codex (env_key) and OpenCode ({env:LITELLM_MASTER_KEY}) read the gateway key
