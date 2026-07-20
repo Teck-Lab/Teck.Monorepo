@@ -21,7 +21,8 @@
 - **Commit signing is mandatory** (`commit.gpgsign=true`, key `FF4693E3D74495BA`, author `jl@tecklab.dk`). Never bypass it. If signing fails, stop and surface it.
 - **Pin every external image and package to an explicit version. Never use `latest`.** This repo pins throughout: LiteLLM is `ghcr.io/berriai/litellm:main-stable`, every devcontainer feature is locked to a sha256 digest in `devcontainer-lock.json`, and `CLAUDE.md` forbids `latest`. Container images take an explicit version tag; `npx`/`bunx` invocations take `pkg@x.y.z`. Discover the current version first, then pin it — do not guess a version number.
 - **Work happens on `feat/opencode-slim-migration`**, never on `main`.
-- **This container's `python3` is stripped — do not use it to parse JSON or YAML.** Verified on 3.12.3: `import json` and `import yaml` both raise `ModuleNotFoundError`. Use `jq` (JSON), `yq` (YAML), or `node -e` instead; all three are present. `import socket` *does* work, which is why the `omos` port-picker in Task 4 is safe as written — but do not extend the plan's reliance on `python3` beyond it.
+- **This container's `python3` is stripped — do not use it to parse JSON or YAML.** Verified on 3.12.3: `import json` and `import yaml` both raise `ModuleNotFoundError`. `import socket` *does* work, which is why the `omos` port-picker in Task 4 is safe as written — but do not extend the plan's reliance on `python3` beyond it.
+- **Tooling actually available (each verified individually):** `jq` ✅, `node` ✅, `perl` ✅, `docker compose` ✅ — and **`yq` is NOT installed**. There is **no YAML parser in this container**. Do not write a YAML-parse verification step; validate YAML functionally instead (for compose files, `docker compose config`; for `litellm/config.yaml`, restart the gateway and check `/health/liveliness`).
 - **Comments in `.json` files break the pre-commit Biome hook.** `biome.json` sets no `allowComments` override, so real `//` comments in a `.json`-extension file fail with parse errors. Either use `"//": "..."` string keys (the convention in `.devcontainer/opencode/oh-my-openagent.json`) or a `.jsonc` extension (the convention in `.devcontainer/opencode/opencode-mem.jsonc`, which Biome accepts with real comments).
 - **Multiplexer layout is `main-horizontal`** (deviation D3), not the author's `main-vertical` — tuned for a right-docked VS Code terminal panel.
 - **`companion.enabled` is `false`** (deviation D2) — headless container, no display server.
@@ -652,11 +653,28 @@ with:
 
 - [ ] **Step 3: Verify the YAML still parses**
 
+There is no YAML parser in this container (no `yq`, no python `yaml`), so validate this
+functionally rather than syntactically — which is the stronger check anyway, since it proves
+the gateway still *loads* the config rather than merely that it parses.
+
+First confirm the edit touched comments only:
+
 ```bash
-yq -e '.' .devcontainer/litellm/config.yaml >/dev/null && echo "YAML OK"
+git diff -U0 .devcontainer/litellm/config.yaml | grep -E '^[+-]' | grep -v '^[+-][+-]' | grep -vE '^[+-]\s*#' ; echo "non-comment changes exit=$?"
 ```
 
-Expected: `YAML OK`.
+Expected: `non-comment changes exit=1` (no output — every changed line is a comment). Any
+output here means a functional line was altered, violating the "comment updates only"
+constraint.
+
+Then prove the gateway still loads it:
+
+```bash
+docker compose -f .devcontainer/litellm/compose.yaml up -d --force-recreate
+sleep 5 && curl -fsS http://localhost:4000/health/liveliness >/dev/null && echo "gateway reloaded config OK"
+```
+
+Expected: `gateway reloaded config OK`.
 
 - [ ] **Step 4: Rewrite the README omo section**
 
