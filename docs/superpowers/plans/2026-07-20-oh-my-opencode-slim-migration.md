@@ -21,6 +21,8 @@
 - **Commit signing is mandatory** (`commit.gpgsign=true`, key `FF4693E3D74495BA`, author `jl@tecklab.dk`). Never bypass it. If signing fails, stop and surface it.
 - **Pin every external image and package to an explicit version. Never use `latest`.** This repo pins throughout: LiteLLM is `ghcr.io/berriai/litellm:main-stable`, every devcontainer feature is locked to a sha256 digest in `devcontainer-lock.json`, and `CLAUDE.md` forbids `latest`. Container images take an explicit version tag; `npx`/`bunx` invocations take `pkg@x.y.z`. Discover the current version first, then pin it — do not guess a version number.
 - **Work happens on `feat/opencode-slim-migration`**, never on `main`.
+- **This container's `python3` is stripped — do not use it to parse JSON or YAML.** Verified on 3.12.3: `import json` and `import yaml` both raise `ModuleNotFoundError`. Use `jq` (JSON), `yq` (YAML), or `node -e` instead; all three are present. `import socket` *does* work, which is why the `omos` port-picker in Task 4 is safe as written — but do not extend the plan's reliance on `python3` beyond it.
+- **Comments in `.json` files break the pre-commit Biome hook.** `biome.json` sets no `allowComments` override, so real `//` comments in a `.json`-extension file fail with parse errors. Either use `"//": "..."` string keys (the convention in `.devcontainer/opencode/oh-my-openagent.json`) or a `.jsonc` extension (the convention in `.devcontainer/opencode/opencode-mem.jsonc`, which Biome accepts with real comments).
 - **Multiplexer layout is `main-horizontal`** (deviation D3), not the author's `main-vertical` — tuned for a right-docked VS Code terminal panel.
 - **`companion.enabled` is `false`** (deviation D2) — headless container, no display server.
 - **Do not route any agent at `gemini-2.5-flash`** (deviation D1) — free tier is 20 requests/**day**, single-route, no fallback.
@@ -651,7 +653,7 @@ with:
 - [ ] **Step 3: Verify the YAML still parses**
 
 ```bash
-python3 -c "import yaml,sys; yaml.safe_load(open('.devcontainer/litellm/config.yaml')); print('YAML OK')"
+yq -e '.' .devcontainer/litellm/config.yaml >/dev/null && echo "YAML OK"
 ```
 
 Expected: `YAML OK`.
@@ -949,8 +951,8 @@ Per the global pinning constraint, resolve real version tags before writing the 
 
 ```bash
 skopeo list-tags docker://docker.io/searxng/searxng 2>/dev/null | tail -20 \
-  || curl -fsS "https://hub.docker.com/v2/repositories/searxng/searxng/tags?page_size=20" | python3 -c "import sys,json;print('\n'.join(t['name'] for t in json.load(sys.stdin)['results']))"
-curl -fsS "https://hub.docker.com/v2/repositories/unclecode/crawl4ai/tags?page_size=20" | python3 -c "import sys,json;print('\n'.join(t['name'] for t in json.load(sys.stdin)['results']))"
+  || curl -fsS "https://hub.docker.com/v2/repositories/searxng/searxng/tags?page_size=20" | jq -r '.results[].name'
+curl -fsS "https://hub.docker.com/v2/repositories/unclecode/crawl4ai/tags?page_size=20" | jq -r '.results[].name'
 ```
 
 Pick the newest **non-`latest`, non-prerelease** tag from each (searxng publishes date-stamped tags like `2026.7.1-abc1234`; crawl4ai publishes semver like `0.7.4`). Record both — they are substituted into Step 3.
@@ -1075,7 +1077,7 @@ Add `8888` and `11235` to `forwardPorts`, and to `portsAttributes`:
 bash -n .devcontainer/start-mcp.sh && echo "syntax OK"
 chmod 755 .devcontainer/start-mcp.sh
 docker compose -f .devcontainer/mcp/compose.yaml config >/dev/null && echo "compose OK"
-python3 -c "import json;json.load(open('.devcontainer/devcontainer.json'));print('devcontainer.json OK')"
+node -e "JSON.parse(require('fs').readFileSync('.devcontainer/devcontainer.json','utf8').replace(/^\s*\/\/.*$/gm,'')); console.log('devcontainer.json OK')"
 grep -c '<SEARXNG_TAG>\|<CRAWL4AI_TAG>\|<VERSION>\|:latest' .devcontainer/mcp/compose.yaml .devcontainer/opencode/opencode.json
 ```
 
