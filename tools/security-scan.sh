@@ -33,8 +33,9 @@ case "${1:-}" in
   --all)     MODE="all" ;;
   --secrets) MODE="secrets" ;;
   --staged)  MODE="staged" ;;
+  --pre-push) MODE="pre-push" ;;
   ""|--changed) MODE="changed" ;;
-  -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
+  -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
   *) echo "unknown arg: $1 (try --help)"; exit 2 ;;
 esac
 
@@ -70,10 +71,39 @@ if [ -f "$REPO_ROOT/.git" ]; then
 fi
 
 GITLEAKS_CMD=(detect)
-[ "$MODE" = "staged" ] && GITLEAKS_CMD=(protect --staged)
+GITLEAKS_OPTIONS=(--source="$GITLEAKS_SOURCE" --redact --no-banner
+  --report-format=json --report-path="$GITLEAKS_REPORT")
+
+if [ "$MODE" = "staged" ]; then
+  GITLEAKS_CMD=(protect --staged)
+elif [ "$MODE" = "pre-push" ]; then
+  ZERO_SHA="0000000000000000000000000000000000000000"
+  git -C "$REPO_ROOT" rev-parse --verify --quiet "${BASE_REF}^{commit}" >/dev/null \
+    || { echo "ERROR: cannot resolve $BASE_REF; run 'git fetch origin main'" >&2; exit 2; }
+
+  GITLEAKS_RANGES=()
+  while read -r local_ref local_sha remote_ref remote_sha extra; do
+    [ -z "${local_ref:-}" ] && continue
+    if [ -z "${local_sha:-}" ] || [ -z "${remote_ref:-}" ] || [ -z "${remote_sha:-}" ] || [ -n "${extra:-}" ]; then
+      echo "ERROR: malformed pre-push ref update" >&2
+      exit 2
+    fi
+    [ "$local_sha" = "$ZERO_SHA" ] && continue
+    git -C "$REPO_ROOT" rev-parse --verify --quiet "${local_sha}^{commit}" >/dev/null \
+      || { echo "ERROR: cannot resolve pushed commit $local_sha" >&2; exit 2; }
+    GITLEAKS_RANGES+=("${BASE_REF}..${local_sha}")
+  done
+
+  if [ "${#GITLEAKS_RANGES[@]}" -eq 0 ]; then
+    echo "no commits introduced by this push — skipping security scan"
+    exit 0
+  fi
+
+  GITLEAKS_OPTIONS+=(--log-opts="${GITLEAKS_RANGES[*]}")
+fi
+
 if docker run --rm "${GITLEAKS_MOUNTS[@]}" "$GITLEAKS_IMAGE" \
-     "${GITLEAKS_CMD[@]}" --source="$GITLEAKS_SOURCE" --redact --no-banner \
-     --report-format=json --report-path="$GITLEAKS_REPORT" 2>&1 | tail -20; then
+     "${GITLEAKS_CMD[@]}" "${GITLEAKS_OPTIONS[@]}" 2>&1 | tail -20; then
   echo "PASS: no secrets detected"
 else
   echo "FAIL: secrets detected -> .security/gitleaks.json (this BLOCKS merge in CI)"
@@ -85,7 +115,7 @@ if [ "$MODE" = "secrets" ] || [ "$MODE" = "staged" ]; then echo; echo "done ($MO
 echo
 echo "--- [2] Semgrep SAST (${SEMGREP_IMAGE##*:}) ---"
 SEMGREP_TARGET="/src"
-if [ "$MODE" = "changed" ]; then
+if [ "$MODE" = "changed" ] || [ "$MODE" = "pre-push" ]; then
   # Collect changed paths but keep only regular tracked files (modes 100644/100755).
   # Symlinks (120000) and other git objects must not be passed to Semgrep because
   # their targets may resolve outside the Docker /src mount and fail the scan.

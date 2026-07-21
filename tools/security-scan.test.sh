@@ -52,10 +52,21 @@ DOCKER
 run_scanner() {
   local fixture="$1"
   local mode="${2:-}"
+  local updates="${3:-}"
   local script_path="$fixture/tools/security-scan.sh"
+  local status
   mkdir -p "$fixture/tools"
   cp "$REAL_SCRIPT" "$script_path"
-  PATH="$fixture/bin:$PATH" bash "$script_path" ${mode:+$mode} > "$fixture/run.log" 2>&1 || true
+
+  set +e
+  if [ -n "$updates" ]; then
+    printf '%s\n' "$updates" | PATH="$fixture/bin:$PATH" bash "$script_path" ${mode:+$mode} > "$fixture/run.log" 2>&1
+  else
+    PATH="$fixture/bin:$PATH" bash "$script_path" ${mode:+$mode} > "$fixture/run.log" 2>&1
+  fi
+  status=$?
+  set -e
+  return "$status"
 }
 
 # ------------------------------------------------------------------ test 1 ----
@@ -141,8 +152,123 @@ test_staged_linked_worktree_mounts() {
   echo "PASS: --staged mounts linked worktree and common git directory"
 }
 
+create_remote_checkout() {
+  local test_dir="$1"
+  mkdir -p "$test_dir"
+  git init --bare "$test_dir/repo.git" --quiet
+  git -C "$test_dir/repo.git" symbolic-ref HEAD refs/heads/main
+  git clone "$test_dir/repo.git" "$test_dir/checkout" --quiet
+  git -C "$test_dir/checkout" config user.email "test@example.com"
+  git -C "$test_dir/checkout" config user.name "Test"
+  printf 'base\n' > "$test_dir/checkout/base.txt"
+  git -C "$test_dir/checkout" add base.txt
+  git -C "$test_dir/checkout" commit --quiet -m "base"
+  git -C "$test_dir/checkout" push --quiet origin main
+}
+
+test_pre_push_scopes_single_ref() {
+  local test_dir="$FIXTURE/pre-push-single"
+  local zero_sha="0000000000000000000000000000000000000000"
+  create_remote_checkout "$test_dir"
+  cd "$test_dir/checkout"
+  git switch --quiet -c feature
+  printf 'feature\n' > feature.txt
+  git add feature.txt
+  git commit --quiet -m "feature"
+  local feature_sha
+  feature_sha="$(git rev-parse HEAD)"
+
+  install_fake_docker "$test_dir/checkout/bin" "$test_dir"
+  run_scanner "$test_dir/checkout" "--pre-push" \
+    "refs/heads/feature $feature_sha refs/heads/feature $zero_sha"
+
+  [ -f "$test_dir/gitleaks_calls.log" ] || fail "Gitleaks was not invoked for a pushed ref"
+  grep -qF -- "--log-opts=origin/main..$feature_sha" "$test_dir/gitleaks_calls.log" \
+    || fail "pre-push Gitleaks range missing"
+  grep -qF -- "--all" "$test_dir/gitleaks_calls.log" \
+    && fail "pre-push Gitleaks scan must not use --all"
+  echo "PASS: pre-push scopes a single ref"
+}
+
+test_pre_push_scopes_multiple_refs() {
+  local test_dir="$FIXTURE/pre-push-multiple"
+  local zero_sha="0000000000000000000000000000000000000000"
+  create_remote_checkout "$test_dir"
+  cd "$test_dir/checkout"
+  git switch --quiet -c feature-one
+  printf 'one\n' > one.txt
+  git add one.txt
+  git commit --quiet -m "one"
+  local one_sha
+  one_sha="$(git rev-parse HEAD)"
+  git switch --quiet -c feature-two origin/main
+  printf 'two\n' > two.txt
+  git add two.txt
+  git commit --quiet -m "two"
+  local two_sha
+  two_sha="$(git rev-parse HEAD)"
+
+  install_fake_docker "$test_dir/checkout/bin" "$test_dir"
+  run_scanner "$test_dir/checkout" "--pre-push" "$(printf '%s\n%s' \
+    "refs/heads/feature-one $one_sha refs/heads/feature-one $zero_sha" \
+    "refs/heads/feature-two $two_sha refs/heads/feature-two $zero_sha")"
+
+  [ "$(wc -l < "$test_dir/gitleaks_calls.log")" -eq 1 ] \
+    || fail "multiple refs must use one Gitleaks invocation"
+  grep -qF -- "--log-opts=origin/main..$one_sha origin/main..$two_sha" \
+    "$test_dir/gitleaks_calls.log" || fail "both pre-push ranges missing"
+  echo "PASS: pre-push scopes multiple refs"
+}
+
+test_pre_push_skips_deletion_only_update() {
+  local test_dir="$FIXTURE/pre-push-deletion"
+  local zero_sha="0000000000000000000000000000000000000000"
+  create_remote_checkout "$test_dir"
+  cd "$test_dir/checkout"
+  local main_sha
+  main_sha="$(git rev-parse HEAD)"
+
+  install_fake_docker "$test_dir/checkout/bin" "$test_dir"
+  run_scanner "$test_dir/checkout" "--pre-push" \
+    "refs/heads/obsolete $zero_sha refs/heads/obsolete $main_sha"
+
+  [ ! -f "$test_dir/gitleaks_calls.log" ] \
+    || fail "deletion-only push must not scan Git history"
+  echo "PASS: pre-push skips deletion-only updates"
+}
+
+test_pre_push_requires_origin_main() {
+  local test_dir="$FIXTURE/pre-push-no-base"
+  local zero_sha="0000000000000000000000000000000000000000"
+  mkdir -p "$test_dir"
+  cd "$test_dir"
+  git init --quiet
+  git config user.email "test@example.com"
+  git config user.name "Test"
+  printf 'orphan\n' > orphan.txt
+  git add orphan.txt
+  git commit --quiet -m "orphan"
+  local orphan_sha
+  orphan_sha="$(git rev-parse HEAD)"
+
+  install_fake_docker "$test_dir/bin" "$test_dir"
+  if run_scanner "$test_dir" "--pre-push" \
+    "refs/heads/feature $orphan_sha refs/heads/feature $zero_sha"; then
+    fail "pre-push accepted a repository without origin/main"
+  fi
+  grep -qF -- "cannot resolve origin/main; run 'git fetch origin main'" "$test_dir/run.log" \
+    || fail "missing-base guidance not reported"
+  [ ! -f "$test_dir/gitleaks_calls.log" ] \
+    || fail "Gitleaks must not run without origin/main"
+  echo "PASS: pre-push requires origin/main"
+}
+
 # --------------------------------------------------------------------- run ----
 test_changed_mode_excludes_symlinks
 test_staged_linked_worktree_mounts
+test_pre_push_scopes_single_ref
+test_pre_push_scopes_multiple_refs
+test_pre_push_skips_deletion_only_update
+test_pre_push_requires_origin_main
 
 echo "ALL PASS"

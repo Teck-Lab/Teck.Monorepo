@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
-# Pre-push gate: full local mirror of the CI security gate on changed files
-# (Gitleaks history + Semgrep SAST + Trivy SCA). First run pulls scanner images.
-# Bypass in an emergency: git push --no-verify (CI still gates everything).
+# Pre-push gate: Gitleaks scans only the refs this push introduces; Semgrep
+# and Trivy retain the changed-files local security scan. CI remains the
+# authoritative full-history Gitleaks gate.
 
-./tools/security-scan.sh || {
+./tools/security-scan.sh --pre-push || {
   echo "pre-push: security scan failed — see .security/ for reports" >&2
   exit 1
 }
