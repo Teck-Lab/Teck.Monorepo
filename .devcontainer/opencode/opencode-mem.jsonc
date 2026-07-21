@@ -19,23 +19,6 @@
   "autoCaptureEnabled": true,
   "autoCaptureLanguage": "auto",
   "showAutoCaptureToasts": true,
-
-  // Route capture through the local LiteLLM gateway (opencode owns auth/routing).
-  // Provider name must match an entry in `opencode providers list` (ours: `litellm`).
-  //
-  // Pinned to deepseek-v4-flash because auto-capture fires on EVERY prompt, so it
-  // needs a high-capacity route. Its pool has five routes (OpenCode Go sub A + sub
-  // B, OpenCode Zen free, NVIDIA NIM free, DeepSeek API), so a cooled route just
-  // shifts traffic instead of failing.
-  //
-  // Do NOT point this at gemini-2.5-flash: the Gemini free tier is 20 requests per
-  // DAY (GenerateRequestsPerDayPerProjectPerModel-FreeTier), that pool is
-  // single-route, and LiteLLM has no cross-model fallback — so once the daily quota
-  // is gone every capture hard-fails with a 429. Reserve Gemini for the vision work
-  // that actually needs it (multimodal-looker, visual-engineering).
-  //
-  // Alternative: "opencodeModel": "inherit" captures with whatever model answered
-  // each prompt (only works if that model supports structured output).
   "opencodeProvider": "litellm",
   "opencodeModel": "deepseek-v4-flash"
 }
