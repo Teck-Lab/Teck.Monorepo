@@ -10,6 +10,7 @@ var customerDb = postgres.AddDatabase("customerdb");
 var catalogDb = postgres.AddDatabase("catalogdb");
 var inventoryDb = postgres.AddDatabase("inventorydb");
 var pricingDb = postgres.AddDatabase("pricingdb");
+var billingDb = postgres.AddDatabase("billingdb");
 
 var rabbitmq = builder.AddRabbitMQ("rabbitmq").WithManagementPlugin();
 var redis = builder.AddRedis("redis");
@@ -79,6 +80,17 @@ builder.AddProject<Projects.Pricing_Host>("pricing")
     .WithEnvironment("ConnectionStrings__PricingRead", pricingDb)
     .WithReference(rabbitmq).WithReference(redis).WithReference(keycloak)
     .WaitFor(pricingDb).WaitFor(keycloak);
+
+// WithHttpEndpoint registers the "http" endpoint Aspire injects into service-discovery
+// variables (services__billing__http__0, etc.) so YARP destinations like http://billing resolve.
+// billing consumes OrderPlaced over rabbitmq; kept out of the gateway's WaitFor chain so the
+// gateway smoke test's startup criteria stay independent of billing.
+builder.AddProject<Projects.Billing_Host>("billing")
+    .WithHttpEndpoint(name: "http")
+    .WithEnvironment("ConnectionStrings__BillingWrite", billingDb)
+    .WithEnvironment("ConnectionStrings__BillingRead", billingDb)
+    .WithReference(rabbitmq).WithReference(redis).WithReference(keycloak)
+    .WaitFor(billingDb).WaitFor(keycloak);
 
 // WithHttpEndpoint registers a named "http" endpoint so Aspire can inject the correct
 // ASPNETCORE_URLS and the testing framework can resolve it via CreateHttpClient("gateway", "http").

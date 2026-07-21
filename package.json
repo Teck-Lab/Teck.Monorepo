@@ -15,7 +15,8 @@
     "graph": "nx graph",
     "release:dry": "nx release --dry-run",
     "release": "nx release --yes",
-    "clean": "nx reset"
+    "clean": "nx reset",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
@@ -37,6 +38,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "babel-preset-expo": "~55.0.7",
+    "husky": "^9.1.7",
     "metro-config": "~0.83.0",
     "metro-resolver": "~0.83.0",
     "nativewind": "^5.0.0-preview.4",
@@ -45,10 +47,7 @@
     "typescript": "^5.7.0"
   },
   "packageManager": "bun@1.2.0",
-  "workspaces": [
-    "src/apps/*",
-    "src/packages/*"
-  ],
+  "workspaces": ["src/apps/*", "src/packages/*"],
   "dependencies": {
     "@expo/metro-config": "~55.0.8",
     "@expo/metro-runtime": "~55.0.11",

@@ -1,0 +1,24 @@
+# Codex CLI config — seeded into ~/.codex/config.toml by postCreate.sh.
+#
+# Points Codex at the local LiteLLM gateway (OpenAI-compatible) instead of OpenAI
+# directly, so it draws on the per-model route pools (model = a real model id). The API key
+# is read from the LITELLM_MASTER_KEY env var (exported into the shell by
+# postCreate.sh from .devcontainer/litellm/litellm.env) — no `codex login` needed.
+#
+# NOTE: top-level keys MUST appear before the [model_providers.litellm] table —
+# in TOML, any key after a table header belongs to that table.
+
+model = "deepseek-v4-pro"
+model_provider = "litellm"
+
+# The dev container itself is the security boundary (privileged, convenience-first
+# — see README "Security"). Disable Codex's inner sandbox + approval prompts for
+# headless agent use, mirroring the `claude --dangerously-skip-permissions` alias.
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+
+[model_providers.litellm]
+name = "LiteLLM local gateway"
+base_url = "http://localhost:4000/v1"
+env_key = "LITELLM_MASTER_KEY"
+wire_api = "chat"        # LiteLLM speaks /v1/chat/completions

@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+# Pre-commit gate (AGENTS.md: "pre-commit gate" before QA review).
+# 1. Biome lint/format check on staged files — fast, local.
+# 2. Gitleaks on staged changes — the CI hard gate, pinned via tools/security-scan.sh.
+# Bypass in an emergency: git commit --no-verify (CI still gates everything).
+
+bunx biome check --staged --no-errors-on-unmatched || {
+  echo "pre-commit: biome check failed — run 'bunx biome check --write' and restage" >&2
+  exit 1
+}
+
+./tools/security-scan.sh --staged || {
+  echo "pre-commit: secret scan failed — see .security/gitleaks.json" >&2
+  echo "If this is a false positive, do NOT suppress unilaterally — ask first." >&2
+  exit 1
+}

@@ -15,6 +15,7 @@
     </PackageVersion>
     <PackageVersion Include="WolverineFx.MemoryPack" Version="6.2.2" />
     <PackageVersion Include="MemoryPack" Version="1.21.4" />
+    <PackageVersion Include="MessagePack" Version="3.1.7" />
     <PackageVersion Include="WolverineFx.RabbitMQ" Version="6.2.2" />
     <PackageVersion Include="WolverineFx.SignalR" Version="6.2.2" />
     <PackageVersion Include="WolverineFx.Postgresql" Version="6.2.2" />
@@ -140,7 +141,7 @@
   <!-- IMAGE PROCESSING                                   -->
   <!-- ================================================== -->
   <ItemGroup Label="Image Processing">
-    <PackageVersion Include="Magick.NET-Q8-AnyCPU" Version="14.13.1" />
+    <PackageVersion Include="Magick.NET-Q8-AnyCPU" Version="14.14.0" />
     <PackageVersion Include="SkiaSharp" Version="3.119.2" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.119.2" />
     <PackageVersion Include="ZXing.Net" Version="0.16.11" />
