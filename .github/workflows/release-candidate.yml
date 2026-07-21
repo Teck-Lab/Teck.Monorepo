@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # RC lane: gated candidate builds while `ready-to-release` is on an open PR.
+  # RC lane: candidate builds while `ready-to-release` is on an open PR.
   # ---------------------------------------------------------------------------
   discover-rc:
     name: Discover affected services (RC)

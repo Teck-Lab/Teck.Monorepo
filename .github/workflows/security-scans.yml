@@ -118,8 +118,9 @@ jobs:
           category: semgrep-${{ matrix.product }}
 
   # Source-level SCA: dependency graph (native manifests + submitted SBOMs) +
-  # Dependabot alerts/fix PRs. PR-time new-dependency gate below; the
-  # release-time image gate lives in reusable-build-sign-sbom.yml.
+  # Dependabot alerts/fix PRs. GitHub merge protection gates new dependency and
+  # SAST risk before main. The release reusable workflow produces direct Trivy
+  # reports and VEX; it does not rely on an external release-time image gate.
 
   dependency-review:
     name: Dependency Review (PR gate)

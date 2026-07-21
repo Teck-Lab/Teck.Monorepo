@@ -4,10 +4,9 @@ on:
     branches: [next]
 
 # Prerelease channel. A merge into `next` builds each AFFECTED service through the
-# reusable pipeline in staging mode: image tagged `:next` + `:sha-<short>`, no external
-# gate (pre-releases may contain vulnerabilities, just flagged). GA is cut separately
-# when a `ready-to-release` PR merges (release-candidate.yml); plain merges to main do
-# NOT auto-release.
+# reusable pipeline in staging mode, producing a `:next` image plus a `:sha-<short>`
+# stamp. GA is cut separately when a `ready-to-release` PR merges (release-candidate.yml);
+# plain merges to main do NOT auto-release.
 permissions:
   contents: read
 
