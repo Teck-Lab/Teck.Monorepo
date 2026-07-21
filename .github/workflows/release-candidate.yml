@@ -4,12 +4,11 @@ on:
     types: [labeled, synchronize, closed]
     branches: [main]
 
-# Explicit, gated release path (see docs). While a PR carries the `ready-to-release`
-# label, every push builds each affected service through the reusable pipeline in
-# RELEASE mode - so the Dependency Track gate runs and the RC is a required PR check
-# (a red gate blocks the merge). RCs use a candidate version (rc-pr<n>.<run>) and are
-# NOT marked latest in DT. When the labelled PR merges, GA cuts the real semver with
-# `nx release` and rebuilds + re-gates each released service before publishing.
+# Explicit release path (see docs). While a PR carries the `ready-to-release` label,
+# every push builds each affected service through the reusable pipeline in RELEASE
+# mode. RCs use a candidate version (rc-pr<n>.<run>). When the labelled PR merges, GA
+# cuts the real semver with `nx release` and rebuilds each released service before
+# publishing.
 permissions:
   contents: read
 
@@ -73,11 +72,9 @@ jobs:
       project-path: ${{ matrix.projectPath }}
       version: ${{ matrix.baseVersion }}-rc.${{ github.run_number }}
       source-ref: ${{ github.event.pull_request.head.sha }}
-      publish-mode: release # gate ON
-      is-latest: false # an RC is never DT's latest
+      publish-mode: release
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
-      dependencytrack-api-key: ${{ secrets.DEPENDENCYTRACK_API_KEY }}
 
   # ---------------------------------------------------------------------------
   # GA lane: the labelled PR merged -> cut the semver release and ship it.
@@ -173,8 +170,6 @@ jobs:
       project-path: ${{ matrix.projectPath }}
       version: ${{ matrix.version }}
       source-ref: ${{ matrix.sourceRef }}
-      publish-mode: release # gate ON (re-gated against latest advisories)
-      is-latest: true # GA is DT's latest
+      publish-mode: release
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
-      dependencytrack-api-key: ${{ secrets.DEPENDENCYTRACK_API_KEY }}

@@ -4,11 +4,9 @@ on:
     types: [labeled, synchronize]
 
 # Runs while the `preview` label is on the PR. Builds each AFFECTED service through the
-# reusable pipeline in STAGING mode: image tagged canary-<pr#>, SBOM uploaded to
-# Dependency Track (FLAGGED, project version pr-<n>) - so you get full container +
-# dependency SCA on every preview push - and the DT release gate is skipped (pre-release
-# may contain vulnerabilities, just flagged). Signing still runs (provenance); the
-# ephemeral preview cluster's admission policy decides whether it requires it.
+# reusable pipeline in STAGING mode: image tagged canary-<pr#>. Scan, SBOM, and signing
+# still run; the ephemeral preview cluster's admission policy decides whether it
+# requires a signed image.
 permissions:
   contents: read
 
@@ -74,4 +72,3 @@ jobs:
       staging-tag: canary-${{ github.event.pull_request.number }}
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
-      dependencytrack-api-key: ${{ secrets.DEPENDENCYTRACK_API_KEY }}
