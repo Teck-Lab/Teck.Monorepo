@@ -110,11 +110,12 @@ jobs:
       # Sink = GHAS code scanning. category keeps the per-service split; alerts
       # annotate PRs and land in the Security tab. Semgrep exits 0 on findings;
       # the merge gate is the branch-protection code-scanning rule.
-      - name: Upload Semgrep SARIF to code scanning
-        uses: github/codeql-action/upload-sarif@d03f4cc0498d5a63039d157eb274d9c2fc50f17a # v3.37.1
+      - name: Upload Semgrep results to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
         with:
           sarif_file: semgrep-${{ matrix.product }}.sarif
-          category: ${{ matrix.product }}
+          category: semgrep-${{ matrix.product }}
 
   # Source-level SCA: dependency graph (native manifests + submitted SBOMs) +
   # Dependabot alerts/fix PRs. PR-time new-dependency gate below; the
@@ -127,7 +128,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Dependency review
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
@@ -214,4 +215,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: .github/scripts/submit-sbom-dependency-graph.sh sbom-frontend.cyclonedx.json sbom/frontend
-
