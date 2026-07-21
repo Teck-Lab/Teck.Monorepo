@@ -2,12 +2,6 @@
   <PropertyGroup>
     <RootNamespace>Gateway.Public.IntegrationTests</RootNamespace>
     <IsPackable>false</IsPackable>
-    <!--
-      FastEndpoints.Messaging.Remote 8.1.0 carries MessagePack 3.1.4 as a transitive
-      dependency via Gateway.Public. No patched version exists yet.
-      NU1902/NU1903 suppressed so TreatWarningsAsErrors does not block the build.
-    -->
-    <NoWarn>$(NoWarn);NU1902;NU1903</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

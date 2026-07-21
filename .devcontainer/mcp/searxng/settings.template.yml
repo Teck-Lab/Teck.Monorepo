@@ -1,0 +1,27 @@
+# SearXNG settings template for the MCP research backend.
+#
+# start-mcp.sh renders this to settings.yml (gitignored) on first run, replacing
+# __SECRET_KEY__ with a freshly generated value. compose bind-mounts the result
+# over /etc/searxng/settings.yml.
+#
+# WHY A TEMPLATE AT ALL: the image's auto-generated settings.yml is a 201-byte
+# stub carrying only `use_default_settings` and a secret. It does NOT enable the
+# JSON output format, and the SEARXNG_SEARCH_FORMATS environment variable is not
+# honoured by this image — so /search?format=json returns 403 and the MCP server
+# fails with a parse error rather than anything diagnostic.
+use_default_settings: true
+
+server:
+  secret_key: "__SECRET_KEY__"
+  image_proxy: true
+  # The container sits behind Docker's port proxy, which sets neither
+  # X-Forwarded-For nor X-Real-IP. Without this, searxng's bot detection logs
+  # "X-Forwarded-For nor X-Real-IP header is set!" and can reject requests.
+  limiter: false
+
+search:
+  # LOAD-BEARING: json is what the MCP server consumes. Removing it returns the
+  # deployment to HTML-only and every MCP search fails with 403.
+  formats:
+    - html
+    - json

@@ -1,0 +1,141 @@
+{
+  // `@latest` here is a deliberate exception to the pinning constraint: this URL
+  // is an editor/IDE validation hint, never fetched or executed at runtime, and
+  // it must track the plugin's actual installed version — which auto-updates.
+  // Pinning it would eventually validate this file against the WRONG schema.
+  "$schema": "https://unpkg.com/oh-my-opencode-slim@latest/oh-my-opencode-slim.schema.json",
+
+  // Active preset. Mirrors the upstream author's preset structure
+  // (docs/authors-preset.md) with models substituted for what this
+  // environment actually has. See the migration spec for deviations D1-D3.
+  "preset": "teck",
+  "showStartupToast": false,
+
+  // D2: the companion is a desktop GUI app; this container is headless.
+  "companion": { "enabled": false },
+
+  // D3: main-horizontal (NOT the author's main-vertical) — tuned for a
+  // right-docked VS Code terminal panel (tall/narrow). If you dock the
+  // terminal at the bottom instead (wide/short), switch to "main-vertical".
+  "multiplexer": {
+    "type": "tmux",
+    "layout": "main-horizontal",
+    "main_pane_size": 60
+  },
+
+  "presets": {
+    "teck": {
+      // Runs on every turn — latency matters more than depth here.
+      "orchestrator": {
+        "model": "openai/gpt-5.6-terra",
+        "variant": "xhigh",
+        "skills": ["*"],
+        // Broad access minus the research servers: docs lookup and repo queries
+        // are pushed down to @librarian so they don't consume orchestrator
+        // context. Mirrors the upstream author's intent, using our server names.
+        "mcps": ["*", "!context7", "!github"]
+      },
+      // The deep-reasoning seat. This is the strongest reasoning tier
+      // available in this environment (no Pro tier is available here).
+      // Skill lists below pair slim's BUNDLED skills with this repo's own
+      // project skills from .opencode/skills/. Mirroring the upstream author's
+      // narrow-specialist shape without substituting our stack's skills would
+      // leave every specialist unable to reach them — only the orchestrator's
+      // "*" would see them.
+      "oracle": {
+        "model": "openai/gpt-5.6-sol",
+        "variant": "xhigh",
+        "skills": [
+          "deepwork",
+          "verification-planning",
+          "reflect",
+          "simplify",
+          "dotnet-design-pattern-review",
+          "security-threat-model",
+          "security-review"
+        ],
+        "mcps": ["searxng", "crawl4ai"]
+      },
+      "librarian": {
+        "model": "openai/gpt-5.6-luna",
+        "variant": "low",
+        "skills": ["github-issues"],
+        // Retrieval is its whole job, so it gets every research server.
+        "mcps": ["context7", "github", "searxng", "crawl4ai"]
+      },
+      "explorer": {
+        "model": "openai/gpt-5.6-luna",
+        "variant": "low",
+        "skills": ["codemap", "nx-monorepo"],
+        "mcps": []
+      },
+      // D1: author uses Gemini here. Our only Gemini route is capped at
+      // 20 requests/DAY, so we use flat-rate OpenCode Go pool models instead.
+      "designer": {
+        "model": "litellm/glm-5.2",
+        "skills": ["shadcn", "nextjs-architect", "expo-tailwind-setup"],
+        "mcps": []
+      },
+      // The agent that actually writes code in this monorepo, so it carries the
+      // .NET, Nx and Next.js conventions plus the security skills.
+      "fixer": {
+        "model": "litellm/kimi-k2.7-code",
+        "variant": "low",
+        "skills": [
+          "codemap",
+          "simplify",
+          // It writes the code, so it plans its own verification. This repo
+          // fails the build on ArchUnit tests and analyzer errors, so "did I
+          // check it" is not optional here. Shared with @oracle deliberately —
+          // oracle plans verification when advising, fixer when implementing.
+          "verification-planning",
+          "dotnet-best-practices",
+          "nx-monorepo",
+          "nextjs-architect",
+          "nextjs-data-patterns",
+          "nextjs-performance",
+          "security-review",
+          "frontend-security-coder"
+        ],
+        "mcps": ["searxng", "crawl4ai"]
+      }
+    }
+  },
+
+  "agents": {
+    // Verbatim from the upstream author's preset — the prompt encodes a
+    // useful safety boundary (no code edits, no destructive git history).
+    "fast-generic": {
+      "model": "litellm/deepseek-v4-flash",
+      "prompt": "You are a fast generic execution agent for routine mechanical command work. Run requested shell commands, inspect results, and report concise outcomes. For git commits or pushes, inspect git status, git diff, and recent log first; stage only intended files; avoid secrets; preserve repository commit-message style; never amend, rebase, reset --hard, clean, force-push, delete branches, or perform destructive history operations unless the user explicitly requested that exact operation. Do not edit code or make architecture/design decisions.",
+      "orchestratorPrompt": "Delegate to @fast-generic for routine mechanical command work: git status/diff/log reconnaissance, normal commit preparation, creating commits, pushing commits, and no-edit command validation such as lint, typecheck, static verification, tests, builds, or package-manager equivalents. Ask it to inspect diffs before committing, stage only intended files, avoid secrets, preserve repository commit-message style, and report final commit hashes or push results. Do not use it for code edits, design work, architecture, debugging strategy, docs research, or destructive git history operations such as amend, rebase, reset --hard, clean, force-push, or deleting branches unless the user explicitly requested that exact operation.",
+      // Its job IS preparing commits, and CLAUDE.md says conventional commits
+      // drive release versioning — so it needs the commit skills.
+      "skills": ["conventional-commit", "git-commit"],
+      "mcps": []
+    }
+  },
+
+  // Cross-vendor consensus: one frontier model plus two independent
+  // gateway-backed families, so councillors don't share a failure mode.
+  "council": {
+    "default_preset": "default",
+    "presets": {
+      "default": {
+        "pro": { "model": "openai/gpt-5.6-sol", "variant": "xhigh" },
+        "glm": { "model": "litellm/glm-5.2" },
+        "deepseek": { "model": "litellm/deepseek-v4-pro" }
+      }
+    }
+  },
+
+  // Slim owns CROSS-MODEL failover (this block). LiteLLM balances routes
+  // WITHIN one model pool only. That split replaces omo's per-agent
+  // `fallback_models` — keep the two layers distinct.
+  "fallback": {
+    "enabled": true,
+    "timeoutMs": 15000,
+    "maxRetries": 3,
+    "retry_on_empty": true
+  }
+}

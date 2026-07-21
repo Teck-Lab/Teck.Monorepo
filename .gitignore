@@ -7,7 +7,7 @@
 #  references break the project-graph build.)
 .claude/worktrees/
 .claude/settings.local.json
-
+.claire
 # Build outputs
 dist/
 .next/
@@ -32,6 +32,9 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# LiteLLM gateway secrets (real keys; template committed as litellm.env.example)
+.devcontainer/litellm/litellm.env
 
 # Logs
 *.log
@@ -59,3 +62,14 @@ web-build/
 # WolverineFx runtime-generated handler code. Written by `codegen write` during the container
 # build (and regenerated in-memory during local dev); compiled into the published image, never committed.
 **/Internal/Generated/
+
+.omo
+# Local security scan reports (tools/security-scan.sh)
+.security/
+
+# Generated MCP backend secrets (see .devcontainer/start-mcp.sh)
+.devcontainer/mcp/mcp.env
+.devcontainer/mcp/searxng/settings.yml
+
+# gh auth backup — restores the GitHub login if its volume is ever empty
+.devcontainer/gh/

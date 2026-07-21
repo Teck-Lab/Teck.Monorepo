@@ -426,6 +426,8 @@ Durable local queues: PersistMessagesWithPostgresql makes all messages survive r
 
 Compile-time source generation: WolverineFx.CodeGen handles dispatch at build time.
 
+**Transport wiring:** every host calls `AddTeckMessaging(handlerAssembly, writeConnectionName)` (`SharedKernel.Infrastructure`) as its single `UseWolverine` entry point. It is config-gated: a `rabbitmq` connection string present → the standard broker-backed runtime (RabbitMQ transport + Postgres outbox/inbox, conventional routing); absent → a local-only durable-queue runtime with no `UseRabbitMq` call, so `dotnet run` standalone and single-host tests boot without a broker. The `wolverine` message-store schema (outbox/inbox/dead-letter tables) self-creates on startup in every environment (`AutoBuildMessageStorageOnStartup = AutoCreate.CreateOrUpdate`) — this is separate from and does not depend on EF Core migrations; see `deploy/AGENTS.md` → "Messaging / message-store schema". Integration events are published manually via `bus.PublishAsync(new XIntegrationEvent{...})` inside command handlers after `SaveChangesAsync` (Option A) — the EF `PublishDomainEventsFromEntityFrameworkCore` domain-event bridge is intentionally not wired, to avoid double-publishing and to keep internal domain events off the wire.
+
 ## Build & Deployment
 
 - Every service Docker build must run WolverineFx codegen before `dotnet publish`.

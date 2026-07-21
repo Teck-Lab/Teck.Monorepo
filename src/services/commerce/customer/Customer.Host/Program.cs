@@ -6,11 +6,8 @@ using FastEndpoints;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Grpc.Contracts.Remote.V1.Tenants;
 using SharedKernel.Infrastructure;
-using SharedKernel.Infrastructure.Behaviors;
 using SharedKernel.Infrastructure.Hosting;
-using SharedKernel.Infrastructure.Messaging.DeadLetter;
 using Teck.ServiceDefaults;
-using Wolverine;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
@@ -18,11 +15,7 @@ builder.Services.AddTeckService(typeof(Program).Assembly, builder.Configuration)
 builder.AddCustomerPersistence();
 builder.ConfigureInternalServiceTransport();
 builder.AddHandlerServer();
-builder.Host.UseWolverine(opts =>
-{
-    opts.AddTeckBehaviors();
-    opts.AddTeckDeadLetterPolicy(new DeadLetterOptions());
-});
+builder.AddTeckMessaging(typeof(CustomerDbContext).Assembly, "CustomerWrite");
 
 var app = builder.Build();
 app.UseTeckService();

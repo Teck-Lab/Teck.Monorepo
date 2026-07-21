@@ -27,6 +27,56 @@ dotnet msbuild <Service>.Host.csproj /t:WolverineCodegenWrite /p:RunWolverineCod
 
 The repository should keep this as a pre-Docker CI step, not as an in-container local-dev default.
 
+## Messaging / message-store schema
+
+Two distinct schemas live in each service database, created by **two different mechanisms**. Do not conflate them.
+
+### 1. The `wolverine` message-store schema (outbox / inbox / durable queues)
+
+- The `wolverine` schema (tables `wolverine_incoming_envelopes`, `wolverine_outgoing_envelopes`,
+  `wolverine_dead_letters`, node/control tables, …) is created **at host startup, in every
+  environment**, by Wolverine's `AutoBuildMessageStorageOnStartup = AutoCreate.CreateOrUpdate`
+  (`WolverinePersistenceConfigurator.ConfigureCoreRuntime`).
+- It is **NOT an EF Core migration** and is **NOT created by the `--migrate` init container**. The
+  running service is the only thing that creates it.
+- `CreateOrUpdate` is idempotent and Wolverine guards the DDL with a Postgres **advisory lock**, so
+  multiple replicas booting concurrently converge safely rather than racing. Self-healing: if the
+  schema is missing or partial, the next boot repairs it. The service's own DB user already performs
+  DDL for its EF schema, so no extra privilege is required.
+- Schema-build smoke test: `MessageStoreSchemaTests` (Inventory.IntegrationTests) boots a wired host
+  on the broker-backed runtime and asserts the envelope tables exist via `information_schema.tables`.
+  It always runs `UseEnvironment("Development")` (required for `TypeLoadMode.Dynamic` codegen), so
+  `isDevelopment` is always `true` there and it cannot by itself prove
+  `AutoBuildMessageStorageOnStartup` stays `CreateOrUpdate` when `isDevelopment` is `false`.
+  Regression guard for that environment-independence: the unit tests in
+  `WolverinePersistenceConfiguratorTests` (SharedKernel.UnitTests) call
+  `ConfigureLocalOnlyRuntime` with both `isDevelopment: true` and `isDevelopment: false` and assert
+  `AutoBuildMessageStorageOnStartup == AutoCreate.CreateOrUpdate` in both cases.
+
+### 2. The EF Core entity schema (the service's own tables)
+
+- Applied by `LocalDatabaseMigrationExtensions.ApplyLocalDatabaseMigrations`, gated by
+  `ShouldApplyMigrations` to **Development or `ASPIRE_LOCAL=true`** only. So in local/dev/Aspire runs
+  the entity schema is auto-migrated on boot; in production it is **not**.
+- The `deploy/{service}/base/deployment.yaml` init container (`name: migration`, `args: ["--migrate"]`)
+  is intended to apply the EF schema in production, but **no code handles `--migrate` today**. Hosts
+  run via `RunTeckServiceAsync` → `RunJasperFxCommands(args)`. JasperFx normalizes `["--migrate"]` to
+  `["run", "--migrate"]` (leading `-` ⇒ default `run` command), and `--migrate` is not a flag of the
+  `run` command. Because `JasperFxEnvironment.AutoStartHost` is `false` in a real host (only the
+  integration-test factories set it `true`), the unknown flag raises `InvalidUsageException`, JasperFx
+  prints "Invalid usage / Unknown argument or flag for value --migrate", falls back to the `run` help
+  usage, and the process **exits with code 1**. The init container therefore fails today (it does not
+  silently no-op and it does not migrate). Wiring a real EF-migration command onto `--migrate` is a
+  tracked **follow-up**, out of scope for the transport work; it does not affect the `wolverine`
+  message store, which self-creates per (1).
+
+### 3. Production images must ship pre-generated Wolverine codegen
+
+- Unchanged and load-bearing: production runs Wolverine with `TypeLoadMode.Static`, so the image must
+  contain the pre-generated handler code from the `WolverineCodegenWrite` build step above. Only the
+  message-store-build setting is environment-independent; codegen mode stays environment-gated
+  (Dynamic in dev/tests, Static in prod).
+
 ## Convention
 
 Base Kubernetes manifests live here, owned by service teams. Environment-specific patches live in Teck.GitOps.

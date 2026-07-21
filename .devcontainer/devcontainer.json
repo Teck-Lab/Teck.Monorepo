@@ -13,20 +13,32 @@
       "version": "lts"
     },
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
-    "ghcr.io/devcontainers/features/github-cli:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers-extra/features/opencode:1": {},
+    "ghcr.io/dirien/devcontainer-feature-codex/codex:0": {}
   },
   "remoteUser": "vscode",
   "containerEnv": {
     "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
     "DOTNET_NOLOGO": "1",
-    "NUGET_XMLDOC_MODE": "skip"
+    "NUGET_XMLDOC_MODE": "skip",
+    "NODE_OPTIONS": "--max-old-space-size=4096",
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude-config"
   },
   "mounts": [
-    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume"
+    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude-config,type=volume",
+    "source=opencode-data-${devcontainerId},target=/home/vscode/.local/share/opencode,type=volume",
+    "source=codex-config-${devcontainerId},target=/home/vscode/.codex,type=volume",
+    "source=gh-config-${devcontainerId},target=/home/vscode/.config/gh,type=volume",
+    "source=${localEnv:HOME}/.gnupg,target=/home/vscode/.gnupg-host,type=bind,readonly"
   ],
-  "forwardPorts": [18888, 3000, 8080, 8081, 19000, 19006],
+  "forwardPorts": [18888, 4000, 4747, 8888, 11235, 3000, 8080, 8081, 19000, 19006],
   "portsAttributes": {
     "18888": { "label": "Aspire dashboard" },
+    "4000": { "label": "LiteLLM gateway" },
+    "4747": { "label": "opencode-mem UI" },
+    "8888": { "label": "SearXNG (MCP)" },
+    "11235": { "label": "crawl4ai (MCP)" },
     "3000": { "label": "Next.js dev" },
     "8080": { "label": "Service host" },
     "8081": { "label": "Metro / Expo web" },
@@ -34,6 +46,7 @@
     "19006": { "label": "Expo web (legacy)" }
   },
   "postCreateCommand": "bash .devcontainer/postCreate.sh",
+  "postStartCommand": "bash .devcontainer/start-litellm.sh; bash .devcontainer/start-mcp.sh",
   "customizations": {
     "vscode": {
       "extensions": [

@@ -139,6 +139,12 @@ public abstract class BasketIntegrationTestBase : IDisposable
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            // Run as Development so AddTeckMessaging uses Wolverine's dynamic runtime codegen
+            // (Static mode would require pre-generated handler code, which tests do not produce)
+            // and creates the `wolverine` message-store schema on startup (no migrate init
+            // container runs in tests). See WolverinePersistenceConfigurator.ConfigureCoreRuntime.
+            builder.UseEnvironment("Development");
+
             // UseSetting applies at the highest configuration priority and overrides appsettings
             // connection strings that AddBasketPersistence reads during Program.cs setup.
             builder.UseSetting("ConnectionStrings:BasketWrite", databaseConnectionString);

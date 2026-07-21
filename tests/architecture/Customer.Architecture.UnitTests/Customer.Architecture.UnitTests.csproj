@@ -5,12 +5,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
-    <!--
-      FastEndpoints.Messaging.Remote 8.1.0 carries MessagePack 3.1.4 (via Customer.Host reference).
-      MessagePack 3.1.4 is the only 3.x release on NuGet; no patched version exists yet.
-      NU1902/NU1903 suppressed here so TreatWarningsAsErrors does not block the build.
-    -->
-    <NoWarn>$(NoWarn);NU1902;NU1903</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

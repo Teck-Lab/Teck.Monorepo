@@ -86,6 +86,7 @@
     <Project Path="tests/unit/Teck.ServiceDefaults.UnitTests/Teck.ServiceDefaults.UnitTests.csproj" />
     <Project Path="tests/integration/Teck.Platform.IntegrationTests.Shared/Teck.Platform.IntegrationTests.Shared.csproj" />
     <Project Path="tests/integration/Basket.IntegrationTests/Basket.IntegrationTests.csproj" />
+    <Project Path="tests/integration/CrossService.IntegrationTests/CrossService.IntegrationTests.csproj" />
     <Project Path="tests/integration/Inventory.IntegrationTests/Inventory.IntegrationTests.csproj" />
     <Project Path="tests/integration/Billing.IntegrationTests/Billing.IntegrationTests.csproj" />
     <Project Path="tests/integration/Pricing.IntegrationTests/Pricing.IntegrationTests.csproj" />
