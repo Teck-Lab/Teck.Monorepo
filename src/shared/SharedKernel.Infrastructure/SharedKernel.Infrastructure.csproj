@@ -97,6 +97,11 @@
     <ProjectReference Include="..\SharedKernel.Events\SharedKernel.Events.csproj" />
     <ProjectReference Include="..\SharedKernel.Grpc.Contracts\SharedKernel.Grpc.Contracts.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- TeckMessagingExtensions.ShouldUseBroker is exercised directly by unit tests. -->
+    <InternalsVisibleTo Include="SharedKernel.UnitTests" />
+  </ItemGroup>
 	<ItemGroup>
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 	</ItemGroup>
