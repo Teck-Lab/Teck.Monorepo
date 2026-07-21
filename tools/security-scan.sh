@@ -15,6 +15,15 @@
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Git worktrees have a .git FILE pointing at the real gitdir, whose commondir
+# lives outside the worktree. Mount the common git dir at its absolute path so
+# containerized git-based scanners (gitleaks) resolve the pointer.
+GIT_DIR_MOUNT=()
+if [ -f "$REPO_ROOT/.git" ]; then
+  REAL_GIT_DIR="$(sed -n 's/^gitdir: //p' "$REPO_ROOT/.git")"
+  COMMON_DIR="$(cd "$REAL_GIT_DIR" && cd "$(cat "$REAL_GIT_DIR/commondir" 2>/dev/null || echo .)" && pwd)"
+  [ -d "$COMMON_DIR" ] && GIT_DIR_MOUNT=(-v "$COMMON_DIR:$COMMON_DIR:ro")
+fi
 OUT_DIR="$REPO_ROOT/.security"
 BASE_REF="${SECURITY_SCAN_BASE:-origin/main}"
 
