@@ -17,7 +17,7 @@
 #
 # Emitted object per app:
 #   app        - app directory name under src/apps (web, mobile, website, admin-webapp)
-#   product    - GitHub Code Scanning SARIF category (== app; frontend apps are unambiguous, no prefix)
+#   product    - category key/suffix used to construct an eventual per-app Semgrep category (== app; frontend apps are unambiguous, no prefix)
 #   tag        - business/release-group tag (always `web`)
 #   dtProject  - dependency graph correlator name (web/<app>)
 #   appPath    - path to the app directory (SBOM scope once deps are un-hoisted)

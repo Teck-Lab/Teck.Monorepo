@@ -41,7 +41,7 @@ First run pulls the scanner images (~1 GB for Semgrep) — that's a one-time cos
 |---|---|---|
 | **Gitleaks** | a secret in the code or git history | **HARD BLOCK** — fails the merge gate |
 | **Semgrep** | SAST issue (`p/csharp`, `p/secrets`, `p/r2c-security-audit`) | uploaded to GitHub Code Scanning; branch protection blocks new alerts |
-| **Trivy** | HIGH/CRITICAL dependency vuln | direct release gate; Dependabot/dependency review governs PR dependency policy |
+| **Trivy** | HIGH/CRITICAL dependency vuln | direct report/VEX scanning; Dependabot/dependency review governs PR dependency policy |
 
 ## Triage — do NOT just dump the output
 
