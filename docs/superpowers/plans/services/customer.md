@@ -1,6 +1,9 @@
 # Work Package: `customer` service
 
-**Group:** commerce · **Tier:** 0 · **Status:** 🟡 skeleton → complete · **Branch:** `worktree-customer-service`
+**Group:** commerce · **Tier:** 0 · **Status:** 🟢 profile CRUD complete (2026-07-16) · **Branch:** `worktree-customer-service`
+
+> **Completed 2026-07-16** (plan `docs/superpowers/plans/2026-07-16-customer-completion.md`): added the `Customer` profile aggregate (`ITenantScoped`) + owned `Address`, WolverineFx CQRS handlers, FastEndpoints HTTP CRUD, the `CustomerCreated` integration-event contract, a Keycloak-subject identity accessor, EF config + `AddCustomerProfiles` migration, HTTP integration tests, and re-enabled the architecture rules (with a `Tenant`-not-tenant-scoped carve-out). Also fixed latent Host gaps (Keycloak auth wiring, Wolverine handler discovery) exposed by adding the HTTP surface.
+> **Deferred (documented):** (1) turning on tenant *resolution* platform-wide (`AddTeckCloudMultiTenancy`) — `TenantId` stays dormant/empty like every sibling until then, so `CustomerCreated.TenantId` is currently empty; (2) `CustomerGroup` aggregate; (3) first-login auto-provisioning flow (a gateway/auth concern); (4) making the `KeycloakSubjectId` unique index tenant-composite once tenancy is live.
 **Parallelism:** independent — consumes no events. **Special role:** it is the tenant authority.
 
 > Scope brief, not a finished plan. Partial projects exist (it already has a gRPC `GetTenantDatabaseInfo` handler and `TenantByIdSpec`). Complete it, mirroring **order**/**basket**. Read `src/services/AGENTS.md` and `COORDINATION.md` first, and study the existing `Customer.*` projects + `CustomerArchitectureTests` (it documents the query-less arch-test pattern you'll reuse).

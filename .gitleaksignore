@@ -2,5 +2,5 @@
 # The matched string is the Keycloak subject constant "keycloak-sub-1" in Customer
 # unit tests (files no longer in the tree; gitleaks scans full history, as does the
 # CI gate). Reviewed 2026-07-19: not real secrets, no rotation needed.
-0b84af1b888dc7368a2dfaf55655c78888b8b353:tests/unit/Customer.UnitTests/Application/CreateCustomerHandlerTests.cs:generic-api-key:40
-515eda8b7e1d9666b41c2a484803c3c434e741c9:tests/unit/Customer.UnitTests/Domain/CustomerTests.cs:generic-api-key:10
+694532522333db68e47b545af9c1791d8b1b8187:tests/unit/Customer.UnitTests/Application/CreateCustomerHandlerTests.cs:generic-api-key:40
+d2b0cbaf4ff2501af829c6f970f1ed6e2978a159:tests/unit/Customer.UnitTests/Domain/CustomerTests.cs:generic-api-key:10
