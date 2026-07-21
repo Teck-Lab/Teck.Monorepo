@@ -110,7 +110,7 @@ if [ -n "$SEMGREP_TARGET" ]; then
        --sarif --output /src/.security/semgrep.sarif $SEMGREP_TARGET 2>&1 | tail -30; then
     echo "PASS: no Semgrep findings"
   else
-    echo "FAIL: Semgrep findings -> .security/semgrep.sarif (CI sends these to SecObserve)"
+    echo "FAIL: Semgrep findings -> .security/semgrep.sarif (CI uploads SARIF to GitHub Code Scanning)"
     FAILED=1
   fi
 fi
@@ -126,7 +126,7 @@ if docker run --rm -v "$REPO_ROOT:/src" "$TRIVY_IMAGE" \
      --skip-dirs "/src/.claude" --skip-dirs "**/bin" --skip-dirs "**/obj" /src 2>&1 | tail -30; then
   echo "PASS: no HIGH/CRITICAL dependency vulnerabilities"
 else
-  echo "FAIL: HIGH/CRITICAL dependency vulns (CI gates these via Dependency-Track)"
+  echo "FAIL: HIGH/CRITICAL dependency vulns (CI gates releases via direct Trivy scan; Dependabot/dependency review governs PR dependency policy)"
   FAILED=1
 fi
 

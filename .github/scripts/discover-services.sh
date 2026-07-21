@@ -10,7 +10,7 @@
 # build). Each field:
 #   group        - release/business group (commerce, gateway, ...)
 #   service      - service directory name (order, public, ...)
-#   product      - SecObserve product name AND nx release group name. Equal to the
+#   product      - GitHub Code Scanning SARIF category AND nx release group name. Equal to the
 #                  service, except gateway sub-services are prefixed (gateway-public)
 #                  because "public"/"internal" are ambiguous on their own.
 #   nxProject    - nx project name of the Host (Order.Host, Gateway.Public, ...)

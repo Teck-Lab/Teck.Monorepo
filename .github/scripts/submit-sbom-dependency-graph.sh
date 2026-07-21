@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Submit a CycloneDX SBOM to the GitHub dependency graph via the dependency
 # submission API (POST /repos/{owner}/{repo}/dependency-graph/snapshots).
-# Replaces the Dependency Track upload: the graph shows the SBOM's packages per
-# correlator, and Dependabot alerts fire on known-vulnerable submitted deps.
+# The graph shows the SBOM's packages per correlator, and Dependabot alerts fire
+# on known-vulnerable submitted deps.
 #
 # Usage:
 #   submit-sbom-dependency-graph.sh <sbom-file> <correlator>

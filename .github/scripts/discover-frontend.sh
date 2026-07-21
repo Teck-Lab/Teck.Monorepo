@@ -8,17 +8,18 @@
 # STATUS: prepared, not yet consumed. Per-app frontend SBOMs are blocked by the single
 # hoisted bun.lock - apps declare almost no dependencies of their own, so a per-app SBOM
 # today would just duplicate the aggregate. Until each app declares its own deps
-# (un-hoist), the frontend ships one aggregate SBOM to the Dependency Track `frontend`
-# project only, and NO SecObserve frontend product is created (an aggregate product would
-# only have to be retired at the split). When apps un-hoist, wire this script into a
-# per-app SBOM job and create the per-app SecObserve products then - once, permanently.
-# The naming below is already the final scheme, so nothing is renamed.
+# (un-hoist), the frontend ships one aggregate SBOM to the GitHub dependency graph
+# (`frontend` correlator) only, and NO GitHub Code Scanning frontend category is created
+# (an aggregate category would only have to be retired at the split). When apps un-hoist,
+# wire this script into a per-app SBOM job and create the per-app GitHub Code Scanning
+# categories then - once, permanently. The naming below is already the final scheme, so
+# nothing is renamed.
 #
 # Emitted object per app:
 #   app        - app directory name under src/apps (web, mobile, website, admin-webapp)
-#   product    - SecObserve product name (== app; frontend apps are unambiguous, no prefix)
+#   product    - GitHub Code Scanning SARIF category (== app; frontend apps are unambiguous, no prefix)
 #   tag        - business/release-group tag (always `web`)
-#   dtProject  - Dependency Track project name (web/<app>)
+#   dtProject  - dependency graph correlator name (web/<app>)
 #   appPath    - path to the app directory (SBOM scope once deps are un-hoisted)
 #
 # storybook is excluded (a dev tool, not a shipped artifact). Add other non-shipped apps

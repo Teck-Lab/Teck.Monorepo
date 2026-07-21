@@ -40,8 +40,8 @@ First run pulls the scanner images (~1 GB for Semgrep) — that's a one-time cos
 | Scanner | Finding | Severity in CI |
 |---|---|---|
 | **Gitleaks** | a secret in the code or git history | **HARD BLOCK** — fails the merge gate |
-| **Semgrep** | SAST issue (`p/csharp`, `p/secrets`, `p/r2c-security-audit`) | goes to SecObserve; gate blocks on unresolved severity |
-| **Trivy** | HIGH/CRITICAL dependency vuln | gated via Dependency-Track |
+| **Semgrep** | SAST issue (`p/csharp`, `p/secrets`, `p/r2c-security-audit`) | uploaded to GitHub Code Scanning; branch protection blocks new alerts |
+| **Trivy** | HIGH/CRITICAL dependency vuln | direct release gate; Dependabot/dependency review governs PR dependency policy |
 
 ## Triage — do NOT just dump the output
 
@@ -64,6 +64,6 @@ than three scanners actually give.
 ## Honest limits
 
 This reproduces the **findings**, not the **gate**. The real merge decision lives
-server-side in SecObserve (triage state, thresholds) and Dependency-Track
-policies. A clean local run makes CI very likely to pass — it does not guarantee
-it. Say that rather than promising a green pipeline.
+server-side in GitHub branch-protection rules (code-scanning alerts and dependency
+review) and Dependabot policy. A clean local run makes CI very likely to pass — it does
+not guarantee it. Say that rather than promising a green pipeline.
