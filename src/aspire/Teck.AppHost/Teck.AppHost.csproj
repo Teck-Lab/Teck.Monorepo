@@ -19,6 +19,7 @@
     <ProjectReference Include="..\..\services\commerce\customer\Customer.Host\Customer.Host.csproj" />
     <ProjectReference Include="..\..\services\commerce\catalog\Catalog.Host\Catalog.Host.csproj" />
     <ProjectReference Include="..\..\services\commerce\pricing\Pricing.Host\Pricing.Host.csproj" />
+    <ProjectReference Include="..\..\services\operations\billing\Billing.Host\Billing.Host.csproj" />
     <ProjectReference Include="..\..\services\gateway\public\Gateway.Public.csproj" />
   </ItemGroup>
 </Project>

@@ -1,6 +1,6 @@
 # Platform Task: Wire the WolverineFx → RabbitMQ Transport
 
-> **Type:** platform-wide messaging enablement (spans every service host). **Status:** 🟢 implemented on branch (Tasks 1-6); billing wiring + Task 3b concurrent-capture hardening deferred to PR #15 merge. **Branch:** `worktree-wolverine-rabbitmq-transport` (own worktree, own PR — not a per-service change).
+> **Type:** platform-wide messaging enablement (spans every service host). **Status:** 📁 planned. **Branch:** `worktree-wolverine-rabbitmq-transport` (own worktree, own PR — not a per-service change).
 > **REQUIRED SUB-SKILL:** superpowers:executing-plans or subagent-driven-development.
 
 **Goal:** Actually turn on cross-service messaging. Today every integration-event handler (`inventory` consuming `OrderPlaced`/`BasketCheckedOut`, and — once built — `billing` consuming `OrderPlaced`) is **discovered but inert**: no host attaches the RabbitMQ transport, so `bus.PublishAsync(...)` never leaves the process and no consumer ever receives a cross-service message. This task attaches the transport + durable Postgres outbox to every service host so published integration events flow producer → RabbitMQ → consumer.
@@ -31,66 +31,13 @@
 
 A bare `UseRabbitMq(...)` makes the broker a **hard startup dependency**. Running a single service standalone (`dotnet run`, or a unit-of-service dev loop) without Aspire/broker would then crash on boot. The wiring must be **config-gated**: attach the transport only when a `rabbitmq` connection string is present; otherwise fall back to local-only durable queues so standalone dev and existing single-host integration tests keep working.
 
-## ⚠️ BLOCKING DESIGN FORK (discovered 2026-07-17 during Task 1 groundwork) — decide before implementing
-
-`ConfigureStandardRuntime` (which this task turns on in every host) includes
-`PublishDomainEventsFromEntityFrameworkCore<BaseEntity>(e => e.DomainEvents)` — an EF→Wolverine
-bridge that publishes every entity **domain** event onto the bus after `SaveChanges`. But the
-codebase does **not** currently use that bridge. Verified state on `main`:
-
-- **Every producer** (basket, catalog, inventory, pricing, order) publishes its **integration**
-  events with a **manual `bus.PublishAsync(new XIntegrationEvent{...})` inside the command handler**,
-  after `SaveChangesAsync`. This is the consistent, working, platform-wide mechanism.
-- **Only `order`** *additionally* has `Orders.Application/.../EventHandlers/DomainEvents/OrderPlacedHandler`
-  that republishes `OrderPlacedIntegrationEvent` off the `OrderPlaced` **domain** event (raised by
-  `Order.Create`). It is inert today because no host wires the bridge.
-
-**The collision:** the instant this task wires the bridge, `order` publishes
-`OrderPlacedIntegrationEvent` **twice** (manual handler + domain-event handler) → inventory reserves
-stock twice; billing (once merged + live) would capture payment twice. The bridge also broadcasts
-every service's *internal* domain-event types onto the bus, which `UseConventionalRouting()` would try
-to route to RabbitMQ exchanges named after internal types — leaking domain internals across the wire.
-
-**Two valid resolutions (pick one — this is the platform's canonical event-publishing model):**
-
-- **Option A — manual-publish canonical (smaller, matches the codebase).** Keep the manual
-  `bus.PublishAsync` in command handlers. In the shared runtime, **drop**
-  `PublishDomainEventsFromEntityFrameworkCore` (or restrict the bridge so it never routes internal
-  domain events outward). Delete `order`'s redundant `DomainEvents/OrderPlacedHandler`. Net: one file
-  removed, one line removed from the shared runtime; every service already conforms. ⚠️ The manual
-  publishes become transactional automatically once the outbox is on (they run inside the Wolverine
-  handler's auto-applied outbox transaction). **[CORRECTION — see Risks: this assumption is false with
-  the current wiring; no auto-applied outbox transaction exists, so publish-after-save has a real
-  event-loss window. Left here verbatim to show the original reasoning.]**
-- **Option B — domain-event-bridge canonical (bigger, arguably "more correct").** Keep the bridge.
-  Convert *every* producer to raise a domain event and publish the integration event from a
-  `DomainEvents/*Handler` (like order already does), and **remove** all the manual `bus.PublishAsync`
-  calls from command handlers. Ensure internal domain events are not conventionally routed to RabbitMQ
-  (explicit local-only routing for `IDomainEvent` types). Net: touches all 5 producers + routing config.
-
-**Recommendation: Option A.** It matches what 5 of 5 services already do, is a ~2-file change, keeps
-internal domain events off the wire, and still gets transactional publishing via the outbox. Option B
-is a larger refactor for a marginal purity gain and expands this task's blast radius across every
-producer. **Whichever is chosen, Task 1 must resolve it before wiring any host — otherwise the Task 2
-pilot double-reserves.** (Note: the "still gets transactional publishing via the outbox" clause above
-is inaccurate with the current wiring — see the Risks section's transactional-outbox entry; neither
-option is transactional today without also turning on the transactional middleware.)
-
-> **DECISION (2026-07-17): Option A chosen** and implemented in this branch, autonomously while the
-> author was away, pending review confirmation. Rationale: matches the platform's established
-> sibling pattern, smallest blast radius, reversible on this branch (PR handoff). If review prefers
-> Option B, revert the Task-1 configurator/order changes and take the larger refactor. Task 1 below
-> is written for Option A.
-
 ## Design
 
 1. **One shared entry point, not per-host divergence.** Add `AddTeckMessaging(this IHostApplicationBuilder builder, Assembly handlerAssembly, string writeConnectionName)` (or fold into the existing `UseWolverine` call via a helper) in `SharedKernel.Infrastructure` so every host calls a single line instead of hand-repeating the block. It:
    - resolves the write connection string (same key the service's persistence uses, e.g. `BillingWrite` → fallback `Default`) and the `rabbitmq` connection string;
    - if `rabbitmq` is present → `ConfigureStandardRuntime(opts, isDev, writeConn, NormalizeRabbitConnectionString(rabbit))`;
-   - if absent → local-only path (`ConfigureDatabasePersistence` + `UseDurableLocalQueues`, **no** `UseRabbitMq`) so boot succeeds without a broker;
+   - if absent → local-only path (`ConfigureDatabasePersistence` + `UseDurableLocalQueues` + domain-event bridge, **no** `UseRabbitMq`) so boot succeeds without a broker;
    - always keeps `Discovery.IncludeAssembly(handlerAssembly)`, `AddTeckBehaviors()`, `AddTeckDeadLetterPolicy(...)`.
-   - **(Option A)** neither runtime wires `PublishDomainEventsFromEntityFrameworkCore` — remove it from
-     `ConfigureStandardRuntime`; integration events are published manually in command handlers as today.
 2. **Message-store creation vs `--migrate`.** The `wolverine` schema is created by Wolverine at startup (`CreateOrUpdate`), not by EF migrations. Confirm this coexists with the `--migrate` init-container pattern (either let Wolverine create its schema on normal boot, or add a startup step in the migrate path). Decide and document; do NOT let two mechanisms fight over the schema.
 3. **Conventional routing agreement.** Producer and consumer both use `UseConventionalRouting()` and share the `SharedKernel.Events` contract types, so exchange/queue names line up automatically. No per-event binding config.
 4. **At-least-once + idempotency.** RabbitMQ + the durable outbox deliver at-least-once; consumers already guard re-delivery by business key (inventory: reservation-by-source; billing: payment-by-OrderId unique index). Verify every existing integration-event consumer is idempotent before enabling (they are, but re-check).
@@ -98,60 +45,18 @@ option is transactional today without also turning on the transactional middlewa
 
 ## Tasks
 
-- [x] **Task 1 — shared `AddTeckMessaging` extension** in `SharedKernel.Infrastructure/Hosting` (or `/Messaging`): the config-gated wiring above, with the local-only fallback. Unit-test the connection-string resolution + gating logic (present → standard, absent → local-only).
-- [x] **Task 2 — pilot on one producer/consumer pair.** Wire `order` (produces `OrderPlaced`) and `inventory` (consumes it) to `AddTeckMessaging`. Add an integration test that boots both (or uses the Aspire AppHost harness) and asserts an order placed on `order` results in inventory reserving stock — i.e. the event actually crosses the wire. This proves the transport end-to-end before rollout.
-- [x] **Task 3 — roll out to all remaining hosts** (`basket`, `catalog`, `pricing`, `customer`, `billing`, gateway if it publishes) — one-line change each; build + each service's integration suite green. DONE for basket/catalog/pricing/customer (`billing` does not exist on this branch — deferred until #15 merges; gateway does not publish).
+- [ ] **Task 1 — shared `AddTeckMessaging` extension** in `SharedKernel.Infrastructure/Hosting` (or `/Messaging`): the config-gated wiring above, with the local-only fallback. Unit-test the connection-string resolution + gating logic (present → standard, absent → local-only).
+- [ ] **Task 2 — pilot on one producer/consumer pair.** Wire `order` (produces `OrderPlaced`) and `inventory` (consumes it) to `AddTeckMessaging`. Add an integration test that boots both (or uses the Aspire AppHost harness) and asserts an order placed on `order` results in inventory reserving stock — i.e. the event actually crosses the wire. This proves the transport end-to-end before rollout.
+- [ ] **Task 3 — roll out to all remaining hosts** (`basket`, `catalog`, `pricing`, `customer`, `billing`, gateway if it publishes) — one-line change each; build + each service's integration suite green.
 - [ ] **Task 3b — harden billing's capture against concurrency (prerequisite for billing going live).** Turning on the transport makes concurrent `OrderPlaced` redelivery real, which exposes billing's read-then-act idempotency race (documented in `services/billing.md`): two concurrent captures for the same `OrderId` both pass the guard → the second `SaveChangesAsync` hits the unique `IX_payments_OrderId` (unhandled 500) and a real provider is charged twice. Before enabling billing's consumer end-to-end: (a) in `CapturePaymentHandler`, catch the unique-constraint violation (`EntityFramework.Exceptions` `UniqueConstraintException` — `BaseDbContext` already calls `UseExceptionProcessor()`) on save → re-read by `OrderId` → return the existing payment; (b) pass `OrderId` as a provider idempotency key so the real provider dedupes. Add a concurrency test now that this is exercisable with the real transport.
-- [x] **Task 4 — message-store / migrate reconciliation.** DONE. Decision: the `wolverine` message
-  store self-creates on host startup in **every** environment via
-  `AutoBuildMessageStorageOnStartup = AutoCreate.CreateOrUpdate` (unconditional; the previous
-  Development-only gate is removed — it left production with no way to create the schema). This is
-  idempotent + advisory-lock-guarded, so concurrent replicas are safe, and it removes any dependency
-  on an init-container step for the message store. `CodeGeneration.TypeLoadMode` stays
-  environment-gated (Dynamic dev/tests, Static prod). Verified by `MessageStoreSchemaTests`
-  (Inventory.IntegrationTests) asserting the `wolverine_*` envelope tables exist in
-  `information_schema.tables` after a real broker-backed boot. Finding on `--migrate`: no code handles
-  it today — `RunJasperFxCommands(["--migrate"])` treats it as an unknown flag on the default `run`
-  command and, with `AutoStartHost=false` in a real host, exits **code 1** (init container fails; it
-  does NOT migrate and does NOT no-op). **Wiring a real EF-migration command onto the `--migrate`
-  init container is a deferred follow-up** (out of scope; the message store does not depend on it).
-  Full schema-ownership split documented in `deploy/AGENTS.md` → "Messaging / message-store schema".
-- [x] **Task 5 — standalone-dev + single-host-test regression check.** Confirm every service still boots with NO `rabbitmq` connection string (local-only fallback) so `dotnet run` and existing single-host integration tests are unaffected. CONFIRMED: `TeckMessagingExtensionsTests`/`WolverinePersistenceConfiguratorTests` (unit) assert the gate and that `ConfigureLocalOnlyRuntime` never calls `UseRabbitMq`; every single-host integration factory (order/inventory/basket/catalog/pricing/customer/gateway) boots without injecting a `rabbitmq` connection string and passes.
-- [x] **Task 6 — full gate + docs.** `nx affected -t build test lint typecheck --base=main --head=HEAD` run; all green except `Gateway.Public.IntegrationTests`, confirmed pre-existing and identical on clean `main`. Updated `CLAUDE.md`/`src/services/AGENTS.md` messaging notes (removed "not yet consumed" / added transport-wiring note); `inventory`'s `OrderPlaced` consumer is now live end-to-end (proven by `CrossService.IntegrationTests`); `billing` deferred to PR #15. No PR opened by this task — controller runs the final whole-branch review + PR.
+- [ ] **Task 4 — message-store / migrate reconciliation.** Verify the `wolverine` schema is created correctly under both normal boot and the `--migrate` init-container flow on a fresh DB; document the outcome in `deploy/AGENTS.md`.
+- [ ] **Task 5 — standalone-dev + single-host-test regression check.** Confirm every service still boots with NO `rabbitmq` connection string (local-only fallback) so `dotnet run` and existing single-host integration tests are unaffected.
+- [ ] **Task 6 — full gate + docs.** `nx affected -t build test`; update `CLAUDE.md`/`src/services/AGENTS.md` messaging notes (remove "transport not wired platform-wide" caveats); note that `billing`/`inventory` consumers are now live. PR against `main`.
 
 ## Risks / watch-items
 
 - **Broker as hard dependency** — mitigated by the config gate (Task 1 + Task 5).
-- **Schema ownership** — RESOLVED (Task 4): Wolverine message store self-creates on boot
-  (`CreateOrUpdate`, all envs); EF `--migrate` init-container command is unimplemented today (exits 1)
-  and its real EF-migration wiring is a deferred follow-up. See `deploy/AGENTS.md`.
-- **Dormant middleware `next`-shape bug** — `IdempotencyMiddleware` / `LicenseEnforcementMiddleware`
-  still use the invalid ASP.NET-style `next`-delegate shape that Task 2 fixed in
-  `TenantPropagationMiddleware`. They are inert (no service registers Redis `IDatabase` or an
-  `ILicenseValidator`), so this is a known-issue carryover for the first Redis/license-using service,
-  not fixed here.
-- **Publish-after-save is NOT a transactional outbox — real (narrow) event-loss window (pre-existing, now load-bearing).**
-  Command handlers (e.g. `CreateOrderHandler`) do `await unitOfWork.SaveChangesAsync(ct)` and THEN
-  `await bus.PublishAsync(new XIntegrationEvent{...})`. This is **not** atomic: verified by reading the
-  runtime wiring — `ConfigureCoreRuntime` calls `UseEntityFrameworkCoreTransactions()` (which only
-  enables EF-Core-backed transactions *when* Wolverine's transactional middleware runs) but **nothing
-  turns that middleware on**: `AutoApplyTransactions()` is never called anywhere, no handler is marked
-  `[Transactional]`, and no handler uses `IDbContextOutbox`. Additionally, handlers depend on the
-  custom `IUnitOfWork`/`IGenericWriteRepository` abstractions, not on a `DbContext` parameter, so even
-  if `AutoApplyTransactions()` were enabled Wolverine could not detect these as EF-Core handlers to
-  wrap. Consequently the explicit `SaveChangesAsync` commits the entity in its own transaction, and the
-  outgoing envelope is persisted to the outbox **separately, after** that commit, by the plain
-  `IMessageBus.PublishAsync`. A crash between the two loses the event. (Wolverine's documented
-  requirement: the transactional inbox/outbox applies "inside of its transactional middleware in either
-  message handlers or HTTP endpoints", or via `IDbContextOutbox.SaveChangesAndFlushMessagesAsync` —
-  none of which are in effect here.) At-least-once protects against duplicates on the *delivery* side;
-  it does not close this *produce*-side dual-write window. **This corrects the plan's earlier claim
-  (Option A rationale, above) that manual publishes "become transactional automatically once the outbox
-  is on" — they do not, given the current wiring.** Pre-existing (predates this branch) but becomes
-  load-bearing now the transport is actually on. **Follow-up (out of scope here, do NOT fix in the
-  transport task):** either enable `opts.Policies.AutoApplyTransactions()` AND make handlers use a
-  Wolverine-visible DbContext/`IDbContextOutbox` (or return the event as a cascaded message) so the
-  envelope is staged in the same `SaveChanges`, then confirm with a crash-injection/integration test.
+- **Schema ownership** — Wolverine `CreateOrUpdate` vs EF `--migrate` (Task 4).
 - **Duplicate delivery** — consumers must stay idempotent (Task 4 pre-check).
 - **Poison messages** — `AddTeckDeadLetterPolicy` already provides retry→error-queue; verify it engages once the real transport is on.
 - **Ordering** — conventional routing is per-type; do not assume cross-type ordering. Consumers are already written order-independent.
