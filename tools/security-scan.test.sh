@@ -231,7 +231,8 @@ test_pre_push_skips_deletion_only_update() {
 
   install_fake_docker "$test_dir/checkout/bin" "$test_dir"
   run_scanner "$test_dir/checkout" "--pre-push" \
-    "refs/heads/obsolete $zero_sha refs/heads/obsolete $main_sha"
+    "(delete) $zero_sha refs/heads/obsolete $main_sha" \
+    || fail "deletion-only push must exit cleanly"
 
   [ ! -f "$test_dir/gitleaks_calls.log" ] \
     || fail "deletion-only push must not scan Git history"
@@ -286,7 +287,7 @@ test_pre_push_rejects_empty_input() {
   if run_scanner "$test_dir/checkout" "--pre-push" "   "; then
     fail "pre-push accepted blank-only stdin"
   fi
-  grep -qF -- "no valid pre-push ref updates received" "$test_dir/checkout/run.log" \
+  grep -qF -- "blank line in pre-push ref update stream" "$test_dir/checkout/run.log" \
     || fail "blank-only input error not reported"
   [ ! -f "$test_dir/gitleaks_calls.log" ] \
     || fail "Gitleaks must not run with blank-only stdin"
@@ -333,6 +334,30 @@ test_pre_push_rejects_symbolic_local_sha() {
   echo "PASS: pre-push rejects symbolic local SHA"
 }
 
+test_pre_push_rejects_blank_line_with_valid_record() {
+  local test_dir="$FIXTURE/pre-push-blank"
+  local zero_sha="0000000000000000000000000000000000000000"
+  create_remote_checkout "$test_dir"
+  cd "$test_dir/checkout"
+  git switch --quiet -c feature
+  printf 'feature\n' > feature.txt
+  git add feature.txt
+  git commit --quiet -m "feature"
+  local feature_sha
+  feature_sha="$(git rev-parse HEAD)"
+
+  install_fake_docker "$test_dir/checkout/bin" "$test_dir"
+  if run_scanner "$test_dir/checkout" "--pre-push" "$(printf '\n%s' \
+    "refs/heads/feature $feature_sha refs/heads/feature $zero_sha")"; then
+    fail "pre-push accepted blank line with valid record"
+  fi
+  grep -qF -- "blank line in pre-push ref update stream" "$test_dir/checkout/run.log" \
+    || fail "blank line error not reported"
+  [ ! -f "$test_dir/gitleaks_calls.log" ] \
+    || fail "Gitleaks must not run with blank line in stream"
+  echo "PASS: pre-push rejects blank line with valid record"
+}
+
 test_pre_push_ignores_security_scan_base_override() {
   local test_dir="$FIXTURE/pre-push-base-override"
   local zero_sha="0000000000000000000000000000000000000000"
@@ -367,6 +392,7 @@ test_pre_push_requires_origin_main
 test_pre_push_rejects_empty_input
 test_pre_push_rejects_malformed_record
 test_pre_push_rejects_symbolic_local_sha
+test_pre_push_rejects_blank_line_with_valid_record
 test_pre_push_ignores_security_scan_base_override
 
 echo "ALL PASS"

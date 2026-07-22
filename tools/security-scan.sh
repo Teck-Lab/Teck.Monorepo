@@ -40,6 +40,68 @@ case "${1:-}" in
   *) echo "unknown arg: $1 (try --help)"; exit 2 ;;
 esac
 
+# Pre-push mode reads the git hook's stdin. Parse and validate every physical
+# record before touching Docker or the base ref; a deletion-only push must be
+# able to exit cleanly without any prerequisites.
+PRE_PUSH_UPDATES=()
+if [ "$MODE" = "pre-push" ]; then
+  BASE_REF="origin/main"
+  ZERO_SHA="0000000000000000000000000000000000000000"
+  DELETE_REF="(delete)"
+  while read -r line; do
+    # Every nonempty physical line must be a valid record.
+    if [[ -z "${line//[[:space:]]/}" ]]; then
+      echo "ERROR: blank line in pre-push ref update stream" >&2
+      exit 2
+    fi
+
+    read -r local_ref local_sha remote_ref remote_sha extra <<< "$line"
+    if [ -z "${local_ref:-}" ] || [ -z "${local_sha:-}" ] || [ -z "${remote_ref:-}" ] || [ -z "${remote_sha:-}" ] || [ -n "${extra:-}" ]; then
+      echo "ERROR: malformed pre-push ref update" >&2
+      exit 2
+    fi
+    if [[ ! "$remote_ref" =~ ^refs/ ]] || [[ ! "$remote_sha" =~ ^[0-9a-f]{40}$ ]] || [[ ! "$local_sha" =~ ^[0-9a-f]{40}$ ]]; then
+      echo "ERROR: malformed pre-push ref update" >&2
+      exit 2
+    fi
+    if [ "$local_ref" = "$DELETE_REF" ]; then
+      if [ "$local_sha" != "$ZERO_SHA" ]; then
+        echo "ERROR: malformed pre-push ref update" >&2
+        exit 2
+      fi
+    elif [[ "$local_ref" =~ ^refs/ ]]; then
+      if [ "$local_sha" = "$ZERO_SHA" ]; then
+        echo "ERROR: malformed pre-push ref update" >&2
+        exit 2
+      fi
+    else
+      echo "ERROR: malformed pre-push ref update" >&2
+      exit 2
+    fi
+
+    PRE_PUSH_UPDATES+=("${local_ref} ${local_sha} ${remote_ref} ${remote_sha}")
+  done
+
+  if [ "${#PRE_PUSH_UPDATES[@]}" -eq 0 ]; then
+    echo "ERROR: no valid pre-push ref updates received" >&2
+    exit 2
+  fi
+
+  DELETION_ONLY=true
+  for update in "${PRE_PUSH_UPDATES[@]}"; do
+    read -r _ local_sha _ _ <<< "$update"
+    if [ "$local_sha" != "$ZERO_SHA" ]; then
+      DELETION_ONLY=false
+      break
+    fi
+  done
+
+  if [ "$DELETION_ONLY" = true ]; then
+    echo "no commits introduced by this push — skipping security scan"
+    exit 0
+  fi
+fi
+
 command -v docker >/dev/null 2>&1 || { echo "ERROR: docker not available"; exit 2; }
 mkdir -p "$OUT_DIR"
 FAILED=0
@@ -78,47 +140,16 @@ GITLEAKS_OPTIONS=(--source="$GITLEAKS_SOURCE" --redact --no-banner
 if [ "$MODE" = "staged" ]; then
   GITLEAKS_CMD=(protect --staged)
 elif [ "$MODE" = "pre-push" ]; then
-  BASE_REF="origin/main"
-  ZERO_SHA="0000000000000000000000000000000000000000"
   git -C "$REPO_ROOT" rev-parse --verify --quiet "${BASE_REF}^{commit}" >/dev/null \
     || { echo "ERROR: cannot resolve origin/main; run 'git fetch origin main'" >&2; exit 2; }
 
-  VALID_UPDATES=()
-  while read -r local_ref local_sha remote_ref remote_sha extra; do
-    [ -z "${local_ref:-}" ] && continue
-    if [ -z "${local_sha:-}" ] || [ -z "${remote_ref:-}" ] || [ -z "${remote_sha:-}" ] || [ -n "${extra:-}" ]; then
-      echo "ERROR: malformed pre-push ref update" >&2
-      exit 2
-    fi
-    if [[ ! "$local_ref" =~ ^refs/ ]] || [[ ! "$remote_ref" =~ ^refs/ ]]; then
-      echo "ERROR: malformed pre-push ref update" >&2
-      exit 2
-    fi
-    if [[ ! "$local_sha" =~ ^[0-9a-f]{40}$ ]] || [[ ! "$remote_sha" =~ ^[0-9a-f]{40}$ ]]; then
-      echo "ERROR: malformed pre-push ref update" >&2
-      exit 2
-    fi
-    VALID_UPDATES+=("${local_ref} ${local_sha} ${remote_ref} ${remote_sha}")
-  done
-
-  if [ "${#VALID_UPDATES[@]}" -eq 0 ]; then
-    echo "ERROR: no valid pre-push ref updates received" >&2
-    exit 2
-  fi
-
   GITLEAKS_RANGES=()
-  for update in "${VALID_UPDATES[@]}"; do
+  for update in "${PRE_PUSH_UPDATES[@]}"; do
     read -r local_ref local_sha remote_ref remote_sha <<< "$update"
-    [ "$local_sha" = "$ZERO_SHA" ] && continue
     git -C "$REPO_ROOT" rev-parse --verify --quiet "${local_sha}^{commit}" >/dev/null \
       || { echo "ERROR: cannot resolve pushed commit $local_sha" >&2; exit 2; }
     GITLEAKS_RANGES+=("${BASE_REF}..${local_sha}")
   done
-
-  if [ "${#GITLEAKS_RANGES[@]}" -eq 0 ]; then
-    echo "no commits introduced by this push — skipping security scan"
-    exit 0
-  fi
 
   GITLEAKS_OPTIONS+=(--log-opts="${GITLEAKS_RANGES[*]}")
 fi
