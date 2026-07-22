@@ -48,7 +48,7 @@ if [ "$MODE" = "pre-push" ]; then
   BASE_REF="origin/main"
   ZERO_SHA="0000000000000000000000000000000000000000"
   DELETE_REF="(delete)"
-  while read -r line; do
+  while IFS= read -r line || [ -n "$line" ]; do
     # Every nonempty physical line must be a valid record.
     if [[ -z "${line//[[:space:]]/}" ]]; then
       echo "ERROR: blank line in pre-push ref update stream" >&2
@@ -146,6 +146,7 @@ elif [ "$MODE" = "pre-push" ]; then
   GITLEAKS_RANGES=()
   for update in "${PRE_PUSH_UPDATES[@]}"; do
     read -r local_ref local_sha remote_ref remote_sha <<< "$update"
+    [ "$local_sha" = "$ZERO_SHA" ] && continue
     git -C "$REPO_ROOT" rev-parse --verify --quiet "${local_sha}^{commit}" >/dev/null \
       || { echo "ERROR: cannot resolve pushed commit $local_sha" >&2; exit 2; }
     GITLEAKS_RANGES+=("${BASE_REF}..${local_sha}")

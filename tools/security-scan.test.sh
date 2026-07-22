@@ -60,7 +60,7 @@ run_scanner() {
 
   set +e
   if [ "${3+set}" = "set" ]; then
-    { [ -n "$updates" ] && printf '%s\n' "$updates"; } \
+    { [ -n "$updates" ] && printf '%s' "$updates"; } \
       | PATH="$fixture/bin:$PATH" bash "$script_path" ${mode:+$mode} > "$fixture/run.log" 2>&1
   else
     PATH="$fixture/bin:$PATH" bash "$script_path" ${mode:+$mode} > "$fixture/run.log" 2>&1
@@ -358,6 +358,82 @@ test_pre_push_rejects_blank_line_with_valid_record() {
   echo "PASS: pre-push rejects blank line with valid record"
 }
 
+test_pre_push_mixed_deletion_and_update() {
+  local test_dir="$FIXTURE/pre-push-mixed"
+  local zero_sha="0000000000000000000000000000000000000000"
+  create_remote_checkout "$test_dir"
+  cd "$test_dir/checkout"
+  local main_sha
+  main_sha="$(git rev-parse origin/main)"
+  git switch --quiet -c feature
+  printf 'feature\n' > feature.txt
+  git add feature.txt
+  git commit --quiet -m "feature"
+  local feature_sha
+  feature_sha="$(git rev-parse HEAD)"
+
+  install_fake_docker "$test_dir/checkout/bin" "$test_dir"
+  run_scanner "$test_dir/checkout" "--pre-push" "$(printf '%s\n%s' \
+    "(delete) $zero_sha refs/heads/obsolete $main_sha" \
+    "refs/heads/feature $feature_sha refs/heads/feature $zero_sha")"
+
+  [ -f "$test_dir/gitleaks_calls.log" ] || fail "Gitleaks was not invoked for mixed stream"
+  [ "$(wc -l < "$test_dir/gitleaks_calls.log")" -eq 1 ] \
+    || fail "mixed stream must use one Gitleaks invocation"
+  grep -qF -- "--log-opts=origin/main..$feature_sha" "$test_dir/gitleaks_calls.log" \
+    || fail "mixed stream must scan only the non-deletion range"
+  grep -qF -- "origin/main..$zero_sha" "$test_dir/gitleaks_calls.log" \
+    && fail "mixed stream must not include the deletion SHA in Gitleaks ranges"
+  echo "PASS: pre-push mixed deletion and update scans only non-deletion range"
+}
+
+test_pre_push_deletion_only_without_origin_main_or_docker() {
+  local test_dir="$FIXTURE/pre-push-deletion-no-base"
+  local zero_sha="0000000000000000000000000000000000000000"
+  mkdir -p "$test_dir"
+  cd "$test_dir"
+  git init --quiet
+  git config user.email "test@example.com"
+  git config user.name "Test"
+  printf 'orphan\n' > orphan.txt
+  git add orphan.txt
+  git commit --quiet -m "orphan"
+  local orphan_sha
+  orphan_sha="$(git rev-parse HEAD)"
+
+  install_fake_docker "$test_dir/bin" "$test_dir"
+  run_scanner "$test_dir" "--pre-push" \
+    "(delete) $zero_sha refs/heads/obsolete $orphan_sha" \
+    || fail "deletion-only push must exit cleanly without origin/main or Docker"
+
+  [ ! -f "$test_dir/gitleaks_calls.log" ] \
+    || fail "deletion-only push must not invoke Gitleaks"
+  [ ! -f "$test_dir/docker_calls.log" ] \
+    || fail "deletion-only push must not invoke Docker"
+  echo "PASS: pre-push deletion-only exits without origin/main or Docker"
+}
+
+test_pre_push_rejects_unterminated_malformed_record() {
+  local test_dir="$FIXTURE/pre-push-unterminated"
+  local zero_sha="0000000000000000000000000000000000000000"
+  create_remote_checkout "$test_dir"
+  cd "$test_dir/checkout"
+  local main_sha
+  main_sha="$(git rev-parse HEAD)"
+
+  install_fake_docker "$test_dir/checkout/bin" "$test_dir"
+  # Pass a malformed record without a trailing newline.
+  if run_scanner "$test_dir/checkout" "--pre-push" \
+    "refs/heads/feature $main_sha $zero_sha"; then
+    fail "pre-push accepted unterminated malformed record"
+  fi
+  grep -qF -- "malformed pre-push ref update" "$test_dir/checkout/run.log" \
+    || fail "unterminated malformed record error not reported"
+  [ ! -f "$test_dir/gitleaks_calls.log" ] \
+    || fail "Gitleaks must not run with unterminated malformed record"
+  echo "PASS: pre-push rejects unterminated malformed record"
+}
+
 test_pre_push_ignores_security_scan_base_override() {
   local test_dir="$FIXTURE/pre-push-base-override"
   local zero_sha="0000000000000000000000000000000000000000"
@@ -393,6 +469,9 @@ test_pre_push_rejects_empty_input
 test_pre_push_rejects_malformed_record
 test_pre_push_rejects_symbolic_local_sha
 test_pre_push_rejects_blank_line_with_valid_record
+test_pre_push_mixed_deletion_and_update
+test_pre_push_deletion_only_without_origin_main_or_docker
+test_pre_push_rejects_unterminated_malformed_record
 test_pre_push_ignores_security_scan_base_override
 
 echo "ALL PASS"
