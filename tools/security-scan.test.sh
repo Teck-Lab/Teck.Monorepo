@@ -59,8 +59,9 @@ run_scanner() {
   cp "$REAL_SCRIPT" "$script_path"
 
   set +e
-  if [ -n "$updates" ]; then
-    printf '%s\n' "$updates" | PATH="$fixture/bin:$PATH" bash "$script_path" ${mode:+$mode} > "$fixture/run.log" 2>&1
+  if [ "${3+set}" = "set" ]; then
+    { [ -n "$updates" ] && printf '%s\n' "$updates"; } \
+      | PATH="$fixture/bin:$PATH" bash "$script_path" ${mode:+$mode} > "$fixture/run.log" 2>&1
   else
     PATH="$fixture/bin:$PATH" bash "$script_path" ${mode:+$mode} > "$fixture/run.log" 2>&1
   fi
@@ -263,6 +264,99 @@ test_pre_push_requires_origin_main() {
   echo "PASS: pre-push requires origin/main"
 }
 
+test_pre_push_rejects_empty_input() {
+  local test_dir="$FIXTURE/pre-push-empty"
+  create_remote_checkout "$test_dir"
+  cd "$test_dir/checkout"
+
+  install_fake_docker "$test_dir/checkout/bin" "$test_dir"
+
+  # Empty stdin
+  if run_scanner "$test_dir/checkout" "--pre-push" ""; then
+    fail "pre-push accepted empty stdin"
+  fi
+  grep -qF -- "no valid pre-push ref updates received" "$test_dir/checkout/run.log" \
+    || fail "empty input error not reported"
+  [ ! -f "$test_dir/gitleaks_calls.log" ] \
+    || fail "Gitleaks must not run with empty stdin"
+
+  rm -f "$test_dir/gitleaks_calls.log" "$test_dir/checkout/run.log"
+
+  # Blank-only stdin
+  if run_scanner "$test_dir/checkout" "--pre-push" "   "; then
+    fail "pre-push accepted blank-only stdin"
+  fi
+  grep -qF -- "no valid pre-push ref updates received" "$test_dir/checkout/run.log" \
+    || fail "blank-only input error not reported"
+  [ ! -f "$test_dir/gitleaks_calls.log" ] \
+    || fail "Gitleaks must not run with blank-only stdin"
+
+  echo "PASS: pre-push rejects empty and blank-only input"
+}
+
+test_pre_push_rejects_malformed_record() {
+  local test_dir="$FIXTURE/pre-push-malformed"
+  local zero_sha="0000000000000000000000000000000000000000"
+  create_remote_checkout "$test_dir"
+  cd "$test_dir/checkout"
+  local main_sha
+  main_sha="$(git rev-parse HEAD)"
+
+  install_fake_docker "$test_dir/checkout/bin" "$test_dir"
+  # Three fields instead of four
+  if run_scanner "$test_dir/checkout" "--pre-push" \
+    "refs/heads/feature $main_sha $zero_sha"; then
+    fail "pre-push accepted malformed record"
+  fi
+  grep -qF -- "malformed pre-push ref update" "$test_dir/checkout/run.log" \
+    || fail "malformed record error not reported"
+  [ ! -f "$test_dir/gitleaks_calls.log" ] \
+    || fail "Gitleaks must not run with malformed record"
+  echo "PASS: pre-push rejects malformed record"
+}
+
+test_pre_push_rejects_symbolic_local_sha() {
+  local test_dir="$FIXTURE/pre-push-symbolic"
+  local zero_sha="0000000000000000000000000000000000000000"
+  create_remote_checkout "$test_dir"
+  cd "$test_dir/checkout"
+
+  install_fake_docker "$test_dir/checkout/bin" "$test_dir"
+  if run_scanner "$test_dir/checkout" "--pre-push" \
+    "refs/heads/feature HEAD refs/heads/feature $zero_sha"; then
+    fail "pre-push accepted symbolic local SHA"
+  fi
+  grep -qF -- "malformed pre-push ref update" "$test_dir/checkout/run.log" \
+    || fail "symbolic SHA error not reported"
+  [ ! -f "$test_dir/gitleaks_calls.log" ] \
+    || fail "Gitleaks must not run with symbolic local SHA"
+  echo "PASS: pre-push rejects symbolic local SHA"
+}
+
+test_pre_push_ignores_security_scan_base_override() {
+  local test_dir="$FIXTURE/pre-push-base-override"
+  local zero_sha="0000000000000000000000000000000000000000"
+  create_remote_checkout "$test_dir"
+  cd "$test_dir/checkout"
+  git switch --quiet -c feature
+  printf 'feature\n' > feature.txt
+  git add feature.txt
+  git commit --quiet -m "feature"
+  local feature_sha
+  feature_sha="$(git rev-parse HEAD)"
+
+  install_fake_docker "$test_dir/checkout/bin" "$test_dir"
+  SECURITY_SCAN_BASE=HEAD run_scanner "$test_dir/checkout" "--pre-push" \
+    "refs/heads/feature $feature_sha refs/heads/feature $zero_sha"
+
+  [ -f "$test_dir/gitleaks_calls.log" ] || fail "Gitleaks was not invoked"
+  grep -qF -- "--log-opts=origin/main..$feature_sha" "$test_dir/gitleaks_calls.log" \
+    || fail "pre-push Gitleaks range must use origin/main, not SECURITY_SCAN_BASE"
+  grep -qF -- "HEAD.." "$test_dir/gitleaks_calls.log" \
+    && fail "pre-push must ignore SECURITY_SCAN_BASE override"
+  echo "PASS: pre-push ignores SECURITY_SCAN_BASE override"
+}
+
 # --------------------------------------------------------------------- run ----
 test_changed_mode_excludes_symlinks
 test_staged_linked_worktree_mounts
@@ -270,5 +364,9 @@ test_pre_push_scopes_single_ref
 test_pre_push_scopes_multiple_refs
 test_pre_push_skips_deletion_only_update
 test_pre_push_requires_origin_main
+test_pre_push_rejects_empty_input
+test_pre_push_rejects_malformed_record
+test_pre_push_rejects_symbolic_local_sha
+test_pre_push_ignores_security_scan_base_override
 
 echo "ALL PASS"

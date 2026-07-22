@@ -10,6 +10,7 @@
 #   ./tools/security-scan.sh --all      # whole repo
 #   ./tools/security-scan.sh --secrets  # gitleaks only (fast; the CI hard gate)
 #   ./tools/security-scan.sh --staged   # gitleaks on staged changes (pre-commit hook)
+#   ./tools/security-scan.sh --pre-push # gitleaks on refs introduced by a push (pre-push hook)
 #
 # Exit codes: 0 = clean, 1 = findings, 2 = could not run (docker/network).
 set -uo pipefail
@@ -35,7 +36,7 @@ case "${1:-}" in
   --staged)  MODE="staged" ;;
   --pre-push) MODE="pre-push" ;;
   ""|--changed) MODE="changed" ;;
-  -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
+  -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
   *) echo "unknown arg: $1 (try --help)"; exit 2 ;;
 esac
 
@@ -77,17 +78,37 @@ GITLEAKS_OPTIONS=(--source="$GITLEAKS_SOURCE" --redact --no-banner
 if [ "$MODE" = "staged" ]; then
   GITLEAKS_CMD=(protect --staged)
 elif [ "$MODE" = "pre-push" ]; then
+  BASE_REF="origin/main"
   ZERO_SHA="0000000000000000000000000000000000000000"
   git -C "$REPO_ROOT" rev-parse --verify --quiet "${BASE_REF}^{commit}" >/dev/null \
-    || { echo "ERROR: cannot resolve $BASE_REF; run 'git fetch origin main'" >&2; exit 2; }
+    || { echo "ERROR: cannot resolve origin/main; run 'git fetch origin main'" >&2; exit 2; }
 
-  GITLEAKS_RANGES=()
+  VALID_UPDATES=()
   while read -r local_ref local_sha remote_ref remote_sha extra; do
     [ -z "${local_ref:-}" ] && continue
     if [ -z "${local_sha:-}" ] || [ -z "${remote_ref:-}" ] || [ -z "${remote_sha:-}" ] || [ -n "${extra:-}" ]; then
       echo "ERROR: malformed pre-push ref update" >&2
       exit 2
     fi
+    if [[ ! "$local_ref" =~ ^refs/ ]] || [[ ! "$remote_ref" =~ ^refs/ ]]; then
+      echo "ERROR: malformed pre-push ref update" >&2
+      exit 2
+    fi
+    if [[ ! "$local_sha" =~ ^[0-9a-f]{40}$ ]] || [[ ! "$remote_sha" =~ ^[0-9a-f]{40}$ ]]; then
+      echo "ERROR: malformed pre-push ref update" >&2
+      exit 2
+    fi
+    VALID_UPDATES+=("${local_ref} ${local_sha} ${remote_ref} ${remote_sha}")
+  done
+
+  if [ "${#VALID_UPDATES[@]}" -eq 0 ]; then
+    echo "ERROR: no valid pre-push ref updates received" >&2
+    exit 2
+  fi
+
+  GITLEAKS_RANGES=()
+  for update in "${VALID_UPDATES[@]}"; do
+    read -r local_ref local_sha remote_ref remote_sha <<< "$update"
     [ "$local_sha" = "$ZERO_SHA" ] && continue
     git -C "$REPO_ROOT" rev-parse --verify --quiet "${local_sha}^{commit}" >/dev/null \
       || { echo "ERROR: cannot resolve pushed commit $local_sha" >&2; exit 2; }
