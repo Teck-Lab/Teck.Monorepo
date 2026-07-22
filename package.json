@@ -39,7 +39,7 @@
     "@types/react-dom": "^19.0.0",
     "babel-preset-expo": "~55.0.7",
     "husky": "^9.1.7",
-    "metro-config": "~0.83.0",
+    "metro-config": "~0.87.0",
     "metro-resolver": "~0.83.0",
     "nativewind": "^5.0.0-preview.4",
     "nx": "latest",
