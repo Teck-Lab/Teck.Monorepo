@@ -1,7 +1,7 @@
 # Dependabot Conventional Commit Messages — Design
 
-**Date:** 2026-07-22  
-**Status:** Approved  
+**Date:** 2026-07-22
+**Status:** Approved
 **Scope:** Make Dependabot-generated dependency-update commits pass the repository's conventional commit gate.
 
 ## Context
