@@ -20,7 +20,7 @@
 ### In scope
 - Audit of source, tests, and shared-file touchpoints against the approved design.
 - Decision record for the `PriceChanged` monetary payload (Amount + Currency) and ChangeType representation.
-- Gap: public-gateway YARP routes for pricing endpoints.
+- Gap: public-gateway YARP routes for all Pricing endpoint roots (`/prices`, `/price-lists`, and `/exchange-rates`).
 - Test additions required to cover the gap.
 - Plan-status update criteria.
 
@@ -77,8 +77,8 @@ Architecture conventions observed:
 
 The completion work is bounded to the following confirmed, additive changes:
 
-1. **Public gateway YARP routes** — add pricing routes and cluster to `src/services/gateway/public/appsettings.json` (and `appsettings.Development.json` if it differs). No other gateway code changes.
-2. **Gateway regression test** — add one focused test in `tests/integration/Gateway.Public.IntegrationTests/GatewayFlowTests.cs` that exercises a pricing route through the gateway edge pipeline and confirms tenant/db-strategy/token headers are forwarded.
+1. **Public gateway YARP routes** — add one `pricing` cluster and authenticated read/write route pairs for `/prices/{**catch-all}`, `/price-lists/{**catch-all}`, and `/exchange-rates/{**catch-all}` to `src/services/gateway/public/appsettings.json`. The cluster destination uses `Address: http://pricing` and `AccessTokenClientName: pricing`; every route keeps `EdgeAccess: Authenticated`. `appsettings.Development.json` only overrides logging, so it needs no route changes.
+2. **Gateway regression test** — add one focused parameterized test in `tests/integration/Gateway.Public.IntegrationTests/GatewayFlowTests.cs` that exercises each Pricing route prefix and method group through the gateway edge pipeline and confirms tenant/db-strategy/token headers are forwarded.
 3. **Plan status update** — edit `docs/superpowers/plans/services/pricing.md` line 3 to reflect completion and remove the "scope brief" language on line 6.
 
 No changes to Pricing source, tests, migrations, SharedKernel, Aspire host, or solution file.
@@ -100,7 +100,7 @@ Both the domain event and the integration event use `decimal Amount` plus `strin
 
 ## 6. Focused test strategy
 
-Existing coverage is strong and passing. Only one focused regression test is required.
+Existing coverage is strong and passing. Only one focused parameterized regression test is required.
 
 ### Existing test evidence
 - `tests/unit/Pricing.UnitTests/PriceResolutionServiceTests.cs` — covers no-candidates, draft exclusion, most-specific scope, native-currency preference, quantity tiers, incompatible scope.
@@ -116,14 +116,14 @@ Existing coverage is strong and passing. Only one focused regression test is req
 ### Regression test to add
 **Location:** `tests/integration/Gateway.Public.IntegrationTests/GatewayFlowTests.cs`
 
-Add a new fact that:
+Add a new parameterized test that:
 1. Uses the existing `GatewayFixture` (mock auth, fake token exchange, fake DB strategy, in-memory echo upstream).
-2. Sends an authenticated request to a pricing route, e.g. `GET /prices/resolve?productId=<guid>&currency=USD&quantity=1`.
+2. Sends authenticated requests covering each configured route group: `GET /prices/resolve?productId=<guid>&currency=USD&quantity=1`, `GET /price-lists`, `POST /price-lists`, `GET /exchange-rates`, and `PUT /exchange-rates`.
 3. Asserts the response is `200 OK` (echoed by the upstream test server) and that the forwarded request carries `X-TenantId`, `X-Tenant-DbStrategy`, and `Authorization: Bearer <exchanged-token>`.
 
-This mirrors the existing `AuthenticatedRequest_ForwardsTenantAndDbStrategyAndExchangedBearer` test for `/orders/123` but targets the new pricing cluster. Because the test fixture currently routes all cluster forwards to the same echo handler, the test can be added without changing the fixture infrastructure.
+This mirrors the existing `AuthenticatedRequest_ForwardsTenantAndDbStrategyAndExchangedBearer` test for `/orders/123` but targets the new pricing cluster. Nested price CRUD is covered by the `/price-lists/{**catch-all}` route group. Because the test fixture currently routes all cluster forwards to the same echo handler, the test can be added without changing the fixture infrastructure.
 
-**Rationale:** The only confirmed gap is public-gateway routing. A single gateway-level regression test is sufficient to prove the routes are wired correctly and the edge pipeline forwards the trusted headers. Pricing-domain behavior is already covered by its own integration tests.
+**Rationale:** The only confirmed gap is public-gateway routing. One parameterized gateway-level regression test is sufficient to prove every Pricing route group is wired correctly and the edge pipeline forwards the trusted headers. Pricing-domain behavior is already covered by its own integration tests.
 
 ## 7. Update-to-plan criteria
 
@@ -139,7 +139,7 @@ The update is a single-file, non-code change that resolves the stale status.
 ## 8. Risks and assumptions
 
 ### Risks
-- **Gateway route ordering:** pricing routes share prefix `/prices/` with other potential services. The new routes must be added with the same catch-all pattern used by the order cluster to avoid precedence conflicts. Route IDs should follow the existing `order-read` / `order-write` naming convention (e.g., `pricing-read`, `pricing-write`).
+- **Gateway route ordering:** the `/prices/`, `/price-lists/`, and `/exchange-rates/` route pairs must use the same catch-all pattern as the order cluster and distinct IDs following the existing `order-read` / `order-write` naming convention (for example, `pricing-prices-read` and `pricing-price-lists-write`).
 - **Cluster destination naming:** the pricing cluster destination must match the Aspire service name (`pricing`) so service discovery resolves correctly in `appsettings.json` (`"Address": "http://pricing"`).
 - **Development vs production config:** if `appsettings.Development.json` overrides routes, both files must be updated to keep local and deployed behavior consistent.
 
@@ -152,8 +152,8 @@ The update is a single-file, non-code change that resolves the stale status.
 ## 9. Success criteria
 
 1. This audit design document is approved and stored at `docs/superpowers/specs/2026-07-23-pricing-audit-design.md`.
-2. The confirmed gap (public gateway routing) is fixed in `src/services/gateway/public/appsettings.json` (and matching Development config if present).
-3. A focused gateway regression test is added and passes.
+2. The confirmed gap (all three Pricing public-gateway route groups) is fixed in `src/services/gateway/public/appsettings.json`; no Development route override is needed.
+3. A focused parameterized gateway regression test is added and passes.
 4. All pricing tests continue to pass (`dotnet test` for unit, architecture, and integration projects).
 5. The public gateway tests continue to pass.
 6. `docs/superpowers/plans/services/pricing.md` status is updated to complete.
