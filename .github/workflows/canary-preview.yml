@@ -4,11 +4,8 @@ on:
     types: [labeled, synchronize]
 
 # Runs while the `preview` label is on the PR. Builds each AFFECTED service through the
-# reusable pipeline in STAGING mode: image tagged canary-<pr#>, SBOM uploaded to
-# Dependency Track (FLAGGED, project version pr-<n>) - so you get full container +
-# dependency SCA on every preview push - and the DT release gate is skipped (pre-release
-# may contain vulnerabilities, just flagged). Signing still runs (provenance); the
-# ephemeral preview cluster's admission policy decides whether it requires it.
+# reusable pipeline in staging mode, producing a `canary-<pr#>` image plus a
+# `:sha-<short>` stamp. Scan, SBOM, and signing run as normal build outputs.
 permissions:
   contents: read
 
@@ -66,12 +63,11 @@ jobs:
       service-name: ${{ matrix.service }}
       nx-project: ${{ matrix.nxProject }}
       project-path: ${{ matrix.projectPath }}
-      # Preview "version" = the PR, so DT tracks a single pr-<n> project version that is
-      # re-uploaded (flagged) on every push rather than churning release versions.
+      # Preview version is derived from the PR run number; the image tag is
+      # canary-<pr#>, so every push updates the ephemeral preview image.
       version: ${{ matrix.baseVersion }}-preview.${{ github.run_number }}
       source-ref: ${{ github.event.pull_request.head.sha }}
       publish-mode: staging
       staging-tag: canary-${{ github.event.pull_request.number }}
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
-      dependencytrack-api-key: ${{ secrets.DEPENDENCYTRACK_API_KEY }}

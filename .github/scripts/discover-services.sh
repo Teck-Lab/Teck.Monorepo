@@ -10,9 +10,9 @@
 # build). Each field:
 #   group        - release/business group (commerce, gateway, ...)
 #   service      - service directory name (order, public, ...)
-#   product      - SecObserve product name AND nx release group name. Equal to the
-#                  service, except gateway sub-services are prefixed (gateway-public)
-#                  because "public"/"internal" are ambiguous on their own.
+#   product      - service key/suffix used to construct the per-service `semgrep-${product}` GitHub
+#                  Code Scanning SARIF category and the Nx release group name. Equal to the service,
+#                  except gateway sub-services are prefixed (gateway-public) because "public"/"internal" are ambiguous on their own.
 #   nxProject    - nx project name of the Host (Order.Host, Gateway.Public, ...)
 #   projectPath  - path to the Host csproj (build target for the image)
 #   scanPath     - directory the source scanners target for this service
