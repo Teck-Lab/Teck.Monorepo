@@ -35,29 +35,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Full history so nx-affected can diff PRs against the base.
+          # Full history for any script that needs to diff the PR against base.
           fetch-depth: 0
 
-      # On PRs, scan only services affected by the diff (the "only touch what changed"
-      # principle). On push/schedule/dispatch, scan every service for full coverage.
-      - uses: oven-sh/setup-bun@v2
-        if: github.event_name == 'pull_request'
-      - name: Install dependencies (for nx affected)
-        if: github.event_name == 'pull_request'
-        run: bun install --frozen-lockfile
-
+      # GitHub code scanning compares the categories recorded on the base ref (main)
+      # with the categories present on the PR merge ref. If the PR matrix only
+      # included affected services, the missing categories caused the Semgrep check
+      # to report "configurations present on refs/heads/main were not found". PR
+      # scans therefore intentionally cover all discoverable service categories so
+      # the comparison is stable across every PR.
       - name: Discover services
         id: discover
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            # Fall back to scanning all services if affected detection fails.
-            affected=$(bunx nx show projects --affected --base="$BASE_SHA" --head="$HEAD_SHA" --json 2>/dev/null || echo "")
-            [ -n "$affected" ] && export NX_AFFECTED="$affected"
-          fi
           services=$(.github/scripts/discover-services.sh)
           count=$(echo "$services" | jq 'length')
           echo "matrix=$(echo "$services" | jq -c '{include: .}')" >> "$GITHUB_OUTPUT"

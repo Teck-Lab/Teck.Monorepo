@@ -1,9 +1,9 @@
 # Work Package: `pricing` service
 
-**Group:** commerce · **Tier:** 0 · **Status:** 🆕 new · **Branch:** `worktree-pricing-service`
-**Parallelism:** fully independent — consumes no events. **Best first pick** for a fresh session.
+**Group:** commerce · **Tier:** 0 · **Status:** ✅ complete · **Branch:** `worktree-pricing-service`
+**Parallelism:** fully independent — consumes no events.
 
-> This is a scope brief, not a finished plan. Run the full SDD cycle (brainstorm → spec → plan → implement), mirroring the **basket** build (`docs/superpowers/plans/2026-07-01-basket-service.md`) and the **order** reference service. Read `src/services/AGENTS.md` first. Follow every convention in `COORDINATION.md`.
+This plan is complete. The approved design is in `docs/superpowers/specs/2026-07-05-pricing-service-design.md` and the implementation is in `src/services/commerce/pricing/`. Public-gateway routing for the Pricing service was added during completion; see `docs/superpowers/specs/2026-07-23-pricing-audit-design.md`.
 
 ## Bounded context
 Owns **prices**, decoupled from product master data (catalog) and from cart/order math. Commercetools-style: price lists, currencies, and channel/customer-group-specific prices. A product's *price* is resolved here; its *attributes* live in catalog.

@@ -1,7 +1,9 @@
 # Reviewed false positives — test fixtures, not credentials.
-# The matched string is the Keycloak subject constant "keycloak-sub-1" in current
-# and historical Customer unit tests. Gitleaks scans full history, as does the CI
-# gate. Reviewed 2026-07-19: not real secrets, no rotation needed.
+# The matched string is the Keycloak subject constant "keycloak-sub-1" in Customer
+# unit tests (files no longer in the tree; gitleaks scans full history, as does the
+# CI gate). Reviewed 2026-07-19: not real secrets, no rotation needed.
+694532522333db68e47b545af9c1791d8b1b8187:tests/unit/Customer.UnitTests/Application/CreateCustomerHandlerTests.cs:generic-api-key:40
+d2b0cbaf4ff2501af829c6f970f1ed6e2978a159:tests/unit/Customer.UnitTests/Domain/CustomerTests.cs:generic-api-key:10
 694532522333db68e47b545af9c1791d8b1b8187:tests/unit/Customer.UnitTests/Application/CreateCustomerHandlerTests.cs:generic-api-key:40
 d2b0cbaf4ff2501af829c6f970f1ed6e2978a159:tests/unit/Customer.UnitTests/Domain/CustomerTests.cs:generic-api-key:10
 8e0d42ff950f0c5acc07b64e8d6589bced5fdc68:tests/unit/Customer.UnitTests/Application/CreateCustomerHandlerTests.cs:generic-api-key:40

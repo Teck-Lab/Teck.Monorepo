@@ -4,6 +4,7 @@
 
 using System.Net;
 using System.Net.Http.Json;
+using JasperFx.CommandLine;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -61,6 +62,40 @@ public sealed class GatewayFlowTests : IClassFixture<GatewayFlowTests.GatewayFix
         using HttpClient client = fixture.CreateMockUserClient("tenant-a");
 
         HttpResponseMessage response = await client.GetAsync("/orders/123");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        EchoedHeaders? echoed = await response.Content.ReadFromJsonAsync<EchoedHeaders>();
+        Assert.NotNull(echoed);
+        Assert.Equal("tenant-a", echoed!.TenantId);
+        Assert.False(string.IsNullOrEmpty(echoed.TenantDbStrategy));
+        Assert.StartsWith("Bearer ", echoed.Authorization, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// An authenticated request for each Pricing route group must be forwarded with the
+    /// resolved <c>X-TenantId</c>, a non-empty <c>X-Tenant-DbStrategy</c>, and an exchanged
+    /// <c>Authorization: Bearer ...</c> header.
+    /// </summary>
+    public static TheoryData<string, string> PricingRouteCases =>
+        new()
+        {
+            { HttpMethod.Get.Method, "/prices/resolve?productId=00000000-0000-0000-0000-000000000001&currency=USD&quantity=1" },
+            { HttpMethod.Get.Method, "/price-lists" },
+            { HttpMethod.Post.Method, "/price-lists" },
+            { HttpMethod.Get.Method, "/exchange-rates" },
+            { HttpMethod.Put.Method, "/exchange-rates" },
+        };
+
+    [Theory]
+    [MemberData(nameof(PricingRouteCases))]
+    public async Task AuthenticatedPricingRequest_ForwardsTenantAndDbStrategyAndExchangedBearer(
+        string method,
+        string path)
+    {
+        using HttpClient client = fixture.CreateMockUserClient("tenant-a");
+        using var request = new HttpRequestMessage(new HttpMethod(method), path);
+
+        HttpResponseMessage response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         EchoedHeaders? echoed = await response.Content.ReadFromJsonAsync<EchoedHeaders>();
@@ -191,6 +226,8 @@ public sealed class GatewayFlowTests : IClassFixture<GatewayFlowTests.GatewayFix
     private sealed class GatewayWebApplicationFactory(HttpMessageHandler echoHandler)
         : WebApplicationFactory<Program>
     {
+        static GatewayWebApplicationFactory() => JasperFxEnvironment.AutoStartHost = true;
+
         /// <inheritdoc/>
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
