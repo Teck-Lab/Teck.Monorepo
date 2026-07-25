@@ -31,7 +31,7 @@ FROM mcr.microsoft.com/devcontainers/dotnet:2.1-10.0-noble
 # default `--port 0` does not provide. (System package → installed here, not via
 # a feature.)
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends tmux \
+    && apt-get install -y --no-install-recommends tmux gnupg2 \
     && rm -rf /var/lib/apt/lists/*
 
 # snip — required by the `opencode-snip` OpenCode plugin, which prefixes shell
