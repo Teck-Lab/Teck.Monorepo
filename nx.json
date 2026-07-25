@@ -208,5 +208,6 @@
         "linter": "none"
       }
     }
-  }
+  },
+  "useDaemonProcess": true
 }

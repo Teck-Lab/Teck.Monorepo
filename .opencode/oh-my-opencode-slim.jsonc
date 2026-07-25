@@ -8,7 +8,7 @@
   // Active preset. Mirrors the upstream author's preset structure
   // (docs/authors-preset.md) with models substituted for what this
   // environment actually has. See the migration spec for deviations D1-D3.
-  "preset": "teck",
+  "preset": "openai",
   "showStartupToast": false,
 
   // D2: the companion is a desktop GUI app; this container is headless.

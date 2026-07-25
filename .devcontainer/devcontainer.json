@@ -1,6 +1,10 @@
 {
   "name": "Teck Platform",
   "build": { "dockerfile": "Dockerfile" },
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+
   "features": {
     "ghcr.io/devcontainers/features/dotnet:2": {
       "version": "10.0.300"
@@ -46,7 +50,7 @@
     "19006": { "label": "Expo web (legacy)" }
   },
   "postCreateCommand": "bash .devcontainer/postCreate.sh",
-  "postStartCommand": "bash .devcontainer/start-litellm.sh; bash .devcontainer/start-mcp.sh",
+  // "postStartCommand": "bash .devcontainer/start-litellm.sh; bash .devcontainer/start-mcp.sh",
   "customizations": {
     "vscode": {
       "extensions": [

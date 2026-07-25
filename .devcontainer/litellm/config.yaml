@@ -133,7 +133,7 @@ model_list:
   # cannot express a daily cap, so it only guards bursts. This is also a
   # SINGLE-ROUTE pool and LiteLLM does no cross-model fallback, so once the daily
   # quota is spent every call 429s hard. Keep high-frequency traffic off it
-  # (that's why opencode-mem auto-capture uses deepseek-v4-flash); reserve it for
+  # (that's why opencode-mem auto-capture uses mimo-v2.5); reserve it for
   # low-frequency vision work. Add a second Gemini key here to widen the pool.
   - model_name: gemini-2.5-flash           # Google Gemini (free tier: 20 req/DAY)
     litellm_params: { model: gemini/gemini-2.5-flash, api_key: os.environ/GEMINI_API_KEY, rpm: 10, timeout: 60 }
@@ -170,12 +170,23 @@ router_settings:
   # bad key won't fix itself), so the router surfaced the error instead of trying
   # the other subscription sitting in the same pool. These policies make an
   # auth-class failure retry on a DIFFERENT deployment and bench the dead one fast.
+  # Same trap, second flavour: OpenCode Go answers a transient upstream failure with
+  # HTTP 400 "Upstream request failed" — a 502-class error wearing a client-error
+  # status. LiteLLM types 400 as BadRequestError, also NON-RETRYABLE by default, so
+  # one provider hiccup surfaced to the client while four healthy routes sat idle in
+  # the same pool. Retry it. Genuine malformed-payload 400s cost 2 extra fast
+  # failures (every route in a pool serves the same model, so they all reject it).
   retry_policy:
+    BadRequestErrorRetries: 2       # transient provider 400s fail over to another route
     AuthenticationErrorRetries: 2   # retry on another route (i.e. the other sub)
     RateLimitErrorRetries: 2
     TimeoutErrorRetries: 2
     InternalServerErrorRetries: 2
   allowed_fails_policy:
+    # Deliberately huge, NOT inherited from allowed_fails: 2. A 400 can be the
+    # CLIENT's fault (bad payload); cooling a healthy route for 15min because of it
+    # would bench the pool over a caller's mistake. Retry 400s, never cool on them.
+    BadRequestErrorAllowedFails: 100000
     AuthenticationErrorAllowedFails: 1   # one "Insufficient balance" -> cool it down
     RateLimitErrorAllowedFails: 2
   # No cross-model `fallbacks` — oh-my-opencode-slim owns cross-model fallback via

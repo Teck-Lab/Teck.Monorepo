@@ -20,5 +20,18 @@
   "autoCaptureLanguage": "auto",
   "showAutoCaptureToasts": true,
   "opencodeProvider": "litellm",
-  "opencodeModel": "deepseek-v4-flash"
+
+  // MUST be a model whose ENTIRE LiteLLM pool supports `response_format:
+  // {"type":"json_object"}` — auto-capture asks for structured JSON on every
+  // request. This was deepseek-v4-flash, which failed 100% of the time: no
+  // deepseek-v4 route does JSON mode (not Go, not Zen free, not even DeepSeek's
+  // own first-party API — only the NVIDIA NIM route), and usage-based-routing-v2
+  // prefers the rpm-less Go routes, so it never landed on the one that works.
+  // Go reports the rejection as a generic 400 "Upstream request failed", which
+  // reads like a provider outage rather than an unsupported parameter.
+  // mimo-v2.5 is verified JSON-capable on all four of its routes (Go sub A, Go
+  // sub B, Zen free, OpenRouter) and is flat-rate + fast (~1.9s), which is what
+  // this high-frequency background caller needs. Re-verify JSON mode before
+  // switching this to another model.
+  "opencodeModel": "mimo-v2.5"
 }

@@ -10,6 +10,7 @@
 #   ./tools/security-scan.sh --all      # whole repo
 #   ./tools/security-scan.sh --secrets  # gitleaks only (fast; the CI hard gate)
 #   ./tools/security-scan.sh --staged   # gitleaks on staged changes (pre-commit hook)
+#   ./tools/security-scan.sh --pre-push # gitleaks on refs introduced by a push (pre-push hook)
 #
 # Exit codes: 0 = clean, 1 = findings, 2 = could not run (docker/network).
 set -uo pipefail
@@ -33,10 +34,73 @@ case "${1:-}" in
   --all)     MODE="all" ;;
   --secrets) MODE="secrets" ;;
   --staged)  MODE="staged" ;;
+  --pre-push) MODE="pre-push" ;;
   ""|--changed) MODE="changed" ;;
-  -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
+  -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
   *) echo "unknown arg: $1 (try --help)"; exit 2 ;;
 esac
+
+# Pre-push mode reads the git hook's stdin. Parse and validate every physical
+# record before touching Docker or the base ref; a deletion-only push must be
+# able to exit cleanly without any prerequisites.
+PRE_PUSH_UPDATES=()
+if [ "$MODE" = "pre-push" ]; then
+  BASE_REF="origin/main"
+  ZERO_SHA="0000000000000000000000000000000000000000"
+  DELETE_REF="(delete)"
+  while IFS= read -r line || [ -n "$line" ]; do
+    # Every nonempty physical line must be a valid record.
+    if [[ -z "${line//[[:space:]]/}" ]]; then
+      echo "ERROR: blank line in pre-push ref update stream" >&2
+      exit 2
+    fi
+
+    read -r local_ref local_sha remote_ref remote_sha extra <<< "$line"
+    if [ -z "${local_ref:-}" ] || [ -z "${local_sha:-}" ] || [ -z "${remote_ref:-}" ] || [ -z "${remote_sha:-}" ] || [ -n "${extra:-}" ]; then
+      echo "ERROR: malformed pre-push ref update" >&2
+      exit 2
+    fi
+    if [[ ! "$remote_ref" =~ ^refs/ ]] || [[ ! "$remote_sha" =~ ^[0-9a-f]{40}$ ]] || [[ ! "$local_sha" =~ ^[0-9a-f]{40}$ ]]; then
+      echo "ERROR: malformed pre-push ref update" >&2
+      exit 2
+    fi
+    if [ "$local_ref" = "$DELETE_REF" ]; then
+      if [ "$local_sha" != "$ZERO_SHA" ]; then
+        echo "ERROR: malformed pre-push ref update" >&2
+        exit 2
+      fi
+    elif [[ "$local_ref" =~ ^refs/ ]]; then
+      if [ "$local_sha" = "$ZERO_SHA" ]; then
+        echo "ERROR: malformed pre-push ref update" >&2
+        exit 2
+      fi
+    else
+      echo "ERROR: malformed pre-push ref update" >&2
+      exit 2
+    fi
+
+    PRE_PUSH_UPDATES+=("${local_ref} ${local_sha} ${remote_ref} ${remote_sha}")
+  done
+
+  if [ "${#PRE_PUSH_UPDATES[@]}" -eq 0 ]; then
+    echo "ERROR: no valid pre-push ref updates received" >&2
+    exit 2
+  fi
+
+  DELETION_ONLY=true
+  for update in "${PRE_PUSH_UPDATES[@]}"; do
+    read -r _ local_sha _ _ <<< "$update"
+    if [ "$local_sha" != "$ZERO_SHA" ]; then
+      DELETION_ONLY=false
+      break
+    fi
+  done
+
+  if [ "$DELETION_ONLY" = true ]; then
+    echo "no commits introduced by this push — skipping security scan"
+    exit 0
+  fi
+fi
 
 command -v docker >/dev/null 2>&1 || { echo "ERROR: docker not available"; exit 2; }
 mkdir -p "$OUT_DIR"
@@ -70,10 +134,29 @@ if [ -f "$REPO_ROOT/.git" ]; then
 fi
 
 GITLEAKS_CMD=(detect)
-[ "$MODE" = "staged" ] && GITLEAKS_CMD=(protect --staged)
+GITLEAKS_OPTIONS=(--source="$GITLEAKS_SOURCE" --redact --no-banner
+  --report-format=json --report-path="$GITLEAKS_REPORT")
+
+if [ "$MODE" = "staged" ]; then
+  GITLEAKS_CMD=(protect --staged)
+elif [ "$MODE" = "pre-push" ]; then
+  git -C "$REPO_ROOT" rev-parse --verify --quiet "${BASE_REF}^{commit}" >/dev/null \
+    || { echo "ERROR: cannot resolve origin/main; run 'git fetch origin main'" >&2; exit 2; }
+
+  GITLEAKS_RANGES=()
+  for update in "${PRE_PUSH_UPDATES[@]}"; do
+    read -r local_ref local_sha remote_ref remote_sha <<< "$update"
+    [ "$local_sha" = "$ZERO_SHA" ] && continue
+    git -C "$REPO_ROOT" rev-parse --verify --quiet "${local_sha}^{commit}" >/dev/null \
+      || { echo "ERROR: cannot resolve pushed commit $local_sha" >&2; exit 2; }
+    GITLEAKS_RANGES+=("${BASE_REF}..${local_sha}")
+  done
+
+  GITLEAKS_OPTIONS+=(--log-opts="${GITLEAKS_RANGES[*]}")
+fi
+
 if docker run --rm "${GITLEAKS_MOUNTS[@]}" "$GITLEAKS_IMAGE" \
-     "${GITLEAKS_CMD[@]}" --source="$GITLEAKS_SOURCE" --redact --no-banner \
-     --report-format=json --report-path="$GITLEAKS_REPORT" 2>&1 | tail -20; then
+     "${GITLEAKS_CMD[@]}" "${GITLEAKS_OPTIONS[@]}" 2>&1 | tail -20; then
   echo "PASS: no secrets detected"
 else
   echo "FAIL: secrets detected -> .security/gitleaks.json (this BLOCKS merge in CI)"
@@ -85,7 +168,7 @@ if [ "$MODE" = "secrets" ] || [ "$MODE" = "staged" ]; then echo; echo "done ($MO
 echo
 echo "--- [2] Semgrep SAST (${SEMGREP_IMAGE##*:}) ---"
 SEMGREP_TARGET="/src"
-if [ "$MODE" = "changed" ]; then
+if [ "$MODE" = "changed" ] || [ "$MODE" = "pre-push" ]; then
   # Collect changed paths but keep only regular tracked files (modes 100644/100755).
   # Symlinks (120000) and other git objects must not be passed to Semgrep because
   # their targets may resolve outside the Docker /src mount and fail the scan.
