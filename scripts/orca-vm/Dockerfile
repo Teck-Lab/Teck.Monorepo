@@ -3,7 +3,7 @@ FROM ${DEVCONTAINER_IMAGE}
 
 USER root
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends openssh-server \
+    && apt-get install -y --no-install-recommends openssh-server python3 \
     && mkdir -p /run/sshd /home/vscode/.ssh \
     && chmod 700 /home/vscode/.ssh \
     && chown -R vscode:vscode /home/vscode/.ssh \
