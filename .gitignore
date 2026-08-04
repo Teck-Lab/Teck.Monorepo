@@ -67,6 +67,10 @@ web-build/
 # Local security scan reports (tools/security-scan.sh)
 .security/
 
+# Orca local per-workspace environment (generated credentials/state)
+scripts/orca-vm/.ssh/
+scripts/orca-vm/local-state.json
+
 # Generated MCP backend secrets (see .devcontainer/start-mcp.sh)
 .devcontainer/mcp/mcp.env
 .devcontainer/mcp/searxng/settings.yml
