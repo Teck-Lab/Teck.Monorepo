@@ -86,10 +86,9 @@ ensure_key() {
   fi
 }
 
-git_token() {
-  if [ -n "${GH_TOKEN:-}" ]; then printf '%s' "$GH_TOKEN"; return; fi
-  if [ -n "${GITHUB_TOKEN:-}" ]; then printf '%s' "$GITHUB_TOKEN"; return; fi
-  command -v gh >/dev/null 2>&1 && gh auth token 2>/dev/null || true
+github_app_token() {
+  local access="${1:-read}"
+  "$orca_repo_root/.devcontainer/github-app-token.sh" "$access" "$orca_github_secrets_dir"
 }
 
 state_value() {

@@ -144,11 +144,18 @@ tools/orca-feature status --json
 tools/orca-feature pr-info
 ```
 
-Push the parent branch using the configured Git transport. GitHub MCP does not
-receive the local working tree and must not create remote commits for this
-flow. Use MCP `create_pull_request` with the `head` and `base` from `pr-info`,
-reference the parent and sub-issues in the body, then use `update_pull_request`
-to request the human reviewer.
+Push the parent branch as the coordinator with a short-lived GitHub App
+installation token:
+
+```bash
+teck-git-with-github-app write -- git push --set-upstream origin <parent-branch>
+```
+
+The wrapper keeps the token out of Git configuration and command arguments.
+GitHub MCP does not receive the local working tree and must not create remote
+commits for this flow. Use MCP `create_pull_request` with the `head` and `base`
+from `pr-info`, reference the parent and sub-issues in the body, then use
+`update_pull_request` to request the human reviewer.
 
 Read checks through `actions_get`, `actions_list`, `get_job_logs`, and
 `pull_request_read`. Post a concise validation summary. Stop with the PR open;

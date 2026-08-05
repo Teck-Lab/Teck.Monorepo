@@ -49,11 +49,7 @@ docker exec -u vscode "$name" teck-setup-github-automation >&2
 port="$(docker port "$name" 22/tcp | sed -nE 's/.*:([0-9]+)$/\1/p' | head -1)"
 [ -n "$port" ] || { docker logs "$name" >&2; echo 'Could not resolve the published SSH port.' >&2; exit 1; }
 
-if [ -n "$orca_runtime_secrets_dir" ] && [ -s "$orca_runtime_secrets_dir/github-token" ]; then
-  token="$(<"$orca_runtime_secrets_dir/github-token")"
-else
-  token="$(git_token)"
-fi
+token="$(github_app_token read)"
 if [ -n "$token" ] && [ -n "$repo_url" ]; then
   docker exec -u vscode -e "GH_TOKEN=$token" -e "ORCA_REPO_REF=$repo_ref" "$name" bash -lc \
     'set -euo pipefail; cd /workspaces/Teck.Monorepo

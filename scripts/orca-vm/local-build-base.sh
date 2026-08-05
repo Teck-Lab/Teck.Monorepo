@@ -8,8 +8,7 @@ default_ref="$(git -C "$orca_repo_root" symbolic-ref --short refs/remotes/origin
 default_ref="${default_ref#origin/}"
 repo_ref="${ORCA_REPO_REF:-$default_ref}"
 [ -n "$repo_ref" ] || repo_ref=main
-token="$(git_token)"
-[ -n "$token" ] || { echo 'GitHub token missing; export GH_TOKEN or run gh auth login.' >&2; exit 1; }
+prepare_github_secrets
 
 echo 'Building the existing dev-container definition...' >&2
 npx --yes @devcontainers/cli build \
@@ -25,11 +24,14 @@ docker build --build-arg "DEVCONTAINER_IMAGE=$source_image" \
 ensure_key
 prep="teck-orca-base-prep"
 docker rm -f "$prep" >/dev/null 2>&1 || true
-cleanup() { docker rm -f "$prep" >/dev/null 2>&1 || true; }
+cleanup() {
+  docker rm -f "$prep" >/dev/null 2>&1 || true
+  cleanup_runtime_secrets || true
+}
 trap cleanup EXIT
+token="$(github_app_token read)"
 docker run -d --name "$prep" \
-  -e "ORCA_SSH_PUBLIC_KEY=$(<"$orca_key_file.pub")" \
-  -e "GH_TOKEN=$token" "$orca_base_image" >/dev/null
+  -e "ORCA_SSH_PUBLIC_KEY=$(<"$orca_key_file.pub")" "$orca_base_image" >/dev/null
 docker exec "$prep" bash -lc 'mkdir -p /workspaces && chown vscode:vscode /workspaces'
 docker exec -u vscode \
   -e "GH_TOKEN=$token" -e "ORCA_REPO_URL=$repo_url" -e "ORCA_REPO_REF=$repo_ref" \
