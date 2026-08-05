@@ -77,6 +77,10 @@ echo "==> Seeding agent CLI configs (Codex + OpenCode) pointed at the LiteLLM ga
 # Both authenticate to the gateway via the LITELLM_MASTER_KEY env var (below), so
 # neither needs an interactive login.
 mkdir -p "$HOME/.codex" "$HOME/.config/opencode" "$HOME/.omo"
+# Remove the retired alternate OpenCode profile from persistent config volumes.
+# This path was created by earlier versions of this repository and otherwise
+# survives container rebuilds indefinitely.
+rm -rf "$HOME/.config/opencode/profiles/slim"
 cp .devcontainer/codex/config.toml "$HOME/.codex/config.toml" || echo "WARN: could not seed codex config (continuing)"
 cp .devcontainer/opencode/opencode.json "$HOME/.config/opencode/opencode.json" || echo "WARN: could not seed opencode config (continuing)"
 cp .devcontainer/opencode/tui.json "$HOME/.config/opencode/tui.json" || echo "WARN: could not seed OpenCode TUI config (continuing)"

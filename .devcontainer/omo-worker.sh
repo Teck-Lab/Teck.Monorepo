@@ -55,7 +55,7 @@ session="${session:0:72}"
 
 if tmux has-session -t "=$session" 2>/dev/null; then
   if $dry_run; then
-    printf '{"session":"%s","existing":true,"agent":"%s","mode":"%s","harness":"full","worktree":"%s"}\n' \
+    printf '{"session":"%s","existing":true,"agent":"%s","mode":"%s","worktree":"%s"}\n' \
       "$session" "$primary_agent" "$mode" "$worktree"
     exit 0
   fi
@@ -66,7 +66,7 @@ port="$(bun -e 'const s=Bun.listen({hostname:"127.0.0.1",port:0,socket:{data(){}
 [[ "$port" =~ ^[1-9][0-9]*$ ]] || { echo "could not allocate an OpenCode port" >&2; exit 1; }
 
 if $dry_run; then
-  printf '{"session":"%s","existing":false,"agent":"%s","mode":"%s","harness":"full","worktree":"%s","port":%s,"configDir":"%s"}\n' \
+  printf '{"session":"%s","existing":false,"agent":"%s","mode":"%s","worktree":"%s","port":%s,"configDir":"%s"}\n' \
     "$session" "$primary_agent" "$mode" "$worktree" "$port" "$config_dir"
   exit 0
 fi
