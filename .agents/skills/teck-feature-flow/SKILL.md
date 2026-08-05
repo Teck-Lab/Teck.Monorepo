@@ -21,8 +21,7 @@ resolved Orca CLI before running orchestration commands.
 ## Guardrails
 
 - Let workers commit only in their assigned internal worktrees.
-- Use full OMO by default. Keep OMO Slim only as an explicitly selected A/B
-  baseline; never load both orchestration plugins in one OpenCode process.
+- Use full OMO as the worker harness.
 - Use Prometheus -> Atlas for `planned` and `quick` work. Use Hephaestus only
   for explicitly `autonomous` or `spike` work, or a coordinator-approved
   escalation after Atlas has stopped editing.

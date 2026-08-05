@@ -145,8 +145,8 @@ if ! grep -qF "$MCP_ENV_ABS" "$HOME/.bashrc" 2>/dev/null; then
 fi
 
 echo "==> Enabling OpenCode background subagents"
-# Full OMO and the isolated Slim evaluation profile can both use visible
-# background panes. teck-omo-worker also exports this explicitly per worker.
+# Full OMO can use visible background panes. teck-omo-worker also exports this
+# explicitly per worker.
 BG_LINE='export OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true'
 if ! grep -qxF "$BG_LINE" "$HOME/.bashrc" 2>/dev/null; then
   printf '\n# Required by OMO background orchestration\n%s\n' "$BG_LINE" >> "$HOME/.bashrc"

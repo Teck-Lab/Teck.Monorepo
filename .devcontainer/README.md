@@ -42,18 +42,15 @@ per request, respects each provider's `rpm`, cools down any that 429, and falls
 back to a paid net so a request never hard-fails. It runs stateless (no database)
 from `.devcontainer/litellm/config.yaml`.
 
-**Per-model pools** (structured for [full OMO](https://omo.dev/docs) and the
-isolated OMO Slim evaluation profile, which pin each agent/category to a
-specific `provider/model`). Each `model_name` is a REAL
+**Per-model pools** (structured for [full OMO](https://omo.dev/docs), which pins
+each agent/category to a specific `provider/model`). Each `model_name` is a REAL
 model id — clients call it as `litellm/<model_name>` — and under each name sits a
 pool of every route that serves that exact model (flat-rate OpenCode Go, free
-OpenCode Zen, free NVIDIA NIM, paid DeepSeek API, OpenRouter…). The 17 models:
+OpenCode Zen, free NVIDIA NIM, paid DeepSeek API, OpenRouter…). The seven models:
 
 ```
-deepseek-v4-pro   deepseek-v4-flash   glm-5.2   minimax-m3   mimo-v2.5
-kimi-k2.7-code    kimi-k2.6           qwen3.7-max   qwen3.7-plus   hy3
-gemini-2.5-flash  llama-3.3-70b       deepseek-v3.2
-deepseek-r1-distill-qwen-32b   qwen2.5-coder-32b   nemotron-3-ultra   north-mini-code
+deepseek-v4-pro   deepseek-v4-flash   glm-5.2   mimo-v2.5
+kimi-k3           kimi-k2.7-code      qwen3.7-plus
 ```
 
 `routing_strategy: usage-based-routing-v2` sends each request to the route with
