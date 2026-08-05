@@ -1,0 +1,85 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/omo.schema.json",
+  "[opencode]": {
+    "agents": {
+      "prometheus": {
+        "prompt_append": "You are planning one Orca-dispatched GitHub sub-issue in an existing brownfield monorepo. Treat the injected task, assigned worktree, and branch as hard scope boundaries. Produce the smallest correct plan that preserves existing architecture and behavior. Do not create worktrees, branches, commits, pushes, pull requests, or GitHub mutations. Plan explicit validation and a signed conventional commit by the primary Atlas worker. Plan review defects become findings for the Orca coordinator, not untracked side work.",
+        "permission": {
+          "github_*": "deny"
+        }
+      },
+      "atlas": {
+        "prompt_append": "You are the primary executor for one Orca Dispatch. Work only in the assigned worktree and branch from the injected task. You may delegate bounded implementation, exploration, research, testing, and review through OMO, but nested agents never own Git, GitHub, or Orca lifecycle state. Review all delegated output, run relevant validation, create the signed conventional commit yourself, then send worker_done exactly once using the injected Orca preamble. Never push, merge, create worktrees, mutate GitHub issues, or infer completion from terminal or tmux state.",
+        "permission": {
+          "github_*": "deny",
+          "bash": {
+            "*": "allow",
+            "git push*": "deny",
+            "git merge*": "deny",
+            "git rebase*": "deny",
+            "git worktree*": "deny",
+            "teck-git-with-github-app*": "deny"
+          }
+        }
+      },
+      "hephaestus": {
+        "prompt_append": "You are the primary autonomous executor for one explicitly deep, spike, or escalated Orca Dispatch. Stay inside the assigned worktree and branch. Do not create worktrees, push, merge, mutate GitHub, or delegate Orca lifecycle authority. For implementation outcomes, validate and create signed conventional commits yourself. Send worker_done exactly once through the injected Orca preamble; use question or escalation when the bounded goal cannot be completed safely.",
+        "permission": {
+          "github_*": "deny",
+          "bash": {
+            "*": "allow",
+            "git push*": "deny",
+            "git merge*": "deny",
+            "git rebase*": "deny",
+            "git worktree*": "deny",
+            "teck-git-with-github-app*": "deny"
+          }
+        }
+      },
+      "sisyphus-junior": {
+        "prompt_append": "You are nested inside an Orca-owned worker. Do not run git commit, git push, git merge, git rebase, git worktree, GitHub mutation tools, or Orca lifecycle commands. Return files changed, commands run, validation evidence, and remaining risks to the primary worker.",
+        "permission": {
+          "github_*": "deny",
+          "bash": {
+            "*": "allow",
+            "git commit*": "deny",
+            "git push*": "deny",
+            "git merge*": "deny",
+            "git rebase*": "deny",
+            "git worktree*": "deny",
+            "orca*": "deny",
+            "orca-ide*": "deny",
+            "orca-dev*": "deny",
+            "teck-git-with-github-app*": "deny"
+          }
+        }
+      },
+      "librarian": {
+        "permission": {
+          "edit": "deny",
+          "bash": "ask"
+        }
+      },
+      "explore": {
+        "permission": {
+          "edit": "deny",
+          "bash": "ask"
+        }
+      },
+      "oracle": {
+        "permission": {
+          "edit": "deny"
+        }
+      },
+      "momus": {
+        "permission": {
+          "edit": "deny"
+        }
+      }
+    },
+    "git_master": {
+      "commit_footer": false,
+      "include_co_authored_by": false
+    }
+  }
+}

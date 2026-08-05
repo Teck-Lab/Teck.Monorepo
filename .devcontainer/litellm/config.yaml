@@ -1,6 +1,7 @@
 # LiteLLM proxy config for the dev-container gateway.
 #
-# PER-MODEL POOLS (for oh-my-opencode-slim, which pins each agent to a specific
+# PER-MODEL POOLS (for full OMO and the isolated Slim evaluation profile, which
+# pin agents/categories to specific
 # `provider/model`). Each `model_name` below is a REAL model id; clients call it as
 # `litellm/<model_name>`. Under each name sits a POOL of every route that serves
 # that exact model (flat-rate OpenCode Go, free OpenCode Zen, free NVIDIA NIM, paid
@@ -13,7 +14,7 @@
 # (dollar-limited, not request-limited) and lean on the reactive cooldown.
 #
 # Cross-MODEL fallback (e.g. agent's model down -> try another model) is handled by
-# oh-my-opencode-slim's top-level `fallback` block, NOT here — LiteLLM only balances
+# the active OMO harness, NOT here — LiteLLM only balances
 # routes WITHIN a model. Keep this in sync with .devcontainer/opencode/opencode.json's
 # `models`.
 #
@@ -178,8 +179,8 @@ router_settings:
   allowed_fails_policy:
     AuthenticationErrorAllowedFails: 1   # one "Insufficient balance" -> cool it down
     RateLimitErrorAllowedFails: 2
-  # No cross-model `fallbacks` — oh-my-opencode-slim owns cross-model fallback via
-  # its top-level `fallback` block; LiteLLM only balances routes within one model.
+  # No cross-model `fallbacks` — the active OMO harness owns cross-model
+  # fallback; LiteLLM only balances routes within one model.
 
 litellm_settings:
   request_timeout: 120       # a hung upstream fails over in seconds

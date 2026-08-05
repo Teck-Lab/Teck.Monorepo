@@ -1,0 +1,90 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/omo.schema.json",
+  "[opencode]": {
+    "agents": {
+      "sisyphus": {
+        "model": "openai/gpt-5.6-sol",
+        "reasoning": "medium"
+      },
+      "prometheus": {
+        "model": "openai/gpt-5.6-sol",
+        "reasoning": "high"
+      },
+      "atlas": {
+        "model": "openai/gpt-5.6-terra",
+        "reasoning": "high"
+      },
+      "hephaestus": {
+        "model": "openai/gpt-5.6-sol",
+        "reasoning": "medium"
+      },
+      "momus": {
+        "model": "openai/gpt-5.6-terra",
+        "reasoning": "high"
+      },
+      "oracle": {
+        "model": "openai/gpt-5.6-sol",
+        "reasoning": "xhigh"
+      },
+      "librarian": {
+        "model": "litellm/deepseek-v4-flash"
+      },
+      "explore": {
+        "model": "litellm/deepseek-v4-flash"
+      },
+      "sisyphus-junior": {
+        "model": "litellm/kimi-k2.7-code"
+      }
+    },
+    "categories": {
+      "quick": {
+        "model": "litellm/deepseek-v4-flash",
+        "models": ["litellm/qwen3.7-plus", "litellm/mimo-v2.5"]
+      },
+      "deep": {
+        "model": "openai/gpt-5.6-sol",
+        "reasoning": "medium"
+      },
+      "ultrabrain": {
+        "model": "openai/gpt-5.6-sol",
+        "reasoning": "max"
+      },
+      "unspecified-low": {
+        "model": "openai/gpt-5.6-terra",
+        "reasoning": "high",
+        "models": ["litellm/deepseek-v4-pro", "litellm/kimi-k2.7-code"]
+      },
+      "unspecified-high": {
+        "model": "openai/gpt-5.6-sol",
+        "reasoning": "high",
+        "models": ["litellm/kimi-k3", "litellm/glm-5.2"]
+      },
+      "writing": {
+        "model": "litellm/kimi-k3",
+        "models": ["litellm/glm-5.2", "litellm/deepseek-v4-flash"]
+      }
+    },
+    "sisyphus_agent": {
+      "disabled": false,
+      "default_builder_enabled": false,
+      "planner_enabled": true,
+      "replace_plan": true
+    },
+    "tmux": {
+      "enabled": true,
+      "layout": "main-horizontal",
+      "main_pane_size": 60,
+      "main_pane_min_width": 90,
+      "agent_pane_min_width": 36
+    },
+    "git_master": {
+      "commit_footer": false,
+      "include_co_authored_by": false
+    },
+    "disabled_hooks": ["auto-update-checker", "startup-toast"],
+    "experimental": {
+      "aggressive_truncation": true,
+      "task_system": true
+    }
+  }
+}

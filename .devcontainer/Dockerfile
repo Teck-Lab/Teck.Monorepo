@@ -24,12 +24,9 @@
 # CLI) is still layered on via the `features` block in devcontainer.json.
 FROM mcr.microsoft.com/devcontainers/dotnet:2.1-10.0-noble
 
-# tmux — required by oh-my-opencode-slim's multiplexer integration: background
-# subagents are spawned into live tmux panes, so tmux must be installed and on
-# PATH. Launch OpenCode via the `omos` helper (see postCreate.sh) so it binds an
-# explicit port — pane attachment needs a real TCP listener, which OpenCode's
-# default `--port 0` does not provide. (System package → installed here, not via
-# a feature.)
+# tmux — one attached session per Orca sub-issue worker. Full OMO spawns nested
+# agents into panes in that session. teck-omo-worker supplies the explicit
+# OpenCode port required by pane attachment. (System package, not a feature.)
 RUN apt-get update \
     && apt-get install -y --no-install-recommends tmux \
     && rm -rf /var/lib/apt/lists/*
@@ -100,5 +97,7 @@ COPY github-mcp.sh /usr/local/bin/teck-github-mcp
 COPY setup-github-automation.sh /usr/local/bin/teck-setup-github-automation
 COPY github-app-token.sh /usr/local/bin/teck-github-app-token
 COPY git-with-github-app.sh /usr/local/bin/teck-git-with-github-app
+COPY omo-worker.sh /usr/local/bin/teck-omo-worker
 RUN chmod 0755 /usr/local/bin/teck-github-mcp /usr/local/bin/teck-setup-github-automation \
-      /usr/local/bin/teck-github-app-token /usr/local/bin/teck-git-with-github-app
+      /usr/local/bin/teck-github-app-token /usr/local/bin/teck-git-with-github-app \
+      /usr/local/bin/teck-omo-worker

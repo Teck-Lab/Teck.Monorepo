@@ -63,7 +63,8 @@ web-build/
 # build (and regenerated in-memory during local dev); compiled into the published image, never committed.
 **/Internal/Generated/
 
-.omo
+.omo/*
+!.omo/omo.jsonc
 # Local security scan reports (tools/security-scan.sh)
 .security/
 

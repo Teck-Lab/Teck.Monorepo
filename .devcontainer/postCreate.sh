@@ -76,15 +76,18 @@ echo "==> Seeding agent CLI configs (Codex + OpenCode) pointed at the LiteLLM ga
 # The committed templates are the source of truth; re-copied on every rebuild.
 # Both authenticate to the gateway via the LITELLM_MASTER_KEY env var (below), so
 # neither needs an interactive login.
-mkdir -p "$HOME/.codex" "$HOME/.config/opencode"
+mkdir -p "$HOME/.codex" "$HOME/.config/opencode" "$HOME/.config/opencode/profiles/slim" "$HOME/.omo"
 cp .devcontainer/codex/config.toml "$HOME/.codex/config.toml" || echo "WARN: could not seed codex config (continuing)"
 cp .devcontainer/opencode/opencode.json "$HOME/.config/opencode/opencode.json" || echo "WARN: could not seed opencode config (continuing)"
-# oh-my-opencode-slim agent config. The plugin itself is declared in opencode.json's
-# `plugin` array and auto-installs via Bun on the first `opencode` launch; this file
-# pins each agent's model so the upstream install TUI is never needed. The committed
-# template is the source of truth — do NOT run `bunx oh-my-opencode-slim install`,
-# which is interactive and refuses to overwrite an existing config anyway.
-cp .devcontainer/opencode/oh-my-opencode-slim.jsonc "$HOME/.config/opencode/oh-my-opencode-slim.jsonc" || echo "WARN: could not seed slim config (continuing)"
+cp .devcontainer/opencode/tui.json "$HOME/.config/opencode/tui.json" || echo "WARN: could not seed OpenCode TUI config (continuing)"
+# Full OMO is the default worker harness. Its unified config is deliberately
+# re-seeded from the repository so provider/model policy is reproducible while
+# OpenCode auth remains in the persistent data volume.
+cp .devcontainer/opencode/omo.jsonc "$HOME/.omo/omo.jsonc" || echo "WARN: could not seed OMO config (continuing)"
+# Slim remains isolated for A/B evaluation only. Loading both plugins in one
+# OpenCode process would give two orchestrators authority over the same session.
+cp .devcontainer/opencode/opencode-slim.json "$HOME/.config/opencode/profiles/slim/opencode.json" || echo "WARN: could not seed slim OpenCode profile (continuing)"
+cp .devcontainer/opencode/oh-my-opencode-slim.jsonc "$HOME/.config/opencode/profiles/slim/oh-my-opencode-slim.jsonc" || echo "WARN: could not seed slim config (continuing)"
 # opencode-mem config: enables auto-capture through the litellm gateway, stores
 # memories under the persisted ~/.local/share/opencode volume, and serves the
 # memory web UI on :4747. The plugin itself auto-installs via opencode.json.
@@ -141,54 +144,12 @@ if ! grep -qF "$MCP_ENV_ABS" "$HOME/.bashrc" 2>/dev/null; then
   printf '\n# Expose the crawl4ai MCP token to OpenCode\n%s\n' "$C4_LINE" >> "$HOME/.bashrc"
 fi
 
-echo "==> Enabling OpenCode background subagents (required by oh-my-opencode-slim)"
-# Slim's default orchestration dispatches specialists as background subagents,
-# which OpenCode gates behind this experimental flag. Without it the
-# orchestrator silently runs everything inline and no multiplexer panes appear.
+echo "==> Enabling OpenCode background subagents"
+# Full OMO and the isolated Slim evaluation profile can both use visible
+# background panes. teck-omo-worker also exports this explicitly per worker.
 BG_LINE='export OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true'
 if ! grep -qxF "$BG_LINE" "$HOME/.bashrc" 2>/dev/null; then
-  printf '\n# Required by oh-my-opencode-slim background orchestration\n%s\n' "$BG_LINE" >> "$HOME/.bashrc"
-fi
-
-echo "==> Installing the 'omos' OpenCode launcher (explicit --port, for tmux panes)"
-# Multiplexer panes attach with `opencode attach`, which needs a real TCP
-# listener. OpenCode's default (`--port 0`) doesn't create one, so subagent
-# panes never appear. Upstream ships a zsh helper; this is the bash equivalent.
-# Honours an explicit --port if you pass one; otherwise picks a free loopback
-# port and passes it through. Plain `opencode` remains available, unwrapped.
-if ! grep -qF 'omos()' "$HOME/.bashrc" 2>/dev/null; then
-  cat >> "$HOME/.bashrc" <<'OMOS_EOF'
-
-# Launch OpenCode with an explicit port so oh-my-opencode-slim can open
-# subagent panes in tmux. Usage: `tmux` then `omos`.
-omos() {
-  local port=""
-  local -a args=("$@")
-  local i
-  for (( i=0; i<${#args[@]}; i++ )); do
-    case "${args[i]}" in
-      --port=*) port="${args[i]#--port=}"; break ;;
-      --port)
-        if (( i + 1 < ${#args[@]} )); then
-          port="${args[i+1]:-}"
-        else
-          # Trailing --port with no value: treat it as "no port specified"
-          # and drop the dangling flag so it never reaches opencode next to
-          # an auto-picked --port.
-          unset 'args[i]'
-        fi
-        break
-        ;;
-    esac
-  done
-  if [ -z "$port" ]; then
-    port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')" || return 1
-    OPENCODE_PORT="$port" command opencode --port "$port" "${args[@]}"
-  else
-    OPENCODE_PORT="$port" command opencode "${args[@]}"
-  fi
-}
-OMOS_EOF
+  printf '\n# Required by OMO background orchestration\n%s\n' "$BG_LINE" >> "$HOME/.bashrc"
 fi
 
 echo "==> Setting up GPG commit signing from the mounted host keyring"

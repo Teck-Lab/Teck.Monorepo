@@ -3,7 +3,7 @@ set -euo pipefail
 
 tool="$(cd "$(dirname "$0")" && pwd)/orca-feature"
 fixture="$(mktemp -d)"
-trap 'rm -rf "$fixture"' EXIT
+trap 'tmux kill-session -t =teck-120-121-tax-system >/dev/null 2>&1 || true; rm -rf "$fixture"' EXIT
 
 git init --bare "$fixture/origin.git" >/dev/null
 git clone "$fixture/origin.git" "$fixture/repo" >/dev/null 2>&1
@@ -22,7 +22,14 @@ git -C "$fixture/repo" remote set-head origin --auto >/dev/null
 cd "$fixture/repo"
 "$tool" init --issue 120 --slug billing-overhaul --title 'Billing overhaul' --create-branch
 "$tool" add --issue 121 --title 'Tax system' --kind feature
-"$tool" add --issue 122 --title 'Plan review defect' --kind plan-defect --depends-on 121
+"$tool" add --issue 122 --title 'Plan review defect' --kind plan-defect --mode autonomous --depends-on 121
+
+tmux new-session -d -s teck-120-121-tax-system
+"$tool" stop --issue 121 >/dev/null
+if tmux has-session -t =teck-120-121-tax-system 2>/dev/null; then
+  echo 'worker tmux session was not stopped' >&2
+  exit 1
+fi
 
 tax_path="$fixture/.orca-worktrees/120/121-tax-system"
 printf 'tax\n' > "$tax_path/tax.txt"
@@ -30,7 +37,10 @@ git -C "$tax_path" add tax.txt
 git -C "$tax_path" commit -m 'feat(billing): add tax system' >/dev/null
 
 blocked="$("$tool" dispatch-info --issue 122)"
-bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.ready !== false || JSON.stringify(d.blockedBy) !== "[121]") process.exit(1)' <<<"$blocked"
+bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.ready !== false || JSON.stringify(d.blockedBy) !== "[121]" || d.executionMode !== "autonomous" || d.primaryAgent !== "hephaestus" || !d.terminalCommand.includes("teck-omo-worker")) process.exit(1)' <<<"$blocked"
+
+slim="$("$tool" dispatch-info --issue 122 --harness slim --mode quick)"
+bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.harness !== "slim" || d.executionMode !== "quick" || d.primaryAgent !== "orchestrator") process.exit(1)' <<<"$slim"
 
 "$tool" set-status --issue 121 --status completed
 git config orca.feature.requireSignatures true

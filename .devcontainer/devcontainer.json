@@ -23,7 +23,9 @@
     "DOTNET_NOLOGO": "1",
     "NUGET_XMLDOC_MODE": "skip",
     "NODE_OPTIONS": "--max-old-space-size=4096",
-    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude-config"
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude-config",
+    "OMO_DISABLE_POSTHOG": "1",
+    "OMO_SEND_ANONYMOUS_TELEMETRY": "0"
   },
   "mounts": [
     "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude-config,type=volume",
