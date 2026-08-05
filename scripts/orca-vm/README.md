@@ -8,6 +8,11 @@ declared by the dev container. Codex's WSL-hosted `~/.codex/auth.json` is mounte
 as a single read/write file so refreshes persist without exposing or copying the
 rest of the host Codex directory.
 
+GitHub App credentials and the WSL2-generated automation signing-key export are
+mounted read-only from `.devcontainer/github-app` at runtime. They are not
+present during the base build and are never committed into the image. Startup
+imports the signing key into the disposable container's writable GPG home.
+
 The lifecycle commands in `orca.yaml` bridge Orca Desktop on Windows directly
 into this WSL checkout. This avoids `cmd.exe`, which cannot use a WSL UNC path
 as its working directory. Update the `--distribution` or `--cd` values if the

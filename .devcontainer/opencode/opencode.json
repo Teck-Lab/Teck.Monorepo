@@ -31,9 +31,8 @@
       "enabled": true
     },
     "github": {
-      "type": "remote",
-      "url": "https://api.githubcopilot.com/mcp/",
-      "headers": { "Authorization": "Bearer {env:GITHUB_TOKEN}" },
+      "type": "local",
+      "command": ["/usr/local/bin/teck-github-mcp"],
       "enabled": true
     }
   },

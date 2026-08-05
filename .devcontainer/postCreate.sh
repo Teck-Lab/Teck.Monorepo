@@ -130,16 +130,6 @@ if command -v gh >/dev/null 2>&1; then
     || echo "WARN: gh is not logged in — run 'gh auth login' (github MCP will fail until then)"
 fi
 
-echo "==> Exposing GITHUB_TOKEN (from gh) to OpenCode via ~/.bashrc"
-# opencode.json references it as {env:GITHUB_TOKEN} for the github MCP's
-# Authorization header. Read live from `gh auth token` rather than copied, so it
-# tracks re-auth automatically and no token is written to a file. ~/.config/gh is
-# on its own volume, so the login itself survives rebuilds.
-GH_LINE='command -v gh >/dev/null 2>&1 && export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"'
-if ! grep -qxF "$GH_LINE" "$HOME/.bashrc" 2>/dev/null; then
-  printf '\n# Expose the GitHub token to OpenCode (github MCP)\n%s\n' "$GH_LINE" >> "$HOME/.bashrc"
-fi
-
 echo "==> Exposing CRAWL4AI_API_TOKEN to OpenCode via ~/.bashrc"
 # opencode.json references it as {env:CRAWL4AI_API_TOKEN} for the crawl4ai MCP's
 # Authorization header. Same dynamic-load pattern as the gateway key above: the
@@ -253,5 +243,11 @@ else
   echo "WARN: no host keyring at ~/.gnupg-host — commits will FAIL (commit.gpgsign is true)."
   echo "      The bind mount in devcontainer.json expects ~/.gnupg to exist on the host."
 fi
+
+echo "==> Applying the dedicated GitHub automation commit identity"
+# When populated, this overrides the personal host key copied above. Keeping the
+# fallback makes the container usable before the local-only automation bundle is
+# initialized. The helper imports a development-only signing key and verifies it.
+teck-setup-github-automation
 
 echo "==> postCreate complete"

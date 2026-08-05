@@ -7,6 +7,7 @@ orca_state_file="$orca_vm_dir/local-state.json"
 orca_windows_profile="$(/mnt/c/Windows/System32/cmd.exe /d /c 'echo %USERPROFILE%' 2>/dev/null | tr -d '\r')"
 orca_key_file="${ORCA_SSH_KEY_FILE:-$(wslpath -u "$orca_windows_profile")/.ssh/orca-teck-local-ed25519}"
 orca_codex_auth_file="${ORCA_CODEX_AUTH_FILE:-$HOME/.codex/auth.json}"
+orca_github_secrets_dir="${ORCA_GITHUB_SECRETS_DIR:-$orca_repo_root/.devcontainer/github-app}"
 orca_base_image="teck-devcontainer:orca-base"
 orca_project_root="/workspaces/Teck.Monorepo"
 
