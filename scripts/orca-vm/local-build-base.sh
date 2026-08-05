@@ -6,6 +6,11 @@ source_image="teck-devcontainer:orca-source"
 repo_url="${ORCA_REPO_URL:-$(git -C "$orca_repo_root" remote get-url origin)}"
 source_ref="${ORCA_SOURCE_REF:-$(git -C "$orca_repo_root" branch --show-current)}"
 [ -n "$source_ref" ] || { echo 'Could not resolve the local source ref.' >&2; exit 1; }
+# A standalone bundle cannot use a shallow boundary as an implicit parent.
+# Hydrate history on the host before creating the credential-free snapshot.
+if [ "$(git -C "$orca_repo_root" rev-parse --is-shallow-repository)" = true ]; then
+  git -C "$orca_repo_root" fetch --unshallow origin >&2
+fi
 source_commit="$(git -C "$orca_repo_root" rev-parse "$source_ref")"
 repo_ref="${ORCA_REPO_REF:-$source_ref}"
 
