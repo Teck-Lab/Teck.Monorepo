@@ -57,4 +57,4 @@ trap - EXIT
 bun -e 'import { chmodSync, writeFileSync } from "node:fs"; const [path,baseImage,repoUrl,repoRef,projectRoot,sourceCommit]=process.argv.slice(1); writeFileSync(path, JSON.stringify({baseImage,repoUrl,repoRef,projectRoot,sourceCommit}, null, 2)+"\n"); chmodSync(path, 0o600);' \
   "$orca_state_file" "$orca_base_image" "$repo_url" "$repo_ref" "$orca_project_root" "$source_commit"
 echo "Base image ready: $orca_base_image" >&2
-echo 'Codex and OpenCode auth will be mounted from the dev-container volumes.' >&2
+echo 'Codex and OpenCode auth will be mounted from their WSL2 credential files.' >&2

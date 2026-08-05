@@ -30,6 +30,7 @@
   "mounts": [
     "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude-config,type=volume",
     "source=opencode-data-${devcontainerId},target=/home/vscode/.local/share/opencode,type=volume",
+    "source=${localEnv:HOME}/.local/share/opencode/auth.json,target=/home/vscode/.local/share/opencode/auth.json,type=bind",
     "source=codex-config-${devcontainerId},target=/home/vscode/.codex,type=volume",
     "source=${localEnv:HOME}/.codex/auth.json,target=/home/vscode/.codex/auth.json,type=bind",
     "source=gh-config-${devcontainerId},target=/home/vscode/.config/gh,type=volume",

@@ -35,6 +35,11 @@ docker image inspect "$base_image" >/dev/null 2>&1 || {
   echo "Codex credential file missing: $orca_codex_auth_file" >&2
   exit 1
 }
+[ -s "$orca_opencode_auth_file" ] || {
+  echo "OpenCode credential file missing: $orca_opencode_auth_file" >&2
+  echo "Run 'opencode auth login' in WSL2 before provisioning." >&2
+  exit 1
+}
 ensure_key
 codex_volume="$(resolve_volume ORCA_CODEX_VOLUME codex-config-)"
 opencode_volume="$(resolve_volume ORCA_OPENCODE_VOLUME opencode-data-)"
@@ -51,6 +56,7 @@ docker "${docker_args[@]}" \
   -v "$codex_volume:/home/vscode/.codex" \
   -v "$orca_codex_auth_file:/home/vscode/.codex/auth.json" \
   -v "$opencode_volume:/home/vscode/.local/share/opencode" \
+  -v "$orca_opencode_auth_file:/home/vscode/.local/share/opencode/auth.json" \
   -v "$orca_github_secrets_dir:/run/secrets/teck-github:ro" \
   -e "ORCA_SSH_PUBLIC_KEY=$(<"$orca_key_file.pub")" "$base_image" >/dev/null
 docker exec -u vscode "$name" teck-setup-github-automation >&2
