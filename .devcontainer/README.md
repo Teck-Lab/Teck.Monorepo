@@ -189,13 +189,28 @@ ephemeral). First `opencode` launch needs network to fetch the plugin; the
 OpenAI-backed agents need the one-time `opencode auth login`.
 
 **Auth persists across rebuilds.** OpenCode's data dir `~/.local/share/opencode`
-(holding `auth.json` **and** `mcp-auth.json`) is mounted on a per-project named
+(holding `auth.json` and plugin state) is mounted on a per-project named
 volume (`opencode-data-${devcontainerId}`, alongside the Claude Code one). So
 `opencode auth login` (your ChatGPT subscription) is a **one-time** step that
-survives container rebuilds — oh-my-opencode-slim has no bundled MCP servers
-to authenticate separately (every agent's `mcps` list is empty). (The gateway master key isn't stored here; it's
+survives container rebuilds. GitHub MCP authenticates independently as a GitHub
+App using the read-only local bundle described below. (The gateway master key isn't stored here; it's
 loaded live from `litellm/litellm.env` per shell. Codex authenticates to the
 gateway via env, so it has no stored credential to persist.)
+
+## GitHub MCP and feature orchestration
+
+Codex and OpenCode launch the pinned official GitHub MCP server locally over
+stdio. It authenticates as a repository-scoped GitHub App from files mounted
+read-only at `/run/secrets/teck-github`; see `github-app/README.md`. The exposed
+tool allowlist supports issues/sub-issues, PR creation/update, repository reads,
+and CI inspection. It excludes remote file commits, branch creation, workflow
+dispatch, PR review submission, and merge.
+
+For one-container feature development, use the repo-owned `teck-feature-flow`
+skill and `tools/orca-feature`. GitHub sub-issues map to ordinary internal Git
+worktrees and Orca Tasks/Dispatches, while all workers stay inside the parent
+feature container. The coordinator integrates the signed worker commits into
+one parent branch and opens one final PR for human approval.
 
 ## What survives a rebuild (auth & state)
 
@@ -204,7 +219,8 @@ gateway via env, so it has no stored credential to persist.)
 | `/home/vscode/.claude-config` | volume `claude-code-config-*` | **all** Claude Code state — `.credentials.json`, `.claude.json`, settings, plugins, transcripts |
 | `/home/vscode/.local/share/opencode` | volume `opencode-data-*` | OpenCode `auth.json`, `mcp-auth.json`, memory DB |
 | `/home/vscode/.codex` | volume `codex-config-*` | Codex `auth.json` if you ever `codex login` |
-| `/home/vscode/.gnupg` | copied from host bind mount | GPG signing key (see below) |
+| `/run/secrets/teck-github` | read-only workspace bind | GitHub App PEM/config and automation signing-key export |
+| `/home/vscode/.gnupg` | imported/copied from read-only mounts | Active GPG signing key (see below) |
 | `~/.config/opencode` | **not** persisted — by design | re-seeded from `.devcontainer/opencode/` every build |
 
 **`CLAUDE_CONFIG_DIR` is load-bearing.** It's set to `/home/vscode/.claude-config` in
@@ -220,9 +236,12 @@ so a leading `~` is taken literally and you get a directory named `~` in your wo
 
 ## Commit signing (GPG)
 
-Commits are GPG-signed with key `FF4693E3D74495BA`. The host keyring is bind-mounted
-**read-only** at `~/.gnupg-host` and copied to `~/.gnupg` by `postCreate.sh`, so gpg-agent
-runs **inside** the container against real local key material.
+Agent commits use the dedicated automation key generated on WSL2 by
+`scripts/github-automation/init-local-secrets.sh`. Its private export remains
+gitignored on WSL2, is mounted **read-only** under `/run/secrets/teck-github`,
+and is imported into writable `~/.gnupg` by `postCreate.sh`. Until that bundle
+is initialized, the existing read-only host keyring at `~/.gnupg-host` remains
+the fallback so the container is still usable.
 
 **Why not VS Code's built-in GPG forwarding:** it worked, until it didn't. Forwarding is an
 implicit, undeclared socket bind to the host agent that drops on window reloads, container
@@ -233,13 +252,14 @@ connection error — it looks like your key vanished. There is nothing to discon
 **Why copy instead of using the mount directly:** gpg requires `0700` on its home directory
 and writes sockets/`trustdb`/`random_seed` at runtime, so a read-only mount can't serve as
 `GNUPGHOME`. Mounting read-**write** would let this container corrupt the host keyring, so
-we don't. The copy is ephemeral and refreshed each build; the host keyring stays the single
-source of truth.
+we don't. The writable keyring is ephemeral and refreshed at container setup;
+the WSL2 automation bundle remains the source of truth.
 
-`postCreate.sh` sets a 400-day agent cache and verifies a secret key is genuinely reachable,
-printing a loud warning if not — so a broken setup surfaces at build time rather than
-mid-way through a long unattended agent run. If your key has a passphrase, unlock it once
-per container: `echo test | gpg --clearsign > /dev/null`.
+`postCreate.sh` verifies the automation key by creating a detached signature,
+so a broken setup surfaces at startup instead of halfway through an agent run.
+The development-only automation key is generated without a passphrase for
+unattended workers; its filesystem mount and GitHub repository scope are the
+security boundaries.
 
 > A key mounted here is usable by anything running in the container, agents included. That
 > is the accepted trade for unattended signing.
