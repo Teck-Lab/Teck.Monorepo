@@ -334,6 +334,9 @@ function showStatus(options: ParsedOptions): void {
 }
 
 function dispatchInfo(options: ParsedOptions): void {
+  if (option(options, "--harness") !== undefined || options.flags.has("--harness")) {
+    throw new FlowError("--harness was removed; full OMO is the only worker runtime");
+  }
   const root = repositoryRoot();
   const state = loadState(root);
   const entry = entryFor(state, integerOption(options, "--issue"));
@@ -360,7 +363,6 @@ function dispatchInfo(options: ParsedOptions): void {
   console.log(JSON.stringify({
     ...entry,
     executionMode: mode,
-    harness: "full",
     primaryAgent: agent,
     tmuxSession,
     launcherArgs,
