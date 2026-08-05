@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 
 type Kind = "feature" | "plan-defect" | "validation";
 type WorkStatus = "ready" | "dispatched" | "completed" | "blocked" | "integrated" | "removed";
+type ExecutionMode = "planned" | "autonomous" | "quick" | "spike";
 
 interface WorktreeEntry {
   issue: number;
@@ -14,6 +15,7 @@ interface WorktreeEntry {
   branch: string;
   path: string;
   dependsOn: number[];
+  executionMode: ExecutionMode;
   status: WorkStatus;
   integratedCommit?: string;
 }
@@ -93,6 +95,35 @@ function slugify(value: string): string {
   const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   if (!slug) throw new FlowError("slug must contain a letter or number");
   return slug;
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+function executionMode(raw: string | undefined, fallback: ExecutionMode = "planned"): ExecutionMode {
+  const value = raw ?? fallback;
+  if (!(["planned", "autonomous", "quick", "spike"] as string[]).includes(value)) {
+    throw new FlowError(`unsupported --mode: ${value}`);
+  }
+  return value as ExecutionMode;
+}
+
+function primaryAgent(mode: ExecutionMode, harness: string): string {
+  if (harness === "slim") return "orchestrator";
+  return ["autonomous", "spike"].includes(mode) ? "hephaestus" : "prometheus";
+}
+
+function workerSession(state: FeatureState, entry: WorktreeEntry): string {
+  return `teck-${state.parentIssue}-${entry.issue}-${entry.slug}`.slice(0, 72);
+}
+
+function stopWorkerSession(state: FeatureState, entry: WorktreeEntry): boolean {
+  const session = workerSession(state, entry);
+  const exists = run(["tmux", "has-session", "-t", `=${session}`], undefined, false);
+  if (exists.exitCode !== 0) return false;
+  run(["tmux", "kill-session", "-t", `=${session}`]);
+  return true;
 }
 
 function branchExists(root: string, branch: string): boolean {
@@ -260,9 +291,20 @@ function addWorktree(options: ParsedOptions): void {
   const rawKind = option(options, "--kind") ?? "feature";
   if (!["feature", "plan-defect", "validation"].includes(rawKind)) throw new FlowError(`unsupported --kind: ${rawKind}`);
   const kind = rawKind as Kind;
+  const mode = executionMode(option(options, "--mode"), kind === "validation" ? "quick" : "planned");
   mkdirSync(dirname(path), { recursive: true });
   git(["worktree", "add", "-b", branch, path, state.parentBranch], root);
-  const entry: WorktreeEntry = { issue, title, slug, kind, branch, path, dependsOn: dependencies, status: "ready" };
+  const entry: WorktreeEntry = {
+    issue,
+    title,
+    slug,
+    kind,
+    branch,
+    path,
+    dependsOn: dependencies,
+    executionMode: mode,
+    status: "ready",
+  };
   state.worktrees.push(entry);
   state.worktrees.sort((a, b) => a.issue - b.issue);
   saveState(root, state);
@@ -298,14 +340,41 @@ function dispatchInfo(options: ParsedOptions): void {
   const entry = entryFor(state, integerOption(options, "--issue"));
   const pending = entry.dependsOn.filter((issue) => entryFor(state, issue).status !== "integrated");
   const status = worktreeStatus(root, state, entry);
+  const mode = executionMode(option(options, "--mode"), entry.executionMode ?? "planned");
+  const harness = option(options, "--harness") ?? "full";
+  if (!(["full", "slim"] as string[]).includes(harness)) throw new FlowError(`unsupported --harness: ${harness}`);
+  const agent = primaryAgent(mode, harness);
+  const tmuxSession = workerSession(state, entry);
+  const launcherArgs = [
+    "teck-omo-worker",
+    "--worktree", entry.path,
+    "--parent-issue", String(state.parentIssue),
+    "--issue", String(entry.issue),
+    "--slug", entry.slug,
+    "--mode", mode,
+    "--harness", harness,
+  ];
+  const modeInstruction = mode === "planned"
+    ? "Use Prometheus to create and review a constrained plan, then /start-work so Atlas executes it."
+    : mode === "quick"
+      ? "Use Prometheus to create a compact bounded plan, then /start-work so Atlas delegates inexpensive quick tasks."
+      : mode === "spike"
+        ? "Use Hephaestus for a bounded investigation; do not create production commits unless the task explicitly requires them."
+        : "Use Hephaestus as the autonomous GPT-native primary executor for this deep task.";
   console.log(JSON.stringify({
     ...entry,
+    executionMode: mode,
+    harness,
+    primaryAgent: agent,
+    tmuxSession,
+    launcherArgs,
+    terminalCommand: launcherArgs.map(shellQuote).join(" "),
     parentIssue: state.parentIssue,
     parentBranch: state.parentBranch,
     blockedBy: pending,
     needsSync: status.behind > 0,
     ready: pending.length === 0 && status.behind === 0 && entry.status === "ready",
-    taskSpec: `Implement GitHub sub-issue #${entry.issue} (${entry.kind}): ${entry.title || entry.slug}. Work only in ${entry.path} on branch ${entry.branch}. Run relevant checks and create signed conventional commits.`,
+    taskSpec: `Implement GitHub sub-issue #${entry.issue} (${entry.kind}, ${mode}): ${entry.title || entry.slug}. ${modeInstruction} Work only in ${entry.path} on branch ${entry.branch}. Nested agents may not commit, push, merge, create worktrees, mutate GitHub, or send Orca lifecycle messages. The primary worker must review delegated output, run relevant checks, create signed conventional commits when implementation changes are made, and send worker_done exactly once.`,
   }, null, 2));
 }
 
@@ -380,10 +449,19 @@ function removeWorktree(options: ParsedOptions): void {
   if (git(["merge-base", "--is-ancestor", entry.branch, state.parentBranch], root, false).exitCode !== 0) {
     throw new FlowError(`refusing to remove #${issue}: branch is not contained in ${state.parentBranch}`);
   }
+  stopWorkerSession(state, entry);
   if (existsSync(entry.path)) git(["worktree", "remove", entry.path], root);
   entry.status = "removed";
   saveState(root, state);
   console.log(`Removed worktree for #${issue}; branch retained: ${entry.branch}`);
+}
+
+function stopWorker(options: ParsedOptions): void {
+  const root = repositoryRoot();
+  const state = loadState(root);
+  const entry = entryFor(state, integerOption(options, "--issue"));
+  const stopped = stopWorkerSession(state, entry);
+  console.log(stopped ? `Stopped tmux worker ${workerSession(state, entry)}` : `No tmux worker is running for #${entry.issue}`);
 }
 
 function prInfo(): void {
@@ -410,6 +488,7 @@ commands:
   dispatch-info  emit an Orca task/terminal payload
   sync           fast-forward undispatched dependent work to the parent
   set-status     record worker lifecycle state
+  stop           stop the sub-issue's tmux worker session
   integrate      merge a completed sub-feature into the parent
   remove         remove an integrated worktree without deleting its branch
   pr-info        emit final PR readiness and branch information`;
@@ -428,6 +507,7 @@ function main(): void {
     case "dispatch-info": dispatchInfo(options); break;
     case "sync": syncWorktree(options); break;
     case "set-status": setWorkStatus(options); break;
+    case "stop": stopWorker(options); break;
     case "integrate": integrate(options); break;
     case "remove": removeWorktree(options); break;
     case "pr-info": prInfo(); break;

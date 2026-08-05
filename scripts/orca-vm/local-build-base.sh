@@ -4,11 +4,10 @@ source "$(dirname "$0")/local-common.sh"
 
 source_image="teck-devcontainer:orca-source"
 repo_url="${ORCA_REPO_URL:-$(git -C "$orca_repo_root" remote get-url origin)}"
-default_ref="$(git -C "$orca_repo_root" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)"
-default_ref="${default_ref#origin/}"
-repo_ref="${ORCA_REPO_REF:-$default_ref}"
-[ -n "$repo_ref" ] || repo_ref=main
-prepare_github_secrets
+source_ref="${ORCA_SOURCE_REF:-$(git -C "$orca_repo_root" branch --show-current)}"
+[ -n "$source_ref" ] || { echo 'Could not resolve the local source ref.' >&2; exit 1; }
+source_commit="$(git -C "$orca_repo_root" rev-parse "$source_ref")"
+repo_ref="${ORCA_REPO_REF:-$source_ref}"
 
 echo 'Building the existing dev-container definition...' >&2
 npx --yes @devcontainers/cli build \
@@ -23,34 +22,34 @@ docker build --build-arg "DEVCONTAINER_IMAGE=$source_image" \
 # the committed layer. A failed preparation always removes its container.
 ensure_key
 prep="teck-orca-base-prep"
+source_bundle="$(mktemp /tmp/teck-orca-source.XXXXXX.bundle)"
+git -C "$orca_repo_root" bundle create "$source_bundle" "$source_ref" >&2
 docker rm -f "$prep" >/dev/null 2>&1 || true
 cleanup() {
   docker rm -f "$prep" >/dev/null 2>&1 || true
+  rm -f -- "$source_bundle"
   cleanup_runtime_secrets || true
 }
 trap cleanup EXIT
-token="$(github_app_token read)"
 docker run -d --name "$prep" \
   -e "ORCA_SSH_PUBLIC_KEY=$(<"$orca_key_file.pub")" "$orca_base_image" >/dev/null
 docker exec "$prep" bash -lc 'mkdir -p /workspaces && chown vscode:vscode /workspaces'
+docker cp "$source_bundle" "$prep:/tmp/teck-orca-source.bundle"
+docker exec "$prep" chown vscode:vscode /tmp/teck-orca-source.bundle
 docker exec -u vscode \
-  -e "GH_TOKEN=$token" -e "ORCA_REPO_URL=$repo_url" -e "ORCA_REPO_REF=$repo_ref" \
+  -e "ORCA_REPO_URL=$repo_url" -e "ORCA_REPO_REF=$repo_ref" -e "ORCA_SOURCE_COMMIT=$source_commit" \
   "$prep" bash -lc 'set -euo pipefail
-    askpass=/tmp/orca-git-askpass
-    printf "%s\n" "#!/usr/bin/env bash" "case \"\$1\" in *Username*) echo x-access-token;; *Password*) echo \"\$GH_TOKEN\";; esac" > "$askpass"
-    chmod 700 "$askpass"
-    export GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0
-    git clone --branch "$ORCA_REPO_REF" --single-branch "$ORCA_REPO_URL" /workspaces/Teck.Monorepo
-    rm -f "$askpass"
+    git clone /tmp/teck-orca-source.bundle /workspaces/Teck.Monorepo
     cd /workspaces/Teck.Monorepo
+    git remote set-url origin "$ORCA_REPO_URL"
+    git checkout -B "$ORCA_REPO_REF" "$ORCA_SOURCE_COMMIT"
     bash .devcontainer/postCreate.sh'
-docker exec "$prep" rm -f /tmp/orca-git-askpass
 docker commit --change='ENTRYPOINT ["/usr/local/bin/orca-docker-ssh-entrypoint"]' \
   "$prep" "$orca_base_image" >/dev/null
 cleanup
 trap - EXIT
 
-python3 -c 'import json,os,sys; p,base,url,ref,root=sys.argv[1:]; open(p,"w").write(json.dumps({"baseImage":base,"repoUrl":url,"repoRef":ref,"projectRoot":root},indent=2)+"\n"); os.chmod(p,0o600)' \
-  "$orca_state_file" "$orca_base_image" "$repo_url" "$repo_ref" "$orca_project_root"
+bun -e 'import { chmodSync, writeFileSync } from "node:fs"; const [path,baseImage,repoUrl,repoRef,projectRoot,sourceCommit]=process.argv.slice(2); writeFileSync(path, JSON.stringify({baseImage,repoUrl,repoRef,projectRoot,sourceCommit}, null, 2)+"\n"); chmodSync(path, 0o600);' \
+  "$orca_state_file" "$orca_base_image" "$repo_url" "$repo_ref" "$orca_project_root" "$source_commit"
 echo "Base image ready: $orca_base_image" >&2
 echo 'Codex and OpenCode auth will be mounted from the dev-container volumes.' >&2

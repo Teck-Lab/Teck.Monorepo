@@ -40,8 +40,18 @@ Register each GitHub sub-issue locally:
 ```bash
 tools/orca-feature add --issue 121 --title "Tax system" --kind feature --json
 tools/orca-feature add --issue 122 --title "Rounding policy is undefined" \
-  --kind plan-defect --depends-on 121 --json
+  --kind plan-defect --mode planned --depends-on 121 --json
 ```
+
+Execution modes are durable local routing policy:
+
+- `planned` (default): Prometheus plans and reviews; `/start-work` hands the
+  plan to Atlas for execution.
+- `quick`: the same Prometheus -> Atlas ownership path with an intentionally
+  compact plan and inexpensive `quick` delegation.
+- `autonomous`: Hephaestus owns a deep end-to-end implementation.
+- `spike`: Hephaestus performs a bounded investigation; production commits are
+  required only when the task explicitly requests them.
 
 Register dependencies only after the referenced worktree exists. If the active
 GitHub MCP version cannot mutate issue dependencies, comment `Blocked by #121`
@@ -70,19 +80,22 @@ Create an Orca Task using `taskSpec`. Translate `dependsOn` issue numbers to
 the corresponding Orca Task IDs and pass them as Task dependencies.
 
 `worker-start --worktree new-*` is wrong for this topology because it creates a
-separate Orca workspace/environment. Create a terminal in the active workspace
-with a command that changes into the internal worktree:
+separate Orca workspace/environment. Read `terminalCommand`, `taskSpec`,
+`primaryAgent`, and `tmuxSession` from `dispatch-info`; never reconstruct them.
+Create a terminal in the active workspace with the emitted command:
 
 ```bash
 orca-ide terminal create --worktree active --title issue-121-tax \
-  --command "cd '/workspaces/.orca-worktrees/120/121-tax-system' && codex" --json
+  --command "<terminalCommand from dispatch-info>" --json
 orca-ide terminal wait --terminal <handle> --for tui-idle --timeout-ms 60000 --json
 orca-ide orchestration dispatch --task <task_id> --to <handle> --inject --json
 tools/orca-feature set-status --issue 121 --status dispatched
 ```
 
-Use `opencode` instead of `codex` when selected. Read the exact worktree path
-from `dispatch-info`; never reconstruct it from memory. Start all independent
+The launcher creates or attaches one foreground tmux session per sub-issue,
+allocates a unique OpenCode server port, fixes the session working directory to
+the assigned Git worktree, and starts full OMO. Use `--harness slim` on
+`dispatch-info` only for an intentional evaluation run. Start all independent
 ready workers before waiting.
 
 ## 4. Supervise completion
@@ -95,6 +108,13 @@ guide. A worker must:
 2. Run relevant validation.
 3. Create signed conventional commits.
 4. Send `worker_done` exactly once with outcome and modified files.
+
+For `planned` and `quick` work, Prometheus writes and reviews the constrained
+plan before `/start-work` transfers execution to Atlas in the same OpenCode
+session. Atlas remains the primary Orca worker: it reviews delegated output,
+validates, signs the conventional commit, and sends `worker_done`. For
+`autonomous` and `spike`, Hephaestus is the primary worker. Do not run Atlas and
+Hephaestus as concurrent writers in one worktree.
 
 After successful `worker_done`:
 
@@ -128,6 +148,10 @@ branch:
 ```bash
 tools/orca-feature remove --issue 121
 ```
+
+`remove` stops the sub-issue's exact tmux session before removing the clean
+worktree. To stop a worker without removing its worktree, use
+`tools/orca-feature stop --issue 121`.
 
 ## 6. Prepare the final PR
 

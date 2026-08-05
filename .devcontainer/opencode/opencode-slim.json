@@ -2,10 +2,11 @@
   "$schema": "https://opencode.ai/config.json",
   "model": "litellm/deepseek-v4-pro",
   "plugin": [
-    "oh-my-openagent@4.19.4",
+    "oh-my-opencode-slim@2.2.10",
     "cc-safety-net",
     "opencode-mem",
-    "opencode-snip@1.6.1"
+    "opencode-snip@1.6.1",
+    "superpowers@git+https://github.com/obra/superpowers.git"
   ],
   "agent": {
     "explore": { "disable": true },

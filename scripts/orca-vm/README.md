@@ -31,6 +31,9 @@ checkout moves or the WSL distro name changes.
 
 1. Build the reusable base (this runs the dev-container build and repo setup):
    `./scripts/orca-vm/local-build-base.sh`
+   The build snapshots the current local branch, including commits that have
+   not been pushed. Use `ORCA_SOURCE_REF=main ./scripts/orca-vm/local-build-base.sh`
+   after merging locally to make local `main` the environment baseline.
 2. Ensure Codex and OpenCode are signed in through the normal dev container.
 3. Validate provisioning:
    `orca-ide vm recipe doctor local-devcontainer --repo-path . --provision --json`

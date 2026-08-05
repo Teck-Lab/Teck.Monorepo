@@ -18,6 +18,10 @@ project_root="${ORCA_PROJECT_ROOT:-$(state_value projectRoot)}"
 repo_url="${ORCA_REPO_URL:-$(state_value repoUrl)}"
 repo_ref="${ORCA_REPO_REF:-$(state_value repoRef)}"
 [ -n "$repo_ref" ] || repo_ref=main
+source_commit="$(state_value sourceCommit)"
+# An explicit ref override asks for remote state. Otherwise preserve the exact
+# locally snapshotted commit recorded by local-build-base.sh.
+[ -z "${ORCA_REPO_REF:-}" ] || source_commit=""
 prepare_github_secrets
 docker image inspect "$base_image" >/dev/null 2>&1 || {
   echo "Base image missing; run local-build-base.sh first." >&2
@@ -50,7 +54,12 @@ port="$(docker port "$name" 22/tcp | sed -nE 's/.*:([0-9]+)$/\1/p' | head -1)"
 [ -n "$port" ] || { docker logs "$name" >&2; echo 'Could not resolve the published SSH port.' >&2; exit 1; }
 
 token="$(github_app_token read)"
-if [ -n "$token" ] && [ -n "$repo_url" ]; then
+if [ -n "$source_commit" ]; then
+  docker exec -u vscode -e "ORCA_REPO_REF=$repo_ref" -e "ORCA_SOURCE_COMMIT=$source_commit" "$name" bash -lc \
+    'set -euo pipefail; cd /workspaces/Teck.Monorepo
+     git cat-file -e "$ORCA_SOURCE_COMMIT^{commit}"
+     git checkout -B "$ORCA_REPO_REF" "$ORCA_SOURCE_COMMIT"' >&2
+elif [ -n "$token" ] && [ -n "$repo_url" ]; then
   docker exec -u vscode -e "GH_TOKEN=$token" -e "ORCA_REPO_REF=$repo_ref" "$name" bash -lc \
     'set -euo pipefail; cd /workspaces/Teck.Monorepo
      askpass=/tmp/orca-git-askpass

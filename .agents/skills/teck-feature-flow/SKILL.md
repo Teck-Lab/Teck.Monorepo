@@ -1,6 +1,6 @@
 ---
 name: teck-feature-flow
-description: Coordinate a Teck feature from a GitHub parent issue and sub-issues using one Orca feature container, internal Git worktrees, Codex/OpenCode workers, signed conventional commits, local integration, and one final reviewed PR. Use when starting or continuing an issue-backed feature, turning plan-review defects into tracked sub-work, dispatching parallel sub-features, integrating completed worker branches, or preparing the feature PR.
+description: Coordinate a Teck feature from a GitHub parent issue and sub-issues using one Orca feature container, internal Git worktrees, full OMO/OpenCode workers, signed conventional commits, local integration, and one final reviewed PR. Use when starting or continuing an issue-backed feature, turning plan-review defects into tracked sub-work, dispatching parallel sub-features, integrating completed worker branches, or preparing the feature PR.
 ---
 
 # Teck feature flow
@@ -21,6 +21,16 @@ resolved Orca CLI before running orchestration commands.
 ## Guardrails
 
 - Let workers commit only in their assigned internal worktrees.
+- Use full OMO by default. Keep OMO Slim only as an explicitly selected A/B
+  baseline; never load both orchestration plugins in one OpenCode process.
+- Use Prometheus -> Atlas for `planned` and `quick` work. Use Hephaestus only
+  for explicitly `autonomous` or `spike` work, or a coordinator-approved
+  escalation after Atlas has stopped editing.
+- Treat tmux as process visibility, never lifecycle authority. Only an Orca
+  `worker_done`, `question`, or `escalation` changes coordinator state.
+- Let nested OMO agents edit only within the assigned worktree. They may not
+  commit, push, merge, create worktrees, mutate GitHub, or send Orca lifecycle
+  messages; the primary worker owns those responsibilities.
 - Let the coordinator alone merge into and push the parent feature branch.
 - Use conventional commits and require commit signing.
 - Treat plan-review defects as parent sub-issues with `kind=plan-defect`.
