@@ -4,6 +4,11 @@ set -euo pipefail
 # `wsl.exe --exec` starts a non-login shell, so user-local CLIs are not
 # guaranteed to be present on PATH even when they work interactively.
 export PATH="$HOME/.local/bin:$PATH"
+if ! command -v node >/dev/null 2>&1; then
+  for node_bin in "$HOME"/.nvm/versions/node/*/bin; do
+    [ -x "$node_bin/node" ] && export PATH="$node_bin:$PATH"
+  done
+fi
 
 orca_vm_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 orca_repo_root="$(cd "$orca_vm_dir/../.." && pwd)"
