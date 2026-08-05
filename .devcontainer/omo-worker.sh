@@ -5,7 +5,7 @@ usage() {
   cat <<'EOF'
 usage: teck-omo-worker --worktree PATH --parent-issue N --issue N --slug SLUG
                        [--mode planned|autonomous|quick|spike]
-                       [--harness full|slim] [--dry-run]
+                       [--dry-run]
 EOF
 }
 
@@ -14,7 +14,6 @@ parent_issue=""
 issue=""
 slug=""
 mode="planned"
-harness="full"
 dry_run=false
 
 while (($#)); do
@@ -24,7 +23,6 @@ while (($#)); do
     --issue) issue="${2:-}"; shift 2 ;;
     --slug) slug="${2:-}"; shift 2 ;;
     --mode) mode="${2:-}"; shift 2 ;;
-    --harness) harness="${2:-}"; shift 2 ;;
     --dry-run) dry_run=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -38,11 +36,7 @@ case "$mode" in
   autonomous|spike) primary_agent="hephaestus" ;;
   *) echo "unsupported --mode: $mode" >&2; exit 2 ;;
 esac
-case "$harness" in
-  full) config_dir="$HOME/.config/opencode" ;;
-  slim) config_dir="$HOME/.config/opencode/profiles/slim"; primary_agent="orchestrator" ;;
-  *) echo "unsupported --harness: $harness" >&2; exit 2 ;;
-esac
+config_dir="$HOME/.config/opencode"
 
 test -n "$worktree" || { echo "--worktree is required" >&2; exit 2; }
 test -n "$slug" || { echo "--slug is required" >&2; exit 2; }
@@ -61,8 +55,8 @@ session="${session:0:72}"
 
 if tmux has-session -t "=$session" 2>/dev/null; then
   if $dry_run; then
-    printf '{"session":"%s","existing":true,"agent":"%s","mode":"%s","harness":"%s","worktree":"%s"}\n' \
-      "$session" "$primary_agent" "$mode" "$harness" "$worktree"
+    printf '{"session":"%s","existing":true,"agent":"%s","mode":"%s","harness":"full","worktree":"%s"}\n' \
+      "$session" "$primary_agent" "$mode" "$worktree"
     exit 0
   fi
   exec tmux attach-session -t "=$session"
@@ -72,8 +66,8 @@ port="$(bun -e 'const s=Bun.listen({hostname:"127.0.0.1",port:0,socket:{data(){}
 [[ "$port" =~ ^[1-9][0-9]*$ ]] || { echo "could not allocate an OpenCode port" >&2; exit 1; }
 
 if $dry_run; then
-  printf '{"session":"%s","existing":false,"agent":"%s","mode":"%s","harness":"%s","worktree":"%s","port":%s,"configDir":"%s"}\n' \
-    "$session" "$primary_agent" "$mode" "$harness" "$worktree" "$port" "$config_dir"
+  printf '{"session":"%s","existing":false,"agent":"%s","mode":"%s","harness":"full","worktree":"%s","port":%s,"configDir":"%s"}\n' \
+    "$session" "$primary_agent" "$mode" "$worktree" "$port" "$config_dir"
   exit 0
 fi
 

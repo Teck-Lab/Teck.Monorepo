@@ -94,9 +94,8 @@ tools/orca-feature set-status --issue 121 --status dispatched
 
 The launcher creates or attaches one foreground tmux session per sub-issue,
 allocates a unique OpenCode server port, fixes the session working directory to
-the assigned Git worktree, and starts full OMO. Use `--harness slim` on
-`dispatch-info` only for an intentional evaluation run. Start all independent
-ready workers before waiting.
+the assigned Git worktree, and starts full OMO. Start all independent ready
+workers before waiting.
 
 ## 4. Supervise completion
 

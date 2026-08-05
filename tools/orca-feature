@@ -109,8 +109,7 @@ function executionMode(raw: string | undefined, fallback: ExecutionMode = "plann
   return value as ExecutionMode;
 }
 
-function primaryAgent(mode: ExecutionMode, harness: string): string {
-  if (harness === "slim") return "orchestrator";
+function primaryAgent(mode: ExecutionMode): string {
   return ["autonomous", "spike"].includes(mode) ? "hephaestus" : "prometheus";
 }
 
@@ -341,9 +340,7 @@ function dispatchInfo(options: ParsedOptions): void {
   const pending = entry.dependsOn.filter((issue) => entryFor(state, issue).status !== "integrated");
   const status = worktreeStatus(root, state, entry);
   const mode = executionMode(option(options, "--mode"), entry.executionMode ?? "planned");
-  const harness = option(options, "--harness") ?? "full";
-  if (!(["full", "slim"] as string[]).includes(harness)) throw new FlowError(`unsupported --harness: ${harness}`);
-  const agent = primaryAgent(mode, harness);
+  const agent = primaryAgent(mode);
   const tmuxSession = workerSession(state, entry);
   const launcherArgs = [
     "teck-omo-worker",
@@ -352,7 +349,6 @@ function dispatchInfo(options: ParsedOptions): void {
     "--issue", String(entry.issue),
     "--slug", entry.slug,
     "--mode", mode,
-    "--harness", harness,
   ];
   const modeInstruction = mode === "planned"
     ? "Use Prometheus to create and review a constrained plan, then /start-work so Atlas executes it."
@@ -364,7 +360,7 @@ function dispatchInfo(options: ParsedOptions): void {
   console.log(JSON.stringify({
     ...entry,
     executionMode: mode,
-    harness,
+    harness: "full",
     primaryAgent: agent,
     tmuxSession,
     launcherArgs,
