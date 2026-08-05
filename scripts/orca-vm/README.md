@@ -34,6 +34,8 @@ checkout moves or the WSL distro name changes.
    The build snapshots the current local branch, including commits that have
    not been pushed. Use `ORCA_SOURCE_REF=main ./scripts/orca-vm/local-build-base.sh`
    after merging locally to make local `main` the environment baseline.
+   Set `ORCA_FETCH_REMOTE=1` during creation only when the recorded snapshot
+   should deliberately be replaced with the configured remote ref.
 2. Ensure Codex and OpenCode are signed in through the normal dev container.
 3. Validate provisioning:
    `orca-ide vm recipe doctor local-devcontainer --repo-path . --provision --json`

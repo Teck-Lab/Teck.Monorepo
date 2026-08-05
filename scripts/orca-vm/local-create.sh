@@ -16,12 +16,16 @@ base_image="${ORCA_BASE_IMAGE:-$(state_value baseImage)}"
 project_root="${ORCA_PROJECT_ROOT:-$(state_value projectRoot)}"
 [ -n "$project_root" ] || project_root="$orca_project_root"
 repo_url="${ORCA_REPO_URL:-$(state_value repoUrl)}"
-repo_ref="${ORCA_REPO_REF:-$(state_value repoRef)}"
+state_repo_ref="$(state_value repoRef)"
+repo_ref="${ORCA_REPO_REF:-$state_repo_ref}"
 [ -n "$repo_ref" ] || repo_ref=main
 source_commit="$(state_value sourceCommit)"
-# An explicit ref override asks for remote state. Otherwise preserve the exact
-# locally snapshotted commit recorded by local-build-base.sh.
-[ -z "${ORCA_REPO_REF:-}" ] || source_commit=""
+# Orca supplies the configured ref during normal provisioning. Preserve the
+# local snapshot when it matches; only a different ref (or an explicit flag)
+# requests remote state.
+if [ "${ORCA_FETCH_REMOTE:-0}" = 1 ] || { [ -n "${ORCA_REPO_REF:-}" ] && [ "$repo_ref" != "$state_repo_ref" ]; }; then
+  source_commit=""
+fi
 prepare_github_secrets
 docker image inspect "$base_image" >/dev/null 2>&1 || {
   echo "Base image missing; run local-build-base.sh first." >&2
