@@ -30,8 +30,3 @@ printf 'GIT_AUTOMATION_NAME=%q\nGIT_AUTOMATION_EMAIL=%q\nGIT_AUTOMATION_SIGNING_
 openssl pkey -in "$secret_dir/github-app.pem" -noout -check >/dev/null
 chmod 600 "$secret_dir/github-app.env" "$secret_dir/github-app.pem" \
   "$secret_dir/signing-private.asc" "$secret_dir/git.env"
-
-if [ -n "${TECK_GIT_TOKEN:-}" ]; then
-  printf '%s' "$TECK_GIT_TOKEN" > "$runtime_dir/github-token"
-  chmod 600 "$runtime_dir/github-token"
-fi

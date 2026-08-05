@@ -15,8 +15,10 @@ imports the signing key into the disposable container's writable GPG home.
 
 Alternatively, copy `.devcontainer/github-app/proton-pass.env.example` to
 `proton-pass.env` and configure its `pass://` references. The WSL-side create
-hook then uses a narrowly scoped Proton PAT to retrieve the GitHub App, Git PAT,
-and signing material into `/dev/shm`. Proton CLI and its PAT stay outside the
+hook then uses a narrowly scoped Proton PAT to retrieve the GitHub App and
+signing material into `/dev/shm`. Git uses short-lived installation tokens
+minted from that App, so no separate GitHub PAT is stored. Proton CLI and its
+PAT stay outside the
 container; only selected runtime files are mounted. The local-file flow remains
 available when the Proton configuration is absent.
 

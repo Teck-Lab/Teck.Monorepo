@@ -11,7 +11,9 @@ gitignored and are never copied into an image.
 2. Download an RSA private key from the GitHub App settings and save it as
    `github-app.pem`.
 3. Install the App only on the required repository. Grant Metadata read,
-   Contents read, Issues read/write, Pull requests read/write, and Actions read.
+   Contents read/write, Issues read/write, Pull requests read/write, and Actions
+   read. Contents write is used only by the coordinator's Git push wrapper;
+   startup fetch tokens are explicitly down-scoped to Contents read.
    Checks, Commit statuses, Code quality, Code scanning alerts, Dependabot
    alerts, and Secret scanning alerts may be read-only so review agents can
    inspect CI and security findings when corresponding MCP tools are enabled.
@@ -45,7 +47,8 @@ The Orca local recipe can retrieve these credentials through `pass-cli` on WSL
 instead of keeping generated files here:
 
 1. Install Proton Pass CLI on WSL.
-2. Store the GitHub App, Git transport, and signing values in Proton Pass.
+2. Store the GitHub App and signing values in Proton Pass. A separate GitHub
+   PAT is not needed; short-lived App installation tokens authenticate Git.
 3. Create a Proton PAT with viewer access only to those items.
 4. Copy `proton-pass.env.example` to the gitignored `proton-pass.env` and
    replace its `pass://` references with vault/item IDs and field names.
@@ -55,6 +58,12 @@ instead of keeping generated files here:
 When `proton-pass.env` exists, creation fails closed unless every required
 reference resolves. The hook creates an isolated Proton session and selected
 runtime files under WSL `/dev/shm`, logs Proton Pass out immediately, mounts
-only GitHub/GPG files read-only, and injects the Git token only into Git.
+only GitHub/GPG files read-only, and mints a one-hour App installation token
+only for each Git operation.
 Destroy removes both the container and its associated tmpfs directory. Without
 that config, the existing local-file credential directory remains the fallback.
+
+`private-key-pem` is the complete GitHub App `.pem` file.
+`private-key-armored` is the complete `signing-private.asc` value, including
+the `BEGIN/END PGP PRIVATE KEY BLOCK` lines; it is not `git.env`. The signing
+fingerprint is derived automatically after retrieval.
