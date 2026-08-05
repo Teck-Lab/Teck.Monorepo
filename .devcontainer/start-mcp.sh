@@ -4,7 +4,7 @@
 # start (through docker-in-docker).
 #
 # Deliberately failure-tolerant, mirroring start-litellm.sh: these are optional
-# research backends for the slim agents and must never block the container from
+# research backends for OMO agents and must never block the container from
 # coming up.
 set -uo pipefail
 

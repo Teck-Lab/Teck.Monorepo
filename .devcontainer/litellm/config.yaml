@@ -1,7 +1,6 @@
 # LiteLLM proxy config for the dev-container gateway.
 #
-# PER-MODEL POOLS (for full OMO and the isolated Slim evaluation profile, which
-# pin agents/categories to specific
+# PER-MODEL POOLS (for full OMO, which pins agents/categories to specific
 # `provider/model`). Each `model_name` below is a REAL model id; clients call it as
 # `litellm/<model_name>`. Under each name sits a POOL of every route that serves
 # that exact model (flat-rate OpenCode Go, free OpenCode Zen, free NVIDIA NIM, paid
@@ -58,14 +57,6 @@ model_list:
   - model_name: glm-5.2                    # OpenRouter (paid, from credit)
     litellm_params: { model: openrouter/z-ai/glm-5.2, api_key: os.environ/OPENROUTER_API_KEY, rpm: 20, timeout: 60 }
 
-  # ============================ minimax-m3 ===========================
-  - model_name: minimax-m3                 # OpenCode Go sub A (flat-rate)
-    litellm_params: { model: openai/minimax-m3, api_base: *oc_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 60 }
-  - model_name: minimax-m3                 # OpenCode Go sub B
-    litellm_params: { model: openai/minimax-m3, api_base: *oc_base, api_key: *oc_key2, extra_headers: *oc_ua, timeout: 60 }
-  - model_name: minimax-m3                 # OpenRouter (paid, from credit)
-    litellm_params: { model: openrouter/minimax/minimax-m3, api_key: os.environ/OPENROUTER_API_KEY, rpm: 20, timeout: 60 }
-
   # ============================ mimo-v2.5 ============================
   - model_name: mimo-v2.5                  # OpenCode Go sub A (flat-rate)
     litellm_params: { model: openai/mimo-v2.5, api_base: *oc_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 30 }
@@ -85,73 +76,11 @@ model_list:
     litellm_params: { model: openai/kimi-k2.7-code, api_base: *oc_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 30 }
   - model_name: kimi-k2.7-code             # OpenCode Go sub B
     litellm_params: { model: openai/kimi-k2.7-code, api_base: *oc_base, api_key: *oc_key2, extra_headers: *oc_ua, timeout: 30 }
-  # NOTE: there is no plain `kimi-k2.7` on OpenCode Go — the Go /models endpoint
-  # serves kimi-k2.5, kimi-k2.6, kimi-k2.7-code, kimi-k3. Use kimi-k2.7-code for
-  # the K2.7 generation. (A `kimi-k2.7` group used to live here and could never
-  # resolve.) Verify ids against /zen/go/v1/models before adding a route.
-  - model_name: kimi-k2.6                   # OpenCode Go sub A (flat-rate)
-    litellm_params: { model: openai/kimi-k2.6, api_base: *oc_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 30 }
-  - model_name: kimi-k2.6                   # OpenCode Go sub B
-    litellm_params: { model: openai/kimi-k2.6, api_base: *oc_base, api_key: *oc_key2, extra_headers: *oc_ua, timeout: 30 }
-  - model_name: kimi-k2.6                   # NVIDIA NIM (free 40 RPM) — moonshotai/kimi-k2.6
-    litellm_params: { model: openai/moonshotai/kimi-k2.6, api_base: https://integrate.api.nvidia.com/v1, api_key: os.environ/NVIDIA_API_KEY, rpm: 40, timeout: 45 }
-
   # ============================ qwen (OpenCode Go) ===================
-  - model_name: qwen3.7-max                # OpenCode Go sub A (flat-rate)
-    litellm_params: { model: openai/qwen3.7-max, api_base: *oc_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 60 }
-  - model_name: qwen3.7-max                # OpenCode Go sub B
-    litellm_params: { model: openai/qwen3.7-max, api_base: *oc_base, api_key: *oc_key2, extra_headers: *oc_ua, timeout: 60 }
   - model_name: qwen3.7-plus               # OpenCode Go sub A (flat-rate)
     litellm_params: { model: openai/qwen3.7-plus, api_base: *oc_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 30 }
   - model_name: qwen3.7-plus               # OpenCode Go sub B
     litellm_params: { model: openai/qwen3.7-plus, api_base: *oc_base, api_key: *oc_key2, extra_headers: *oc_ua, timeout: 30 }
-  - model_name: qwen3.6-plus               # OpenCode Go sub A (flat-rate) — visual/utility (guide)
-    litellm_params: { model: openai/qwen3.6-plus, api_base: *oc_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 30 }
-  - model_name: qwen3.6-plus               # OpenCode Go sub B
-    litellm_params: { model: openai/qwen3.6-plus, api_base: *oc_base, api_key: *oc_key2, extra_headers: *oc_ua, timeout: 30 }
-  - model_name: qwen3.5-plus               # OpenCode Go sub A (flat-rate) — visual/utility (guide)
-    litellm_params: { model: openai/qwen3.5-plus, api_base: *oc_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 30 }
-  - model_name: qwen3.5-plus               # OpenCode Go sub B
-    litellm_params: { model: openai/qwen3.5-plus, api_base: *oc_base, api_key: *oc_key2, extra_headers: *oc_ua, timeout: 30 }
-
-  # ============================ hy3 ==================================
-  - model_name: hy3                        # OpenCode Go preview, sub A (flat-rate)
-    litellm_params: { model: openai/hy3-preview, api_base: *oc_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 30 }
-  - model_name: hy3                        # OpenCode Go preview, sub B
-    litellm_params: { model: openai/hy3-preview, api_base: *oc_base, api_key: *oc_key2, extra_headers: *oc_ua, timeout: 30 }
-  - model_name: hy3                        # OpenCode Zen FREE
-    litellm_params: { model: openai/hy3-free, api_base: *ocz_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 30 }
-
-  # ============================ OpenCode Zen FREE-only ===============
-  - model_name: nemotron-3-ultra           # OpenCode Zen FREE (no balance consumed)
-    litellm_params: { model: openai/nemotron-3-ultra-free, api_base: *ocz_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 60 }
-  - model_name: north-mini-code            # OpenCode Zen FREE (no balance consumed)
-    litellm_params: { model: openai/north-mini-code-free, api_base: *ocz_base, api_key: *oc_key, extra_headers: *oc_ua, timeout: 30 }
-
-  # ============================ gemini ===============================
-  # WARNING: the Gemini free tier's binding limit is 20 requests per DAY
-  # (GenerateRequestsPerDayPerProjectPerModel-FreeTier), NOT per minute — `rpm`
-  # cannot express a daily cap, so it only guards bursts. This is also a
-  # SINGLE-ROUTE pool and LiteLLM does no cross-model fallback, so once the daily
-  # quota is spent every call 429s hard. Keep high-frequency traffic off it
-  # (that's why opencode-mem auto-capture uses deepseek-v4-flash); reserve it for
-  # low-frequency vision work. Add a second Gemini key here to widen the pool.
-  - model_name: gemini-2.5-flash           # Google Gemini (free tier: 20 req/DAY)
-    litellm_params: { model: gemini/gemini-2.5-flash, api_key: os.environ/GEMINI_API_KEY, rpm: 10, timeout: 60 }
-
-  # ============================ llama-3.3-70b ========================
-  - model_name: llama-3.3-70b              # SambaNova (free)
-    litellm_params: { model: sambanova/Meta-Llama-3.3-70B-Instruct, api_key: os.environ/SAMBANOVA_API_KEY, rpm: 30, timeout: 30 }
-  - model_name: llama-3.3-70b              # Cloudflare Workers AI (acct id from CLOUDFLARE_ACCOUNT_ID env)
-    litellm_params: { model: cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast, api_key: os.environ/CLOUDFLARE_API_KEY, rpm: 20, timeout: 30 }
-
-  # ============================ Cloudflare / SambaNova single-route ==
-  - model_name: deepseek-v3.2              # SambaNova (free)
-    litellm_params: { model: sambanova/DeepSeek-V3.2, api_key: os.environ/SAMBANOVA_API_KEY, rpm: 20, timeout: 60 }
-  - model_name: deepseek-r1-distill-qwen-32b   # Cloudflare
-    litellm_params: { model: cloudflare/@cf/deepseek-ai/deepseek-r1-distill-qwen-32b, api_key: os.environ/CLOUDFLARE_API_KEY, rpm: 20, timeout: 60 }
-  - model_name: qwen2.5-coder-32b          # Cloudflare
-    litellm_params: { model: cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct, api_key: os.environ/CLOUDFLARE_API_KEY, rpm: 20, timeout: 30 }
 
 router_settings:
   # Route each request to the pool member (route) with the most rpm/tpm headroom.

@@ -31,11 +31,9 @@ abstract tier).
 
 ## Load-balancing design
 
-- **One `model_name` per real model id** (17 total: `deepseek-v4-pro`,
-  `deepseek-v4-flash`, `glm-5.2`, `minimax-m3`, `mimo-v2.5`, `kimi-k2.7-code`,
-  `kimi-k2.6`, `qwen3.7-max`, `qwen3.7-plus`, `hy3`, `gemini-2.5-flash`,
-  `llama-3.3-70b`, `deepseek-v3.2`, `deepseek-r1-distill-qwen-32b`,
-  `qwen2.5-coder-32b`, `nemotron-3-ultra`, `north-mini-code`). Clients call
+- **One `model_name` per real model id** (seven total: `deepseek-v4-pro`,
+  `deepseek-v4-flash`, `glm-5.2`, `mimo-v2.5`, `kimi-k3`, `kimi-k2.7-code`, and
+  `qwen3.7-plus`). Clients call
   `litellm/<model_name>`.
 - Under each name is a **pool of every route serving that exact model** (flat-rate
   OpenCode Go A/B, free OpenCode Zen, free NVIDIA NIM, paid DeepSeek API,
@@ -126,17 +124,14 @@ bump), `Dockerfile` (**install `tmux`** for omo; pre-create
   `cc-safety-net` (npm `cc-safety-net`, a PreToolUse hook blocking destructive
   commands), `opencode-mem` (npm, local SQLite+vector memory; config **seeded** at
   `~/.config/opencode/opencode-mem.jsonc` — auto-capture via the litellm gateway
-  `gemini-2.5-flash`, storage under the persisted `~/.local/share/opencode`
-  volume, web UI on forwarded port 4747), and
-  `superpowers` (obra's skills framework, git-backed:
-  `superpowers@git+https://github.com/obra/superpowers.git`, auto-registers its
-  skills dir). cc-safety-net's README suggests a CLI install, but it's a proper
+  `deepseek-v4-flash`, storage under the persisted `~/.local/share/opencode`
+  volume, web UI on forwarded port 4747). cc-safety-net's README suggests a CLI install, but it's a proper
   npm `@opencode-ai/plugin` package so the declarative `plugin`-array form is used.
 - **Split routing** (aligned to omo's agent-model-matching guide): `postCreate.sh`
   seeds `~/.config/opencode/oh-my-openagent.json`. Communicators (sisyphus,
   prometheus, metis, atlas, sisyphus-junior) → **Kimi** (guide's top
-  Claude-alternative; deepseek/minimax/qwen discouraged for these roles); utility
-  (explore, librarian) → **Qwen**; vision (multimodal-looker) → `gemini-2.5-flash`.
+  Claude-alternative); utility (explore, librarian) → **DeepSeek Flash**; vision
+  (multimodal-looker) → native GPT-5.6 Sol.
   All 8 **categories** have a primary + `fallback_models` chain too
   (CategoryConfigSchema supports it): `deep`/`ultrabrain` primary on the GPT sub →
   gateway fallbacks; visual/artistry on Gemini; the rest Kimi/gateway. The GPT-family agents (`hephaestus`, `oracle`, `momus`) are primary on
@@ -175,11 +170,10 @@ bump), `Dockerfile` (**install `tmux`** for omo; pre-create
 
 ### Provider keys (initial local set)
 
-`OPENCODE_GO_KEY`, `OPENCODE_GO_KEY_2` (flat-rate subs, verified primary of every
-pool), `DEEPSEEK_API_KEY` (paid net + co-primary), `NVIDIA_API_KEY` (free 40 RPM),
-and free tier `GEMINI_API_KEY` / `SAMBANOVA_API_KEY` /
-`CLOUDFLARE_API_KEY` + `CLOUDFLARE_ACCOUNT_ID` / `OPENROUTER_API_KEY`. Plus
-`LITELLM_MASTER_KEY` for client→gateway auth.
+`OPENCODE_GO_KEY`, `OPENCODE_GO_KEY_2` (flat-rate subscriptions),
+`DEEPSEEK_API_KEY` (paid fallback routes), `NVIDIA_API_KEY` (free 40 RPM), and
+`OPENROUTER_API_KEY` (paid fallback routes). Plus `LITELLM_MASTER_KEY` for
+client→gateway auth.
 
 ## Auth model
 
@@ -190,7 +184,7 @@ and free tier `GEMINI_API_KEY` / `SAMBANOVA_API_KEY` /
 ## Consuming from OpenCode / omo
 
 OpenAI-compatible provider: base URL `http://localhost:4000` (`/v1`), API key =
-`LITELLM_MASTER_KEY`, model = `litellm/<model_name>` (any of the 17 per-model ids).
+`LITELLM_MASTER_KEY`, model = `litellm/<model_name>` (any of the seven per-model ids).
 omo pins each agent to a specific model and chains across models via its own
 `fallback_models`.
 
