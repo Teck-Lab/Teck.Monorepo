@@ -22,9 +22,17 @@
         "model": "openai/gpt-5.6-terra",
         "reasoning": "high"
       },
+      "metis": {
+        "model": "openai/gpt-5.6-terra",
+        "reasoning": "high"
+      },
       "oracle": {
         "model": "openai/gpt-5.6-sol",
         "reasoning": "xhigh"
+      },
+      "multimodal-looker": {
+        "model": "openai/gpt-5.6-sol",
+        "reasoning": "medium"
       },
       "librarian": {
         "model": "litellm/deepseek-v4-flash"
@@ -39,7 +47,11 @@
     "categories": {
       "quick": {
         "model": "litellm/deepseek-v4-flash",
-        "models": ["litellm/qwen3.7-plus", "litellm/mimo-v2.5"]
+        "models": [
+          "litellm/qwen3.7-plus",
+          "litellm/mimo-v2.5",
+          "openai/gpt-5.6-terra"
+        ]
       },
       "deep": {
         "model": "openai/gpt-5.6-sol",
@@ -61,8 +73,32 @@
       },
       "writing": {
         "model": "litellm/kimi-k3",
-        "models": ["litellm/glm-5.2", "litellm/deepseek-v4-flash"]
+        "models": [
+          "litellm/glm-5.2",
+          "litellm/deepseek-v4-flash",
+          "openai/gpt-5.6-terra"
+        ]
+      },
+      "visual-engineering": {
+        "model": "openai/gpt-5.6-sol",
+        "reasoning": "high"
       }
+    },
+    "background_task": {
+      "defaultConcurrency": 8,
+      "providerConcurrency": {
+        "openai": 5,
+        "litellm": 10
+      }
+    },
+    "hashline_edit": true,
+    "runtime_fallback": {
+      "enabled": true,
+      "retry_on_errors": [400, 401, 403, 404, 429, 500, 502, 503, 504],
+      "max_fallback_attempts": 4,
+      "cooldown_seconds": 15,
+      "timeout_seconds": 15,
+      "notify_on_fallback": true
     },
     "sisyphus_agent": {
       "disabled": false,
