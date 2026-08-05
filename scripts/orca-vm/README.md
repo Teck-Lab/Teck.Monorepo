@@ -13,6 +13,13 @@ mounted read-only from `.devcontainer/github-app` at runtime. They are not
 present during the base build and are never committed into the image. Startup
 imports the signing key into the disposable container's writable GPG home.
 
+Alternatively, copy `.devcontainer/github-app/proton-pass.env.example` to
+`proton-pass.env` and configure its `pass://` references. The WSL-side create
+hook then uses a narrowly scoped Proton PAT to retrieve the GitHub App, Git PAT,
+and signing material into `/dev/shm`. Proton CLI and its PAT stay outside the
+container; only selected runtime files are mounted. The local-file flow remains
+available when the Proton configuration is absent.
+
 The lifecycle commands in `orca.yaml` bridge Orca Desktop on Windows directly
 into this WSL checkout. This avoids `cmd.exe`, which cannot use a WSL UNC path
 as its working directory. Update the `--distribution` or `--cd` values if the

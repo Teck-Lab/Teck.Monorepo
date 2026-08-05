@@ -85,3 +85,4 @@ scripts/orca-vm/local-state.json
 .devcontainer/github-app/git.env
 .devcontainer/github-app/signing-private.asc
 .devcontainer/github-app/signing-public.asc
+.devcontainer/github-app/proton-pass.env

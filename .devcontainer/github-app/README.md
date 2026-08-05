@@ -38,3 +38,23 @@ GitHub account that owns the email. Never upload or share `signing-private.asc`.
 Rebuild the dev container after populating the files. Orca base images also need
 to be rebuilt after the committed Dockerfile/configuration changes, but secrets
 remain runtime mounts and are not embedded in that image.
+
+## Proton Pass provider for Orca
+
+The Orca local recipe can retrieve these credentials through `pass-cli` on WSL
+instead of keeping generated files here:
+
+1. Install Proton Pass CLI on WSL.
+2. Store the GitHub App, Git transport, and signing values in Proton Pass.
+3. Create a Proton PAT with viewer access only to those items.
+4. Copy `proton-pass.env.example` to the gitignored `proton-pass.env` and
+   replace its `pass://` references with vault/item IDs and field names.
+5. Save the Proton PAT as `~/.config/teck-orca/proton-pass.pat` with mode
+   `0600`, or supply `PROTON_PASS_PERSONAL_ACCESS_TOKEN` when creating.
+
+When `proton-pass.env` exists, creation fails closed unless every required
+reference resolves. The hook creates an isolated Proton session and selected
+runtime files under WSL `/dev/shm`, logs Proton Pass out immediately, mounts
+only GitHub/GPG files read-only, and injects the Git token only into Git.
+Destroy removes both the container and its associated tmpfs directory. Without
+that config, the existing local-file credential directory remains the fallback.

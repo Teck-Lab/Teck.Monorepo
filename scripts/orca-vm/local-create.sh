@@ -2,6 +2,15 @@
 set -euo pipefail
 source "$(dirname "$0")/local-common.sh"
 
+name=""
+cleanup_on_error() {
+  if [ "$?" -ne 0 ]; then
+    [ -z "$name" ] || docker rm -f "$name" >/dev/null 2>&1 || true
+    cleanup_runtime_secrets || true
+  fi
+}
+trap cleanup_on_error EXIT
+
 base_image="${ORCA_BASE_IMAGE:-$(state_value baseImage)}"
 [ -n "$base_image" ] || base_image="$orca_base_image"
 project_root="${ORCA_PROJECT_ROOT:-$(state_value projectRoot)}"
@@ -9,6 +18,7 @@ project_root="${ORCA_PROJECT_ROOT:-$(state_value projectRoot)}"
 repo_url="${ORCA_REPO_URL:-$(state_value repoUrl)}"
 repo_ref="${ORCA_REPO_REF:-$(state_value repoRef)}"
 [ -n "$repo_ref" ] || repo_ref=main
+prepare_github_secrets
 docker image inspect "$base_image" >/dev/null 2>&1 || {
   echo "Base image missing; run local-build-base.sh first." >&2
   exit 1
@@ -24,10 +34,12 @@ identity_file="$(wslpath -w "$orca_key_file")"
 
 raw_name="orca-${ORCA_VM_RECIPE_ID:-local}-${ORCA_VM_INSTANCE_ID:-$(date +%s)}"
 name="$(printf '%s' "$raw_name" | tr -cs 'A-Za-z0-9_.-' '-' | cut -c1-63)"
-cleanup_on_error() { [ "$?" -ne 0 ] && docker rm -f "$name" >/dev/null 2>&1 || true; }
-trap cleanup_on_error EXIT
 
-docker run -d --name "$name" -p 127.0.0.1::22 \
+docker_args=(run -d --name "$name" -p 127.0.0.1::22)
+[ -z "$orca_runtime_secrets_dir" ] || docker_args+=(
+  --label "teck.orca.runtime-secrets-dir=$orca_runtime_secrets_dir"
+)
+docker "${docker_args[@]}" \
   -v "$codex_volume:/home/vscode/.codex" \
   -v "$orca_codex_auth_file:/home/vscode/.codex/auth.json" \
   -v "$opencode_volume:/home/vscode/.local/share/opencode" \
@@ -37,7 +49,11 @@ docker exec -u vscode "$name" teck-setup-github-automation >&2
 port="$(docker port "$name" 22/tcp | sed -nE 's/.*:([0-9]+)$/\1/p' | head -1)"
 [ -n "$port" ] || { docker logs "$name" >&2; echo 'Could not resolve the published SSH port.' >&2; exit 1; }
 
-token="$(git_token)"
+if [ -n "$orca_runtime_secrets_dir" ] && [ -s "$orca_runtime_secrets_dir/github-token" ]; then
+  token="$(<"$orca_runtime_secrets_dir/github-token")"
+else
+  token="$(git_token)"
+fi
 if [ -n "$token" ] && [ -n "$repo_url" ]; then
   docker exec -u vscode -e "GH_TOKEN=$token" -e "ORCA_REPO_REF=$repo_ref" "$name" bash -lc \
     'set -euo pipefail; cd /workspaces/Teck.Monorepo
