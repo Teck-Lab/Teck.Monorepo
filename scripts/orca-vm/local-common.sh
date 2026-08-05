@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# `wsl.exe --exec` starts a non-login shell, so user-local CLIs are not
+# guaranteed to be present on PATH even when they work interactively.
+export PATH="$HOME/.local/bin:$PATH"
+
 orca_vm_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 orca_repo_root="$(cd "$orca_vm_dir/../.." && pwd)"
 orca_state_file="$orca_vm_dir/local-state.json"
