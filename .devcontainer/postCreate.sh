@@ -76,7 +76,7 @@ echo "==> Seeding agent CLI configs (Codex + OpenCode) pointed at the LiteLLM ga
 # The committed templates are the source of truth; re-copied on every rebuild.
 # Both authenticate to the gateway via the LITELLM_MASTER_KEY env var (below), so
 # neither needs an interactive login.
-mkdir -p "$HOME/.codex" "$HOME/.config/opencode" "$HOME/.config/opencode/profiles/slim" "$HOME/.omo"
+mkdir -p "$HOME/.codex" "$HOME/.config/opencode" "$HOME/.omo"
 cp .devcontainer/codex/config.toml "$HOME/.codex/config.toml" || echo "WARN: could not seed codex config (continuing)"
 cp .devcontainer/opencode/opencode.json "$HOME/.config/opencode/opencode.json" || echo "WARN: could not seed opencode config (continuing)"
 cp .devcontainer/opencode/tui.json "$HOME/.config/opencode/tui.json" || echo "WARN: could not seed OpenCode TUI config (continuing)"
@@ -84,10 +84,6 @@ cp .devcontainer/opencode/tui.json "$HOME/.config/opencode/tui.json" || echo "WA
 # re-seeded from the repository so provider/model policy is reproducible while
 # OpenCode auth remains in the persistent data volume.
 cp .devcontainer/opencode/omo.jsonc "$HOME/.omo/omo.jsonc" || echo "WARN: could not seed OMO config (continuing)"
-# Slim remains isolated for A/B evaluation only. Loading both plugins in one
-# OpenCode process would give two orchestrators authority over the same session.
-cp .devcontainer/opencode/opencode-slim.json "$HOME/.config/opencode/profiles/slim/opencode.json" || echo "WARN: could not seed slim OpenCode profile (continuing)"
-cp .devcontainer/opencode/oh-my-opencode-slim.jsonc "$HOME/.config/opencode/profiles/slim/oh-my-opencode-slim.jsonc" || echo "WARN: could not seed slim config (continuing)"
 # opencode-mem config: enables auto-capture through the litellm gateway, stores
 # memories under the persisted ~/.local/share/opencode volume, and serves the
 # memory web UI on :4747. The plugin itself auto-installs via opencode.json.

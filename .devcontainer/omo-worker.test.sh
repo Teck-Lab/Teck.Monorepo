@@ -18,9 +18,6 @@ bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.session !== "teck-120-
 autonomous="$(HOME="$fixture/home" "$launcher" --worktree "$fixture/worktree" --parent-issue 120 --issue 122 --slug checkout --mode autonomous --dry-run)"
 bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.agent !== "hephaestus" || d.mode !== "autonomous") process.exit(1)' <<<"$autonomous"
 
-slim="$(HOME="$fixture/home" "$launcher" --worktree "$fixture/worktree" --parent-issue 120 --issue 123 --slug invoice --harness slim --dry-run)"
-bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.agent !== "orchestrator" || d.harness !== "slim" || !d.configDir.endsWith("/profiles/slim")) process.exit(1)' <<<"$slim"
-
 if HOME="$fixture/home" "$launcher" --worktree "$fixture/worktree" --parent-issue 120 --issue 124 --slug bad --mode unknown --dry-run >/dev/null 2>&1; then
   echo "launcher accepted an invalid mode" >&2
   exit 1

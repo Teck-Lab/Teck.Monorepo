@@ -1,4 +1,4 @@
-# Self-hosted MCP backends for oh-my-opencode-slim's research agents
+# Self-hosted MCP backends for OpenCode research agents
 # (oracle, librarian, fixer). Mirrors .devcontainer/litellm/compose.yaml:
 # compose owns the service definitions; start-mcp.sh adds secret generation,
 # health-waiting, failure tolerance, and recovery from stale docker-in-docker

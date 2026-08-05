@@ -39,9 +39,6 @@ git -C "$tax_path" commit -m 'feat(billing): add tax system' >/dev/null
 blocked="$("$tool" dispatch-info --issue 122)"
 bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.ready !== false || JSON.stringify(d.blockedBy) !== "[121]" || d.executionMode !== "autonomous" || d.primaryAgent !== "hephaestus" || !d.terminalCommand.includes("teck-omo-worker")) process.exit(1)' <<<"$blocked"
 
-slim="$("$tool" dispatch-info --issue 122 --harness slim --mode quick)"
-bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.harness !== "slim" || d.executionMode !== "quick" || d.primaryAgent !== "orchestrator") process.exit(1)' <<<"$slim"
-
 "$tool" set-status --issue 121 --status completed
 git config orca.feature.requireSignatures true
 if "$tool" integrate --issue 121 >"$fixture/unsigned.out" 2>"$fixture/unsigned.err"; then

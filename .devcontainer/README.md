@@ -155,12 +155,6 @@ boundaries.
   send Orca lifecycle messages. The primary worker validates, signs, commits,
   and sends `worker_done`.
 
-**Slim is an isolated A/B baseline, not a second active orchestrator.** Its
-pinned plugin and previous model policy live under
-`~/.config/opencode/profiles/slim`. Select it only through
-`tools/orca-feature dispatch-info --harness slim`; full OMO and Slim are never
-loaded into the same OpenCode process.
-
 **tmux sessions are created by `teck-omo-worker`.** Every Orca sub-issue gets a
 foreground-attached `teck-<parent>-<issue>-<slug>` session, a unique OpenCode
 port, and the assigned worktree as its fixed working directory. Full OMO owns
