@@ -105,8 +105,9 @@ providers/dates.
 
 `opencode` and `codex` are installed via devcontainer features and **pre-wired to
 the LiteLLM gateway** — `postCreate.sh` seeds their configs and exports
-`LITELLM_MASTER_KEY` into the shell (loaded from `litellm/litellm.env`), so no
-interactive login is needed once the gateway has keys.
+`LITELLM_MASTER_KEY` into the shell (loaded from `litellm/litellm.env`). LiteLLM
+routes need no client login; direct GPT routes use the OpenCode OAuth file
+mounted from WSL2.
 
 - **OpenCode** — `~/.config/opencode/opencode.json` (from `.devcontainer/opencode/`)
   registers a `litellm` provider (`@ai-sdk/openai-compatible`) at
@@ -169,14 +170,17 @@ state never means completion.
 Edit `.devcontainer/opencode/omo.jsonc` for user-level model routing and
 `.omo/omo.jsonc` for repository worker policy. Both are committed and applied
 on the next container creation. First `opencode` launch needs network to fetch
-the pinned plugin; OpenAI-backed agents need the one-time `opencode auth login`.
+the pinned plugin. Authenticate OpenCode once from WSL2 with
+`opencode auth login`; containers never own the interactive login flow.
 
-**Auth persists across rebuilds.** OpenCode's data dir `~/.local/share/opencode`
-(holding `auth.json` and plugin state) is mounted on a per-project named
-volume (`opencode-data-${devcontainerId}`, alongside the Claude Code one). So
-`opencode auth login` (your ChatGPT subscription) is a **one-time** step that
-survives container rebuilds. GitHub MCP authenticates independently as a GitHub
-App using the read-only local bundle described below. (The gateway master key isn't stored here; it's
+**Auth comes from WSL2.** The host file
+`~/.local/share/opencode/auth.json` is bind-mounted over the same path inside
+every dev/Orca container. The surrounding `opencode-data-${devcontainerId}`
+volume persists plugin state, MCP auth, and the memory database, but is not the
+credential source. The bind is writable so OpenCode can refresh OAuth tokens;
+the WSL2 file remains the single source shared by every container. GitHub MCP
+authenticates independently as a GitHub App using the read-only local bundle
+described below. (The gateway master key isn't stored here; it's
 loaded live from `litellm/litellm.env` per shell. Codex authenticates to the
 gateway via env, so it has no stored credential to persist.)
 
@@ -200,7 +204,8 @@ one parent branch and opens one final PR for human approval.
 | Path | Persisted by | Holds |
 |---|---|---|
 | `/home/vscode/.claude-config` | volume `claude-code-config-*` | **all** Claude Code state — `.credentials.json`, `.claude.json`, settings, plugins, transcripts |
-| `/home/vscode/.local/share/opencode` | volume `opencode-data-*` | OpenCode `auth.json`, `mcp-auth.json`, memory DB |
+| `/home/vscode/.local/share/opencode/auth.json` | WSL2 bind `~/.local/share/opencode/auth.json` | Shared OpenCode/OpenAI OAuth credentials |
+| `/home/vscode/.local/share/opencode` | volume `opencode-data-*` | OpenCode plugin state, `mcp-auth.json`, memory DB |
 | `/home/vscode/.codex` | volume `codex-config-*` | Codex `auth.json` if you ever `codex login` |
 | `/run/secrets/teck-github` | read-only workspace bind | GitHub App PEM/config and automation signing-key export |
 | `/home/vscode/.gnupg` | imported/copied from read-only mounts | Active GPG signing key (see below) |
