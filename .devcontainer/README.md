@@ -111,7 +111,7 @@ interactive login is needed once the gateway has keys.
 - **OpenCode** — `~/.config/opencode/opencode.json` (from `.devcontainer/opencode/`)
   registers a `litellm` provider (`@ai-sdk/openai-compatible`) at
   `http://localhost:4000/v1` exposing all per-model pools; default model
-  `litellm/deepseek-v4-pro`. Just run `opencode`.
+  `openai/gpt-5.6-terra`. Just run `opencode`.
 - **Codex** — `~/.codex/config.toml` (from `.devcontainer/codex/`) points at the
   same gateway (`base_url` + `env_key = LITELLM_MASTER_KEY`, `wire_api = "chat"`),
   default model `deepseek-v4-pro`. Just run `codex`.
@@ -140,8 +140,16 @@ boundaries.
 - `autonomous` and `spike`: GPT-5.6 Sol Hephaestus is the primary worker.
 - `quick`, Explore, and Librarian route through the LiteLLM
   `deepseek-v4-flash` pool, which spans both OpenCode Go subscriptions and
-  configured free/paid fallbacks.
+  configured free/paid routes. OMO runtime fallback and its built-in agent
+  chains ultimately reach the GPT-backed OpenCode default if those pools fail.
 - `deep`, `ultrabrain`, Oracle, and difficult review retain GPT models.
+- Visual Engineering and Multimodal Looker use GPT-5.6 Sol; Gemini access is
+  not required.
+- OMO permits eight background tasks, capped at five direct OpenAI tasks and
+  ten LiteLLM tasks. LiteLLM then balances those requests across OpenCode Go,
+  OpenRouter, and configured free routes.
+- Hashline editing is enabled for stable, low-conflict edits during parallel
+  coding work.
 - Nested agents cannot commit, push, merge, create worktrees, mutate GitHub, or
   send Orca lifecycle messages. The primary worker validates, signs, commits,
   and sends `worker_done`.
