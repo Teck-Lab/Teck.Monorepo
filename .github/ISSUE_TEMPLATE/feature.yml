@@ -1,0 +1,118 @@
+name: Feature
+description: Define an implementation-ready product or platform feature for Orca.
+title: "feat: "
+labels:
+  - "agent:ready"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue enters the Orca queue when submitted. Describe the outcome and constraints clearly enough for an agent to plan the work.
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What user or business outcome should this feature produce?
+      placeholder: As a ..., I want ..., so that ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Describe the behavior that is included.
+      placeholder: Include APIs, UI behavior, domain rules, and affected services where known.
+    validations:
+      required: true
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: State adjacent work that should not be included.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Commerce
+        - Operations
+        - Content
+        - Gateway
+        - Web
+        - Platform
+        - Infrastructure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: Product priority; a maintainer may change this during triage.
+      options:
+        - Low
+        - Medium
+        - High
+        - Urgent
+    validations:
+      required: true
+
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      description: Best current estimate; select Unknown when decomposition is still needed.
+      options:
+        - Unknown
+        - XS
+        - S
+        - M
+        - L
+        - XL
+    validations:
+      required: true
+
+  - type: input
+    id: sprint
+    attributes:
+      label: Sprint
+      description: Optional Teck Scrum iteration name. Leave blank for backlog intake.
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: List observable, testable conditions for completion.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and related work
+      description: Link parent issues, sub-issues, designs, decisions, or external dependencies.
+
+  - type: textarea
+    id: security
+    attributes:
+      label: Security and tenancy considerations
+      description: Note authentication, authorization, tenant isolation, secrets, payments, or data-handling concerns. Write N/A when none apply.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Ready for Orca
+      options:
+        - label: The scope and acceptance criteria are sufficient for an agent to begin planning.
+          required: true

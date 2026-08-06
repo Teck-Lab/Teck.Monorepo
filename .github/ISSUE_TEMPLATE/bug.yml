@@ -1,0 +1,122 @@
+name: Bug
+description: Report a reproducible defect that is ready for Orca to investigate and fix.
+title: "fix: "
+labels:
+  - "agent:ready"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include credentials, personal data, or undisclosed vulnerabilities. Use the private security advisory link for security reports.
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: What happened, including the exact error when useful?
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Commerce
+        - Operations
+        - Content
+        - Gateway
+        - Web
+        - Platform
+        - Infrastructure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Low
+        - Medium
+        - High
+        - Urgent
+    validations:
+      required: true
+
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      options:
+        - Unknown
+        - XS
+        - S
+        - M
+        - L
+        - XL
+    validations:
+      required: true
+
+  - type: input
+    id: sprint
+    attributes:
+      label: Sprint
+      description: Optional Teck Scrum iteration name.
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include deployment, version/commit, browser or client, and other relevant conditions.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Add sanitized logs, screenshots, traces, or links.
+
+  - type: textarea
+    id: regression
+    attributes:
+      label: Regression information
+      description: When did this last work, or is it a newly discovered existing defect?
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - [ ] A regression test reproduces the failure.
+        - [ ] The expected behavior is restored.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Ready for Orca
+      options:
+        - label: This report contains enough information for an agent to reproduce or investigate the defect.
+          required: true
