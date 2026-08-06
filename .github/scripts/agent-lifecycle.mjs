@@ -61,6 +61,12 @@ export function labelsToRemove(labels, target, config) {
   return currentLifecycle(labels, config).filter((name) => name !== target);
 }
 
+export function projectStatusForLifecycle(lifecycle, config) {
+  const status = config.project?.statuses?.[lifecycle];
+  if (!status) throw new Error(`No Project status is configured for ${lifecycle}`);
+  return status;
+}
+
 async function githubRequest(path, options = {}) {
   const token = process.env.GITHUB_TOKEN;
   if (!token) throw new Error("GITHUB_TOKEN is required");
@@ -85,6 +91,71 @@ async function githubRequest(path, options = {}) {
 
   if (response.status === 204) return null;
   return response.json();
+}
+
+async function projectGraphql(query, variables) {
+  const token = process.env.PROJECT_TOKEN;
+  if (!token) throw new Error("PROJECT_TOKEN is required");
+  const response = await fetch("https://api.github.com/graphql", {
+    method: "POST",
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": "teck-agent-project-lifecycle",
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+  if (!response.ok) throw new Error(`GitHub GraphQL failed (${response.status}): ${await response.text()}`);
+  const body = await response.json();
+  if (body.errors) throw new Error(`GitHub GraphQL failed: ${body.errors.map((error) => error.message).join("; ")}`);
+  return body.data;
+}
+
+async function projectContext(config) {
+  const data = await projectGraphql(
+    `query($organization:String!,$number:Int!){organization(login:$organization){projectV2(number:$number){id title fields(first:50){nodes{... on ProjectV2FieldCommon{id name} ... on ProjectV2SingleSelectField{options{id name}}}}}}}`,
+    { organization: config.project.organization, number: config.project.number },
+  );
+  const project = data.organization?.projectV2;
+  if (!project) throw new Error(`Project ${config.project.organization}#${config.project.number} was not found`);
+  const statusField = project.fields.nodes.find((field) => field.name === config.project.statusField);
+  if (!statusField?.options) throw new Error(`Project status field ${config.project.statusField} was not found`);
+  return { project, statusField };
+}
+
+async function syncProjectIssue(issue, lifecycle, config, context = null) {
+  const status = projectStatusForLifecycle(lifecycle, config);
+  if (process.env.PROJECT_SYNC_DRY_RUN === "true") {
+    const option = context?.statusField.options.find((candidate) => candidate.name.toLowerCase() === status.toLowerCase());
+    if (!option) throw new Error(`Project status option ${status} was not found`);
+    console.log(`[dry-run] #${issue.number} -> ${status}`);
+    return;
+  }
+  const { project, statusField } = context ?? await projectContext(config);
+  const option = statusField.options.find((candidate) => candidate.name.toLowerCase() === status.toLowerCase());
+  if (!option) throw new Error(`Project status option ${status} was not found`);
+  const added = await projectGraphql(
+    `mutation($project:ID!,$content:ID!){addProjectV2ItemById(input:{projectId:$project,contentId:$content}){item{id}}}`,
+    { project: project.id, content: issue.node_id },
+  );
+  await projectGraphql(
+    `mutation($project:ID!,$item:ID!,$field:ID!,$option:String!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$option}}){projectV2Item{id}}}`,
+    { project: project.id, item: added.addProjectV2ItemById.item.id, field: statusField.id, option: option.id },
+  );
+  console.log(`Synchronized #${issue.number} to Project status ${status}.`);
+}
+
+async function backfillProject(owner, repo, config) {
+  const issues = await githubRequest(`/repos/${owner}/${repo}/issues?state=all&per_page=100`);
+  const managed = issues.filter((issue) => !issue.pull_request && currentLifecycle(issue.labels ?? [], config).length === 1);
+  const context = await projectContext(config);
+  for (const issue of managed) {
+    const [lifecycle] = currentLifecycle(issue.labels ?? [], config);
+    await syncProjectIssue(issue, lifecycle, config, context);
+  }
+  console.log(`${process.env.PROJECT_SYNC_DRY_RUN === "true" ? "Inspected" : "Backfilled"} ${managed.length} managed issue(s).`);
 }
 
 async function syncLabels(owner, repo, config) {
@@ -142,8 +213,11 @@ async function run() {
   if (!owner || !repo) throw new Error("GITHUB_REPOSITORY must be owner/repo");
 
   if (process.env.GITHUB_EVENT_NAME === "workflow_dispatch") {
-    await syncLabels(owner, repo, config);
-    console.log(`Synchronized ${config.labels.length} agent lifecycle labels.`);
+    if (process.env.PROJECT_SYNC_DRY_RUN !== "true") {
+      await syncLabels(owner, repo, config);
+      console.log(`Synchronized ${config.labels.length} agent lifecycle labels.`);
+    }
+    await backfillProject(owner, repo, config);
     return;
   }
 
@@ -156,10 +230,13 @@ async function run() {
   if (plan.operation === "reject") {
     await removeLabel(owner, repo, event.issue.number, plan.target);
     console.log(`Rejected ${plan.target} on #${event.issue.number}: ${plan.reason}`);
+    const [previous] = currentLifecycle(event.issue.labels ?? [], config, plan.target);
+    if (previous) await syncProjectIssue(event.issue, previous, config);
     return;
   }
 
   await transitionIssue(owner, repo, event.issue, plan.target, config);
+  await syncProjectIssue(event.issue, plan.target, config);
   console.log(`Transitioned #${event.issue.number} to ${plan.target}.`);
 }
 
