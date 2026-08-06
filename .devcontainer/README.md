@@ -22,7 +22,7 @@ In VS Code: Command Palette → **Dev Containers: Reopen in Container** (first b
 | Claude Code | latest | `claude-code` feature (CLI + VS Code extension) |
 | OpenCode | latest | `opencode` feature (devcontainers-extra) |
 | Codex CLI | latest | `dirien/codex` feature (installs `@openai/codex`) |
-| tmux | apt | Dockerfile (`apt-get install tmux`) — required by oh-my-opencode-slim panes |
+| tmux | apt | Dockerfile (`apt-get install tmux`) — one observable session per Orca worker |
 
 `postCreate.sh` runs `dotnet restore`, `bun install --frozen-lockfile`, creates an HTTPS dev cert, installs the Claude Code plugins + HUD (see below), and installs a `claude` shell alias (see Security below). The `bun install` also fires the root `prepare` script, which installs the Husky git hooks (`core.hooksPath` → `.husky/_`): pre-commit runs Biome on staged files plus a staged Gitleaks scan, pre-push runs the full local CI mirror (`tools/security-scan.sh`) — so the security gates are active on every fresh container with no manual step.
 
@@ -42,24 +42,22 @@ per request, respects each provider's `rpm`, cools down any that 429, and falls
 back to a paid net so a request never hard-fails. It runs stateless (no database)
 from `.devcontainer/litellm/config.yaml`.
 
-**Per-model pools** (structured for [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim),
-which pins each agent to a specific `provider/model`). Each `model_name` is a REAL
+**Per-model pools** (structured for [full OMO](https://omo.dev/docs), which pins
+each agent/category to a specific `provider/model`). Each `model_name` is a REAL
 model id — clients call it as `litellm/<model_name>` — and under each name sits a
 pool of every route that serves that exact model (flat-rate OpenCode Go, free
-OpenCode Zen, free NVIDIA NIM, paid DeepSeek API, OpenRouter…). The 17 models:
+OpenCode Zen, free NVIDIA NIM, paid DeepSeek API, OpenRouter…). The seven models:
 
 ```
-deepseek-v4-pro   deepseek-v4-flash   glm-5.2   minimax-m3   mimo-v2.5
-kimi-k2.7-code    kimi-k2.6           qwen3.7-max   qwen3.7-plus   hy3
-gemini-2.5-flash  llama-3.3-70b       deepseek-v3.2
-deepseek-r1-distill-qwen-32b   qwen2.5-coder-32b   nemotron-3-ultra   north-mini-code
+deepseek-v4-pro   deepseek-v4-flash   glm-5.2   mimo-v2.5
+kimi-k3           kimi-k2.7-code      qwen3.7-plus
 ```
 
 `routing_strategy: usage-based-routing-v2` sends each request to the route with
 the most `rpm`/`tpm` headroom, so one model never hits a single provider's limit;
 a route that 429s is cooled and traffic shifts to the rest. **Cross-model**
-fallback (agent's model down → try another) is owned by slim's top-level
-`fallback` block, not LiteLLM — the gateway only balances routes *within* a
+fallback (agent's model down → try another) is owned by the active OMO harness,
+not LiteLLM — the gateway only balances routes *within* a
 model. `.devcontainer/start-litellm.sh` brings it up with **docker compose**
 (service defined in `.devcontainer/litellm/compose.yaml`) via docker-in-docker
 from the `postStartCommand`, so it comes up on **every** container start. `up -d`
@@ -104,13 +102,14 @@ providers/dates.
 
 `opencode` and `codex` are installed via devcontainer features and **pre-wired to
 the LiteLLM gateway** — `postCreate.sh` seeds their configs and exports
-`LITELLM_MASTER_KEY` into the shell (loaded from `litellm/litellm.env`), so no
-interactive login is needed once the gateway has keys.
+`LITELLM_MASTER_KEY` into the shell (loaded from `litellm/litellm.env`). LiteLLM
+routes need no client login; direct GPT routes use the OpenCode OAuth file
+mounted from WSL2.
 
 - **OpenCode** — `~/.config/opencode/opencode.json` (from `.devcontainer/opencode/`)
   registers a `litellm` provider (`@ai-sdk/openai-compatible`) at
   `http://localhost:4000/v1` exposing all per-model pools; default model
-  `litellm/deepseek-v4-pro`. Just run `opencode`.
+  `openai/gpt-5.6-terra`. Just run `opencode`.
 - **Codex** — `~/.codex/config.toml` (from `.devcontainer/codex/`) points at the
   same gateway (`base_url` + `env_key = LITELLM_MASTER_KEY`, `wire_api = "chat"`),
   default model `deepseek-v4-pro`. Just run `codex`.
@@ -118,7 +117,7 @@ interactive login is needed once the gateway has keys.
 **OpenCode plugins auto-install** on first launch — `opencode.json`'s `plugin`
 array is fetched via Bun (needs network once):
 
-- `oh-my-opencode-slim` — the multi-agent system (details below).
+- `oh-my-openagent@4.19.4` — full OMO, the default worker harness.
 - `cc-safety-net` — PreToolUse hook that blocks destructive commands (`rm -rf`,
   `git reset --hard`, …) before an agent runs them. Works out of the box.
 - `opencode-mem` — local agent memory (SQLite + on-device vector search, no
@@ -128,83 +127,79 @@ array is fetched via Bun (needs network once):
   req/**day** and single-route); memories stored
   under the **persisted** `~/.local/share/opencode` volume so they survive
   rebuilds; memory web UI at `http://localhost:4747`.
-- `superpowers` — obra's skills framework, installed as a git-backed plugin
-  (`superpowers@git+…`); it auto-registers its skills directory.
+**Full OMO is auto-installed and is the default Orca worker harness.** The
+committed OpenCode config registers the pinned plugin, and `postCreate.sh`
+seeds the reproducible user model policy into `~/.omo/omo.jsonc`. The project
+contract in `.omo/omo.jsonc` adds worktree, Git, GitHub, and Orca lifecycle
+boundaries.
 
-**oh-my-opencode-slim is auto-installed & pre-wired — zero manual steps except auth:**
-`opencode.json` lists `oh-my-opencode-slim` in its `plugin` array, so OpenCode
-installs it via Bun on the first `opencode` launch (the upstream `bunx
-oh-my-opencode-slim install` TUI is **never** run — it's interactive and would
-fight the committed template). `postCreate.sh` seeds
-`~/.config/opencode/oh-my-opencode-slim.jsonc` from
-`.devcontainer/opencode/oh-my-opencode-slim.jsonc`.
+- `planned` and `quick`: GPT-backed Prometheus plans; `/start-work` transfers
+  execution to GPT-backed Atlas.
+- `autonomous` and `spike`: GPT-5.6 Sol Hephaestus is the primary worker.
+- `quick`, Explore, and Librarian route through the LiteLLM
+  `deepseek-v4-flash` pool, which spans both OpenCode Go subscriptions and
+  configured free/paid routes. OMO runtime fallback and its built-in agent
+  chains ultimately reach the GPT-backed OpenCode default if those pools fail.
+- `deep`, `ultrabrain`, Oracle, and difficult review retain GPT models.
+- Visual Engineering and Multimodal Looker use GPT-5.6 Sol; Gemini access is
+  not required.
+- OMO permits eight background tasks, capped at five direct OpenAI tasks and
+  ten LiteLLM tasks. LiteLLM then balances those requests across OpenCode Go,
+  OpenRouter, and configured free routes.
+- Hashline editing is enabled for stable, low-conflict edits during parallel
+  coding work.
+- Nested agents cannot commit, push, merge, create worktrees, mutate GitHub, or
+  send Orca lifecycle messages. The primary worker validates, signs, commits,
+  and sends `worker_done`.
 
-- **Seven agents:** orchestrator, explorer, oracle, council, librarian, designer,
-  fixer — plus a custom `fast-generic` for mechanical git/lint/test work.
-- **Hybrid routing.** Reasoning-heavy agents run on the **native OpenAI provider**
-  (`opencode auth login` → OpenAI, one time), *not* the gateway: `oracle` runs
-  `openai/gpt-5.6-sol` (variant `xhigh`) — the strongest available reasoning
-  tier, `orchestrator` runs `openai/gpt-5.6-terra` (variant `xhigh`), and
-  `librarian`/`explorer` run `openai/gpt-5.6-luna` (variant `low`). Cost-sensitive
-  agents stay on the **LiteLLM gateway** pools: `designer` → `glm-5.2`, `fixer` →
-  `kimi-k2.7-code`, `fast-generic` → `deepseek-v4-flash`.
-- **No agent uses `gemini-2.5-flash`.** Its free tier is 20 requests per **day**,
-  single-route, with no cross-model fallback — it would brick an agent by
-  mid-morning. (The upstream author's preset uses Gemini here; we deliberately
-  don't.)
-- **Council** runs cross-vendor consensus (`gpt-5.6-sol` + `glm-5.2` +
-  `deepseek-v4-pro`) so councillors don't share a failure mode.
-- **Fallback layering:** slim's top-level `fallback` block owns *cross-model*
-  failover; LiteLLM balances routes *within* one model pool. Two distinct layers —
-  keep them that way.
-- **Superpowers skills are nudged in** via committed, project-local prompt
-  appends: `.opencode/oh-my-opencode-slim/orchestrator_append.md` and
-  `fixer_append.md`. Unlike omo's seeded `prompt_append`, these are
-  version-controlled, reviewable in PRs, and survive rebuilds with no seeding
-  step. Edit them to tune the directive.
-- **The desktop companion is disabled** — it's a GUI app and this container is
-  headless.
+**tmux sessions are created by `teck-omo-worker`.** Every Orca sub-issue gets a
+foreground-attached `teck-<parent>-<issue>-<slug>` session, a unique OpenCode
+port, and the assigned worktree as its fixed working directory. Full OMO owns
+nested panes inside the session; Orca owns lifecycle state. Pane exit or idle
+state never means completion.
 
-**tmux panes: launch with `omos`, not `opencode`.**
-Slim spawns background subagents into live tmux panes. Two requirements:
-`OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true` (exported into `~/.bashrc` by
-`postCreate.sh`) and an **explicit port** — pane attachment uses `opencode
-attach`, which needs a real TCP listener, and OpenCode's default `--port 0`
-doesn't create one. `postCreate.sh` installs an `omos` bash function that picks a
-free port and passes it through:
+Edit `.devcontainer/opencode/omo.jsonc` for user-level model routing and
+`.omo/omo.jsonc` for repository worker policy. Both are committed and applied
+on the next container creation. First `opencode` launch needs network to fetch
+the pinned plugin. Authenticate OpenCode once from WSL2 with
+`opencode auth login`; containers never own the interactive login flow.
 
-```bash
-tmux      # start a session first
-omos      # instead of `opencode`
-```
-
-Outside tmux `omos` is a harmless no-op wrapper. Layout is `main-horizontal`
-(main pane on top, subagents below), tuned for a **tall/narrow** terminal — the
-VS Code panel docked right. Docking at the bottom instead (wide/short)? Switch
-`multiplexer.layout` to `main-vertical` in the template.
-
-Edit the committed templates under `.devcontainer/{opencode,codex}/` to change
-models/agents — they re-seed on every rebuild (the in-container copies are
-ephemeral). First `opencode` launch needs network to fetch the plugin; the
-OpenAI-backed agents need the one-time `opencode auth login`.
-
-**Auth persists across rebuilds.** OpenCode's data dir `~/.local/share/opencode`
-(holding `auth.json` **and** `mcp-auth.json`) is mounted on a per-project named
-volume (`opencode-data-${devcontainerId}`, alongside the Claude Code one). So
-`opencode auth login` (your ChatGPT subscription) is a **one-time** step that
-survives container rebuilds — oh-my-opencode-slim has no bundled MCP servers
-to authenticate separately (every agent's `mcps` list is empty). (The gateway master key isn't stored here; it's
+**Auth comes from WSL2.** The host file
+`~/.local/share/opencode/auth.json` is bind-mounted over the same path inside
+every dev/Orca container. The surrounding `opencode-data-${devcontainerId}`
+volume persists plugin state, MCP auth, and the memory database, but is not the
+credential source. The bind is writable so OpenCode can refresh OAuth tokens;
+the WSL2 file remains the single source shared by every container. GitHub MCP
+authenticates independently as a GitHub App using the read-only local bundle
+described below. (The gateway master key isn't stored here; it's
 loaded live from `litellm/litellm.env` per shell. Codex authenticates to the
 gateway via env, so it has no stored credential to persist.)
+
+## GitHub MCP and feature orchestration
+
+Codex and OpenCode launch the pinned official GitHub MCP server locally over
+stdio. It authenticates as a repository-scoped GitHub App from files mounted
+read-only at `/run/secrets/teck-github`; see `github-app/README.md`. The exposed
+tool allowlist supports issues/sub-issues, PR creation/update, repository reads,
+and CI inspection. It excludes remote file commits, branch creation, workflow
+dispatch, PR review submission, and merge.
+
+For one-container feature development, use the repo-owned `teck-feature-flow`
+skill and `tools/orca-feature`. GitHub sub-issues map to ordinary internal Git
+worktrees and Orca Tasks/Dispatches, while all workers stay inside the parent
+feature container. The coordinator integrates the signed worker commits into
+one parent branch and opens one final PR for human approval.
 
 ## What survives a rebuild (auth & state)
 
 | Path | Persisted by | Holds |
 |---|---|---|
 | `/home/vscode/.claude-config` | volume `claude-code-config-*` | **all** Claude Code state — `.credentials.json`, `.claude.json`, settings, plugins, transcripts |
-| `/home/vscode/.local/share/opencode` | volume `opencode-data-*` | OpenCode `auth.json`, `mcp-auth.json`, memory DB |
+| `/home/vscode/.local/share/opencode/auth.json` | WSL2 bind `~/.local/share/opencode/auth.json` | Shared OpenCode/OpenAI OAuth credentials |
+| `/home/vscode/.local/share/opencode` | volume `opencode-data-*` | OpenCode plugin state, `mcp-auth.json`, memory DB |
 | `/home/vscode/.codex` | volume `codex-config-*` | Codex `auth.json` if you ever `codex login` |
-| `/home/vscode/.gnupg` | copied from host bind mount | GPG signing key (see below) |
+| `/run/secrets/teck-github` | read-only workspace bind | GitHub App PEM/config and automation signing-key export |
+| `/home/vscode/.gnupg` | imported/copied from read-only mounts | Active GPG signing key (see below) |
 | `~/.config/opencode` | **not** persisted — by design | re-seeded from `.devcontainer/opencode/` every build |
 
 **`CLAUDE_CONFIG_DIR` is load-bearing.** It's set to `/home/vscode/.claude-config` in
@@ -220,9 +215,12 @@ so a leading `~` is taken literally and you get a directory named `~` in your wo
 
 ## Commit signing (GPG)
 
-Commits are GPG-signed with key `FF4693E3D74495BA`. The host keyring is bind-mounted
-**read-only** at `~/.gnupg-host` and copied to `~/.gnupg` by `postCreate.sh`, so gpg-agent
-runs **inside** the container against real local key material.
+Agent commits use the dedicated automation key generated on WSL2 by
+`scripts/github-automation/init-local-secrets.sh`. Its private export remains
+gitignored on WSL2, is mounted **read-only** under `/run/secrets/teck-github`,
+and is imported into writable `~/.gnupg` by `postCreate.sh`. Until that bundle
+is initialized, the existing read-only host keyring at `~/.gnupg-host` remains
+the fallback so the container is still usable.
 
 **Why not VS Code's built-in GPG forwarding:** it worked, until it didn't. Forwarding is an
 implicit, undeclared socket bind to the host agent that drops on window reloads, container
@@ -233,13 +231,14 @@ connection error — it looks like your key vanished. There is nothing to discon
 **Why copy instead of using the mount directly:** gpg requires `0700` on its home directory
 and writes sockets/`trustdb`/`random_seed` at runtime, so a read-only mount can't serve as
 `GNUPGHOME`. Mounting read-**write** would let this container corrupt the host keyring, so
-we don't. The copy is ephemeral and refreshed each build; the host keyring stays the single
-source of truth.
+we don't. The writable keyring is ephemeral and refreshed at container setup;
+the WSL2 automation bundle remains the source of truth.
 
-`postCreate.sh` sets a 400-day agent cache and verifies a secret key is genuinely reachable,
-printing a loud warning if not — so a broken setup surfaces at build time rather than
-mid-way through a long unattended agent run. If your key has a passphrase, unlock it once
-per container: `echo test | gpg --clearsign > /dev/null`.
+`postCreate.sh` verifies the automation key by creating a detached signature,
+so a broken setup surfaces at startup instead of halfway through an agent run.
+The development-only automation key is generated without a passphrase for
+unattended workers; its filesystem mount and GitHub repository scope are the
+security boundaries.
 
 > A key mounted here is usable by anything running in the container, agents included. That
 > is the accepted trade for unattended signing.

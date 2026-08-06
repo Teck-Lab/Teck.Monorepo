@@ -24,12 +24,9 @@
 # CLI) is still layered on via the `features` block in devcontainer.json.
 FROM mcr.microsoft.com/devcontainers/dotnet:2.1-10.0-noble
 
-# tmux — required by oh-my-opencode-slim's multiplexer integration: background
-# subagents are spawned into live tmux panes, so tmux must be installed and on
-# PATH. Launch OpenCode via the `omos` helper (see postCreate.sh) so it binds an
-# explicit port — pane attachment needs a real TCP listener, which OpenCode's
-# default `--port 0` does not provide. (System package → installed here, not via
-# a feature.)
+# tmux — one attached session per Orca sub-issue worker. Full OMO spawns nested
+# agents into panes in that session. teck-omo-worker supplies the explicit
+# OpenCode port required by pane attachment. (System package, not a feature.)
 RUN apt-get update \
     && apt-get install -y --no-install-recommends tmux \
     && rm -rf /var/lib/apt/lists/*
@@ -70,10 +67,37 @@ RUN arch="$(dpkg --print-architecture)" \
 # stays the source of truth for configuration while auth persists.
 # ~/.config/gh is on the same list: `gh auth login` writes its OAuth token to
 # ~/.config/gh/hosts.yml, which is NOT under any other mounted path — so without
-# its own volume every rebuild silently logged you out of GitHub. The github MCP
-# server reads that token via `gh auth token`, so losing it also breaks the
-# librarian's repo access, not just the CLI.
+# its own volume every rebuild silently logged you out of GitHub. This login is
+# retained for ordinary `gh`/Git transport use; GitHub MCP authenticates
+# separately as the repository-scoped GitHub App.
 RUN mkdir -p /home/vscode/.claude-config /home/vscode/.local/share/opencode \
       /home/vscode/.codex /home/vscode/.config/gh \
     && chown -R vscode:vscode /home/vscode/.claude-config /home/vscode/.local \
       /home/vscode/.codex /home/vscode/.config
+
+# Official GitHub MCP server. It runs directly as a stdio child of Codex or
+# OpenCode, avoiding a nested-Docker secret mount. Version and per-architecture
+# checksums are pinned so rebuilds cannot silently pick up a different binary.
+ARG GITHUB_MCP_VERSION=1.8.0
+RUN arch="$(dpkg --print-architecture)" \
+    && case "$arch" in \
+         amd64) mcp_arch="x86_64"; mcp_sha="b2754921aec1b1302b19a71531d26d242ef0e7f1e05696b8444beab5a7e61d5b" ;; \
+         arm64) mcp_arch="arm64"; mcp_sha="c4b0fe8d4e31c079e5c3f3a54050a08449dae6fa8189ec5998822555ad27bde8" ;; \
+         *) echo "unsupported architecture for github-mcp-server: $arch" >&2; exit 1 ;; \
+       esac \
+    && archive="github-mcp-server_Linux_${mcp_arch}.tar.gz" \
+    && curl -fsSL "https://github.com/github/github-mcp-server/releases/download/v${GITHUB_MCP_VERSION}/${archive}" -o "/tmp/${archive}" \
+    && printf '%s  %s\n' "$mcp_sha" "/tmp/${archive}" | sha256sum -c - \
+    && tar -xzf "/tmp/${archive}" -C /tmp github-mcp-server \
+    && install -m 0755 /tmp/github-mcp-server /usr/local/bin/github-mcp-server \
+    && rm -f "/tmp/${archive}" /tmp/github-mcp-server \
+    && github-mcp-server --version
+
+COPY github-mcp.sh /usr/local/bin/teck-github-mcp
+COPY setup-github-automation.sh /usr/local/bin/teck-setup-github-automation
+COPY github-app-token.sh /usr/local/bin/teck-github-app-token
+COPY git-with-github-app.sh /usr/local/bin/teck-git-with-github-app
+COPY omo-worker.sh /usr/local/bin/teck-omo-worker
+RUN chmod 0755 /usr/local/bin/teck-github-mcp /usr/local/bin/teck-setup-github-automation \
+      /usr/local/bin/teck-github-app-token /usr/local/bin/teck-git-with-github-app \
+      /usr/local/bin/teck-omo-worker

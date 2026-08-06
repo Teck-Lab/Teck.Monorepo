@@ -63,9 +63,14 @@ web-build/
 # build (and regenerated in-memory during local dev); compiled into the published image, never committed.
 **/Internal/Generated/
 
-.omo
+.omo/*
+!.omo/omo.jsonc
 # Local security scan reports (tools/security-scan.sh)
 .security/
+
+# Orca local per-workspace environment (generated credentials/state)
+scripts/orca-vm/.ssh/
+scripts/orca-vm/local-state.json
 
 # Generated MCP backend secrets (see .devcontainer/start-mcp.sh)
 .devcontainer/mcp/mcp.env
@@ -73,3 +78,12 @@ web-build/
 
 # gh auth backup — restores the GitHub login if its volume is ever empty
 .devcontainer/gh/
+
+# Local GitHub App credentials and automation signing keys. The directory's
+# README and examples are committed; every credential generated beside them is not.
+.devcontainer/github-app/github-app.env
+.devcontainer/github-app/github-app.pem
+.devcontainer/github-app/git.env
+.devcontainer/github-app/signing-private.asc
+.devcontainer/github-app/signing-public.asc
+.devcontainer/github-app/proton-pass.env

@@ -21,4 +21,34 @@ sandbox_mode = "danger-full-access"
 name = "LiteLLM local gateway"
 base_url = "http://localhost:4000/v1"
 env_key = "LITELLM_MASTER_KEY"
-wire_api = "chat"        # LiteLLM speaks /v1/chat/completions
+wire_api = "responses"   # Required by current Codex; LiteLLM exposes /v1/responses
+
+# Local stdio GitHub MCP authenticated as the repository-scoped GitHub App.
+# It is optional until .devcontainer/github-app/ has been populated locally.
+[mcp_servers.github]
+command = "/usr/local/bin/teck-github-mcp"
+enabled = true
+required = false
+startup_timeout_sec = 20
+tool_timeout_sec = 120
+enabled_tools = [
+  "get_repository_tree",
+  "get_file_contents",
+  "get_commit",
+  "list_branches",
+  "list_commits",
+  "issue_read",
+  "issue_write",
+  "sub_issue_write",
+  "add_issue_comment",
+  "search_issues",
+  "list_issues",
+  "create_pull_request",
+  "update_pull_request",
+  "pull_request_read",
+  "list_pull_requests",
+  "search_pull_requests",
+  "actions_get",
+  "actions_list",
+  "get_job_logs",
+]
