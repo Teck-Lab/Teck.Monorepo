@@ -26,7 +26,7 @@ source_commit="$(state_value sourceCommit)"
 if [ "${ORCA_FETCH_REMOTE:-0}" = 1 ] || { [ -n "${ORCA_REPO_REF:-}" ] && [ "$repo_ref" != "$state_repo_ref" ]; }; then
   source_commit=""
 fi
-prepare_github_secrets
+prepare_runtime_secrets
 docker image inspect "$base_image" >/dev/null 2>&1 || {
   echo "Base image missing; run local-build-base.sh first." >&2
   exit 1
@@ -38,6 +38,11 @@ docker image inspect "$base_image" >/dev/null 2>&1 || {
 [ -s "$orca_opencode_auth_file" ] || {
   echo "OpenCode credential file missing: $orca_opencode_auth_file" >&2
   echo "Run 'opencode auth login' in WSL2 before provisioning." >&2
+  exit 1
+}
+[ -s "$orca_litellm_env_file" ] || {
+  echo "LiteLLM credential file missing: $orca_litellm_env_file" >&2
+  echo "Configure Proton Pass or create the gitignored LiteLLM environment file." >&2
   exit 1
 }
 ensure_key
@@ -58,6 +63,7 @@ docker "${docker_args[@]}" \
   -v "$opencode_volume:/home/vscode/.local/share/opencode" \
   -v "$orca_opencode_auth_file:/home/vscode/.local/share/opencode/auth.json" \
   -v "$orca_github_secrets_dir:/run/secrets/teck-github:ro" \
+  -v "$orca_litellm_env_file:$orca_project_root/.devcontainer/litellm/litellm.env:ro" \
   -e "ORCA_SSH_PUBLIC_KEY=$(<"$orca_key_file.pub")" "$base_image" >/dev/null
 docker exec -u vscode "$name" teck-setup-github-automation >&2
 port="$(docker port "$name" 22/tcp | sed -nE 's/.*:([0-9]+)$/\1/p' | head -1)"

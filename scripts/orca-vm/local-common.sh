@@ -18,6 +18,7 @@ orca_key_file="${ORCA_SSH_KEY_FILE:-$(wslpath -u "$orca_windows_profile")/.ssh/o
 orca_codex_auth_file="${ORCA_CODEX_AUTH_FILE:-$HOME/.codex/auth.json}"
 orca_opencode_auth_file="${ORCA_OPENCODE_AUTH_FILE:-$HOME/.local/share/opencode/auth.json}"
 orca_github_secrets_dir="${ORCA_GITHUB_SECRETS_DIR:-$orca_repo_root/.devcontainer/github-app}"
+orca_litellm_env_file="${ORCA_LITELLM_ENV_FILE:-$orca_repo_root/.devcontainer/litellm/litellm.env}"
 orca_proton_config="${ORCA_PROTON_CONFIG:-$orca_repo_root/.devcontainer/github-app/proton-pass.env}"
 orca_proton_pat_file="${PROTON_PASS_PERSONAL_ACCESS_TOKEN_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/teck-orca/proton-pass.pat}"
 orca_base_image="teck-devcontainer:orca-base"
@@ -34,7 +35,7 @@ cleanup_runtime_secrets() {
   esac
 }
 
-prepare_github_secrets() {
+prepare_runtime_secrets() {
   [ -s "$orca_proton_config" ] || return 0
   command -v pass-cli >/dev/null 2>&1 || {
     echo "Proton Pass is configured but pass-cli is not installed in WSL." >&2
@@ -85,7 +86,8 @@ prepare_github_secrets() {
   fi
 
   orca_github_secrets_dir="$orca_runtime_secrets_dir/container"
-  echo "GitHub automation secrets loaded from Proton Pass into WSL tmpfs." >&2
+  orca_litellm_env_file="$orca_runtime_secrets_dir/container/litellm.env"
+  echo "GitHub, signing, and LiteLLM secrets loaded from Proton Pass into WSL tmpfs." >&2
 }
 
 ensure_key() {
