@@ -22,6 +22,29 @@ test("defines five unique lifecycle labels", () => {
   assert.equal(lifecycleNames(config).size, 5);
 });
 
+test("accepts an issue form opened as ready", () => {
+  assert.deepEqual(planIssueEvent(event("opened", ["agent:ready"]), config), {
+    operation: "transition",
+    target: "agent:ready",
+  });
+});
+
+test("ignores an opened issue without exactly one lifecycle label", () => {
+  assert.deepEqual(planIssueEvent(event("opened", []), config), { operation: "noop" });
+  assert.deepEqual(
+    planIssueEvent(event("opened", ["agent:ready", "agent:needs-input"]), config),
+    { operation: "noop" },
+  );
+});
+
+test("rejects an issue opened directly in a non-entry lifecycle state", () => {
+  assert.deepEqual(planIssueEvent(event("opened", ["agent:claimed"]), config), {
+    operation: "reject",
+    target: "agent:claimed",
+    reason: "unmanaged cannot transition to agent:claimed",
+  });
+});
+
 test("allows a ready issue to be claimed", () => {
   assert.deepEqual(
     planIssueEvent(event("labeled", ["agent:ready", "agent:claimed"], "agent:claimed"), config),

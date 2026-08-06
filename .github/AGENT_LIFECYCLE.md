@@ -16,6 +16,9 @@ unmanaged -> agent:ready -> agent:claimed -> agent:in-review -> agent:completed
 
 - A person or deterministic GitHub workflow applies `agent:ready` after the
   issue is sufficiently specified and approved for agent work.
+- The repository's structured Feature, Bug, Plan defect, and Maintenance issue
+  forms require a readiness attestation and apply `agent:ready` at submission.
+  Use a draft Project item instead when work still needs product triage.
 - Orca intake is the only automation that applies `agent:claimed`. It must
   claim the issue before creating a feature workspace or orchestration Run.
 - The feature orchestrator applies `agent:needs-input` when blocked on a human

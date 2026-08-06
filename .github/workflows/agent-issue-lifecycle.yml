@@ -2,7 +2,7 @@ name: Agent Issue Lifecycle
 
 on:
   issues:
-    types: [labeled, closed, reopened]
+    types: [opened, labeled, closed, reopened]
   workflow_dispatch:
 
 permissions:

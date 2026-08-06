@@ -20,6 +20,19 @@ export function planIssueEvent(event, config) {
   const labels = event.issue?.labels ?? [];
   const managedStates = currentLifecycle(labels, config);
 
+  if (action === "opened") {
+    if (managedStates.length !== 1) return { operation: "noop" };
+    const [target] = managedStates;
+    if (!(config.transitions[target] ?? []).includes(null)) {
+      return {
+        operation: "reject",
+        target,
+        reason: `unmanaged cannot transition to ${target}`,
+      };
+    }
+    return { operation: "transition", target };
+  }
+
   if (action === "closed") {
     if (managedStates.length === 0) return { operation: "noop" };
     return { operation: "transition", target: "agent:completed" };

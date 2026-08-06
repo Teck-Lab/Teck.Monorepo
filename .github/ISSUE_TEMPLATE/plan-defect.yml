@@ -1,0 +1,96 @@
+name: Plan defect
+description: Track a gap or correction discovered during plan review as agent-ready sub-work.
+title: "plan: "
+labels:
+  - "agent:ready"
+body:
+  - type: input
+    id: parent
+    attributes:
+      label: Parent issue
+      description: Link the feature issue whose reviewed plan contains this defect.
+      placeholder: "#123"
+    validations:
+      required: true
+
+  - type: textarea
+    id: defect
+    attributes:
+      label: Plan defect
+      description: What is missing, incorrect, unsafe, or insufficiently specified?
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Explain the consequence if the plan is executed without this correction.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Commerce
+        - Operations
+        - Content
+        - Gateway
+        - Web
+        - Platform
+        - Infrastructure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Low
+        - Medium
+        - High
+        - Urgent
+    validations:
+      required: true
+
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      options:
+        - Unknown
+        - XS
+        - S
+        - M
+        - L
+        - XL
+    validations:
+      required: true
+
+  - type: input
+    id: sprint
+    attributes:
+      label: Sprint
+      description: Optional Teck Scrum iteration name.
+
+  - type: textarea
+    id: correction
+    attributes:
+      label: Required correction
+      description: State the change and its completion criteria.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Ready for Orca
+      options:
+        - label: This defect can be planned or implemented independently and merged into the parent feature branch.
+          required: true
