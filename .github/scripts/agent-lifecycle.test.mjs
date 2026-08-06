@@ -6,6 +6,7 @@ import {
   labelsToRemove,
   lifecycleNames,
   planIssueEvent,
+  projectStatusForLifecycle,
 } from "./agent-lifecycle.mjs";
 
 const config = JSON.parse(
@@ -86,4 +87,13 @@ test("a transition removes every other lifecycle label", () => {
     "agent:ready",
   ]);
   assert.deepEqual(currentLifecycle(labels, config), ["agent:needs-input", "agent:ready"]);
+});
+
+test("maps every lifecycle label to the Scrum board", () => {
+  assert.equal(projectStatusForLifecycle("agent:ready", config), "Ready");
+  assert.equal(projectStatusForLifecycle("agent:claimed", config), "In progress");
+  assert.equal(projectStatusForLifecycle("agent:needs-input", config), "Blocked");
+  assert.equal(projectStatusForLifecycle("agent:in-review", config), "In review");
+  assert.equal(projectStatusForLifecycle("agent:completed", config), "Done");
+  assert.throws(() => projectStatusForLifecycle("agent:unknown", config), /No Project status/);
 });

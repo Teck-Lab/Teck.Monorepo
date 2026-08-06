@@ -28,5 +28,17 @@
     "agent:needs-input": ["agent:ready", "agent:claimed", "agent:in-review"],
     "agent:in-review": ["agent:claimed", "agent:needs-input"],
     "agent:completed": ["agent:claimed", "agent:in-review"]
+  },
+  "project": {
+    "organization": "Teck-Lab",
+    "number": 3,
+    "statusField": "Status",
+    "statuses": {
+      "agent:ready": "Ready",
+      "agent:claimed": "In progress",
+      "agent:needs-input": "Blocked",
+      "agent:in-review": "In review",
+      "agent:completed": "Done"
+    }
   }
 }

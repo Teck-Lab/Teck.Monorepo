@@ -37,8 +37,10 @@ has normalized the issue to that single lifecycle label.
 
 `.github/workflows/agent-issue-lifecycle.yml` serializes changes per issue,
 rejects invalid state changes, and removes stale lifecycle labels after valid
-transitions. Its manual `workflow_dispatch` entry synchronizes label names,
-colors, and descriptions from `.github/agent-lifecycle.json`.
+transitions. It mirrors the normalized lifecycle state into the `Teck Scrum`
+Project (`Ready`, `In progress`, `Blocked`, `In review`, or `Done`). Its manual
+`workflow_dispatch` entry synchronizes label definitions and backfills every
+managed issue into the Project.
 
 The workflow deliberately does not start coding agents. Orca polls for
 `agent:ready`, claims an issue, creates its per-workspace environment, and
