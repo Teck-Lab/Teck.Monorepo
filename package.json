@@ -12,6 +12,7 @@
     "affected:lint": "nx affected -t lint",
     "affected:typecheck": "nx affected -t typecheck",
     "affected:all": "nx affected -t build test lint typecheck",
+    "test:agent-lifecycle": "node --test .github/scripts/agent-lifecycle.test.mjs",
     "graph": "nx graph",
     "release:dry": "nx release --dry-run",
     "release": "nx release --yes",

@@ -1,0 +1,27 @@
+name: Agent Issue Lifecycle
+
+on:
+  issues:
+    types: [labeled, closed, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: agent-lifecycle-${{ github.event.issue.number || 'label-sync' }}
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: Apply agent lifecycle policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout lifecycle policy
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Synchronize labels or apply transition
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node .github/scripts/agent-lifecycle.mjs

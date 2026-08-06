@@ -40,6 +40,13 @@ resolved Orca CLI before running orchestration commands.
   the user explicitly requests sub-feature PRs.
 - Never expose GitHub MCP file-write/remote-commit, workflow-dispatch,
   review-submission, or merge tools in this flow.
+- Require the parent lifecycle to be normalized to the single
+  `agent:claimed` label before creating the feature Run. Request transitions
+  by adding the target label without first removing the current label; the
+  lifecycle workflow validates the pair and removes the old label. Apply
+  `agent:needs-input` while blocked on a human decision and `agent:in-review`
+  after opening the final PR. The workflow applies `agent:completed` when the
+  parent closes.
 - Never merge the final PR. Request the human review and stop at the PR.
 - Never create tags or run `nx release` from the feature branch.
 

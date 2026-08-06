@@ -14,6 +14,13 @@
 Read the GitHub parent issue and its sub-issues through the `github` MCP. Keep
 the parent open until the final PR merges.
 
+The single Orca intake dispatcher must add `agent:claimed` while retaining
+`agent:ready`, then re-read the issue after the lifecycle workflow normalizes
+the pair. Start this flow only when `agent:claimed` is the sole lifecycle
+label. Otherwise stop without creating a Run, container, branch, or sub-issue.
+Never remove the current lifecycle label before adding its target because that
+erases the transition evidence used by the workflow.
+
 Initialize the local feature state from the parent checkout:
 
 ```bash
@@ -182,4 +189,8 @@ from `pr-info`, reference the parent and sub-issues in the body, then use
 
 Read checks through `actions_get`, `actions_list`, `get_job_logs`, and
 `pull_request_read`. Post a concise validation summary. Stop with the PR open;
-the human approves and merges it.
+apply `agent:in-review`, and let the human approve and merge it. If the
+orchestrator needs a human decision before that point, apply
+`agent:needs-input`; return to `agent:claimed` when the same Run resumes, or
+`agent:ready` when a fresh intake is required. The issue lifecycle workflow
+applies `agent:completed` when the parent issue closes.
