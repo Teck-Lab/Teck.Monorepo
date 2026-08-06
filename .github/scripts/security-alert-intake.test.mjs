@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   componentForPath,
+  applyDependabotRisk,
   fingerprint,
   fingerprintFromBody,
   issueBody,
@@ -9,6 +10,7 @@ import {
   normalizeDependabot,
   normalizeSecretScanning,
   priorityForSeverity,
+  priorityForFinding,
   severity,
 } from "./security-alert-intake.mjs";
 
@@ -17,6 +19,8 @@ test("normalizes security severities to board priorities", () => {
   assert.equal(severity("error"), "high");
   assert.equal(severity("moderate"), "medium");
   assert.equal(priorityForSeverity("critical"), "Urgent");
+  assert.equal(priorityForFinding({ severity: "medium", epss: 0.6 }), "Urgent");
+  assert.equal(priorityForFinding({ severity: "low", epss: 0.2 }), "High");
 });
 
 test("maps monorepo paths to project components", () => {
@@ -38,9 +42,12 @@ test("normalizes code scanning without exposing API internals", () => {
 });
 
 test("normalizes Dependabot manifests", () => {
-  const finding = normalizeDependabot({ number: 3, html_url: "https://example.test/3", dependency: { package: { name: "foo", ecosystem: "npm" }, manifest_path: "src/apps/store/package.json" }, security_advisory: { severity: "critical", summary: "Unsafe foo", ghsa_id: "GHSA-test" } }, "Teck-Lab/Teck.Monorepo");
+  const finding = normalizeDependabot({ number: 3, html_url: "https://example.test/3", dependency: { package: { name: "foo", ecosystem: "npm" }, manifest_path: "src/apps/store/package.json" }, security_advisory: { severity: "critical", summary: "Unsafe foo", ghsa_id: "GHSA-test", identifiers: [{ type: "CVE", value: "CVE-2026-1234" }] } }, "Teck-Lab/Teck.Monorepo");
   assert.equal(finding.component, "Web");
   assert.equal(finding.severity, "critical");
+  applyDependabotRisk(finding, new Map([["CVE-2026-1234", 0.75]]), new Set(["CVE-2026-1234"]));
+  assert.equal(finding.epss, 0.75);
+  assert.equal(finding.kev, true);
 });
 
 test("secret issues are sanitized and require restricted alert review", () => {

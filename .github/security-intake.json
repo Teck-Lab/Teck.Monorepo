@@ -4,9 +4,10 @@
     "number": 3,
     "fields": {
       "status": "Status",
-      "priority": "Priority",
       "workType": "Work type",
-      "component": "Component"
+      "component": "Component",
+      "epss": "EPSS",
+      "kev": "KEV"
     }
   },
   "sources": {
@@ -20,6 +21,7 @@
     { "name": "source:code-scanning", "color": "d4c5f9", "description": "GitHub code scanning finding" },
     { "name": "source:dependabot", "color": "d4c5f9", "description": "GitHub Dependabot alert" },
     { "name": "source:secret-scanning", "color": "d4c5f9", "description": "GitHub secret scanning alert" },
+    { "name": "known-exploited", "color": "b60205", "description": "Listed in the CISA Known Exploited Vulnerabilities catalog" },
     { "name": "severity:low", "color": "0e8a16", "description": "Low security severity" },
     { "name": "severity:medium", "color": "fbca04", "description": "Medium security severity" },
     { "name": "severity:high", "color": "ff7f00", "description": "High security severity" },

@@ -15,6 +15,12 @@ export function priorityForSeverity(value) {
   return { low: "Low", medium: "Medium", high: "High", critical: "Urgent" }[severity(value)];
 }
 
+export function priorityForFinding(finding) {
+  if (finding.kev || (finding.epss ?? 0) >= 0.5) return "Urgent";
+  if ((finding.epss ?? 0) >= 0.1) return "High";
+  return priorityForSeverity(finding.severity);
+}
+
 export function componentForPath(path = "") {
   const normalized = path.toLowerCase();
   if (normalized.includes("src/services/commerce/")) return "Commerce";
@@ -64,6 +70,7 @@ export function normalizeDependabot(alert, repository) {
     component: componentForPath(manifest),
     title: `[Dependabot] ${advisory.summary ?? `Vulnerable ${packageName}`}`,
     url: alert.html_url,
+    cves: (advisory.identifiers ?? []).filter((identifier) => identifier.type === "CVE").map((identifier) => identifier.value),
     details: [
       `Package: \`${packageName}\` (${dependency.package?.ecosystem ?? "unknown ecosystem"})`,
       manifest ? `Manifest: \`${manifest}\`` : null,
@@ -71,6 +78,15 @@ export function normalizeDependabot(alert, repository) {
       `Repository: ${repository}`,
     ].filter(Boolean),
   };
+}
+
+export function applyDependabotRisk(finding, epssByCve, kevCves) {
+  const scores = (finding.cves ?? []).map((cve) => epssByCve.get(cve) ?? 0);
+  finding.epss = scores.length ? Math.max(...scores) : 0;
+  finding.kev = (finding.cves ?? []).some((cve) => kevCves.has(cve));
+  finding.details.push(`EPSS: ${(finding.epss * 100).toFixed(2)}%`);
+  finding.details.push(`CISA KEV: ${finding.kev ? "Yes" : "No"}`);
+  return finding;
 }
 
 export function normalizeSecretScanning(alert, repository) {
@@ -96,6 +112,7 @@ export function issueBody(finding, owner, repo) {
     `<!-- teck-security-fingerprint: ${key} -->`,
     "## Security finding",
     "",
+    `- Recommended priority: ${priorityForFinding(finding)}`,
     ...finding.details.map((line) => `- ${line}`),
     "",
     `Alert: ${finding.url}`,
@@ -189,9 +206,32 @@ async function collectFindings(client, owner, repo, config) {
   return { findings, available };
 }
 
+async function enrichDependabot(findings) {
+  const dependencyFindings = findings.filter((finding) => finding.source === "dependabot");
+  const cves = [...new Set(dependencyFindings.flatMap((finding) => finding.cves ?? []))];
+  if (cves.length === 0) return;
+  try {
+    const [kevResponse, epssResponses] = await Promise.all([
+      fetch("https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"),
+      Promise.all(Array.from({ length: Math.ceil(cves.length / 100) }, (_, index) => {
+        const batch = cves.slice(index * 100, (index + 1) * 100).join(",");
+        return fetch(`https://api.first.org/data/v1/epss?cve=${encodeURIComponent(batch)}`);
+      })),
+    ]);
+    if (!kevResponse.ok || epssResponses.some((response) => !response.ok)) throw new Error("risk feed returned a non-success response");
+    const kev = await kevResponse.json();
+    const epss = await Promise.all(epssResponses.map((response) => response.json()));
+    const kevCves = new Set((kev.vulnerabilities ?? []).map((entry) => entry.cveID));
+    const epssByCve = new Map(epss.flatMap((response) => response.data ?? []).map((entry) => [entry.cve, Number(entry.epss)]));
+    dependencyFindings.forEach((finding) => applyDependabotRisk(finding, epssByCve, kevCves));
+  } catch (error) {
+    console.warn(`Dependabot risk enrichment unavailable: ${error.message}`);
+  }
+}
+
 async function upsertIssue(client, owner, repo, finding, existing, config) {
   const state = config.sources[finding.source].initialState;
-  const labels = ["security", "security:tracked", `source:${finding.source}`, `severity:${finding.severity}`, state];
+  const labels = ["security", "security:tracked", `source:${finding.source}`, `severity:${finding.severity}`, state, finding.kev ? "known-exploited" : null].filter(Boolean);
   const body = issueBody(finding, owner, repo);
   if (!existing) {
     const response = await client.request(`/repos/${owner}/${repo}/issues`, { method: "POST", body: JSON.stringify({ title: finding.title, body, labels }) });
@@ -200,10 +240,10 @@ async function upsertIssue(client, owner, repo, finding, existing, config) {
   const lifecycle = existing.state === "closed"
     ? state
     : existing.labels.map((label) => label.name).find((name) => name.startsWith("agent:"));
-  const preserved = existing.labels.map((label) => label.name).filter((name) => !name.startsWith("severity:") && !name.startsWith("source:") && !name.startsWith("agent:"));
+  const preserved = existing.labels.map((label) => label.name).filter((name) => !name.startsWith("severity:") && !name.startsWith("source:") && !name.startsWith("agent:") && name !== "known-exploited");
   const response = await client.request(`/repos/${owner}/${repo}/issues/${existing.number}`, {
     method: "PATCH",
-    body: JSON.stringify({ title: finding.title, body, state: "open", labels: [...new Set([...preserved, `source:${finding.source}`, `severity:${finding.severity}`, lifecycle ?? state])] }),
+    body: JSON.stringify({ title: finding.title, body, state: "open", labels: [...new Set([...preserved, `source:${finding.source}`, `severity:${finding.severity}`, lifecycle ?? state, finding.kev ? "known-exploited" : null].filter(Boolean))] }),
   });
   return response.data;
 }
@@ -221,14 +261,20 @@ async function addToProject(client, project, issue, finding, config) {
   const itemId = add.addProjectV2ItemById.item.id;
   const desired = {
     [config.project.fields.status]: config.sources[finding.source].initialState === "agent:needs-input" ? "Blocked" : "Ready",
-    [config.project.fields.priority]: priorityForSeverity(finding.severity),
     [config.project.fields.workType]: "Security",
     [config.project.fields.component]: finding.component,
+    [config.project.fields.kev]: finding.kev ? "Yes" : "No",
+    [config.project.fields.epss]: finding.epss,
   };
   for (const field of project.fields.nodes) {
-    const option = field.options?.find((candidate) => candidate.name.toLowerCase() === desired[field.name]?.toLowerCase());
-    if (!option) continue;
-    await client.graphql(`mutation($project:ID!,$item:ID!,$field:ID!,$option:String!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$option}}){projectV2Item{id}}}`, { project: project.id, item: itemId, field: field.id, option: option.id });
+    const value = desired[field.name];
+    if (value === undefined) continue;
+    if (field.dataType === "NUMBER") {
+      await client.graphql(`mutation($project:ID!,$item:ID!,$field:ID!,$number:Float!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{number:$number}}){projectV2Item{id}}}`, { project: project.id, item: itemId, field: field.id, number: value });
+      continue;
+    }
+    const option = field.options?.find((candidate) => candidate.name.toLowerCase() === String(value).toLowerCase());
+    if (option) await client.graphql(`mutation($project:ID!,$item:ID!,$field:ID!,$option:String!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$option}}){projectV2Item{id}}}`, { project: project.id, item: itemId, field: field.id, option: option.id });
   }
 }
 
@@ -249,6 +295,7 @@ export async function run() {
   const config = JSON.parse(await readFile(configUrl, "utf8"));
   const client = new GitHubClient(token);
   const { findings, available } = await collectFindings(client, owner, repo, config);
+  await enrichDependabot(findings);
   const project = await projectContext(client, config);
   if (process.env.SECURITY_INTAKE_DRY_RUN === "true") {
     const summary = findings.reduce((counts, finding) => {
@@ -260,6 +307,11 @@ export async function run() {
       project: `${config.project.organization}#${config.project.number}`,
       availableSources: [...available].sort(),
       findings: summary,
+      dependabotRisk: {
+        knownExploited: findings.filter((finding) => finding.source === "dependabot" && finding.kev).length,
+        epssAtLeast10Percent: findings.filter((finding) => finding.source === "dependabot" && (finding.epss ?? 0) >= 0.1).length,
+        epssAtLeast50Percent: findings.filter((finding) => finding.source === "dependabot" && (finding.epss ?? 0) >= 0.5).length,
+      },
     }, null, 2));
     return;
   }

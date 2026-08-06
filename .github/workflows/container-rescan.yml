@@ -1,0 +1,61 @@
+name: Deployed Container Rescan
+
+on:
+  workflow_call:
+    inputs:
+      images:
+        description: JSON array of immutable image targets with ref and category
+        required: true
+        type: string
+    secrets:
+      registry-token:
+        description: Token able to pull the supplied images
+        required: true
+  workflow_dispatch:
+    inputs:
+      images:
+        description: JSON array, for example [{"ref":"ghcr.io/org/image@sha256:...","category":"prod-catalog"}]
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+  security-events: write
+
+jobs:
+  scan:
+    name: Rescan ${{ matrix.image.category }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(inputs.images) }}
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets['registry-token'] || secrets.GITHUB_TOKEN }}
+
+      - name: Scan deployed immutable digest
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets['registry-token'] || secrets.GITHUB_TOKEN }}
+        with:
+          version: 'v0.69.3'
+          image-ref: ${{ matrix.image.ref }}
+          format: sarif
+          output: trivy-deployed.sarif
+          severity: CRITICAL,HIGH,MEDIUM,LOW
+          ignore-unfixed: true
+          exit-code: '0'
+
+      - name: Upload deployed-image findings
+        if: always() && hashFiles('trivy-deployed.sarif') != ''
+        uses: github/codeql-action/upload-sarif@24c7eb380a2dc368f2d129e4c65e51d172983a1e # v4
+        with:
+          sarif_file: trivy-deployed.sarif
+          category: trivy-deployed-${{ matrix.image.category }}
