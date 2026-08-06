@@ -112,7 +112,7 @@ guide. A worker must:
 
 1. Work only in its assigned path and branch.
 2. Run relevant validation.
-3. Create signed conventional commits.
+3. Create conventional local checkpoint commits; never push the worker branch.
 4. Send `worker_done` exactly once with outcome and modified files.
 
 For `planned` and `quick` work, Prometheus writes and reviews the constrained
@@ -127,11 +127,11 @@ After successful `worker_done`:
 ```bash
 tools/orca-feature set-status --issue 121 --status completed
 git -C <worktree-path> status --short
-git -C <worktree-path> log --show-signature \
+git -C <worktree-path> log --oneline \
   "feature/120-billing-overhaul..subfeature/120/121-tax-system"
 ```
 
-Do not integrate a dirty worktree, unsigned commit, failed validation, or
+Do not integrate a dirty worktree, missing commit, failed validation, or
 review-only finding that has not been assigned to an editor.
 
 ## 5. Integrate in dependency order
@@ -143,9 +143,11 @@ tools/orca-feature integrate --issue 121
 ```
 
 The helper requires clean parent/worker trees, satisfied dependencies, and
-worker commits. It creates a signed `--no-ff` merge commit. If Git reports a
-conflict, resolve or abort it in the parent checkout; the helper does not mark
-the issue integrated after a failed merge.
+worker commits. It squash-applies the worker result, then uses the GitHub App
+to create one verified remote commit with the exact resulting Git tree. It
+serializes promotion by requiring the remote feature head to match the local
+parent. If Git reports a conflict, resolve or abort it in the parent checkout;
+the helper does not mark the issue integrated after a failed promotion.
 
 After validation, use GitHub MCP to comment with the integrated commit and
 close the sub-issue. Then optionally remove the checkout while retaining its
@@ -174,14 +176,9 @@ tools/orca-feature status --json
 tools/orca-feature pr-info
 ```
 
-Push the parent branch as the coordinator with a short-lived GitHub App
-installation token:
-
-```bash
-teck-git-with-github-app write -- git push --set-upstream origin <parent-branch>
-```
-
-The wrapper keeps the token out of Git configuration and command arguments.
+Every integrated sub-feature has already advanced the remote parent branch as
+one verified App commit. Do not run a separate ordinary Git push; `pr-info`
+must report the feature ready before opening the PR.
 GitHub MCP does not receive the local working tree and must not create remote
 commits for this flow. Use MCP `create_pull_request` with the `head` and `base`
 from `pr-info`, reference the parent and sub-issues in the body, then use

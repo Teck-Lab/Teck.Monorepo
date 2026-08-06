@@ -187,8 +187,8 @@ dispatch, PR review submission, and merge.
 For one-container feature development, use the repo-owned `teck-feature-flow`
 skill and `tools/orca-feature`. GitHub sub-issues map to ordinary internal Git
 worktrees and Orca Tasks/Dispatches, while all workers stay inside the parent
-feature container. The coordinator integrates the signed worker commits into
-one parent branch and opens one final PR for human approval.
+feature container. The coordinator promotes each completed worker result as a
+verified GitHub App commit and opens one final PR for human approval.
 
 ## What survives a rebuild (auth & state)
 
@@ -198,8 +198,7 @@ one parent branch and opens one final PR for human approval.
 | `/home/vscode/.local/share/opencode/auth.json` | WSL2 bind `~/.local/share/opencode/auth.json` | Shared OpenCode/OpenAI OAuth credentials |
 | `/home/vscode/.local/share/opencode` | volume `opencode-data-*` | OpenCode plugin state, `mcp-auth.json`, memory DB |
 | `/home/vscode/.codex` | volume `codex-config-*` | Codex `auth.json` if you ever `codex login` |
-| `/run/secrets/teck-github` | read-only workspace bind | GitHub App PEM/config and automation signing-key export |
-| `/home/vscode/.gnupg` | imported/copied from read-only mounts | Active GPG signing key (see below) |
+| `/run/secrets/teck-github` | read-only workspace bind | GitHub App PEM/config |
 | `~/.config/opencode` | **not** persisted — by design | re-seeded from `.devcontainer/opencode/` every build |
 
 **`CLAUDE_CONFIG_DIR` is load-bearing.** It's set to `/home/vscode/.claude-config` in
@@ -213,35 +212,11 @@ perfectly. One env var + one mount now covers both.
 It must be an **absolute path**. `devcontainer.json`'s `containerEnv` is not shell-processed,
 so a leading `~` is taken literally and you get a directory named `~` in your workspace.
 
-## Commit signing (GPG)
+## Commit signing
 
-Agent commits use the dedicated automation key generated on WSL2 by
-`scripts/github-automation/init-local-secrets.sh`. Its private export remains
-gitignored on WSL2, is mounted **read-only** under `/run/secrets/teck-github`,
-and is imported into writable `~/.gnupg` by `postCreate.sh`. Until that bundle
-is initialized, the existing read-only host keyring at `~/.gnupg-host` remains
-the fallback so the container is still usable.
-
-**Why not VS Code's built-in GPG forwarding:** it worked, until it didn't. Forwarding is an
-implicit, undeclared socket bind to the host agent that drops on window reloads, container
-restarts, host-agent exit, and WSL2 sleep/resume. Worse, when it drops a **local keyless
-agent answers on the same socket path**, so `gpg` reports `No secret key` rather than a
-connection error — it looks like your key vanished. There is nothing to disconnect now.
-
-**Why copy instead of using the mount directly:** gpg requires `0700` on its home directory
-and writes sockets/`trustdb`/`random_seed` at runtime, so a read-only mount can't serve as
-`GNUPGHOME`. Mounting read-**write** would let this container corrupt the host keyring, so
-we don't. The writable keyring is ephemeral and refreshed at container setup;
-the WSL2 automation bundle remains the source of truth.
-
-`postCreate.sh` verifies the automation key by creating a detached signature,
-so a broken setup surfaces at startup instead of halfway through an agent run.
-The development-only automation key is generated without a passphrase for
-unattended workers; its filesystem mount and GitHub repository scope are the
-security boundaries.
-
-> A key mounted here is usable by anything running in the container, agents included. That
-> is the accepted trade for unattended signing.
+Worker commits remain local. Completed sub-worktrees are promoted through the
+GitHub App as verified `web-flow` commits, so no personal or automation GPG
+private key is available inside the container.
 
 ## Running things
 

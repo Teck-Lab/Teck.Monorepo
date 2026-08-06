@@ -65,7 +65,6 @@ docker "${docker_args[@]}" \
   -v "$orca_github_secrets_dir:/run/secrets/teck-github:ro" \
   -v "$orca_litellm_env_file:$orca_project_root/.devcontainer/litellm/litellm.env:ro" \
   -e "ORCA_SSH_PUBLIC_KEY=$(<"$orca_key_file.pub")" "$base_image" >/dev/null
-docker exec -u vscode "$name" teck-setup-github-automation >&2
 port="$(docker port "$name" 22/tcp | sed -nE 's/.*:([0-9]+)$/\1/p' | head -1)"
 [ -n "$port" ] || { docker logs "$name" >&2; echo 'Could not resolve the published SSH port.' >&2; exit 1; }
 
