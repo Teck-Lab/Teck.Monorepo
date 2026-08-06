@@ -3,7 +3,16 @@ set -euo pipefail
 
 access="${1:-read}"
 secret_dir="${2:-${TECK_GITHUB_SECRET_DIR:-/run/secrets/teck-github}}"
-case "$access" in read|write) ;; *) echo "Usage: $0 read|write [secret-dir]" >&2; exit 2 ;; esac
+case "$access" in
+  read) permissions='{"contents":"read"}' ;;
+  write) permissions='{"contents":"write"}' ;;
+  projects-read) permissions='{"organization_projects":"read"}' ;;
+  projects-write) permissions='{"organization_projects":"write"}' ;;
+  *)
+    echo "Usage: $0 read|write|projects-read|projects-write [secret-dir]" >&2
+    exit 2
+    ;;
+esac
 
 set -a
 # shellcheck disable=SC1090
@@ -37,10 +46,10 @@ status="$(curl -sS -o "$response" -w '%{http_code}' -X POST \
   -H "Authorization: Bearer $jwt" \
   -H 'X-GitHub-Api-Version: 2022-11-28' \
   "https://api.github.com/app/installations/$GITHUB_APP_INSTALLATION_ID/access_tokens" \
-  -d "{\"permissions\":{\"contents\":\"$access\"}}")"
+  -d "{\"permissions\":$permissions}")"
 if [ "$status" != 201 ]; then
   message="$(jq -r '.message // "unknown GitHub error"' "$response")"
-  echo "Could not mint GitHub App Contents:$access token (HTTP $status): $message" >&2
+  echo "Could not mint GitHub App $access token (HTTP $status): $message" >&2
   exit 1
 fi
 jq -er '.token' "$response"
