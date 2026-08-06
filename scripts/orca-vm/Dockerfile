@@ -1,6 +1,9 @@
 ARG DEVCONTAINER_IMAGE=teck-devcontainer:orca-source
 FROM ${DEVCONTAINER_IMAGE}
 
+# The container entrypoint starts sshd, which must retain root in order to
+# perform privilege separation and create the vscode login session.
+# nosemgrep: dockerfile.security.last-user-is-root.last-user-is-root
 USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends openssh-server python3 \

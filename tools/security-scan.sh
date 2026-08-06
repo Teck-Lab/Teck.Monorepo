@@ -202,11 +202,13 @@ fi
 echo
 echo "--- [3] Trivy: dependency vulnerabilities ---"
 # CI evaluates dependencies from a source checkout (SBOM), so scan the same view:
-# skip agent worktrees (.claude) and regenerable build outputs (bin/obj), whose
-# stale lock files/deps.json would otherwise report versions CI never sees.
+# skip agent worktrees/runtime caches (.claude/.omo) and regenerable build
+# outputs (bin/obj), whose stale lock files/deps.json would otherwise report
+# versions CI never sees.
 if docker run --rm -v "$REPO_ROOT:/src" "$TRIVY_IMAGE" \
      fs --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --quiet \
-     --skip-dirs "/src/.claude" --skip-dirs "**/bin" --skip-dirs "**/obj" /src 2>&1 | tail -30; then
+     --skip-dirs "/src/.claude" --skip-dirs "/src/.omo" \
+     --skip-dirs "**/bin" --skip-dirs "**/obj" /src 2>&1 | tail -30; then
   echo "PASS: no HIGH/CRITICAL dependency vulnerabilities"
 else
   echo "FAIL: HIGH/CRITICAL dependency vulns (Trivy is the direct local dependency scan/report source; Dependabot/dependency review governs PR dependency policy)"
