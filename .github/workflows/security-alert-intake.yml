@@ -1,0 +1,41 @@
+name: Security Alert Intake
+
+on:
+  schedule:
+    - cron: "17,47 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Inspect alerts without creating or changing issues
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-alert-intake
+  cancel-in-progress: false
+
+jobs:
+  synchronize:
+    name: Synchronize alerts with issues and Teck Scrum
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.TECK_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.TECK_AUTOMATION_APP_PRIVATE_KEY }}
+          owner: Teck-Lab
+
+      - name: Checkout security intake policy
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Synchronize security alerts
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          SECURITY_INTAKE_DRY_RUN: ${{ inputs['dry-run'] || 'false' }}
+        run: node .github/scripts/security-alert-intake.mjs

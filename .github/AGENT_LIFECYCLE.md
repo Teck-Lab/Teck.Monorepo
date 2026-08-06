@@ -45,6 +45,13 @@ The workflow deliberately does not start coding agents. Orca polls for
 starts the Atlas feature orchestrator. This keeps GitHub Actions deterministic
 and keeps multi-agent execution in Orca.
 
-GitHub Projects can be layered on later by adding issues with any `agent:*`
-label to a project. General stale-issue automation must exempt all five
-lifecycle labels so it cannot close active or human-blocked agent work.
+The `Teck Scrum` organization Project is the visual planning layer. Security
+alerts are converted into durable issues by `security-alert-intake.yml`, added
+to the Project, and initialized from their severity and component metadata.
+Code-scanning and Dependabot findings enter `agent:ready`; sanitized secret
+scanning findings enter `agent:needs-input` because credential rotation needs
+a person. The workflow reconciles tracking issues only after the underlying
+alert is no longer open.
+
+General stale-issue automation must exempt all five lifecycle labels so it
+cannot close active or human-blocked agent work.

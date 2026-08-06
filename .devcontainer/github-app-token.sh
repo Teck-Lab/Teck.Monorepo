@@ -8,8 +8,9 @@ case "$access" in
   write) permissions='{"contents":"write"}' ;;
   projects-read) permissions='{"organization_projects":"read"}' ;;
   projects-write) permissions='{"organization_projects":"write"}' ;;
+  installation) permissions='' ;;
   *)
-    echo "Usage: $0 read|write|projects-read|projects-write [secret-dir]" >&2
+    echo "Usage: $0 read|write|projects-read|projects-write|installation [secret-dir]" >&2
     exit 2
     ;;
 esac
@@ -41,12 +42,14 @@ NODE
 
 response="$(mktemp)"
 trap 'rm -f "$response"' EXIT
+payload='{}'
+[ -z "$permissions" ] || payload="{\"permissions\":$permissions}"
 status="$(curl -sS -o "$response" -w '%{http_code}' -X POST \
   -H 'Accept: application/vnd.github+json' \
   -H "Authorization: Bearer $jwt" \
   -H 'X-GitHub-Api-Version: 2022-11-28' \
   "https://api.github.com/app/installations/$GITHUB_APP_INSTALLATION_ID/access_tokens" \
-  -d "{\"permissions\":$permissions}")"
+  -d "$payload")"
 if [ "$status" != 201 ]; then
   message="$(jq -r '.message // "unknown GitHub error"' "$response")"
   echo "Could not mint GitHub App $access token (HTTP $status): $message" >&2
