@@ -1,0 +1,173 @@
+#!/usr/bin/env bun
+
+import { spawnSync } from "node:child_process";
+
+class PromoteError extends Error {}
+
+function run(
+  command: string,
+  args: string[],
+  encoding: BufferEncoding | null = "utf8",
+) {
+  const result = spawnSync(command, args, {
+    encoding,
+    maxBuffer: 1024 * 1024 * 128,
+  });
+  if (result.status !== 0) {
+    const detail = Buffer.isBuffer(result.stderr)
+      ? result.stderr.toString()
+      : result.stderr;
+    throw new PromoteError(
+      `${command} ${args.join(" ")} failed: ${detail?.trim()}`,
+    );
+  }
+  return result.stdout;
+}
+
+function argumentsMap(args: string[]) {
+  const values = new Map<string, string>();
+  for (let index = 0; index < args.length; index += 2) {
+    const key = args[index];
+    const value = args[index + 1];
+    if (!key?.startsWith("--") || value === undefined)
+      throw new PromoteError(`invalid argument: ${key ?? ""}`);
+    values.set(key, value);
+  }
+  return values;
+}
+
+const options = argumentsMap(process.argv.slice(2));
+const required = (name: string) => {
+  const value = options.get(name);
+  if (!value) throw new PromoteError(`${name} is required`);
+  return value;
+};
+
+const repository = required("--repo");
+const branch = required("--branch");
+const parent = required("--parent");
+const targetTree = required("--tree");
+const message = required("--message");
+const apiBase = process.env.TECK_GITHUB_API_URL ?? "https://api.github.com";
+const token =
+  process.env.TECK_GITHUB_APP_TOKEN ??
+  String(run("teck-github-app-token", ["write"])).trim();
+const headers = {
+  Accept: "application/vnd.github+json",
+  Authorization: `Bearer ${token}`,
+  "Content-Type": "application/json",
+  "X-GitHub-Api-Version": "2022-11-28",
+  "User-Agent": "teck-github-app-promote",
+};
+
+async function request(
+  path: string,
+  init: RequestInit = {},
+  allowed: number[] = [],
+) {
+  const response = await fetch(`${apiBase}/repos/${repository}${path}`, {
+    ...init,
+    headers: { ...headers, ...init.headers },
+  });
+  if (allowed.includes(response.status)) return null;
+  if (!response.ok)
+    throw new PromoteError(
+      `GitHub API ${init.method ?? "GET"} ${path} failed (${response.status}): ${await response.text()}`,
+    );
+  return response.status === 204 ? null : response.json();
+}
+
+function changedPaths() {
+  const raw = run(
+    "git",
+    ["diff", "--name-status", "-z", "--no-renames", parent, targetTree],
+    null,
+  ) as Buffer;
+  const fields = raw.toString().split("\0").filter(Boolean);
+  const changes: Array<{ status: string; path: string }> = [];
+  for (let index = 0; index < fields.length; index += 2)
+    changes.push({ status: fields[index], path: fields[index + 1] });
+  return changes;
+}
+
+async function main() {
+  const refPath = `/git/ref/heads/${branch.split("/").map(encodeURIComponent).join("/")}`;
+  const remoteRef = (await request(refPath, {}, [404])) as any;
+  if (remoteRef && remoteRef.object.sha !== parent) {
+    throw new PromoteError(
+      `remote ${branch} advanced from ${parent} to ${remoteRef.object.sha}; fetch and reconcile before retrying`,
+    );
+  }
+
+  const parentCommit = (await request(`/git/commits/${parent}`)) as any;
+  const entries = [];
+  for (const change of changedPaths()) {
+    if (change.status === "D") {
+      entries.push({ path: change.path, sha: null });
+      continue;
+    }
+    const record = String(
+      run("git", ["ls-tree", targetTree, "--", change.path]),
+    ).trim();
+    const match = /^(\d+) (blob|commit) ([0-9a-f]+)\t/.exec(record);
+    if (!match)
+      throw new PromoteError(
+        `cannot resolve target tree entry: ${change.path}`,
+      );
+    const [, mode, type, localSha] = match;
+    let sha = localSha;
+    if (type === "blob") {
+      const content = run(
+        "git",
+        ["cat-file", "blob", localSha],
+        null,
+      ) as Buffer;
+      const blob = (await request("/git/blobs", {
+        method: "POST",
+        body: JSON.stringify({
+          content: content.toString("base64"),
+          encoding: "base64",
+        }),
+      })) as any;
+      sha = blob.sha;
+    }
+    entries.push({ path: change.path, mode, type, sha });
+  }
+  if (entries.length === 0)
+    throw new PromoteError("the target tree has no changes to promote");
+
+  const tree = (await request("/git/trees", {
+    method: "POST",
+    body: JSON.stringify({ base_tree: parentCommit.tree.sha, tree: entries }),
+  })) as any;
+  const commit = (await request("/git/commits", {
+    method: "POST",
+    body: JSON.stringify({ message, tree: tree.sha, parents: [parent] }),
+  })) as any;
+  if (remoteRef) {
+    await request(refPath, {
+      method: "PATCH",
+      body: JSON.stringify({ sha: commit.sha, force: false }),
+    });
+  } else {
+    await request("/git/refs", {
+      method: "POST",
+      body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: commit.sha }),
+    });
+  }
+  const visible = (await request(`/commits/${commit.sha}`)) as any;
+  if (!visible.commit.verification.verified)
+    throw new PromoteError(
+      `GitHub created ${commit.sha} but did not verify its signature: ${visible.commit.verification.reason}`,
+    );
+  process.stdout.write(
+    `${JSON.stringify({ sha: commit.sha, author: visible.author?.login, verified: true })}\n`,
+  );
+}
+
+main().catch((error) => {
+  console.error(
+    `error: ${error instanceof Error ? error.message : String(error)}`,
+  );
+  process.exitCode = 1;
+});

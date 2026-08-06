@@ -143,22 +143,18 @@ function requireClean(path: string, label: string): void {
   if (!isClean(path)) throw new FlowError(`${label} has uncommitted changes: ${path}`);
 }
 
-function requireSignedCommits(root: string, parentBranch: string, workerBranch: string): void {
-  const setting = git(["config", "--bool", "--get", "orca.feature.requireSignatures"], root, false);
-  if (setting.exitCode === 0 && setting.stdout.trim() === "false") return;
-
+function requireWorkerCommits(root: string, parentBranch: string, workerBranch: string): void {
   const commits = git(["rev-list", `${parentBranch}..${workerBranch}`], root).stdout
     .split("\n")
     .filter(Boolean);
   if (commits.length === 0) throw new FlowError(`branch ${workerBranch} has no commits beyond ${parentBranch}`);
+}
 
-  for (const commit of commits) {
-    const verification = git(["verify-commit", commit], root, false);
-    if (verification.exitCode !== 0) {
-      const detail = verification.stderr.trim() || verification.stdout.trim() || "no valid signature";
-      throw new FlowError(`commit ${commit} on ${workerBranch} is not signed and verifiable: ${detail}`);
-    }
-  }
+function githubRepository(root: string): string {
+  const url = git(["remote", "get-url", "origin"], root).stdout.trim();
+  const match = /(?:github\.com[/:])([^/]+\/[^/]+?)(?:\.git)?$/.exec(url);
+  if (!match) throw new FlowError(`origin is not a GitHub repository: ${url}`);
+  return match[1];
 }
 
 function entryFor(state: FeatureState, issue: number): WorktreeEntry {
@@ -225,7 +221,9 @@ function worktreeStatus(root: string, state: FeatureState, entry: WorktreeEntry)
   const head = exists ? git(["rev-parse", "HEAD"], entry.path).stdout.trim() : null;
   const counts = git(["rev-list", "--left-right", "--count", `${state.parentBranch}...${entry.branch}`], root)
     .stdout.trim().split(/\s+/).map(Number);
-  const merged = git(["merge-base", "--is-ancestor", entry.branch, state.parentBranch], root, false).exitCode === 0;
+  const merged = entry.integratedCommit
+    ? git(["merge-base", "--is-ancestor", entry.integratedCommit, state.parentBranch], root, false).exitCode === 0
+    : false;
   return { ...entry, exists, clean, head, behind: counts[0], ahead: counts[1], merged };
 }
 
@@ -372,7 +370,7 @@ function dispatchInfo(options: ParsedOptions): void {
     blockedBy: pending,
     needsSync: status.behind > 0,
     ready: pending.length === 0 && status.behind === 0 && entry.status === "ready",
-    taskSpec: `Implement GitHub sub-issue #${entry.issue} (${entry.kind}, ${mode}): ${entry.title || entry.slug}. ${modeInstruction} Work only in ${entry.path} on branch ${entry.branch}. Nested agents may not commit, push, merge, create worktrees, mutate GitHub, or send Orca lifecycle messages. The primary worker must review delegated output, run relevant checks, create signed conventional commits when implementation changes are made, and send worker_done exactly once.`,
+    taskSpec: `Implement GitHub sub-issue #${entry.issue} (${entry.kind}, ${mode}): ${entry.title || entry.slug}. ${modeInstruction} Work only in ${entry.path} on branch ${entry.branch}. Nested agents may not commit, push, merge, create worktrees, mutate GitHub, or send Orca lifecycle messages. The primary worker must review delegated output, run relevant checks, create conventional local checkpoint commits without pushing them, and send worker_done exactly once.`,
   }, null, 2));
 }
 
@@ -425,14 +423,32 @@ function integrate(options: ParsedOptions): void {
     return;
   }
 
-  requireSignedCommits(root, state.parentBranch, entry.branch);
-  const message = option(options, "--message") ?? `merge(feature): integrate #${issue} ${entry.slug}`;
-  const merge = git(["merge", "--no-ff", "-m", message, entry.branch], state.parentRoot, false);
+  requireWorkerCommits(root, state.parentBranch, entry.branch);
+  const message = option(options, "--message") ?? `feat(${state.parentSlug}): integrate #${issue} ${entry.slug}`;
+  const parent = git(["rev-parse", "HEAD"], state.parentRoot).stdout.trim();
+  const merge = git(["merge", "--squash", entry.branch], state.parentRoot, false);
   if (merge.exitCode !== 0) {
     throw new FlowError(`merge stopped before integration completed; resolve or abort it in the parent checkout:\n${merge.stderr.trim() || merge.stdout.trim()}`);
   }
+  const tree = git(["write-tree"], state.parentRoot).stdout.trim();
+  const promotionTool = process.env.TECK_GITHUB_PROMOTE_COMMAND ?? join(root, "tools/github-app-promote");
+  const promote = run([
+    promotionTool,
+    "--repo", process.env.TECK_GITHUB_PROMOTE_COMMAND ? "Teck-Lab/test-fixture" : githubRepository(root),
+    "--branch", state.parentBranch,
+    "--parent", parent,
+    "--tree", tree,
+    "--message", message,
+  ], state.parentRoot, false);
+  if (promote.exitCode !== 0) {
+    git(["reset", "--hard", parent], state.parentRoot);
+    throw new FlowError(`GitHub App promotion failed; local squash was discarded:\n${promote.stderr.trim() || promote.stdout.trim()}`);
+  }
+  const promoted = JSON.parse(promote.stdout) as { sha: string; verified: boolean };
+  git(["fetch", "origin", `${state.parentBranch}:refs/remotes/origin/${state.parentBranch}`], state.parentRoot);
+  git(["reset", "--hard", promoted.sha], state.parentRoot);
   entry.status = "integrated";
-  entry.integratedCommit = git(["rev-parse", "HEAD"], state.parentRoot).stdout.trim();
+  entry.integratedCommit = promoted.sha;
   saveState(root, state);
   console.log(`Integrated #${issue} as ${entry.integratedCommit}`);
 }
@@ -444,8 +460,8 @@ function removeWorktree(options: ParsedOptions): void {
   const entry = entryFor(state, issue);
   if (entry.status !== "integrated") throw new FlowError(`refusing to remove #${issue}: status is ${entry.status}, not integrated`);
   if (existsSync(entry.path)) requireClean(entry.path, `sub-issue #${issue} worktree`);
-  if (git(["merge-base", "--is-ancestor", entry.branch, state.parentBranch], root, false).exitCode !== 0) {
-    throw new FlowError(`refusing to remove #${issue}: branch is not contained in ${state.parentBranch}`);
+  if (!entry.integratedCommit || git(["merge-base", "--is-ancestor", entry.integratedCommit, state.parentBranch], root, false).exitCode !== 0) {
+    throw new FlowError(`refusing to remove #${issue}: promoted commit is not contained in ${state.parentBranch}`);
   }
   stopWorkerSession(state, entry);
   if (existsSync(entry.path)) git(["worktree", "remove", entry.path], root);

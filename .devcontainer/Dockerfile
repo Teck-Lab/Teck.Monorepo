@@ -94,10 +94,9 @@ RUN arch="$(dpkg --print-architecture)" \
     && github-mcp-server --version
 
 COPY github-mcp.sh /usr/local/bin/teck-github-mcp
-COPY setup-github-automation.sh /usr/local/bin/teck-setup-github-automation
 COPY github-app-token.sh /usr/local/bin/teck-github-app-token
 COPY git-with-github-app.sh /usr/local/bin/teck-git-with-github-app
 COPY omo-worker.sh /usr/local/bin/teck-omo-worker
-RUN chmod 0755 /usr/local/bin/teck-github-mcp /usr/local/bin/teck-setup-github-automation \
+RUN chmod 0755 /usr/local/bin/teck-github-mcp \
       /usr/local/bin/teck-github-app-token /usr/local/bin/teck-git-with-github-app \
       /usr/local/bin/teck-omo-worker

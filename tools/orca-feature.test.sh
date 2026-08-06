@@ -10,7 +10,6 @@ git clone "$fixture/origin.git" "$fixture/repo" >/dev/null 2>&1
 git -C "$fixture/repo" config user.name 'Test Agent'
 git -C "$fixture/repo" config user.email 'agent@example.test'
 git -C "$fixture/repo" config commit.gpgsign false
-git -C "$fixture/repo" config orca.feature.requireSignatures false
 git -C "$fixture/repo" switch -c main >/dev/null
 printf 'root\n' > "$fixture/repo/README.md"
 git -C "$fixture/repo" add README.md
@@ -18,6 +17,26 @@ git -C "$fixture/repo" commit -m 'chore: initialize fixture' >/dev/null
 git -C "$fixture/repo" push -u origin main >/dev/null
 git -C "$fixture/origin.git" symbolic-ref HEAD refs/heads/main
 git -C "$fixture/repo" remote set-head origin --auto >/dev/null
+
+cat > "$fixture/promote" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+message=''
+branch=''
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --message) message="$2" ;;
+    --branch) branch="$2" ;;
+  esac
+  shift 2
+done
+git -c commit.gpgsign=false commit -m "$message" >/dev/null
+sha="$(git rev-parse HEAD)"
+git push origin "HEAD:refs/heads/$branch" >/dev/null
+printf '{"sha":"%s","verified":true}\n' "$sha"
+EOF
+chmod +x "$fixture/promote"
+export TECK_GITHUB_PROMOTE_COMMAND="$fixture/promote"
 
 cd "$fixture/repo"
 "$tool" init --issue 120 --slug billing-overhaul --title 'Billing overhaul' --create-branch
@@ -45,13 +64,6 @@ if "$tool" dispatch-info --issue 122 --harness slim >/dev/null 2>&1; then
 fi
 
 "$tool" set-status --issue 121 --status completed
-git config orca.feature.requireSignatures true
-if "$tool" integrate --issue 121 >"$fixture/unsigned.out" 2>"$fixture/unsigned.err"; then
-  echo 'FAIL: unsigned worker commit was integrated' >&2
-  exit 1
-fi
-grep -q 'not signed and verifiable' "$fixture/unsigned.err"
-git config orca.feature.requireSignatures false
 "$tool" integrate --issue 121
 ready="$("$tool" dispatch-info --issue 122)"
 bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.ready !== false || d.needsSync !== true || d.blockedBy.length) process.exit(1)' <<<"$ready"

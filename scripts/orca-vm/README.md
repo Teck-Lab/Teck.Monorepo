@@ -8,15 +8,15 @@ declared by the dev container. Codex's WSL-hosted `~/.codex/auth.json` is mounte
 as a single read/write file so refreshes persist without exposing or copying the
 rest of the host Codex directory.
 
-GitHub App credentials and the WSL2-generated automation signing-key export are
-mounted read-only from `.devcontainer/github-app` at runtime. They are not
-present during the base build and are never committed into the image. Startup
-imports the signing key into the disposable container's writable GPG home.
+GitHub App credentials are mounted read-only from
+`.devcontainer/github-app` at runtime. They are not present during the base
+build and are never committed into the image. GitHub signs promoted commits;
+no signing private key is mounted into the container.
 
 Alternatively, copy `.devcontainer/github-app/proton-pass.env.example` to
 `proton-pass.env` and configure its `pass://` references. The WSL-side create
 hook then uses a narrowly scoped Proton PAT to retrieve the GitHub App and
-signing material plus the five upstream LiteLLM credentials into `/dev/shm`.
+credentials plus the five upstream LiteLLM credentials into `/dev/shm`.
 The local LiteLLM master key is generated independently for every workspace.
 Git uses short-lived installation tokens minted from the App, so no separate
 GitHub PAT is stored. Proton CLI and its PAT stay outside the container; only

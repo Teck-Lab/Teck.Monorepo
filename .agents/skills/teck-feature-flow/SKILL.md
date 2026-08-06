@@ -31,7 +31,9 @@ resolved Orca CLI before running orchestration commands.
   commit, push, merge, create worktrees, mutate GitHub, or send Orca lifecycle
   messages; the primary worker owns those responsibilities.
 - Let the coordinator alone merge into and push the parent feature branch.
-- Use conventional commits and require commit signing.
+- Workers may create unsigned conventional checkpoint commits locally. Never
+  push a worker branch. The coordinator promotes each completed sub-feature as
+  one GitHub App-authored, verified commit on the remote parent branch.
 - Treat plan-review defects as parent sub-issues with `kind=plan-defect`.
 - Represent execution dependencies in Orca Tasks and `tools/orca-feature`.
   Add a durable `Blocked by #...` issue comment when GitHub MCP lacks a
@@ -55,5 +57,5 @@ resolved Orca CLI before running orchestration commands.
 Run `tools/orca-feature status --json`, inspect Orca `task-list` and
 `dispatch-show`, and read the GitHub parent/sub-issues before changing state.
 Do not infer completion from a terminal becoming idle. Require a valid
-`worker_done`, clean worktree, relevant checks, and signed commits before local
-integration.
+`worker_done`, clean worktree, relevant checks, and local commits before App
+promotion.

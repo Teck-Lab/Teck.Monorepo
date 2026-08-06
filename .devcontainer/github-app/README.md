@@ -24,22 +24,12 @@ The MCP launcher exposes issue/sub-issue management, PR creation/update, and
 read-only repository/CI tools. It deliberately does not expose GitHub-side file
 commits, branch creation, workflow dispatch, review submission, or PR merge.
 
-## Local commit identity and signing
+## Commit identity and signing
 
-Run this once from WSL after choosing the automation display name and verified
-GitHub email:
-
-```bash
-./scripts/github-automation/init-local-secrets.sh "Teck Agent" "jl@tecklab.dk"
-```
-
-The helper creates a no-passphrase, development-only GPG signing key and writes
-the private/public exports plus `git.env` here. Add `signing-public.asc` to the
-GitHub account that owns the email. Never upload or share `signing-private.asc`.
-
-Rebuild the dev container after populating the files. Orca base images also need
-to be rebuilt after the committed Dockerfile/configuration changes, but secrets
-remain runtime mounts and are not embedded in that image.
+Worker checkpoint commits stay local and may be unsigned. When a sub-worktree
+is complete, `tools/orca-feature integrate` promotes its exact tree as one
+GitHub App-authored commit. GitHub signs that commit with `web-flow`; no GPG
+private key is mounted into the container.
 
 ## Proton Pass provider for Orca
 
@@ -47,7 +37,7 @@ The Orca local recipe can retrieve these credentials through `pass-cli` on WSL
 instead of keeping generated files here:
 
 1. Install Proton Pass CLI on WSL.
-2. Store the GitHub App, signing values, and five upstream LiteLLM provider
+2. Store the GitHub App and five upstream LiteLLM provider
    credentials in Proton Pass. A separate GitHub PAT is not needed; short-lived
    App installation tokens authenticate Git. The workspace-local
    `LITELLM_MASTER_KEY` is generated during creation and is not stored.
@@ -60,12 +50,9 @@ instead of keeping generated files here:
 When `proton-pass.env` exists, creation fails closed unless every required
 reference resolves. The hook creates an isolated Proton session and selected
 runtime files under WSL `/dev/shm`, logs Proton Pass out immediately, mounts
-only GitHub/GPG files plus `litellm.env` read-only, and mints a one-hour App
+only GitHub App files plus `litellm.env` read-only, and mints a one-hour App
 installation token only for each Git operation.
 Destroy removes both the container and its associated tmpfs directory. Without
 that config, the existing local-file credential directory remains the fallback.
 
 `private-key-pem` is the complete GitHub App `.pem` file.
-`private-key-armored` is the complete `signing-private.asc` value, including
-the `BEGIN/END PGP PRIVATE KEY BLOCK` lines; it is not `git.env`. The signing
-fingerprint is derived automatically after retrieval.
