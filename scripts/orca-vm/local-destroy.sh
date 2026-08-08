@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 payload="$(cat)"
-resource_id="$(python3 -c 'import json,sys; d=json.loads(sys.argv[1]); print(d.get("recipeResult",{}).get("userData",{}).get("resourceId",""),end="")' "$payload")"
+resource_id="$(jq -er '.recipeResult.userData.resourceId // empty' <<<"$payload" 2>/dev/null || true)"
 [ -n "$resource_id" ] || { echo 'No Docker Compose project id in lifecycle payload.' >&2; exit 1; }
 workspace_id="$(docker ps -aq --filter "label=com.docker.compose.project=$resource_id" --filter 'label=com.docker.compose.service=workspace' | head -1)"
 runtime_secrets_dir="$(docker inspect --format '{{index .Config.Labels "teck.orca.runtime-secrets-dir"}}' "$workspace_id" 2>/dev/null || true)"

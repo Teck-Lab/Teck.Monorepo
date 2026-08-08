@@ -64,32 +64,24 @@ mcp_env="$orca_runtime_secrets_dir/container/mcp.env"
 printf 'CRAWL4AI_API_TOKEN=%s\n' "$(openssl rand -hex 32)" > "$mcp_env"
 chmod 600 "$mcp_env"
 runtime_override="$orca_runtime_secrets_dir/compose.runtime.json"
-python3 - "$runtime_override" "$base_image" "$codex_volume" "$orca_codex_auth_file" \
-  "$opencode_volume" "$orca_opencode_auth_file" "$orca_github_secrets_dir" \
-  "$orca_ai_provider_env_file" "$mcp_env" "$orca_runtime_secrets_dir" "$(<"$orca_key_file.pub")" <<'PY'
-import json, sys
-out, image, codex_volume, codex_auth, opencode_volume, opencode_auth, github_secrets, provider_env, mcp_env, secrets_dir, ssh_key = sys.argv[1:]
-config = {"services": {
-  "workspace": {
-    "image": image,
-    "pull_policy": "never",
-    "ports": ["127.0.0.1::22"],
-    "labels": {"teck.orca.runtime-secrets-dir": secrets_dir},
-    "environment": {"ORCA_SSH_PUBLIC_KEY": ssh_key},
-    "env_file": [provider_env, mcp_env],
-    "volumes": [
-      f"{codex_volume}:/home/vscode/.codex",
-      f"{codex_auth}:/home/vscode/.codex/auth.json",
-      f"{opencode_volume}:/home/vscode/.local/share/opencode",
-      f"{opencode_auth}:/home/vscode/.local/share/opencode/auth.json",
-      f"{github_secrets}:/run/secrets/teck-github:ro"
-    ]
-  },
-  "crawl4ai": {"env_file": [mcp_env]}
-}}
-with open(out, "w") as handle:
-  json.dump(config, handle)
-PY
+jq -n \
+  --arg image "$base_image" --arg codexVolume "$codex_volume" \
+  --arg codexAuth "$orca_codex_auth_file" --arg opencodeVolume "$opencode_volume" \
+  --arg opencodeAuth "$orca_opencode_auth_file" --arg githubSecrets "$orca_github_secrets_dir" \
+  --arg providerEnv "$orca_ai_provider_env_file" --arg mcpEnv "$mcp_env" \
+  --arg secretsDir "$orca_runtime_secrets_dir" --arg sshKey "$(<"$orca_key_file.pub")" \
+  '{volumes:{codex_config:{external:true,name:$codexVolume},opencode_data:{external:true,name:$opencodeVolume}},
+    secrets:{teck_mcp_env:{file:$mcpEnv}},services:{
+    workspace:{image:$image,pull_policy:"never",entrypoint:["/usr/local/bin/orca-docker-ssh-entrypoint"],
+      ports:["127.0.0.1::22"],labels:{"teck.orca.runtime-secrets-dir":$secretsDir},
+      environment:{ORCA_SSH_PUBLIC_KEY:$sshKey},volumes:[
+        "codex_config:/home/vscode/.codex",($codexAuth+":/home/vscode/.codex/auth.json"),
+        "opencode_data:/home/vscode/.local/share/opencode",($opencodeAuth+":/home/vscode/.local/share/opencode/auth.json"),
+        ($githubSecrets+":/run/secrets/teck-github:ro"),($providerEnv+":/run/secrets/teck-ai/providers.env:ro"),
+        ($mcpEnv+":/run/secrets/teck-mcp/mcp.env:ro")]},
+    crawl4ai:{secrets:[{source:"teck_mcp_env",target:"/run/secrets/teck-mcp/mcp.env"}]}
+  }}' > "$runtime_override"
+chmod 600 "$runtime_override"
 
 compose_args=(-p "$name" -f "$orca_repo_root/.devcontainer/compose.yaml" \
   -f "$orca_repo_root/.devcontainer/mcp/compose.yaml" -f "$runtime_override")
@@ -115,6 +107,9 @@ elif [ -n "$token" ] && [ -n "$repo_url" ]; then
      rm -f "$askpass"' >&2
 fi
 
-python3 -c 'import json,sys; port,user,key,root,name,image=sys.argv[1:]; print(json.dumps({"schemaVersion":1,"connection":{"type":"ssh","projectRoot":root,"target":{"label":"Teck local dev container","host":"127.0.0.1","port":int(port),"username":user,"identityFile":key,"identitiesOnly":True}},"userData":{"provider":"local-docker","resourceId":name,"image":image}},separators=(",",":")))' \
-  "$port" vscode "$identity_file" "$project_root" "$name" "$base_image"
+jq -cn --argjson port "$port" --arg key "$identity_file" --arg root "$project_root" \
+  --arg name "$name" --arg image "$base_image" \
+  '{schemaVersion:1,connection:{type:"ssh",projectRoot:$root,target:{label:"Teck local dev container",
+    host:"127.0.0.1",port:$port,username:"vscode",identityFile:$key,identitiesOnly:true}},
+    userData:{provider:"local-docker",resourceId:$name,image:$image}}'
 trap - EXIT

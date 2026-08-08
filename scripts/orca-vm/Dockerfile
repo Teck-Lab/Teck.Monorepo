@@ -6,7 +6,7 @@ FROM ${DEVCONTAINER_IMAGE}
 # nosemgrep: dockerfile.security.last-user-is-root.last-user-is-root
 USER root
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends openssh-server python3 \
+    && apt-get install -y --no-install-recommends openssh-server \
     && mkdir -p /run/sshd /home/vscode/.ssh \
     && chmod 700 /home/vscode/.ssh \
     && chown -R vscode:vscode /home/vscode/.ssh \

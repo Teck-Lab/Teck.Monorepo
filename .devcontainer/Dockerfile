@@ -96,6 +96,9 @@ COPY github-mcp.sh /usr/local/bin/teck-github-mcp
 COPY github-app-token.sh /usr/local/bin/teck-github-app-token
 COPY git-with-github-app.sh /usr/local/bin/teck-git-with-github-app
 COPY omo-worker.sh /usr/local/bin/teck-omo-worker
+COPY workspace-entrypoint.sh /usr/local/bin/teck-workspace-entrypoint
+COPY runtime-doctor.sh /usr/local/bin/teck-runtime-doctor
 RUN chmod 0755 /usr/local/bin/teck-github-mcp \
       /usr/local/bin/teck-github-app-token /usr/local/bin/teck-git-with-github-app \
-      /usr/local/bin/teck-omo-worker
+      /usr/local/bin/teck-omo-worker /usr/local/bin/teck-workspace-entrypoint \
+      /usr/local/bin/teck-runtime-doctor

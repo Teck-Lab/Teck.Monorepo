@@ -8,11 +8,43 @@
 # up and an engineer can fix things from inside it.
 set -uo pipefail
 
-echo "==> Restoring .NET dependencies (dotnet restore)"
-dotnet restore || echo "WARN: dotnet restore reported errors (continuing; baseline may not fully build yet)"
+SETUP_CACHE_DIR="${TECK_SETUP_CACHE_DIR:-/workspaces/.teck-devcontainer-cache}"
+mkdir -p "$SETUP_CACHE_DIR"
 
-echo "==> Installing JS workspace dependencies (bun install)"
-bun install --frozen-lockfile || echo "WARN: bun install reported errors (continuing)"
+fingerprint_files() {
+  local file
+  for file in "$@"; do
+    [ -f "$file" ] && sha256sum "$file"
+  done | sha256sum | cut -d' ' -f1
+}
+
+dotnet_fingerprint="$(git ls-files -z -- '*.csproj' '*.fsproj' '*.sln' '*.slnx' \
+  Directory.Build.props Directory.Packages.props global.json nuget.config \
+  | sort -z | xargs -0 -r sha256sum 2>/dev/null | sha256sum | cut -d' ' -f1)"
+if [ -f "$SETUP_CACHE_DIR/dotnet-restore" ] \
+  && [ "$(<"$SETUP_CACHE_DIR/dotnet-restore")" = "$dotnet_fingerprint" ]; then
+  echo "==> .NET dependencies unchanged; reusing restored packages"
+else
+  echo "==> Restoring .NET dependencies (dotnet restore)"
+  if dotnet restore; then
+    printf '%s' "$dotnet_fingerprint" > "$SETUP_CACHE_DIR/dotnet-restore"
+  else
+    echo "WARN: dotnet restore reported errors (continuing; baseline may not fully build yet)"
+  fi
+fi
+
+js_fingerprint="$(fingerprint_files package.json bun.lock)"
+if [ -d node_modules ] && [ -f "$SETUP_CACHE_DIR/bun-install" ] \
+  && [ "$(<"$SETUP_CACHE_DIR/bun-install")" = "$js_fingerprint" ]; then
+  echo "==> JavaScript dependencies unchanged; reusing node_modules"
+else
+  echo "==> Installing JS workspace dependencies (bun install)"
+  if bun install --frozen-lockfile; then
+    printf '%s' "$js_fingerprint" > "$SETUP_CACHE_DIR/bun-install"
+  else
+    echo "WARN: bun install reported errors (continuing)"
+  fi
+fi
 
 echo "==> Ensuring a local HTTPS development certificate exists"
 dotnet dev-certs https || echo "WARN: could not create HTTPS dev cert (continuing)"
@@ -51,19 +83,26 @@ fi
 # git-clones the (public) marketplaces into ~/.claude/plugins/, so it needs no
 # auth and runs before first sign-in. Tolerant of failure so the container still
 # comes up if GitHub is unreachable (the trust-prompt path remains as fallback).
-if command -v claude >/dev/null 2>&1; then
+CLAUDE_PLUGIN_SET='official:superpowers,microsoft-docs,typescript-lsp,security-guidance,playwright,frontend-design,csharp-lsp,github;claude-hud:claude-hud'
+CLAUDE_PLUGIN_STAMP="$CLAUDE_DIR/plugins/.teck-plugin-set"
+if command -v claude >/dev/null 2>&1 \
+  && { [ ! -f "$CLAUDE_PLUGIN_STAMP" ] || [ "$(<"$CLAUDE_PLUGIN_STAMP")" != "$CLAUDE_PLUGIN_SET" ]; }; then
   claude plugin marketplace add anthropics/claude-plugins-official || echo "WARN: marketplace add (official) failed (continuing)"
   claude plugin marketplace add jarrodwatts/claude-hud || echo "WARN: marketplace add (claude-hud) failed (continuing)"
   for p in superpowers microsoft-docs typescript-lsp security-guidance playwright frontend-design csharp-lsp github; do
     claude plugin install "$p@claude-plugins-official" || echo "WARN: install $p failed (continuing)"
   done
   claude plugin install claude-hud@claude-hud || echo "WARN: install claude-hud failed (continuing)"
+  mkdir -p "$(dirname "$CLAUDE_PLUGIN_STAMP")"
+  printf '%s' "$CLAUDE_PLUGIN_SET" > "$CLAUDE_PLUGIN_STAMP"
 
   echo "==> Seeding claude-hud display config"
   mkdir -p "$CLAUDE_DIR/plugins/claude-hud"
   cp .devcontainer/claude-hud-config.json "$CLAUDE_DIR/plugins/claude-hud/config.json" || echo "WARN: could not seed claude-hud config (continuing)"
 else
-  echo "WARN: 'claude' CLI not on PATH; skipping plugin install (continuing)"
+  command -v claude >/dev/null 2>&1 \
+    && echo "==> Claude plugin set unchanged; reusing installed plugins" \
+    || echo "WARN: 'claude' CLI not on PATH; skipping plugin install (continuing)"
 fi
 
 echo "==> Installing low-prompt 'claude' alias in ~/.bashrc"
@@ -128,6 +167,13 @@ echo "==> Enabling OpenCode background subagents"
 BG_LINE='export OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true'
 if ! grep -qxF "$BG_LINE" "$HOME/.bashrc" 2>/dev/null; then
   printf '\n# Required by OMO background orchestration\n%s\n' "$BG_LINE" >> "$HOME/.bashrc"
+fi
+
+SECRET_ENV_MARKER='# Load read-only Teck runtime secrets without printing them.'
+if ! grep -qxF "$SECRET_ENV_MARKER" "$HOME/.bashrc" 2>/dev/null; then
+  printf '\n%s\n%s\n' "$SECRET_ENV_MARKER" \
+    'for teck_env in /run/secrets/teck-ai/providers.env /run/secrets/teck-mcp/mcp.env; do if [ -s "$teck_env" ]; then set -a; source "$teck_env"; set +a; fi; done; unset teck_env' \
+    >> "$HOME/.bashrc"
 fi
 
 echo "==> Enabling persistent tmux for interactive Orca SSH terminals"

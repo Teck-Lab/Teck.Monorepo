@@ -1,6 +1,7 @@
 services:
   workspace:
     privileged: true
+    entrypoint: ["/usr/local/bin/teck-workspace-entrypoint"]
     build:
       context: .
       dockerfile: Dockerfile

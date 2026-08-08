@@ -1,10 +1,14 @@
 services:
   workspace:
-    env_file:
-      - ./ai/providers.env
-      - ./mcp/mcp.env
     volumes:
       - ..:/workspaces/Teck.Monorepo:cached
+      - ./ai/providers.env:/run/secrets/teck-ai/providers.env:ro
+      - ./mcp/mcp.env:/run/secrets/teck-mcp/mcp.env:ro
   crawl4ai:
-    env_file:
-      - ./mcp/mcp.env
+    secrets:
+      - source: teck_mcp_env
+        target: /run/secrets/teck-mcp/mcp.env
+
+secrets:
+  teck_mcp_env:
+    file: ./mcp/mcp.env

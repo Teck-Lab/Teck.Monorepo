@@ -29,19 +29,30 @@ services:
 
   crawl4ai:
     image: unclecode/crawl4ai:0.9.2
+    # The host secret remains 0600. The loader/supervisor starts as root so it
+    # can read the file; the image's supervisor configuration runs Redis and
+    # Gunicorn as appuser.
+    user: root
     expose:
       - "11235"
     environment:
+      - HOME=/home/appuser
+      - USER=appuser
       # The image hardcodes gunicorn to 127.0.0.1, which Docker's port proxy
       # cannot reach — the symptom is "Connection reset by peer" from the host
       # while the container reports healthy, because its healthcheck runs
       # INSIDE. The supervisord command reads this variable, so we rebind here.
       #
       # crawl4ai's startup guard REFUSES a non-loopback bind without
-      # CRAWL4AI_API_TOKEN set (see env_file above). That guard is deliberate —
+      # CRAWL4AI_API_TOKEN set (loaded from the mounted secret file by the
+      # command below). That guard is deliberate —
       # an unauthenticated crawler on an open interface is a genuine SSRF
       # surface — so we supply a token rather than disable the check.
       - GUNICORN_BIND=0.0.0.0:11235
+    command:
+      - bash
+      - -lc
+      - set -a; source /run/secrets/teck-mcp/mcp.env; set +a; exec bash entrypoint.sh
     shm_size: 1gb
     restart: unless-stopped
     healthcheck:

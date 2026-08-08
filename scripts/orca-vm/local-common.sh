@@ -106,7 +106,7 @@ github_app_token() {
 state_value() {
   local key="$1"
   [ -s "$orca_state_file" ] || return 0
-  python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get(sys.argv[2], ""), end="")' "$orca_state_file" "$key"
+  jq -er --arg key "$key" '.[$key] // empty' "$orca_state_file" 2>/dev/null || true
 }
 
 resolve_volume() {

@@ -29,13 +29,15 @@ There is no local model gateway. OpenCode registers each upstream directly:
 - `nvidia`, `deepseek`, and `openrouter` for their direct APIs;
 - `openai` for the GPT fallback and primary planning/execution agents.
 
-Full OMO owns ordered fallback. Cheap Explore/Librarian work starts with Go A,
-then Go B, Zen, NVIDIA, DeepSeek, and finally GPT. This is failover rather than
-rate-aware load balancing.
+Full OMO currently defaults every agent and category to GPT. Luna handles quick
+lookup work, Terra handles standard work, and Sol handles deep planning and
+implementation. The other providers remain registered for future routing.
 
-Provider secrets are injected as environment variables from the gitignored
-`ai/providers.env`, or from a per-workspace tmpfs file created through Proton
-Pass. Copy `ai/providers.env.example` only when configuring without Proton.
+Provider secrets come from the gitignored `ai/providers.env`, or from a
+per-workspace tmpfs file created through Proton Pass. The file is mounted
+read-only under `/run/secrets`; it is deliberately not a Compose `env_file`,
+because rendered Compose diagnostics would otherwise print every credential
+value. Copy `ai/providers.env.example` only when configuring without Proton.
 
 Codex uses the OpenAI authentication mounted from WSL2 and does not require a
 provider-key file or an in-container login.
@@ -50,6 +52,10 @@ Models do not browse by themselves. OMO research agents use:
 
 Compose health checks must pass before the workspace starts, so a research
 agent cannot silently launch without its local browsing services.
+
+Run `teck-runtime-doctor` inside a workspace to verify agent authentication,
+GitHub App access, GPT-only OMO routing, research services, Git signing, and
+tmux attachment without printing credentials.
 
 ## Worker flow
 

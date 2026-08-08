@@ -3,6 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/local-common.sh"
 
 source_image="teck-devcontainer:orca-source"
+transport_image="teck-devcontainer:orca-transport"
 repo_url="${ORCA_REPO_URL:-$(git -C "$orca_repo_root" remote get-url origin)}"
 source_ref="${ORCA_SOURCE_REF:-$(git -C "$orca_repo_root" branch --show-current)}"
 [ -n "$source_ref" ] || { echo 'Could not resolve the local source ref.' >&2; exit 1; }
@@ -21,7 +22,26 @@ npx --yes @devcontainers/cli build \
 
 echo 'Adding the local SSH transport...' >&2
 docker build --build-arg "DEVCONTAINER_IMAGE=$source_image" \
-  -f "$orca_vm_dir/Dockerfile" -t "$orca_base_image" "$orca_repo_root" >&2
+  -f "$orca_vm_dir/Dockerfile" -t "$transport_image" "$orca_repo_root" >&2
+
+definition_hash="$(sha256sum \
+  "$orca_repo_root/.devcontainer/Dockerfile" \
+  "$orca_repo_root/.devcontainer/devcontainer.json" \
+  "$orca_repo_root/.devcontainer/github-mcp.sh" \
+  "$orca_repo_root/.devcontainer/github-app-token.sh" \
+  "$orca_repo_root/.devcontainer/git-with-github-app.sh" \
+  "$orca_repo_root/.devcontainer/omo-worker.sh" \
+  "$orca_repo_root/.devcontainer/workspace-entrypoint.sh" \
+  "$orca_repo_root/.devcontainer/runtime-doctor.sh" \
+  "$orca_vm_dir/Dockerfile" "$orca_vm_dir/ssh-entrypoint.sh" \
+  | sha256sum | cut -d' ' -f1)"
+seed_image="$transport_image"
+existing_definition="$(docker image inspect "$orca_base_image" \
+  --format '{{index .Config.Labels "teck.orca.base-definition"}}' 2>/dev/null || true)"
+if [ "$existing_definition" = "$definition_hash" ]; then
+  seed_image="$orca_base_image"
+  echo 'Reusing the previous prepared base; only changed setup inputs will run.' >&2
+fi
 
 # Clone and run the repo setup before snapshotting, keeping credentials out of
 # the committed layer. A failed preparation always removes its container.
@@ -37,19 +57,25 @@ cleanup() {
 }
 trap cleanup EXIT
 docker run -d --name "$prep" \
-  -e "ORCA_SSH_PUBLIC_KEY=$(<"$orca_key_file.pub")" "$orca_base_image" >/dev/null
+  -e "ORCA_SSH_PUBLIC_KEY=$(<"$orca_key_file.pub")" "$seed_image" >/dev/null
 docker exec "$prep" bash -lc 'mkdir -p /workspaces && chown vscode:vscode /workspaces'
 docker cp "$source_bundle" "$prep:/tmp/teck-orca-source.bundle"
 docker exec "$prep" chown vscode:vscode /tmp/teck-orca-source.bundle
 docker exec -u vscode \
   -e "ORCA_REPO_URL=$repo_url" -e "ORCA_REPO_REF=$repo_ref" -e "ORCA_SOURCE_COMMIT=$source_commit" \
   "$prep" bash -lc 'set -euo pipefail
-    git clone /tmp/teck-orca-source.bundle /workspaces/Teck.Monorepo
+    if [ -d /workspaces/Teck.Monorepo/.git ]; then
+      cd /workspaces/Teck.Monorepo
+      git fetch /tmp/teck-orca-source.bundle "$ORCA_SOURCE_COMMIT"
+    else
+      git clone /tmp/teck-orca-source.bundle /workspaces/Teck.Monorepo
+    fi
     cd /workspaces/Teck.Monorepo
     git remote set-url origin "$ORCA_REPO_URL"
-    git checkout -B "$ORCA_REPO_REF" "$ORCA_SOURCE_COMMIT"
+    git checkout -f -B "$ORCA_REPO_REF" "$ORCA_SOURCE_COMMIT"
     bash .devcontainer/postCreate.sh'
 docker commit --change='ENTRYPOINT ["/usr/local/bin/orca-docker-ssh-entrypoint"]' \
+  --change="LABEL teck.orca.base-definition=$definition_hash" \
   "$prep" "$orca_base_image" >/dev/null
 cleanup
 trap - EXIT
