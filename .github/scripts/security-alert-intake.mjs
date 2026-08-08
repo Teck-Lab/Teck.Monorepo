@@ -179,9 +179,38 @@ async function syncLabels(client, owner, repo, labels) {
   }
 }
 
+export function indexExistingIssues(issues) {
+  const groups = new Map();
+  for (const issue of issues.filter((candidate) => !candidate.pull_request)) {
+    const key = fingerprintFromBody(issue.body);
+    if (!key) continue;
+    const group = groups.get(key) ?? [];
+    group.push(issue);
+    groups.set(key, group);
+  }
+  const existing = new Map();
+  const duplicates = [];
+  for (const [key, group] of groups) {
+    group.sort((left, right) => left.number - right.number);
+    existing.set(key, group[0]);
+    duplicates.push(...group.slice(1));
+  }
+  return { existing, duplicates };
+}
+
 async function loadExistingIssues(client, owner, repo) {
   const response = await client.paginate(`/repos/${owner}/${repo}/issues?state=all&labels=${encodeURIComponent("security:tracked")}&per_page=100`);
-  return new Map(response.data.filter((issue) => !issue.pull_request).map((issue) => [fingerprintFromBody(issue.body), issue]).filter(([key]) => key));
+  return indexExistingIssues(response.data);
+}
+
+async function reconcileDuplicateIssues(client, owner, repo, duplicates) {
+  for (const issue of duplicates) {
+    if (issue.state === "closed") continue;
+    await client.request(`/repos/${owner}/${repo}/issues/${issue.number}`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "closed", state_reason: "not_planned" }),
+    });
+  }
 }
 
 async function collectFindings(client, owner, repo, config) {
@@ -316,7 +345,8 @@ export async function run() {
     return;
   }
   await syncLabels(client, owner, repo, config.labels);
-  const existing = await loadExistingIssues(client, owner, repo);
+  const { existing, duplicates } = await loadExistingIssues(client, owner, repo);
+  await reconcileDuplicateIssues(client, owner, repo, duplicates);
   const active = new Set();
   for (const finding of findings) {
     const key = fingerprint(owner, repo, finding.source, finding.number);

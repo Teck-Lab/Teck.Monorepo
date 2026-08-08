@@ -14,7 +14,8 @@ metadata, receive native `Closes #...` links, and move the tracked issue to
 `agent:in-review`. Version-update pull requests without a security advisory do
 not create or claim agent work. Approval and merge remain human decisions.
 The scheduled security intake owns issue creation; PR reconciliation never
-runs intake in parallel.
+runs intake in parallel. Intake also keeps the oldest issue as the canonical
+record for each alert fingerprint and closes later duplicates during recovery.
 
 ## Scan stages
 

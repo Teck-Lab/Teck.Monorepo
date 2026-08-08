@@ -6,6 +6,7 @@ import {
   fingerprint,
   fingerprintFromBody,
   issueBody,
+  indexExistingIssues,
   normalizeCodeScanning,
   normalizeDependabot,
   normalizeSecretScanning,
@@ -33,6 +34,18 @@ test("round-trips the stable fingerprint marker", () => {
   const finding = { source: "code-scanning", number: 42, url: "https://example.test", details: [] };
   const body = issueBody(finding, "Teck-Lab", "Teck.Monorepo");
   assert.equal(fingerprintFromBody(body), fingerprint("Teck-Lab", "Teck.Monorepo", "code-scanning", 42));
+});
+
+test("keeps the oldest issue for a fingerprint and identifies duplicates", () => {
+  const body = "<!-- teck-security-fingerprint: dependabot:Teck-Lab/Teck.Monorepo:7 -->";
+  const { existing, duplicates } = indexExistingIssues([
+    { number: 12, body },
+    { number: 8, body },
+    { number: 9, body: "without a fingerprint" },
+    { number: 10, body, pull_request: {} },
+  ]);
+  assert.equal(existing.get("dependabot:Teck-Lab/Teck.Monorepo:7").number, 8);
+  assert.deepEqual(duplicates.map((issue) => issue.number), [12]);
 });
 
 test("normalizes code scanning without exposing API internals", () => {
