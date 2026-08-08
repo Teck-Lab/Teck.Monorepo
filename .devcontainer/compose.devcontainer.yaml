@@ -1,0 +1,10 @@
+services:
+  workspace:
+    env_file:
+      - ./ai/providers.env
+      - ./mcp/mcp.env
+    volumes:
+      - ..:/workspaces/Teck.Monorepo:cached
+  crawl4ai:
+    env_file:
+      - ./mcp/mcp.env

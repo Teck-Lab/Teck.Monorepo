@@ -1,6 +1,13 @@
 {
   "name": "Teck Platform",
-  "build": { "dockerfile": "Dockerfile" },
+  "dockerComposeFile": [
+    "compose.yaml",
+    "compose.devcontainer.yaml",
+    "mcp/compose.yaml"
+  ],
+  "service": "workspace",
+  "workspaceFolder": "/workspaces/Teck.Monorepo",
+  "initializeCommand": "bash .devcontainer/prepare-compose.sh",
   "features": {
     "ghcr.io/devcontainers/features/dotnet:2": {
       "version": "10.0.300"
@@ -36,13 +43,10 @@
     "source=gh-config-${devcontainerId},target=/home/vscode/.config/gh,type=volume",
     "source=${localWorkspaceFolder}/.devcontainer/github-app,target=/run/secrets/teck-github,type=bind,readonly"
   ],
-  "forwardPorts": [18888, 4000, 4747, 8888, 11235, 3000, 8080, 8081, 19000, 19006],
+  "forwardPorts": [18888, 4747, 3000, 8080, 8081, 19000, 19006],
   "portsAttributes": {
     "18888": { "label": "Aspire dashboard" },
-    "4000": { "label": "LiteLLM gateway" },
     "4747": { "label": "opencode-mem UI" },
-    "8888": { "label": "SearXNG (MCP)" },
-    "11235": { "label": "crawl4ai (MCP)" },
     "3000": { "label": "Next.js dev" },
     "8080": { "label": "Service host" },
     "8081": { "label": "Metro / Expo web" },
@@ -50,7 +54,6 @@
     "19006": { "label": "Expo web (legacy)" }
   },
   "postCreateCommand": "bash .devcontainer/postCreate.sh",
-  "postStartCommand": "bash .devcontainer/start-litellm.sh; bash .devcontainer/start-mcp.sh",
   "customizations": {
     "vscode": {
       "extensions": [

@@ -33,8 +33,8 @@ Thumbs.db
 .env.local
 .env.*.local
 
-# LiteLLM gateway secrets (real keys; template committed as litellm.env.example)
-.devcontainer/litellm/litellm.env
+# Direct AI provider secrets (template committed as providers.env.example)
+.devcontainer/ai/providers.env
 
 # Logs
 *.log
@@ -72,7 +72,7 @@ web-build/
 scripts/orca-vm/.ssh/
 scripts/orca-vm/local-state.json
 
-# Generated MCP backend secrets (see .devcontainer/start-mcp.sh)
+# Generated MCP backend secrets (see .devcontainer/prepare-compose.sh)
 .devcontainer/mcp/mcp.env
 .devcontainer/mcp/searxng/settings.yml
 

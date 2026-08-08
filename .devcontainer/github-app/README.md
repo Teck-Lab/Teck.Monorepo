@@ -40,7 +40,7 @@ instead of keeping generated files here:
 2. Store the GitHub App and five upstream LiteLLM provider
    credentials in Proton Pass. A separate GitHub PAT is not needed; short-lived
    App installation tokens authenticate Git. The workspace-local
-   `LITELLM_MASTER_KEY` is generated during creation and is not stored.
+   Provider credentials are injected directly into the workspace environment.
 3. Create a Proton PAT with viewer access only to those items.
 4. Copy `proton-pass.env.example` to the gitignored `proton-pass.env` and
    replace its `pass://` references with vault/item IDs and field names.
@@ -50,7 +50,7 @@ instead of keeping generated files here:
 When `proton-pass.env` exists, creation fails closed unless every required
 reference resolves. The hook creates an isolated Proton session and selected
 runtime files under WSL `/dev/shm`, logs Proton Pass out immediately, mounts
-only GitHub App files plus `litellm.env` read-only, and mints a one-hour App
+only GitHub App files plus direct provider credentials, and mints a one-hour App
 installation token only for each Git operation.
 Destroy removes both the container and its associated tmpfs directory. Without
 that config, the existing local-file credential directory remains the fallback.

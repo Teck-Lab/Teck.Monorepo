@@ -59,9 +59,8 @@ RUN arch="$(dpkg --print-architecture)" \
 # plugin state. Pre-create it vscode-owned so its named volume is writable and the
 # login survives rebuilds — otherwise a root-owned volume silently loses the auth.
 #
-# ~/.codex gets the same treatment. Codex authenticates to the LiteLLM gateway via
-# the LITELLM_MASTER_KEY env var today, so it has no stored credential — but a
-# `codex login` (ChatGPT account) writes ~/.codex/auth.json, and without a volume
+# ~/.codex gets the same treatment. Codex authenticates with the ChatGPT/OpenAI
+# state mounted from WSL2; without a volume
 # that would silently vanish on every rebuild. postCreate.sh still re-seeds
 # config.toml from the committed template on top of the volume, so the template
 # stays the source of truth for configuration while auth persists.

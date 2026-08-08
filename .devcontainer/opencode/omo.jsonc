@@ -35,21 +35,26 @@
         "reasoning": "medium"
       },
       "librarian": {
-        "model": "litellm/deepseek-v4-flash"
+        "model": "opencode-go-a/deepseek-v4-flash",
+        "models": ["opencode-go-b/deepseek-v4-flash", "opencode-zen/deepseek-v4-flash-free", "nvidia/deepseek-ai/deepseek-v4-flash", "deepseek/deepseek-v4-flash", "openai/gpt-5.6-terra"]
       },
       "explore": {
-        "model": "litellm/deepseek-v4-flash"
+        "model": "opencode-go-a/deepseek-v4-flash",
+        "models": ["opencode-go-b/deepseek-v4-flash", "opencode-zen/deepseek-v4-flash-free", "nvidia/deepseek-ai/deepseek-v4-flash", "deepseek/deepseek-v4-flash", "openai/gpt-5.6-terra"]
       },
       "sisyphus-junior": {
-        "model": "litellm/kimi-k2.7-code"
+        "model": "opencode-go-a/kimi-k2.7-code",
+        "models": ["opencode-go-b/kimi-k2.7-code", "openai/gpt-5.6-terra"]
       }
     },
     "categories": {
       "quick": {
-        "model": "litellm/deepseek-v4-flash",
+        "model": "opencode-go-a/deepseek-v4-flash",
         "models": [
-          "litellm/qwen3.7-plus",
-          "litellm/mimo-v2.5",
+          "opencode-go-b/deepseek-v4-flash",
+          "opencode-zen/deepseek-v4-flash-free",
+          "nvidia/deepseek-ai/deepseek-v4-flash",
+          "deepseek/deepseek-v4-flash",
           "openai/gpt-5.6-terra"
         ]
       },
@@ -64,18 +69,18 @@
       "unspecified-low": {
         "model": "openai/gpt-5.6-terra",
         "reasoning": "high",
-        "models": ["litellm/deepseek-v4-pro", "litellm/kimi-k2.7-code"]
+        "models": ["opencode-go-a/deepseek-v4-pro", "opencode-go-b/deepseek-v4-pro", "deepseek/deepseek-v4-pro"]
       },
       "unspecified-high": {
         "model": "openai/gpt-5.6-sol",
         "reasoning": "high",
-        "models": ["litellm/kimi-k3", "litellm/glm-5.2"]
+        "models": ["opencode-go-a/kimi-k3", "opencode-go-b/kimi-k3"]
       },
       "writing": {
-        "model": "litellm/kimi-k3",
+        "model": "opencode-go-a/kimi-k3",
         "models": [
-          "litellm/glm-5.2",
-          "litellm/deepseek-v4-flash",
+          "opencode-go-b/kimi-k3",
+          "openrouter/z-ai/glm-5.2",
           "openai/gpt-5.6-terra"
         ]
       },
@@ -88,7 +93,12 @@
       "defaultConcurrency": 8,
       "providerConcurrency": {
         "openai": 5,
-        "litellm": 10
+        "opencode-go-a": 5,
+        "opencode-go-b": 5,
+        "opencode-zen": 5,
+        "nvidia": 5,
+        "deepseek": 5,
+        "openrouter": 5
       }
     },
     "hashline_edit": true,

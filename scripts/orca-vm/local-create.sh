@@ -3,9 +3,15 @@ set -euo pipefail
 source "$(dirname "$0")/local-common.sh"
 
 name=""
+container_id=""
 cleanup_on_error() {
   if [ "$?" -ne 0 ]; then
-    [ -z "$name" ] || docker rm -f "$name" >/dev/null 2>&1 || true
+    if [ -n "$name" ]; then
+      containers="$(docker ps -aq --filter "label=com.docker.compose.project=$name")"
+      [ -z "$containers" ] || docker rm -f $containers >/dev/null 2>&1 || true
+      networks="$(docker network ls -q --filter "label=com.docker.compose.project=$name")"
+      [ -z "$networks" ] || docker network rm $networks >/dev/null 2>&1 || true
+    fi
     cleanup_runtime_secrets || true
   fi
 }
@@ -40,9 +46,9 @@ docker image inspect "$base_image" >/dev/null 2>&1 || {
   echo "Run 'opencode auth login' in WSL2 before provisioning." >&2
   exit 1
 }
-[ -s "$orca_litellm_env_file" ] || {
-  echo "LiteLLM credential file missing: $orca_litellm_env_file" >&2
-  echo "Configure Proton Pass or create the gitignored LiteLLM environment file." >&2
+[ -s "$orca_ai_provider_env_file" ] || {
+  echo "AI provider credential file missing: $orca_ai_provider_env_file" >&2
+  echo "Configure Proton Pass or create .devcontainer/ai/providers.env." >&2
   exit 1
 }
 ensure_key
@@ -51,31 +57,56 @@ opencode_volume="$(resolve_volume ORCA_OPENCODE_VOLUME opencode-data-)"
 identity_file="$(wslpath -w "$orca_key_file")"
 
 raw_name="orca-${ORCA_VM_RECIPE_ID:-local}-${ORCA_VM_INSTANCE_ID:-$(date +%s)}"
-name="$(printf '%s' "$raw_name" | tr -cs 'A-Za-z0-9_.-' '-' | cut -c1-63)"
+name="$(printf '%s' "$raw_name" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9_-' '-' | cut -c1-63)"
 
-docker_args=(run -d --name "$name" -p 127.0.0.1::22)
-[ -z "$orca_runtime_secrets_dir" ] || docker_args+=(
-  --label "teck.orca.runtime-secrets-dir=$orca_runtime_secrets_dir"
-)
-docker "${docker_args[@]}" \
-  -v "$codex_volume:/home/vscode/.codex" \
-  -v "$orca_codex_auth_file:/home/vscode/.codex/auth.json" \
-  -v "$opencode_volume:/home/vscode/.local/share/opencode" \
-  -v "$orca_opencode_auth_file:/home/vscode/.local/share/opencode/auth.json" \
-  -v "$orca_github_secrets_dir:/run/secrets/teck-github:ro" \
-  -v "$orca_litellm_env_file:$orca_project_root/.devcontainer/litellm/litellm.env:ro" \
-  -e "ORCA_SSH_PUBLIC_KEY=$(<"$orca_key_file.pub")" "$base_image" >/dev/null
-port="$(docker port "$name" 22/tcp | sed -nE 's/.*:([0-9]+)$/\1/p' | head -1)"
+AI_PROVIDER_ENV_FILE="$orca_ai_provider_env_file" "$orca_repo_root/.devcontainer/prepare-compose.sh"
+mcp_env="$orca_runtime_secrets_dir/container/mcp.env"
+printf 'CRAWL4AI_API_TOKEN=%s\n' "$(openssl rand -hex 32)" > "$mcp_env"
+chmod 600 "$mcp_env"
+runtime_override="$orca_runtime_secrets_dir/compose.runtime.json"
+python3 - "$runtime_override" "$base_image" "$codex_volume" "$orca_codex_auth_file" \
+  "$opencode_volume" "$orca_opencode_auth_file" "$orca_github_secrets_dir" \
+  "$orca_ai_provider_env_file" "$mcp_env" "$orca_runtime_secrets_dir" "$(<"$orca_key_file.pub")" <<'PY'
+import json, sys
+out, image, codex_volume, codex_auth, opencode_volume, opencode_auth, github_secrets, provider_env, mcp_env, secrets_dir, ssh_key = sys.argv[1:]
+config = {"services": {
+  "workspace": {
+    "image": image,
+    "pull_policy": "never",
+    "ports": ["127.0.0.1::22"],
+    "labels": {"teck.orca.runtime-secrets-dir": secrets_dir},
+    "environment": {"ORCA_SSH_PUBLIC_KEY": ssh_key},
+    "env_file": [provider_env, mcp_env],
+    "volumes": [
+      f"{codex_volume}:/home/vscode/.codex",
+      f"{codex_auth}:/home/vscode/.codex/auth.json",
+      f"{opencode_volume}:/home/vscode/.local/share/opencode",
+      f"{opencode_auth}:/home/vscode/.local/share/opencode/auth.json",
+      f"{github_secrets}:/run/secrets/teck-github:ro"
+    ]
+  },
+  "crawl4ai": {"env_file": [mcp_env]}
+}}
+with open(out, "w") as handle:
+  json.dump(config, handle)
+PY
+
+compose_args=(-p "$name" -f "$orca_repo_root/.devcontainer/compose.yaml" \
+  -f "$orca_repo_root/.devcontainer/mcp/compose.yaml" -f "$runtime_override")
+docker compose "${compose_args[@]}" up -d --no-build --wait >&2
+container_id="$(docker compose "${compose_args[@]}" ps -q workspace)"
+[ -n "$container_id" ] || { echo 'Could not resolve the Compose workspace container.' >&2; exit 1; }
+port="$(docker port "$container_id" 22/tcp | sed -nE 's/.*:([0-9]+)$/\1/p' | head -1)"
 [ -n "$port" ] || { docker logs "$name" >&2; echo 'Could not resolve the published SSH port.' >&2; exit 1; }
 
 token="$(github_app_token read)"
 if [ -n "$source_commit" ]; then
-  docker exec -u vscode -e "ORCA_REPO_REF=$repo_ref" -e "ORCA_SOURCE_COMMIT=$source_commit" "$name" bash -lc \
+  docker exec -u vscode -e "ORCA_REPO_REF=$repo_ref" -e "ORCA_SOURCE_COMMIT=$source_commit" "$container_id" bash -lc \
     'set -euo pipefail; cd /workspaces/Teck.Monorepo
      git cat-file -e "$ORCA_SOURCE_COMMIT^{commit}"
      git checkout -B "$ORCA_REPO_REF" "$ORCA_SOURCE_COMMIT"' >&2
 elif [ -n "$token" ] && [ -n "$repo_url" ]; then
-  docker exec -u vscode -e "GH_TOKEN=$token" -e "ORCA_REPO_REF=$repo_ref" "$name" bash -lc \
+  docker exec -u vscode -e "GH_TOKEN=$token" -e "ORCA_REPO_REF=$repo_ref" "$container_id" bash -lc \
     'set -euo pipefail; cd /workspaces/Teck.Monorepo
      askpass=/tmp/orca-git-askpass
      printf "%s\n" "#!/usr/bin/env bash" "case \"\$1\" in *Username*) echo x-access-token;; *Password*) echo \"\$GH_TOKEN\";; esac" > "$askpass"

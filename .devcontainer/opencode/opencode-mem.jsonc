@@ -19,6 +19,6 @@
   "autoCaptureEnabled": true,
   "autoCaptureLanguage": "auto",
   "showAutoCaptureToasts": true,
-  "opencodeProvider": "litellm",
+  "opencodeProvider": "opencode-go-a",
   "opencodeModel": "deepseek-v4-flash"
 }

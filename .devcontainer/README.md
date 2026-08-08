@@ -1,257 +1,93 @@
-# Dev Container
+# Teck development container
 
-A full, reproducible dev environment for the Teck monorepo. The host repo is bind-mounted as the workspace; the editor connects to the container and all terminals, build tools, language servers, and **Claude Code** run inside it.
+The development environment is a Docker Compose application. The `workspace`
+service is the container opened by Dev Containers and Orca; `searxng` and
+`crawl4ai` are sibling services used by OpenCode research agents.
 
-## Prerequisites
+## Start it
 
-- Docker (Docker Desktop on macOS/Windows, or Docker Engine on Linux).
-- An editor that speaks the Dev Containers spec: VS Code + the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers), GitHub Codespaces, a JetBrains IDE, or Cursor.
+Open the repository in a Dev Containers client. `devcontainer.json` merges:
 
-## Open it
+- `compose.yaml` — the workspace service and service dependencies;
+- `compose.devcontainer.yaml` — the local source mount;
+- `mcp/compose.yaml` — SearXNG and Crawl4AI.
 
-In VS Code: Command Palette → **Dev Containers: Reopen in Container** (first build pulls images and runs `postCreate.sh`, so it takes a few minutes).
+`initializeCommand` runs `prepare-compose.sh` before Compose. It renders the
+gitignored SearXNG settings, generates the Crawl4AI token, and obtains direct AI
+provider credentials from Proton Pass when `ai/providers.env` is absent.
 
-## What's inside
+Orca's `local-devcontainer` recipe launches the same Compose topology with a
+per-workspace override for the isolated repository, random SSH port, persistent
+agent auth volumes, and tmpfs-backed secrets.
 
-| Tool | Version | How |
-|---|---|---|
-| .NET SDK | `10.0.300` (pinned to `global.json`) | `dotnet` feature on top of the .NET 10 image |
-| Bun | `1.2.0` | `bun` feature |
-| Node | LTS | `node` feature (Nx runtime) |
-| Docker | Docker-in-Docker | `docker-in-docker` feature |
-| Claude Code | latest | `claude-code` feature (CLI + VS Code extension) |
-| OpenCode | latest | `opencode` feature (devcontainers-extra) |
-| Codex CLI | latest | `dirien/codex` feature (installs `@openai/codex`) |
-| tmux | apt | Dockerfile (`apt-get install tmux`) — one observable session per Orca worker |
+## AI routing
 
-`postCreate.sh` runs `dotnet restore`, `bun install --frozen-lockfile`, creates an HTTPS dev cert, installs the Claude Code plugins + HUD (see below), and installs a `claude` shell alias (see Security below). The `bun install` also fires the root `prepare` script, which installs the Husky git hooks (`core.hooksPath` → `.husky/_`): pre-commit runs Biome on staged files plus a staged Gitleaks scan, pre-push runs the full local CI mirror (`tools/security-scan.sh`) — so the security gates are active on every fresh container with no manual step.
+There is no local model gateway. OpenCode registers each upstream directly:
 
-## Claude Code plugins & HUD statusline
+- `opencode-go-a` and `opencode-go-b` for the two Go subscriptions;
+- `opencode-zen` for free Zen routes;
+- `nvidia`, `deepseek`, and `openrouter` for their direct APIs;
+- `openai` for the GPT fallback and primary planning/execution agents.
 
-The repo's checked-in `.claude/settings.json` is the team source of truth: it declares the enabled plugins (`superpowers`, `microsoft-docs`, `typescript-lsp`, `security-guidance`, `playwright`, `frontend-design`, `csharp-lsp`, `github` from the official marketplace, plus `claude-hud`), the extra `claude-hud` marketplace, the `dark` theme, and the claude-hud **statusLine**. The statusLine resolves `bun` from `PATH` (falling back to `~/.bun/bin/bun`) so it works for any user.
+Full OMO owns ordered fallback. Cheap Explore/Librarian work starts with Go A,
+then Go B, Zen, NVIDIA, DeepSeek, and finally GPT. This is failover rather than
+rate-aware load balancing.
 
-Because enabled plugins normally only install behind an interactive trust prompt, `postCreate.sh` also installs them **explicitly and headlessly** (`claude plugin marketplace add` + `claude plugin install`) into the mounted `~/.claude` volume, and seeds the claude-hud display config from `.devcontainer/claude-hud-config.json`. Edit that JSON to change which HUD elements show. Everything lands in the persistent volume, so it survives rebuilds.
+Provider secrets are injected as environment variables from the gitignored
+`ai/providers.env`, or from a per-workspace tmpfs file created through Proton
+Pass. Copy `ai/providers.env.example` only when configuring without Proton.
 
-## LiteLLM gateway (local LLM load balancer)
+Codex uses the OpenAI authentication mounted from WSL2 and does not require a
+provider-key file or an in-container login.
 
-An always-on, OpenAI-compatible gateway that pools many LLM providers and
-load-balances across them by remaining rate-limit headroom, reachable at
-**`http://localhost:4000`** (port 4000, forwarded). Clients — primarily
-**OpenCode** — point at one URL and one gateway key; LiteLLM picks a pool member
-per request, respects each provider's `rpm`, cools down any that 429, and falls
-back to a paid net so a request never hard-fails. It runs stateless (no database)
-from `.devcontainer/litellm/config.yaml`.
+## Internet research
 
-**Per-model pools** (structured for [full OMO](https://omo.dev/docs), which pins
-each agent/category to a specific `provider/model`). Each `model_name` is a REAL
-model id — clients call it as `litellm/<model_name>` — and under each name sits a
-pool of every route that serves that exact model (flat-rate OpenCode Go, free
-OpenCode Zen, free NVIDIA NIM, paid DeepSeek API, OpenRouter…). The seven models:
+Models do not browse by themselves. OMO research agents use:
 
-```
-deepseek-v4-pro   deepseek-v4-flash   glm-5.2   mimo-v2.5
-kimi-k3           kimi-k2.7-code      qwen3.7-plus
-```
+- SearXNG at `http://searxng:8080` through `mcp-searxng`;
+- Crawl4AI at `http://crawl4ai:11235/mcp/sse` with its generated bearer token;
+- Context7 as a remote documentation MCP.
 
-`routing_strategy: usage-based-routing-v2` sends each request to the route with
-the most `rpm`/`tpm` headroom, so one model never hits a single provider's limit;
-a route that 429s is cooled and traffic shifts to the rest. **Cross-model**
-fallback (agent's model down → try another) is owned by the active OMO harness,
-not LiteLLM — the gateway only balances routes *within* a
-model. `.devcontainer/start-litellm.sh` brings it up with **docker compose**
-(service defined in `.devcontainer/litellm/compose.yaml`) via docker-in-docker
-from the `postStartCommand`, so it comes up on **every** container start. `up -d`
-is idempotent — a restart re-attaches to the running container instead of
-recreating it.
+Compose health checks must pass before the workspace starts, so a research
+agent cannot silently launch without its local browsing services.
 
-**Provide keys (one-time):**
+## Worker flow
 
-```bash
-cp .devcontainer/litellm/litellm.env.example .devcontainer/litellm/litellm.env
-# edit it: LITELLM_MASTER_KEY + the provider keys you have
-bash .devcontainer/start-litellm.sh   # or just restart the container
-```
+Full OMO is the default OpenCode harness. Prometheus and Atlas handle planned
+work; Hephaestus handles explicitly autonomous/spike work. `teck-omo-worker`
+creates the tmux session for an Orca sub-issue. Nested agents may inspect,
+research, edit, test, and review only within the assigned worktree; the primary
+worker owns Git and Orca lifecycle messages.
 
-`.devcontainer/litellm/litellm.env` is **gitignored** — real keys never get
-committed. Without the file, startup is skipped with a hint (the container still
-comes up). A missing/blank key for one provider just cools that member down; the
-gateway still serves from the rest of the pool.
+## Authentication and persistence
 
-**Point OpenCode (or any OpenAI-compatible client) at it:**
+- OpenCode and Codex auth files are mounted read-only from WSL2.
+- Their writable state lives in named Docker volumes.
+- GitHub MCP uses the repository GitHub App files mounted at
+  `/run/secrets/teck-github`.
+- Provider keys and signing material are loaded from Proton Pass and are never
+  baked into the image.
+- Completed worker trees are promoted by the GitHub App flow; they are not
+  pushed directly.
 
-- Base URL: `http://localhost:4000` (uses `/v1` endpoints)
-- API key: your `LITELLM_MASTER_KEY`
-- Model: any of the 17 model ids above (e.g. `deepseek-v4-pro`, `glm-5.2`, `kimi-k2.7-code`)
+## Docker and tests
 
-**Apply `config.yaml` edits** to an already-running gateway (compose won't detect
-a mounted-file change on its own):
+The workspace remains privileged with Docker-in-Docker for Testcontainers,
+Aspire, and integration tests. The AI and MCP services are not started through
+that nested daemon—they are Compose siblings managed by the host.
+
+Common commands:
 
 ```bash
-docker compose -f .devcontainer/litellm/compose.yaml up -d --force-recreate
+bun install
+dotnet restore Teck.Platform.slnx
+nx affected -t build test lint typecheck
 ```
 
-**Add a route / model:** add the key to `litellm/litellm.env`, then add a route
-under the relevant `model_name` (or a whole new `model_name`) in `config.yaml`
-with `rpm:` = its documented free limit (load-bearing — without it the router
-won't respect the cap). If you add a new `model_name`, also declare it under the
-`litellm` provider's `models` in `.devcontainer/opencode/opencode.json` (keep the
-two in sync). Verify the exact model id with a probe first; ids drift between
-providers/dates.
+Never run `nx release` or create tags from a feature branch.
 
-## Agent CLIs (OpenCode + Codex) → the gateway
+## Rebuild requirements
 
-`opencode` and `codex` are installed via devcontainer features and **pre-wired to
-the LiteLLM gateway** — `postCreate.sh` seeds their configs and exports
-`LITELLM_MASTER_KEY` into the shell (loaded from `litellm/litellm.env`). LiteLLM
-routes need no client login; direct GPT routes use the OpenCode OAuth file
-mounted from WSL2.
-
-- **OpenCode** — `~/.config/opencode/opencode.json` (from `.devcontainer/opencode/`)
-  registers a `litellm` provider (`@ai-sdk/openai-compatible`) at
-  `http://localhost:4000/v1` exposing all per-model pools; default model
-  `openai/gpt-5.6-terra`. Just run `opencode`.
-- **Codex** — `~/.codex/config.toml` (from `.devcontainer/codex/`) points at the
-  same gateway (`base_url` + `env_key = LITELLM_MASTER_KEY`, `wire_api = "chat"`),
-  default model `deepseek-v4-pro`. Just run `codex`.
-
-**OpenCode plugins auto-install** on first launch — `opencode.json`'s `plugin`
-array is fetched via Bun (needs network once):
-
-- `oh-my-openagent@4.19.4` — full OMO, the default worker harness.
-- `cc-safety-net` — PreToolUse hook that blocks destructive commands (`rm -rf`,
-  `git reset --hard`, …) before an agent runs them. Works out of the box.
-- `opencode-mem` — local agent memory (SQLite + on-device vector search, no
-  external service). **Config seeded** (`.devcontainer/opencode/opencode-mem.jsonc`):
-  auto-capture on via the litellm gateway (`deepseek-v4-flash` — a 5-route pool,
-  since capture fires on every prompt; **not** Gemini, whose free tier is 20
-  req/**day** and single-route); memories stored
-  under the **persisted** `~/.local/share/opencode` volume so they survive
-  rebuilds; memory web UI at `http://localhost:4747`.
-**Full OMO is auto-installed and is the default Orca worker harness.** The
-committed OpenCode config registers the pinned plugin, and `postCreate.sh`
-seeds the reproducible user model policy into `~/.omo/omo.jsonc`. The project
-contract in `.omo/omo.jsonc` adds worktree, Git, GitHub, and Orca lifecycle
-boundaries.
-
-- `planned` and `quick`: GPT-backed Prometheus plans; `/start-work` transfers
-  execution to GPT-backed Atlas.
-- `autonomous` and `spike`: GPT-5.6 Sol Hephaestus is the primary worker.
-- `quick`, Explore, and Librarian route through the LiteLLM
-  `deepseek-v4-flash` pool, which spans both OpenCode Go subscriptions and
-  configured free/paid routes. OMO runtime fallback and its built-in agent
-  chains ultimately reach the GPT-backed OpenCode default if those pools fail.
-- `deep`, `ultrabrain`, Oracle, and difficult review retain GPT models.
-- Visual Engineering and Multimodal Looker use GPT-5.6 Sol; Gemini access is
-  not required.
-- OMO permits eight background tasks, capped at five direct OpenAI tasks and
-  ten LiteLLM tasks. LiteLLM then balances those requests across OpenCode Go,
-  OpenRouter, and configured free routes.
-- Hashline editing is enabled for stable, low-conflict edits during parallel
-  coding work.
-- Nested agents cannot commit, push, merge, create worktrees, mutate GitHub, or
-  send Orca lifecycle messages. The primary worker validates, signs, commits,
-  and sends `worker_done`.
-
-**tmux sessions are created by `teck-omo-worker`.** Every Orca sub-issue gets a
-foreground-attached `teck-<parent>-<issue>-<slug>` session, a unique OpenCode
-port, and the assigned worktree as its fixed working directory. Full OMO owns
-nested panes inside the session; Orca owns lifecycle state. Pane exit or idle
-state never means completion.
-
-Edit `.devcontainer/opencode/omo.jsonc` for user-level model routing and
-`.omo/omo.jsonc` for repository worker policy. Both are committed and applied
-on the next container creation. First `opencode` launch needs network to fetch
-the pinned plugin. Authenticate OpenCode once from WSL2 with
-`opencode auth login`; containers never own the interactive login flow.
-
-**Auth comes from WSL2.** The host file
-`~/.local/share/opencode/auth.json` is bind-mounted over the same path inside
-every dev/Orca container. The surrounding `opencode-data-${devcontainerId}`
-volume persists plugin state, MCP auth, and the memory database, but is not the
-credential source. The bind is writable so OpenCode can refresh OAuth tokens;
-the WSL2 file remains the single source shared by every container. GitHub MCP
-authenticates independently as a GitHub App using the read-only local bundle
-described below. (The gateway master key isn't stored here; it's
-loaded live from `litellm/litellm.env` per shell. Codex authenticates to the
-gateway via env, so it has no stored credential to persist.)
-
-## GitHub MCP and feature orchestration
-
-Codex and OpenCode launch the pinned official GitHub MCP server locally over
-stdio. It authenticates as a repository-scoped GitHub App from files mounted
-read-only at `/run/secrets/teck-github`; see `github-app/README.md`. The exposed
-tool allowlist supports issues/sub-issues, PR creation/update, repository reads,
-and CI inspection. It excludes remote file commits, branch creation, workflow
-dispatch, PR review submission, and merge.
-
-For one-container feature development, use the repo-owned `teck-feature-flow`
-skill and `tools/orca-feature`. GitHub sub-issues map to ordinary internal Git
-worktrees and Orca Tasks/Dispatches, while all workers stay inside the parent
-feature container. The coordinator promotes each completed worker result as a
-verified GitHub App commit and opens one final PR for human approval.
-
-## What survives a rebuild (auth & state)
-
-| Path | Persisted by | Holds |
-|---|---|---|
-| `/home/vscode/.claude-config` | volume `claude-code-config-*` | **all** Claude Code state — `.credentials.json`, `.claude.json`, settings, plugins, transcripts |
-| `/home/vscode/.local/share/opencode/auth.json` | WSL2 bind `~/.local/share/opencode/auth.json` | Shared OpenCode/OpenAI OAuth credentials |
-| `/home/vscode/.local/share/opencode` | volume `opencode-data-*` | OpenCode plugin state, `mcp-auth.json`, memory DB |
-| `/home/vscode/.codex` | volume `codex-config-*` | Codex `auth.json` if you ever `codex login` |
-| `/run/secrets/teck-github` | read-only workspace bind | GitHub App PEM/config |
-| `~/.config/opencode` | **not** persisted — by design | re-seeded from `.devcontainer/opencode/` every build |
-
-**`CLAUDE_CONFIG_DIR` is load-bearing.** It's set to `/home/vscode/.claude-config` in
-`devcontainer.json` and relocates Claude Code's *entire* state tree onto one volume.
-This exists because mounting `~/.claude` alone was **not enough**: Claude Code also keeps
-`~/.claude.json` — which holds the OAuth *session* — as a **sibling** of `~/.claude`, not
-inside it. That file sat on the container's ephemeral filesystem, so every rebuild wiped
-it and forced a fresh sign-in even though the token in `.credentials.json` had persisted
-perfectly. One env var + one mount now covers both.
-
-It must be an **absolute path**. `devcontainer.json`'s `containerEnv` is not shell-processed,
-so a leading `~` is taken literally and you get a directory named `~` in your workspace.
-
-## Commit signing
-
-Worker commits remain local. Completed sub-worktrees are promoted through the
-GitHub App as verified `web-flow` commits, so no personal or automation GPG
-private key is available inside the container.
-
-## Running things
-
-- Build/test everything: `bun run build`, `bun run test`, or `nx affected -t build test lint typecheck`.
-- Integration tests (Testcontainers) and Aspire work because Docker runs **inside** the container (Docker-in-Docker). The first integration-test run pulls Postgres/RabbitMQ/Redis/Keycloak images into the nested daemon and is slow; later runs are fast because the image store is persisted across rebuilds.
-- Forwarded ports: **18888** Aspire dashboard, **4000** LiteLLM gateway, **4747** opencode-mem UI, **3000** Next.js dev, **8080** service host, **8081** Metro / Expo web, **19000** Expo Go (LAN), **19006** Expo web (legacy).
-
-## Mobile (Expo) — light by default
-
-Expo tooling is light: no Android SDK in the image. Develop via `bunx expo start --web` (port 8081, forwarded) or Expo Go on a device with `bunx expo start --tunnel`; native builds run in the cloud via `bunx eas-cli`. The **Expo Tools** VS Code extension is preinstalled.
-
-### Opt-in: local Android builds (heavy)
-
-Not installed by default (adds gigabytes; needs `/dev/kvm` for emulation; iOS cannot build on Linux). To enable, add to `.devcontainer/devcontainer.json` `features`:
-
-```jsonc
-"ghcr.io/devcontainers/features/java:1": { "version": "17" },
-"ghcr.io/devcontainers/features/android-sdk:1": {}
-```
-
-and install `watchman`. Then `bunx expo run:android` builds locally.
-
-## Claude Code
-
-Run `claude` in the integrated terminal and follow the browser sign-in. If the callback doesn't reach the container, copy the code from the browser and paste it at the prompt. Your auth and session history persist across rebuilds via a per-project named volume, `claude-code-config-${devcontainerId}` (find it with `docker volume ls | grep claude-code-config`).
-
-The container is built from `.devcontainer/Dockerfile` (a thin layer over the .NET 10 base image) for one reason: it pre-creates `~/.claude` owned by the `vscode` user so the named volume mounted there is **vscode-owned and writable**. Without this, Docker creates the fresh volume owned by `root`, Claude Code (running as `vscode`) can't write `~/.claude/.credentials.json`, and the browser sign-in reports success but never persists ("not signed in"). All other tooling is still installed via the `features` block.
-
-## Security — read this
-
-This container is **convenience-first**, not hardened:
-
-- It runs **privileged** (required by Docker-in-Docker).
-- `claude` is aliased to `claude --dangerously-skip-permissions`, so Claude runs tool calls without asking. Run the bare binary path (`$(which claude)`) if you want prompts back.
-- `codex` is seeded with `approval_policy = "never"` and `sandbox_mode = "danger-full-access"` (its inner sandbox off) on the same premise — the container is the boundary. Edit `.devcontainer/codex/config.toml` to tighten it (`workspace-write`, `on-request`).
-- Claude/OpenCode/Codex can modify any file in the bind-mounted workspace — **which is your real host repository** — and reach anything the container's network allows (there is no egress firewall).
-
-**Only use this with trusted code, and monitor what Claude does.** Avoid mounting host secrets (`~/.ssh`, cloud credential files) into the container.
+Changes to `devcontainer.json`, Compose files, features, or the Dockerfile
+require rebuilding/recreating the workspace. Configuration changes under
+`.devcontainer/opencode/` are reseeded by `postCreate.sh` during that rebuild.
