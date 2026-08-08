@@ -8,6 +8,12 @@ The Project's Scrum `Priority` field remains a human product decision. Intake
 records a recommended security priority in the issue and fills the technical
 EPSS and KEV Project fields instead of overwriting product priority.
 
+Verified Dependabot pull requests are added to `Teck Scrum`. Security pull
+requests are also correlated to their tracked issues by advisory and package
+metadata, receive native `Closes #...` links, and move the tracked issue to
+`agent:in-review`. Version-update pull requests without a security advisory do
+not create or claim agent work. Approval and merge remain human decisions.
+
 ## Scan stages
 
 - Pull requests: CodeQL default queries, Semgrep, zizmor, Trivy configuration,
