@@ -26,9 +26,19 @@ FROM mcr.microsoft.com/devcontainers/dotnet:2.1-10.0-noble
 
 # tmux — one attached session per Orca sub-issue worker. Full OMO spawns nested
 # agents into panes in that session. teck-omo-worker supplies the explicit
-# OpenCode port required by pane attachment. (System package, not a feature.)
+# OpenCode port required by pane attachment.
+#
+# Orca's remote relay installs node-pty at connection time. Node releases that
+# do not have a matching node-pty prebuild fall back to node-gyp, which requires
+# a complete Python standard library (including shlex) and a native compiler.
+# The Node devcontainer feature can leave only python3-minimal installed, so
+# keep these dependencies explicit instead of relying on feature internals.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends tmux \
+    && apt-get install -y --no-install-recommends \
+      build-essential \
+      python3 \
+      python3-dev \
+      tmux \
     && rm -rf /var/lib/apt/lists/*
 
 # snip — required by the `opencode-snip` OpenCode plugin, which prefixes shell

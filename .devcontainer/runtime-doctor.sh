@@ -17,11 +17,17 @@ for env_file in /run/secrets/teck-ai/providers.env /run/secrets/teck-mcp/mcp.env
   fi
 done
 
-for command_name in git jq tmux curl codex opencode bun dotnet; do
+for command_name in git jq tmux curl codex opencode bun dotnet python3 make g++; do
   command -v "$command_name" >/dev/null 2>&1 \
     && pass "$command_name is installed" \
     || fail "$command_name is missing"
 done
+
+if python3 -c 'import shlex' >/dev/null 2>&1; then
+  pass 'Python standard library supports node-gyp'
+else
+  fail 'Python standard library is incomplete (cannot import shlex)'
+fi
 
 [ -s "$HOME/.codex/auth.json" ] \
   && pass 'Codex authentication is mounted' \
