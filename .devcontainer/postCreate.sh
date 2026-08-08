@@ -130,4 +130,12 @@ if ! grep -qxF "$BG_LINE" "$HOME/.bashrc" 2>/dev/null; then
   printf '\n# Required by OMO background orchestration\n%s\n' "$BG_LINE" >> "$HOME/.bashrc"
 fi
 
+echo "==> Enabling persistent tmux for interactive Orca SSH terminals"
+TMUX_MARKER='# Orca interactive SSH terminals resume the workspace tmux session.'
+if ! grep -qxF "$TMUX_MARKER" "$HOME/.bashrc" 2>/dev/null; then
+  printf '\n%s\n%s\n' "$TMUX_MARKER" \
+    'if [ -n "${SSH_TTY:-}" ] && [ -z "${TMUX:-}" ] && command -v tmux >/dev/null 2>&1; then exec tmux new-session -A -s orca; fi' \
+    >> "$HOME/.bashrc"
+fi
+
 echo "==> postCreate complete"
