@@ -10,3 +10,10 @@ test("uses GitHub's distinct read and update reference endpoints", () => {
   assert.match(source, /request\(readRefPath, \{\}, \[404\]\)/);
   assert.match(source, /request\(updateRefPath, \{/);
 });
+
+test("advances the branch only when promotion requests it", () => {
+  assert.match(source, /expectedHead = options\.get\("--expected-head"\) \?\? parent/);
+  assert.match(source, /remoteRef && advance/);
+  assert.match(source, /!remoteRef && advance/);
+  assert.match(source, /request\(`\/git\/commits\/\$\{commit\.sha\}`\)/);
+});

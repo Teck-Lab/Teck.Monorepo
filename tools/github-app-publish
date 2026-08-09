@@ -98,11 +98,14 @@ git push is never used.`);
     join(dirname(fileURLToPath(import.meta.url)), "github-app-promote");
   let remoteParent = remoteHead;
   let localParent = baseline;
-  for (const item of plan) {
+  for (const [index, item] of plan.entries()) {
+    const isFinalCommit = index === plan.length - 1;
     const result = run(promote, [
       "--repo", repository,
       "--branch", branch,
       "--parent", remoteParent,
+      "--expected-head", remoteHead,
+      "--advance", String(isFinalCommit),
       "--base-tree", localParent,
       "--tree", item.tree,
       "--message", item.message,

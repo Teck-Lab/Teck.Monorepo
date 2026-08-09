@@ -46,6 +46,8 @@ const required = (name: string) => {
 const repository = required("--repo");
 const branch = required("--branch");
 const parent = required("--parent");
+const expectedHead = options.get("--expected-head") ?? parent;
+const advance = (options.get("--advance") ?? "true") === "true";
 const baseTree = options.get("--base-tree") ?? parent;
 const targetTree = required("--tree");
 const message = required("--message");
@@ -96,9 +98,9 @@ async function main() {
   const readRefPath = `/git/ref/heads/${encodedBranch}`;
   const updateRefPath = `/git/refs/heads/${encodedBranch}`;
   const remoteRef = (await request(readRefPath, {}, [404])) as any;
-  if (remoteRef && remoteRef.object.sha !== parent) {
+  if (remoteRef && remoteRef.object.sha !== expectedHead) {
     throw new PromoteError(
-      `remote ${branch} advanced from ${parent} to ${remoteRef.object.sha}; fetch and reconcile before retrying`,
+      `remote ${branch} advanced from ${expectedHead} to ${remoteRef.object.sha}; fetch and reconcile before retrying`,
     );
   }
 
@@ -147,24 +149,26 @@ async function main() {
     method: "POST",
     body: JSON.stringify({ message, tree: tree.sha, parents: [parent] }),
   })) as any;
-  if (remoteRef) {
+  if (remoteRef && advance) {
     await request(updateRefPath, {
       method: "PATCH",
       body: JSON.stringify({ sha: commit.sha, force: false }),
     });
-  } else {
+  } else if (!remoteRef && advance) {
     await request("/git/refs", {
       method: "POST",
       body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: commit.sha }),
     });
   }
-  const visible = (await request(`/commits/${commit.sha}`)) as any;
-  if (!visible.commit.verification.verified)
+  // Git-object lookup works before an intermediate commit is reachable from a
+  // branch and still exposes GitHub's signature-verification result.
+  const visible = (await request(`/git/commits/${commit.sha}`)) as any;
+  if (!visible.verification.verified)
     throw new PromoteError(
-      `GitHub created ${commit.sha} but did not verify its signature: ${visible.commit.verification.reason}`,
+      `GitHub created ${commit.sha} but did not verify its signature: ${visible.verification.reason}`,
     );
   process.stdout.write(
-    `${JSON.stringify({ sha: commit.sha, author: visible.author?.login, verified: true })}\n`,
+    `${JSON.stringify({ sha: commit.sha, author: visible.committer?.name, verified: true })}\n`,
   );
 }
 
