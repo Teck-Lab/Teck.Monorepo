@@ -5,11 +5,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    depends_on:
-      searxng:
-        condition: service_healthy
-      crawl4ai:
-        condition: service_healthy
     environment:
       SEARXNG_URL: http://searxng:8080
       CRAWL4AI_URL: http://crawl4ai:11235/mcp/sse

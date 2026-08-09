@@ -51,8 +51,10 @@ Models do not browse by themselves. OMO research agents use:
 - Crawl4AI at `http://crawl4ai:11235/mcp/sse` with its generated bearer token;
 - Context7 as a remote documentation MCP.
 
-Compose health checks must pass before the workspace starts, so a research
-agent cannot silently launch without its local browsing services.
+The workspace SSH transport starts in parallel with the research services so
+Orca can complete its provisioning handshake promptly. Research agents should
+use `teck-runtime-doctor` when service readiness matters; Compose continues to
+health-check both backends independently.
 
 Run `teck-runtime-doctor` inside a workspace to verify agent authentication,
 GitHub App access, Git identity and transport, GPT-only OMO routing, research

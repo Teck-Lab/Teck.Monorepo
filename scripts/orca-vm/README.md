@@ -16,13 +16,15 @@ and direct-provider credentials into container tmpfs at every start, then logs
 out and removes its session. Git uses short-lived installation tokens minted
 from the App, so no separate GitHub PAT is stored.
 
-The workspace, nested Docker daemon, and containerd state live in per-workspace
-named volumes. All Compose services use Docker restart policies, so Docker
-Desktop can restore them after a machine restart without a WSL system service
-or Windows scheduled task. The SSH container and published port remain the
-same, allowing Orca to reconnect to its existing recipe result. Deliberately
-deleting the Orca workspace removes the containers and all per-workspace
-volumes.
+The repository lives in the disposable workspace container's writable layer,
+which survives container, WSL2, Docker, and host restarts without forcing
+Docker to copy the prepared checkout into a new volume during Orca's handshake.
+The nested Docker daemon and containerd state use per-workspace named volumes.
+All Compose services use Docker restart policies, so Docker Desktop can restore
+them after a machine restart without a WSL system service or Windows scheduled
+task. The SSH container and published port remain the same, allowing Orca to
+reconnect to its existing recipe result. Deliberately deleting the Orca
+workspace removes the containers and per-workspace Docker volumes.
 
 The lifecycle commands in `orca.yaml` bridge Orca Desktop on Windows directly
 into this WSL checkout. This avoids `cmd.exe`, which cannot use a WSL UNC path

@@ -77,12 +77,11 @@ jq -n \
   --arg protonRefs "$orca_proton_config" --arg mcpEnv "$mcp_env" \
   --arg runtimeDir "$runtime_dir" --arg sshKey "$(<"$orca_key_file.pub")" --arg sshPort "$ssh_port" \
   '{volumes:{codex_config:{external:true,name:$codexVolume},opencode_data:{external:true,name:$opencodeVolume},
-      workspace_data:{},dind_docker:{},dind_containerd:{}},
+      dind_docker:{},dind_containerd:{}},
     secrets:{teck_mcp_env:{file:$mcpEnv}},services:{
     workspace:{image:$image,pull_policy:"never",restart:"unless-stopped",entrypoint:["/usr/local/share/docker-init.sh","/usr/local/bin/orca-docker-ssh-entrypoint"],
       ports:[("127.0.0.1:"+$sshPort+":22")],labels:{"teck.orca.runtime-state-dir":$runtimeDir},
       environment:{ORCA_SSH_PUBLIC_KEY:$sshKey,TECK_SKIP_PROTON_BOOTSTRAP:"0"},volumes:[
-        "workspace_data:/workspaces",
         "codex_config:/home/vscode/.codex",($codexAuth+":/home/vscode/.codex/auth.json"),
         "opencode_data:/home/vscode/.local/share/opencode",($opencodeAuth+":/home/vscode/.local/share/opencode/auth.json"),
         "dind_docker:/var/lib/docker","dind_containerd:/var/lib/containerd",
@@ -94,11 +93,32 @@ chmod 600 "$runtime_override"
 
 compose_args=(-p "$name" -f "$orca_repo_root/.devcontainer/compose.yaml" \
   -f "$orca_repo_root/.devcontainer/mcp/compose.yaml" -f "$runtime_override")
-docker compose "${compose_args[@]}" up -d --no-build --wait >&2
+docker compose "${compose_args[@]}" up -d --no-build >&2
 container_id="$(docker compose "${compose_args[@]}" ps -q workspace)"
 [ -n "$container_id" ] || { echo 'Could not resolve the Compose workspace container.' >&2; exit 1; }
 port="$(docker port "$container_id" 22/tcp | sed -nE 's/.*:([0-9]+)$/\1/p' | head -1)"
 [ -n "$port" ] || { docker logs "$name" >&2; echo 'Could not resolve the published SSH port.' >&2; exit 1; }
+
+# Orca needs the recipe result before its provisioning handshake deadline.
+# Research services can become healthy in parallel; only SSH is required to
+# attach and create the Git worktree. Wait for the actual transport rather
+# than waiting for every Compose health check.
+ssh_ready=0
+for _ in $(seq 1 45); do
+  if timeout 1 bash -c "</dev/tcp/127.0.0.1/$port" 2>/dev/null; then
+    ssh_ready=1
+    break
+  fi
+  if [ "$(docker inspect "$container_id" --format '{{.State.Running}}' 2>/dev/null || true)" != true ]; then
+    break
+  fi
+  sleep 1
+done
+[ "$ssh_ready" = 1 ] || {
+  docker logs "$container_id" >&2 || true
+  echo 'Workspace SSH transport did not become ready.' >&2
+  exit 1
+}
 
 if [ -n "$source_commit" ]; then
   docker exec -u vscode -e "ORCA_REPO_REF=$repo_ref" -e "ORCA_SOURCE_COMMIT=$source_commit" "$container_id" bash -lc \
