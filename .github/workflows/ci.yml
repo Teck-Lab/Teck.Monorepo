@@ -31,6 +31,8 @@ jobs:
 
       - name: Commit format check
         uses: wagoid/commitlint-github-action@f133a0d95090ef2609192b4a21f54e20af819ea9 # v6
+        env:
+          NODE_PATH: ${{ github.workspace }}/node_modules
 
       # Resolve the affected base/head for both PR and push-to-main; `nx affected`
       # otherwise defaults to --base=main, which is not a local ref on the runner
