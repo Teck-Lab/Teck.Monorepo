@@ -41,7 +41,7 @@
   <!-- WEB API & ENDPOINTS                                 -->
   <!-- ================================================== -->
   <ItemGroup Label="Web API Framework">
-    <PackageVersion Include="FastEndpoints" Version="8.1.0" />
+    <PackageVersion Include="FastEndpoints" Version="8.2.0" />
     <PackageVersion Include="FastEndpoints.Swagger" Version="8.1.0" />
     <PackageVersion Include="FastEndpoints.Messaging.Core" Version="8.2.0" />
     <PackageVersion Include="FastEndpoints.Messaging.Remote" Version="8.1.0" />
