@@ -68,7 +68,7 @@
     "next": "^16",
     "react": "^19",
     "react-dom": "^19",
-    "react-native": "0.83.6",
+    "react-native": "0.86.2",
     "react-native-svg": "15.12.1",
     "react-native-svg-transformer": "~1.5.1",
     "react-native-web": "~0.21.0",
