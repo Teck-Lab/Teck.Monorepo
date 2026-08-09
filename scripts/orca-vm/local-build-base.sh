@@ -38,7 +38,7 @@ definition_hash="$(sha256sum \
   "$orca_repo_root/.devcontainer/proton-bootstrap.sh" \
   "$orca_repo_root/.devcontainer/materialize-proton-secrets.sh" \
   "$orca_vm_dir/Dockerfile" "$orca_vm_dir/ssh-entrypoint.sh" \
-  | sha256sum | cut -d' ' -f1)"
+  | awk '{print $1}' | sha256sum | cut -d' ' -f1)"
 seed_image="$transport_image"
 existing_definition="$(docker image inspect "$orca_base_image" \
   --format '{{index .Config.Labels "teck.orca.base-definition"}}' 2>/dev/null || true)"
