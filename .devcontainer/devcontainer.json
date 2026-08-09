@@ -1,10 +1,6 @@
 {
   "name": "Teck Platform",
-  "dockerComposeFile": [
-    "compose.yaml",
-    "compose.devcontainer.yaml",
-    "mcp/compose.yaml"
-  ],
+  "dockerComposeFile": ["compose.yaml", "compose.devcontainer.yaml", "mcp/compose.yaml"],
   "service": "workspace",
   "workspaceFolder": "/workspaces/Teck.Monorepo",
   "initializeCommand": "bash .devcontainer/prepare-compose.sh",
@@ -14,7 +10,7 @@
     },
     "ghcr.io/devcontainers/features/docker-in-docker:4": {},
     "ghcr.io/devcontainers-extra/features/bun:1": {
-      "version": "1.2.0"
+      "version": "1.2.5"
     },
     "ghcr.io/devcontainers/features/node:1": {
       "version": "lts"

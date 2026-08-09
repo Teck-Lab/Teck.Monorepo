@@ -51,7 +51,7 @@
     "tailwindcss": "^4",
     "typescript": "^5.7.0"
   },
-  "packageManager": "bun@1.2.0",
+  "packageManager": "bun@1.2.5",
   "workspaces": ["src/apps/*", "src/packages/*"],
   "dependencies": {
     "@expo/metro-config": "~55.0.8",
