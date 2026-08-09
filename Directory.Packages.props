@@ -133,7 +133,7 @@
   <!-- STORAGE & FILE HANDLING                            -->
   <!-- ================================================== -->
   <ItemGroup Label="Storage File Handling">
-    <PackageVersion Include="FluentStorage" Version="6.0.3" />
+    <PackageVersion Include="FluentStorage" Version="8.0.16" />
     <PackageVersion Include="FluentStorage.AWS" Version="6.0.3" />
     <PackageVersion Include="AWSSDK.Core" Version="4.0.3.8" />
   </ItemGroup>
