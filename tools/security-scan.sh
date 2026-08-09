@@ -69,7 +69,7 @@ if [ "$MODE" = "pre-push" ]; then
         echo "ERROR: malformed pre-push ref update" >&2
         exit 2
       fi
-    elif [[ "$local_ref" =~ ^refs/ ]]; then
+    elif [[ "$local_ref" =~ ^refs/ ]] || [ "$local_ref" = "HEAD" ]; then
       if [ "$local_sha" = "$ZERO_SHA" ]; then
         echo "ERROR: malformed pre-push ref update" >&2
         exit 2
@@ -167,7 +167,15 @@ if [ "$MODE" = "secrets" ] || [ "$MODE" = "staged" ]; then echo; echo "done ($MO
 # ------------------------------------------------------------------- SAST ----
 echo
 echo "--- [2] Semgrep SAST (${SEMGREP_IMAGE##*:}) ---"
-SEMGREP_TARGET="/src"
+SEMGREP_ROOT="/src"
+SEMGREP_WORKDIR="/src"
+SEMGREP_MOUNTS=(-v "$REPO_ROOT:/src")
+if [ -f "$REPO_ROOT/.git" ] && [ -n "${GITDIR:-}" ] && [ -n "${COMMONDIR:-}" ] && [ "$GITDIR" != "$COMMONDIR" ]; then
+  SEMGREP_ROOT="$REPO_ROOT"
+  SEMGREP_WORKDIR="$REPO_ROOT"
+  SEMGREP_MOUNTS=(-v "$REPO_ROOT:$REPO_ROOT" -v "$GITDIR:$GITDIR:ro" -v "$COMMONDIR:$COMMONDIR:ro")
+fi
+SEMGREP_TARGET="$SEMGREP_ROOT"
 if [ "$MODE" = "changed" ] || [ "$MODE" = "pre-push" ]; then
   # Collect changed paths but keep only regular tracked files (modes 100644/100755).
   # Symlinks (120000) and other git objects must not be passed to Semgrep because
@@ -182,15 +190,15 @@ if [ "$MODE" = "changed" ] || [ "$MODE" = "pre-push" ]; then
     SEMGREP_TARGET=""
   else
     echo "scanning ${#CHANGED[@]} changed file(s) vs $BASE_REF"
-    SEMGREP_TARGET="$(printf '/src/%s ' "${CHANGED[@]}")"
+    SEMGREP_TARGET="$(printf "$SEMGREP_ROOT/%s " "${CHANGED[@]}")"
   fi
 fi
 
 if [ -n "$SEMGREP_TARGET" ]; then
   # shellcheck disable=SC2086
-  if docker run --rm -v "$REPO_ROOT:/src" -w /src "$SEMGREP_IMAGE" \
+  if docker run --rm "${SEMGREP_MOUNTS[@]}" -w "$SEMGREP_WORKDIR" "$SEMGREP_IMAGE" \
        semgrep "${SEMGREP_CONFIGS[@]}" --error --quiet \
-       --sarif --output /src/.security/semgrep.sarif $SEMGREP_TARGET 2>&1 | tail -30; then
+       --sarif --output "$SEMGREP_ROOT/.security/semgrep.sarif" $SEMGREP_TARGET 2>&1 | tail -30; then
     echo "PASS: no Semgrep findings"
   else
     echo "FAIL: Semgrep findings -> .security/semgrep.sarif (CI uploads SARIF to GitHub Code Scanning)"

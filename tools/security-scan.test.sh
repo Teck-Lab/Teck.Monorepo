@@ -334,6 +334,26 @@ test_pre_push_rejects_symbolic_local_sha() {
   echo "PASS: pre-push rejects symbolic local SHA"
 }
 
+test_pre_push_accepts_head_local_ref() {
+  local test_dir="$FIXTURE/pre-push-head-ref"
+  local zero_sha="0000000000000000000000000000000000000000"
+  create_remote_checkout "$test_dir"
+  cd "$test_dir/checkout"
+  printf 'feature\n' > feature.txt
+  git add feature.txt
+  git commit --quiet -m "feature"
+  local feature_sha
+  feature_sha="$(git rev-parse HEAD)"
+
+  install_fake_docker "$test_dir/checkout/bin" "$test_dir"
+  run_scanner "$test_dir/checkout" "--pre-push" \
+    "HEAD $feature_sha refs/heads/main $zero_sha"
+
+  grep -qF -- "--log-opts=origin/main..$feature_sha" "$test_dir/gitleaks_calls.log" \
+    || fail "HEAD local ref did not scan the pushed commit range"
+  echo "PASS: pre-push accepts HEAD as a local ref"
+}
+
 test_pre_push_rejects_blank_line_with_valid_record() {
   local test_dir="$FIXTURE/pre-push-blank"
   local zero_sha="0000000000000000000000000000000000000000"
@@ -468,6 +488,7 @@ test_pre_push_requires_origin_main
 test_pre_push_rejects_empty_input
 test_pre_push_rejects_malformed_record
 test_pre_push_rejects_symbolic_local_sha
+test_pre_push_accepts_head_local_ref
 test_pre_push_rejects_blank_line_with_valid_record
 test_pre_push_mixed_deletion_and_update
 test_pre_push_deletion_only_without_origin_main_or_docker
