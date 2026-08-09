@@ -2,20 +2,17 @@ name: Agent Issue Lifecycle
 
 on:
   issues:
-    types: [opened, labeled, closed, reopened]
+    types: [labeled, closed, reopened]
   workflow_dispatch:
 
 permissions:
   contents: read
   issues: write
 
-concurrency:
-  group: agent-lifecycle-${{ github.event.issue.number || 'label-sync' }}
-  cancel-in-progress: false
-
 jobs:
   apply:
     name: Apply agent lifecycle policy
+    if: github.event_name == 'workflow_dispatch' || github.event.action != 'labeled' || startsWith(github.event.label.name, 'agent:')
     runs-on: ubuntu-latest
     steps:
       - name: Mint GitHub App Project token

@@ -22,8 +22,8 @@ test("defines five unique lifecycle labels", () => {
   assert.equal(lifecycleNames(config).size, 5);
 });
 
-test("accepts an issue form opened as ready", () => {
-  assert.deepEqual(planIssueEvent(event("opened", ["agent:ready"]), config), {
+test("accepts ready as the entry lifecycle label", () => {
+  assert.deepEqual(planIssueEvent(event("labeled", ["agent:ready"], "agent:ready"), config), {
     operation: "transition",
     target: "agent:ready",
   });
