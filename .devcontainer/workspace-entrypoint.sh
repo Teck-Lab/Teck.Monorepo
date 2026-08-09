@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+/usr/local/bin/teck-proton-bootstrap
+
 load_env_file() {
   local file="$1"
   [ -s "$file" ] || return 0

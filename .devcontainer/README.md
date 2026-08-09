@@ -13,8 +13,9 @@ Open the repository in a Dev Containers client. `devcontainer.json` merges:
 - `mcp/compose.yaml` — SearXNG and Crawl4AI.
 
 `initializeCommand` runs `prepare-compose.sh` before Compose. It renders the
-gitignored SearXNG settings, generates the Crawl4AI token, and obtains direct AI
-provider credentials from Proton Pass when `ai/providers.env` is absent.
+gitignored SearXNG settings and generates the Crawl4AI token. The workspace
+entrypoint obtains direct AI provider credentials from Proton Pass at every
+container start.
 
 Orca's `local-devcontainer` recipe launches the same Compose topology with a
 per-workspace override for the isolated repository, random SSH port, persistent
@@ -33,11 +34,11 @@ Full OMO currently defaults every agent and category to GPT. Luna handles quick
 lookup work, Terra handles standard work, and Sol handles deep planning and
 implementation. The other providers remain registered for future routing.
 
-Provider secrets come from the gitignored `ai/providers.env`, or from a
-per-workspace tmpfs file created through Proton Pass. The file is mounted
-read-only under `/run/secrets`; it is deliberately not a Compose `env_file`,
-because rendered Compose diagnostics would otherwise print every credential
-value. Copy `ai/providers.env.example` only when configuring without Proton.
+Provider secrets come from per-workspace tmpfs files created through Proton
+Pass. They are deliberately not Compose `env_file` values, because rendered
+Compose diagnostics would otherwise print every credential. The Proton PAT is
+mounted read-only; resolved values exist only in the container's tmpfs and are
+recreated automatically after a restart.
 
 Codex uses the OpenAI authentication mounted from WSL2 and does not require a
 provider-key file or an in-container login.

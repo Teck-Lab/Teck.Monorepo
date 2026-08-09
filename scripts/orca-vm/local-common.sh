@@ -17,78 +17,10 @@ orca_windows_profile="$(/mnt/c/Windows/System32/cmd.exe /d /c 'echo %USERPROFILE
 orca_key_file="${ORCA_SSH_KEY_FILE:-$(wslpath -u "$orca_windows_profile")/.ssh/orca-teck-local-ed25519}"
 orca_codex_auth_file="${ORCA_CODEX_AUTH_FILE:-$HOME/.codex/auth.json}"
 orca_opencode_auth_file="${ORCA_OPENCODE_AUTH_FILE:-$HOME/.local/share/opencode/auth.json}"
-orca_github_secrets_dir="${ORCA_GITHUB_SECRETS_DIR:-$orca_repo_root/.devcontainer/github-app}"
-orca_ai_provider_env_file="${ORCA_AI_PROVIDER_ENV_FILE:-$orca_repo_root/.devcontainer/ai/providers.env}"
 orca_proton_config="${ORCA_PROTON_CONFIG:-$orca_repo_root/.devcontainer/github-app/proton-pass.env}"
 orca_proton_pat_file="${PROTON_PASS_PERSONAL_ACCESS_TOKEN_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/teck-orca/proton-pass.pat}"
 orca_base_image="teck-devcontainer:orca-base"
 orca_project_root="/workspaces/Teck.Monorepo"
-
-orca_runtime_secrets_dir=""
-
-cleanup_runtime_secrets() {
-  local target="${1:-$orca_runtime_secrets_dir}"
-  [ -n "$target" ] || return 0
-  case "$target" in
-    /dev/shm/teck-orca-secrets.*) rm -rf -- "$target" ;;
-    *) echo "Refusing to remove unexpected runtime-secret path: $target" >&2; return 1 ;;
-  esac
-}
-
-prepare_runtime_secrets() {
-  [ -s "$orca_proton_config" ] || return 0
-  command -v pass-cli >/dev/null 2>&1 || {
-    echo "Proton Pass is configured but pass-cli is not installed in WSL." >&2
-    echo "See https://protonpass.github.io/pass-cli/get-started/installation/" >&2
-    return 1
-  }
-
-  local proton_pat="${PROTON_PASS_PERSONAL_ACCESS_TOKEN:-}"
-  if [ -z "$proton_pat" ] && [ -s "$orca_proton_pat_file" ]; then
-    proton_pat="$(<"$orca_proton_pat_file")"
-  fi
-  [ -n "$proton_pat" ] || {
-    echo "Proton Pass PAT missing. Set PROTON_PASS_PERSONAL_ACCESS_TOKEN or create:" >&2
-    echo "  $orca_proton_pat_file" >&2
-    return 1
-  }
-
-  orca_runtime_secrets_dir="$(mktemp -d /dev/shm/teck-orca-secrets.XXXXXX)"
-  chmod 700 "$orca_runtime_secrets_dir"
-  mkdir -m 700 "$orca_runtime_secrets_dir/container"
-
-  local session_dir="$orca_runtime_secrets_dir/proton-session"
-  mkdir -m 700 "$session_dir"
-  export PROTON_PASS_SESSION_DIR="$session_dir"
-  export PROTON_PASS_KEY_PROVIDER=fs
-  export PROTON_PASS_DISABLE_TELEMETRY=1
-  export PROTON_PASS_PERSONAL_ACCESS_TOKEN="$proton_pat"
-
-  if ! pass-cli login >/dev/null; then
-    unset PROTON_PASS_PERSONAL_ACCESS_TOKEN
-    cleanup_runtime_secrets
-    return 1
-  fi
-  unset PROTON_PASS_PERSONAL_ACCESS_TOKEN proton_pat
-
-  local materialize_status=0 logout_status=0
-  pass-cli run --env-file "$orca_proton_config" -- \
-    "$orca_vm_dir/materialize-proton-secrets.sh" "$orca_runtime_secrets_dir" \
-    || materialize_status=$?
-  pass-cli logout >/dev/null 2>&1 || logout_status=$?
-  rm -rf -- "$session_dir"
-  unset PROTON_PASS_SESSION_DIR PROTON_PASS_KEY_PROVIDER PROTON_PASS_DISABLE_TELEMETRY
-
-  if [ "$materialize_status" -ne 0 ] || [ "$logout_status" -ne 0 ]; then
-    echo "Proton Pass secret materialization or logout failed." >&2
-    cleanup_runtime_secrets
-    return 1
-  fi
-
-  orca_github_secrets_dir="$orca_runtime_secrets_dir/container"
-  orca_ai_provider_env_file="$orca_runtime_secrets_dir/container/ai-providers.env"
-  echo "GitHub, signing, and direct AI provider secrets loaded from Proton Pass into WSL tmpfs." >&2
-}
 
 ensure_key() {
   if [ ! -s "$orca_key_file" ]; then
@@ -96,11 +28,6 @@ ensure_key() {
     /mnt/c/Windows/System32/OpenSSH/ssh-keygen.exe -q -t ed25519 -N '' \
       -f "$(wslpath -w "$orca_key_file")" -C 'orca-local-workspace'
   fi
-}
-
-github_app_token() {
-  local access="${1:-read}"
-  "$orca_repo_root/.devcontainer/github-app-token.sh" "$access" "$orca_github_secrets_dir"
 }
 
 state_value() {

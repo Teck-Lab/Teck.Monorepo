@@ -39,8 +39,7 @@
     "source=opencode-data-${devcontainerId},target=/home/vscode/.local/share/opencode,type=volume",
     "source=${localEnv:HOME}/.local/share/opencode/auth.json,target=/home/vscode/.local/share/opencode/auth.json,type=bind",
     "source=codex-config-${devcontainerId},target=/home/vscode/.codex,type=volume",
-    "source=${localEnv:HOME}/.codex/auth.json,target=/home/vscode/.codex/auth.json,type=bind",
-    "source=${localWorkspaceFolder}/.devcontainer/github-app,target=/run/secrets/teck-github,type=bind,readonly"
+    "source=${localEnv:HOME}/.codex/auth.json,target=/home/vscode/.codex/auth.json,type=bind"
   ],
   "forwardPorts": [18888, 4747, 3000, 8080, 8081, 19000, 19006],
   "portsAttributes": {

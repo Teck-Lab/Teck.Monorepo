@@ -35,6 +35,8 @@ definition_hash="$(sha256sum \
   "$orca_repo_root/.devcontainer/omo-worker.sh" \
   "$orca_repo_root/.devcontainer/workspace-entrypoint.sh" \
   "$orca_repo_root/.devcontainer/runtime-doctor.sh" \
+  "$orca_repo_root/.devcontainer/proton-bootstrap.sh" \
+  "$orca_repo_root/.devcontainer/materialize-proton-secrets.sh" \
   "$orca_vm_dir/Dockerfile" "$orca_vm_dir/ssh-entrypoint.sh" \
   | sha256sum | cut -d' ' -f1)"
 seed_image="$transport_image"
@@ -55,11 +57,11 @@ docker rm -f "$prep" >/dev/null 2>&1 || true
 cleanup() {
   docker rm -f "$prep" >/dev/null 2>&1 || true
   rm -f -- "$source_bundle"
-  cleanup_runtime_secrets || true
 }
 trap cleanup EXIT
 docker run -d --name "$prep" \
   --entrypoint /usr/local/bin/orca-docker-ssh-entrypoint \
+  -e TECK_SKIP_PROTON_BOOTSTRAP=1 \
   -e "ORCA_SSH_PUBLIC_KEY=$(<"$orca_key_file.pub")" "$seed_image" >/dev/null
 docker exec "$prep" bash -lc 'mkdir -p /workspaces && chown vscode:vscode /workspaces'
 docker cp "$source_bundle" "$prep:/tmp/teck-orca-source.bundle"

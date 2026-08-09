@@ -15,19 +15,3 @@ if [ ! -f "$mcp_env" ]; then
   printf 'CRAWL4AI_API_TOKEN=%s\n' "$token" > "$mcp_env"
   chmod 600 "$mcp_env"
 fi
-
-provider_env="${AI_PROVIDER_ENV_FILE:-$script_dir/ai/providers.env}"
-if [ ! -s "$provider_env" ] && command -v wslpath >/dev/null 2>&1 \
-  && [ -s "$script_dir/github-app/proton-pass.env" ]; then
-  # Reuse the Orca Proton loader so the PAT scope and item references have one
-  # implementation. Ordinary devcontainers persist only the provider subset in
-  # this gitignored 0600 file; Orca workspaces continue using tmpfs.
-  source "$script_dir/../scripts/orca-vm/local-common.sh"
-  prepare_runtime_secrets
-  install -m 600 "$orca_ai_provider_env_file" "$provider_env"
-  cleanup_runtime_secrets
-fi
-[ -s "$provider_env" ] || {
-  echo "AI provider credentials are missing: $provider_env" >&2
-  exit 1
-}
