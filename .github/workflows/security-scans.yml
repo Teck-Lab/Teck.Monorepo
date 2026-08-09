@@ -7,7 +7,6 @@ on:
   schedule:
     - cron: '0 2 * * 1'
   workflow_dispatch:
-  workflow_call:
 
 # Findings go to GitHub Advanced Security: Semgrep SARIF -> code scanning (one
 # category per service), frontend SBOM -> dependency graph (correlator
@@ -21,7 +20,7 @@ permissions:
   security-events: write
 
 concurrency:
-  group: security-scans-${{ github.ref }}-${{ github.workflow }}
+  group: security-scans-${{ github.ref }}
   cancel-in-progress: true
 
 

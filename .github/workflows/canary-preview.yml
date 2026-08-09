@@ -10,13 +10,17 @@ permissions:
   contents: read
 
 concurrency:
-  group: canary-${{ github.event.pull_request.number }}
+  # Unrelated label events get a unique group so they cannot cancel an active
+  # preview build before the job-level filter skips them.
+  group: canary-${{ github.event.pull_request.number }}-${{ github.event.action == 'labeled' && github.event.label.name != 'preview' && github.run_id || 'build' }}
   cancel-in-progress: true
 
 jobs:
   discover:
     name: Discover affected services
-    if: contains(github.event.pull_request.labels.*.name, 'preview')
+    if: >-
+      (github.event.action == 'labeled' && github.event.label.name == 'preview') ||
+      (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'preview'))
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.discover.outputs.matrix }}

@@ -2,7 +2,7 @@ name: Link Dependabot Security Pull Request
 
 on:
   pull_request_target:
-    types: [opened, reopened, synchronize, labeled]
+    types: [opened, reopened, synchronize]
 
 permissions:
   contents: read

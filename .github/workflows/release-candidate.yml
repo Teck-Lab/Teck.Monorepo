@@ -13,7 +13,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: rc-${{ github.event.pull_request.number }}
+  # Unrelated label events are skipped and must not cancel an active RC or GA run.
+  group: rc-${{ github.event.pull_request.number }}-${{ github.event.action == 'labeled' && github.event.label.name != 'ready-to-release' && github.run_id || 'release' }}
   cancel-in-progress: true
 
 jobs:
@@ -23,8 +24,9 @@ jobs:
   discover-rc:
     name: Discover affected services (RC)
     if: >-
-      github.event.action != 'closed' &&
-      contains(github.event.pull_request.labels.*.name, 'ready-to-release')
+      (github.event.action == 'labeled' && github.event.label.name == 'ready-to-release') ||
+      (github.event.action == 'synchronize' &&
+      contains(github.event.pull_request.labels.*.name, 'ready-to-release'))
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.discover.outputs.matrix }}
