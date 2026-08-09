@@ -9,6 +9,8 @@ cleanup_on_error() {
     if [ -n "$name" ]; then
       containers="$(docker ps -aq --filter "label=com.docker.compose.project=$name")"
       [ -z "$containers" ] || docker rm -f $containers >/dev/null 2>&1 || true
+      volumes="$(docker volume ls -q --filter "label=com.docker.compose.project=$name")"
+      [ -z "$volumes" ] || docker volume rm $volumes >/dev/null 2>&1 || true
       networks="$(docker network ls -q --filter "label=com.docker.compose.project=$name")"
       [ -z "$networks" ] || docker network rm $networks >/dev/null 2>&1 || true
     fi

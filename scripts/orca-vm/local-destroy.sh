@@ -7,6 +7,8 @@ workspace_id="$(docker ps -aq --filter "label=com.docker.compose.project=$resour
 runtime_secrets_dir="$(docker inspect --format '{{index .Config.Labels "teck.orca.runtime-secrets-dir"}}' "$workspace_id" 2>/dev/null || true)"
 containers="$(docker ps -aq --filter "label=com.docker.compose.project=$resource_id")"
 [ -z "$containers" ] || docker rm -f $containers >/dev/null
+volumes="$(docker volume ls -q --filter "label=com.docker.compose.project=$resource_id")"
+[ -z "$volumes" ] || docker volume rm $volumes >/dev/null
 networks="$(docker network ls -q --filter "label=com.docker.compose.project=$resource_id")"
 [ -z "$networks" ] || docker network rm $networks >/dev/null
 if [ -n "$runtime_secrets_dir" ]; then
