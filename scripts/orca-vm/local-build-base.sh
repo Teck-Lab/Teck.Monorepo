@@ -29,6 +29,7 @@ definition_hash="$(sha256sum \
   "$orca_repo_root/.devcontainer/devcontainer.json" \
   "$orca_repo_root/.devcontainer/github-mcp.sh" \
   "$orca_repo_root/.devcontainer/github-app-token.sh" \
+  "$orca_repo_root/.devcontainer/github-cli.sh" \
   "$orca_repo_root/.devcontainer/git-with-github-app.sh" \
   "$orca_repo_root/.devcontainer/omo-worker.sh" \
   "$orca_repo_root/.devcontainer/workspace-entrypoint.sh" \
@@ -57,6 +58,7 @@ cleanup() {
 }
 trap cleanup EXIT
 docker run -d --name "$prep" \
+  --entrypoint /usr/local/bin/orca-docker-ssh-entrypoint \
   -e "ORCA_SSH_PUBLIC_KEY=$(<"$orca_key_file.pub")" "$seed_image" >/dev/null
 docker exec "$prep" bash -lc 'mkdir -p /workspaces && chown vscode:vscode /workspaces'
 docker cp "$source_bundle" "$prep:/tmp/teck-orca-source.bundle"
@@ -74,7 +76,8 @@ docker exec -u vscode \
     git remote set-url origin "$ORCA_REPO_URL"
     git checkout -f -B "$ORCA_REPO_REF" "$ORCA_SOURCE_COMMIT"
     bash .devcontainer/postCreate.sh'
-docker commit --change='ENTRYPOINT ["/usr/local/bin/orca-docker-ssh-entrypoint"]' \
+docker commit --change='ENTRYPOINT ["/usr/local/share/docker-init.sh"]' \
+  --change='CMD ["/usr/local/bin/orca-docker-ssh-entrypoint"]' \
   --change="LABEL teck.orca.base-definition=$definition_hash" \
   "$prep" "$orca_base_image" >/dev/null
 cleanup

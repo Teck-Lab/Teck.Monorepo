@@ -16,4 +16,7 @@ RUN apt-get update \
 COPY scripts/orca-vm/ssh-entrypoint.sh /usr/local/bin/orca-docker-ssh-entrypoint
 RUN chmod 0755 /usr/local/bin/orca-docker-ssh-entrypoint
 
-ENTRYPOINT ["/usr/local/bin/orca-docker-ssh-entrypoint"]
+# Preserve the Docker-in-Docker feature's initializer so it starts dockerd
+# before handing control to Orca's SSH transport.
+ENTRYPOINT ["/usr/local/share/docker-init.sh"]
+CMD ["/usr/local/bin/orca-docker-ssh-entrypoint"]

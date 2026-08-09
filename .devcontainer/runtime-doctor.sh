@@ -17,7 +17,7 @@ for env_file in /run/secrets/teck-ai/providers.env /run/secrets/teck-mcp/mcp.env
   fi
 done
 
-for command_name in git jq tmux curl codex opencode bun dotnet python3 make g++; do
+for command_name in git jq tmux curl codex opencode bun dotnet python3 make g++ docker; do
   command -v "$command_name" >/dev/null 2>&1 \
     && pass "$command_name is installed" \
     || fail "$command_name is missing"
@@ -27,6 +27,12 @@ if python3 -c 'import shlex' >/dev/null 2>&1; then
   pass 'Python standard library supports node-gyp'
 else
   fail 'Python standard library is incomplete (cannot import shlex)'
+fi
+
+if docker info >/dev/null 2>&1; then
+  pass 'Docker-in-Docker daemon is available'
+else
+  fail 'Docker CLI cannot reach the Docker-in-Docker daemon'
 fi
 
 [ -s "$HOME/.codex/auth.json" ] \
@@ -51,6 +57,12 @@ if teck-github-app-token read >/dev/null 2>&1; then
   pass 'GitHub App authentication works'
 else
   fail 'GitHub App authentication failed'
+fi
+
+if gh auth status >/dev/null 2>&1; then
+  pass 'GitHub CLI authenticates through the GitHub App'
+else
+  fail 'GitHub CLI authentication failed'
 fi
 
 omo_config="$HOME/.omo/omo.jsonc"

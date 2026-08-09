@@ -70,13 +70,15 @@ jq -n \
   --arg opencodeAuth "$orca_opencode_auth_file" --arg githubSecrets "$orca_github_secrets_dir" \
   --arg providerEnv "$orca_ai_provider_env_file" --arg mcpEnv "$mcp_env" \
   --arg secretsDir "$orca_runtime_secrets_dir" --arg sshKey "$(<"$orca_key_file.pub")" \
-  '{volumes:{codex_config:{external:true,name:$codexVolume},opencode_data:{external:true,name:$opencodeVolume}},
+  '{volumes:{codex_config:{external:true,name:$codexVolume},opencode_data:{external:true,name:$opencodeVolume},
+      dind_docker:{},dind_containerd:{}},
     secrets:{teck_mcp_env:{file:$mcpEnv}},services:{
-    workspace:{image:$image,pull_policy:"never",entrypoint:["/usr/local/bin/orca-docker-ssh-entrypoint"],
+    workspace:{image:$image,pull_policy:"never",entrypoint:["/usr/local/share/docker-init.sh","/usr/local/bin/orca-docker-ssh-entrypoint"],
       ports:["127.0.0.1::22"],labels:{"teck.orca.runtime-secrets-dir":$secretsDir},
       environment:{ORCA_SSH_PUBLIC_KEY:$sshKey},volumes:[
         "codex_config:/home/vscode/.codex",($codexAuth+":/home/vscode/.codex/auth.json"),
         "opencode_data:/home/vscode/.local/share/opencode",($opencodeAuth+":/home/vscode/.local/share/opencode/auth.json"),
+        "dind_docker:/var/lib/docker","dind_containerd:/var/lib/containerd",
         ($githubSecrets+":/run/secrets/teck-github:ro"),($providerEnv+":/run/secrets/teck-ai/providers.env:ro"),
         ($mcpEnv+":/run/secrets/teck-mcp/mcp.env:ro")]},
     crawl4ai:{secrets:[{source:"teck_mcp_env",target:"/run/secrets/teck-mcp/mcp.env"}]}
