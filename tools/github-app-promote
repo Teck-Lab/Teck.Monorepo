@@ -92,8 +92,10 @@ function changedPaths() {
 }
 
 async function main() {
-  const refPath = `/git/ref/heads/${branch.split("/").map(encodeURIComponent).join("/")}`;
-  const remoteRef = (await request(refPath, {}, [404])) as any;
+  const encodedBranch = branch.split("/").map(encodeURIComponent).join("/");
+  const readRefPath = `/git/ref/heads/${encodedBranch}`;
+  const updateRefPath = `/git/refs/heads/${encodedBranch}`;
+  const remoteRef = (await request(readRefPath, {}, [404])) as any;
   if (remoteRef && remoteRef.object.sha !== parent) {
     throw new PromoteError(
       `remote ${branch} advanced from ${parent} to ${remoteRef.object.sha}; fetch and reconcile before retrying`,
@@ -146,7 +148,7 @@ async function main() {
     body: JSON.stringify({ message, tree: tree.sha, parents: [parent] }),
   })) as any;
   if (remoteRef) {
-    await request(refPath, {
+    await request(updateRefPath, {
       method: "PATCH",
       body: JSON.stringify({ sha: commit.sha, force: false }),
     });
