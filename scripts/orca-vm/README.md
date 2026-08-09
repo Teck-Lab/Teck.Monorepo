@@ -31,6 +31,11 @@ into this WSL checkout. This avoids `cmd.exe`, which cannot use a WSL UNC path
 as its working directory. Update the `--distribution` or `--cd` values if the
 checkout moves or the WSL distro name changes.
 
+The workspace SSH port is published on the WSL2 VM interfaces but returned to
+Orca as `127.0.0.1`. This is intentional: Windows reaches the WSL-published port
+through localhost forwarding, while a WSL-loopback-only Docker bind drops the
+Windows SSH connection before key exchange.
+
 ## One-time setup
 
 1. Build the reusable base (this runs the dev-container build and repo setup):

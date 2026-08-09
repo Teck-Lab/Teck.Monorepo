@@ -70,6 +70,9 @@ mcp_env="$orca_repo_root/.devcontainer/mcp/mcp.env"
 runtime_dir="${XDG_STATE_HOME:-$HOME/.local/state}/teck-orca/runtimes/$name"
 install -d -m 0700 "$runtime_dir"
 runtime_override="$runtime_dir/compose.runtime.json"
+# Docker runs inside WSL2 while Orca's SSH relay runs on Windows. Publishing
+# only on WSL loopback drops Windows connections before SSH key exchange, so
+# expose the port on the WSL interfaces and return 127.0.0.1 to Orca.
 jq -n \
   --arg image "$base_image" --arg codexVolume "$codex_volume" \
   --arg codexAuth "$orca_codex_auth_file" --arg opencodeVolume "$opencode_volume" \
@@ -80,7 +83,7 @@ jq -n \
       dind_docker:{},dind_containerd:{}},
     secrets:{teck_mcp_env:{file:$mcpEnv}},services:{
     workspace:{image:$image,pull_policy:"never",restart:"unless-stopped",entrypoint:["/usr/local/share/docker-init.sh","/usr/local/bin/orca-docker-ssh-entrypoint"],
-      ports:[("127.0.0.1:"+$sshPort+":22")],labels:{"teck.orca.runtime-state-dir":$runtimeDir},
+      ports:[("0.0.0.0:"+$sshPort+":22")],labels:{"teck.orca.runtime-state-dir":$runtimeDir},
       environment:{ORCA_SSH_PUBLIC_KEY:$sshKey,TECK_SKIP_PROTON_BOOTSTRAP:"0"},volumes:[
         "codex_config:/home/vscode/.codex",($codexAuth+":/home/vscode/.codex/auth.json"),
         "opencode_data:/home/vscode/.local/share/opencode",($opencodeAuth+":/home/vscode/.local/share/opencode/auth.json"),
@@ -101,11 +104,16 @@ port="$(docker port "$container_id" 22/tcp | sed -nE 's/.*:([0-9]+)$/\1/p' | hea
 
 # Orca needs the recipe result before its provisioning handshake deadline.
 # Research services can become healthy in parallel; only SSH is required to
-# attach and create the Git worktree. Wait for the actual transport rather
-# than waiting for every Compose health check.
+# attach and create the Git worktree. The WSL socket becomes reachable before
+# Windows localhost forwarding is ready, so validate the same authenticated
+# Windows OpenSSH path that Orca's relay will use.
 ssh_ready=0
 for _ in $(seq 1 45); do
-  if timeout 1 bash -c "</dev/tcp/127.0.0.1/$port" 2>/dev/null; then
+  if /mnt/c/Windows/System32/OpenSSH/ssh.exe \
+      -o BatchMode=yes -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
+      -o UserKnownHostsFile=NUL -o LogLevel=ERROR -o IdentitiesOnly=yes \
+      -i "$identity_file" -p "$port" vscode@127.0.0.1 true \
+      >/dev/null 2>&1; then
     ssh_ready=1
     break
   fi
