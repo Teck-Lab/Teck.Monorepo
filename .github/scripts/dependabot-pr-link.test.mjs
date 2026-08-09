@@ -19,9 +19,10 @@ test("matches an advisory and the dependencies changed by the PR", () => {
 });
 
 test("adds and idempotently refreshes issue closing links", () => {
-  const linked = linkedPullRequestBody("Dependabot details", issues.slice(0, 2));
-  assert.match(linked, /Closes #41\nCloses #42$/);
+  const linked = linkedPullRequestBody("Dependabot details\n\n<!-- another-automation -->\nkeep me", issues.slice(0, 2));
+  assert.match(linked, /Closes #41\nCloses #42/);
   assert.equal(linkedPullRequestBody(linked, issues.slice(0, 1)).match(/teck-dependabot-security-links/g)?.length, 1);
-  assert.match(linkedPullRequestBody(linked, issues.slice(0, 1)), /Closes #41$/);
+  assert.match(linkedPullRequestBody(linked, issues.slice(0, 1)), /Closes #41/);
   assert.doesNotMatch(linkedPullRequestBody(linked, issues.slice(0, 1)), /Closes #42/);
+  assert.match(linkedPullRequestBody(linked, issues.slice(0, 1)), /another-automation/);
 });

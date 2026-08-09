@@ -1,0 +1,42 @@
+name: Dependabot Stuck PR Intake
+
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Inspect stuck PRs without changing issues or pull requests
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependabot-stuck-pr-intake
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    name: Reconcile failing Dependabot PRs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.TECK_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.TECK_AUTOMATION_APP_PRIVATE_KEY }}
+          owner: Teck-Lab
+
+      - name: Checkout trusted intake policy
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Reconcile stuck Dependabot pull requests
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          DEPENDABOT_STUCK_DRY_RUN: ${{ inputs['dry-run'] || 'false' }}
+          DEPENDABOT_STUCK_GRACE_MINUTES: "20"
+        run: node .github/scripts/dependabot-stuck-intake.mjs

@@ -30,7 +30,7 @@ export function linkedPullRequestBody(body, issues) {
   const links = issues.map((issue) => `Closes #${issue.number}`).join("\n");
   const block = `${linkMarker}\n${links}`;
   if ((body ?? "").includes(linkMarker)) {
-    return body.replace(new RegExp(`${linkMarker}[\\s\\S]*$`), block);
+    return body.replace(new RegExp(`${linkMarker}(?:\\nCloses #[0-9]+)*`), block);
   }
   return `${body ?? ""}${body ? "\n\n" : ""}${block}`;
 }

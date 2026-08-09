@@ -40,6 +40,8 @@ export function planIssueEvent(event, config) {
 
   if (action === "reopened") {
     if (managedStates.length === 0) return { operation: "noop" };
+    if (managedStates.length === 1 && managedStates[0] !== "agent:completed")
+      return { operation: "transition", target: managedStates[0] };
     return { operation: "transition", target: "agent:needs-input" };
   }
 

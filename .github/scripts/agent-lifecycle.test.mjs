@@ -94,6 +94,13 @@ test("reopening completed work requests human input", () => {
   });
 });
 
+test("automation can reopen an issue directly into ready", () => {
+  assert.deepEqual(planIssueEvent(event("reopened", ["agent:ready"]), config), {
+    operation: "transition",
+    target: "agent:ready",
+  });
+});
+
 test("non-lifecycle labels do not affect state", () => {
   assert.deepEqual(
     planIssueEvent(event("labeled", ["security", "agent:ready"], "security"), config),
