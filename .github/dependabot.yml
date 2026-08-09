@@ -6,7 +6,7 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
-  - package-ecosystem: npm
+  - package-ecosystem: bun
     directory: /
     schedule: { interval: weekly }
     commit-message:
