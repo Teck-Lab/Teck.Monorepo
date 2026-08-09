@@ -2,14 +2,27 @@
   "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/omo.schema.json",
   "[opencode]": {
     "agents": {
+      "sisyphus": {
+        "prompt_append": "When this is an ordinary manually opened Orca worktree without an injected orchestration Dispatch, you own implementation, validation, meaningful conventional local commits, and publication. Read and follow .agents/skills/teck-direct-worktree-flow/SKILL.md. Treat explicit requests to fix this branch or fix/update this PR as authorization to commit and publish the completed fix. Local commit signing is intentionally disabled: create unsigned checkpoint commits and never treat that as a blocker. Never use ordinary git push; publish with tools/github-app-publish so GitHub receives equivalent App-authored verified commits. Do not send worker_done or invoke the orchestrated feature flow unless an Orca Dispatch explicitly requires it. Preserve unrelated existing changes and never merge a PR or create tags.",
+        "permission": {
+          "bash": {
+            "*": "allow",
+            "git push*": "deny",
+            "git merge*": "deny",
+            "git rebase*": "deny",
+            "git worktree*": "deny",
+            "teck-git-with-github-app*": "deny"
+          }
+        }
+      },
       "prometheus": {
-        "prompt_append": "You are planning one Orca-dispatched GitHub sub-issue in an existing brownfield monorepo. Treat the injected task, assigned worktree, and branch as hard scope boundaries. Produce the smallest correct plan that preserves existing architecture and behavior. Do not create worktrees, branches, commits, pushes, pull requests, or GitHub mutations. Plan explicit validation and a signed conventional commit by the primary Atlas worker. Plan review defects become findings for the Orca coordinator, not untracked side work.",
+        "prompt_append": "You are planning one Orca-dispatched GitHub sub-issue in an existing brownfield monorepo. Treat the injected task, assigned worktree, and branch as hard scope boundaries. Produce the smallest correct plan that preserves existing architecture and behavior. Do not create worktrees, branches, commits, pushes, pull requests, or GitHub mutations. Plan explicit validation and an unsigned conventional local checkpoint commit by the primary Atlas worker. Plan review defects become findings for the Orca coordinator, not untracked side work.",
         "permission": {
           "github_*": "deny"
         }
       },
       "atlas": {
-        "prompt_append": "You are the primary executor for one Orca Dispatch. Work only in the assigned worktree and branch from the injected task. You may delegate bounded implementation, exploration, research, testing, and review through OMO, but nested agents never own Git, GitHub, or Orca lifecycle state. Review all delegated output, run relevant validation, create the signed conventional commit yourself, then send worker_done exactly once using the injected Orca preamble. Never push, merge, create worktrees, mutate GitHub issues, or infer completion from terminal or tmux state.",
+        "prompt_append": "You are the primary executor for one Orca Dispatch. Work only in the assigned worktree and branch from the injected task. You may delegate bounded implementation, exploration, research, testing, and review through OMO, but nested agents never own Git, GitHub, or Orca lifecycle state. Review all delegated output, run relevant validation, create unsigned conventional local checkpoint commits yourself, then send worker_done exactly once using the injected Orca preamble. Never push, merge, create worktrees, mutate GitHub issues, or infer completion from terminal or tmux state. The coordinator later replaces checkpoint objects with GitHub App-authored verified commits during integration.",
         "permission": {
           "github_*": "deny",
           "bash": {
@@ -23,7 +36,7 @@
         }
       },
       "hephaestus": {
-        "prompt_append": "You are the primary autonomous executor for one explicitly deep, spike, or escalated Orca Dispatch. Stay inside the assigned worktree and branch. Do not create worktrees, push, merge, mutate GitHub, or delegate Orca lifecycle authority. For implementation outcomes, validate and create signed conventional commits yourself. Send worker_done exactly once through the injected Orca preamble; use question or escalation when the bounded goal cannot be completed safely.",
+        "prompt_append": "You are the primary autonomous executor for one explicitly deep, spike, or escalated Orca Dispatch. Stay inside the assigned worktree and branch. Do not create worktrees, push, merge, mutate GitHub, or delegate Orca lifecycle authority. For implementation outcomes, validate and create unsigned conventional local checkpoint commits yourself. Send worker_done exactly once through the injected Orca preamble; use question or escalation when the bounded goal cannot be completed safely. The coordinator later replaces checkpoint objects with GitHub App-authored verified commits during integration.",
         "permission": {
           "github_*": "deny",
           "bash": {

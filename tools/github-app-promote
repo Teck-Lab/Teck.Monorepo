@@ -46,6 +46,7 @@ const required = (name: string) => {
 const repository = required("--repo");
 const branch = required("--branch");
 const parent = required("--parent");
+const baseTree = options.get("--base-tree") ?? parent;
 const targetTree = required("--tree");
 const message = required("--message");
 const apiBase = process.env.TECK_GITHUB_API_URL ?? "https://api.github.com";
@@ -80,7 +81,7 @@ async function request(
 function changedPaths() {
   const raw = run(
     "git",
-    ["diff", "--name-status", "-z", "--no-renames", parent, targetTree],
+    ["diff", "--name-status", "-z", "--no-renames", baseTree, targetTree],
     null,
   ) as Buffer;
   const fields = raw.toString().split("\0").filter(Boolean);
