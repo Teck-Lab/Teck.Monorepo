@@ -64,7 +64,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.9" />
     <PackageVersion Include="Microsoft.Identity.Web" Version="4.1.1" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.17.0" />
-    <PackageVersion Include="Keycloak.AuthServices.Authentication" Version="2.9.0" />
+    <PackageVersion Include="Keycloak.AuthServices.Authentication" Version="3.0.0" />
     <PackageVersion Include="Keycloak.AuthServices.Authorization" Version="2.9.0" />
     <PackageVersion Include="Keycloak.AuthServices.Sdk" Version="2.9.0" />
     <PackageVersion Include="Keycloak.AuthServices.OpenTelemetry" Version="1.0.0" />
