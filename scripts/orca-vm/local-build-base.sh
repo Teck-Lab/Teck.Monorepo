@@ -30,6 +30,7 @@ definition_hash="$(sha256sum \
   "$orca_repo_root/.devcontainer/github-mcp.sh" \
   "$orca_repo_root/.devcontainer/github-app-token.sh" \
   "$orca_repo_root/.devcontainer/github-cli.sh" \
+  "$orca_repo_root/.devcontainer/git-credential-github-app.sh" \
   "$orca_repo_root/.devcontainer/git-with-github-app.sh" \
   "$orca_repo_root/.devcontainer/omo-worker.sh" \
   "$orca_repo_root/.devcontainer/workspace-entrypoint.sh" \

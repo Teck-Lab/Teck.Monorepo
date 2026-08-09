@@ -54,8 +54,9 @@ Compose health checks must pass before the workspace starts, so a research
 agent cannot silently launch without its local browsing services.
 
 Run `teck-runtime-doctor` inside a workspace to verify agent authentication,
-GitHub App access, GPT-only OMO routing, research services, Git signing, and
-tmux attachment without printing credentials.
+GitHub App access, Git identity and transport, GPT-only OMO routing, research
+services, the promotion signing policy, and tmux attachment without printing
+credentials.
 
 ## Worker flow
 
@@ -71,8 +72,8 @@ worker owns Git and Orca lifecycle messages.
 - Their writable state lives in named Docker volumes.
 - GitHub MCP uses the repository GitHub App files mounted at
   `/run/secrets/teck-github`.
-- Provider keys and signing material are loaded from Proton Pass and are never
-  baked into the image.
+- Provider keys and GitHub App credentials are loaded from Proton Pass and are
+  never baked into the image.
 - Completed worker trees are promoted by the GitHub App flow; they are not
   pushed directly.
 

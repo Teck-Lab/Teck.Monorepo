@@ -132,34 +132,14 @@ cp .devcontainer/opencode/omo.jsonc "$HOME/.omo/omo.jsonc" || echo "WARN: could 
 # memory web UI on :4747. The plugin itself auto-installs via opencode.json.
 cp .devcontainer/opencode/opencode-mem.jsonc "$HOME/.config/opencode/opencode-mem.jsonc" || echo "WARN: could not seed opencode-mem config (continuing)"
 
-echo "==> Restoring/backing up gh auth"
-# ~/.config/gh has its own volume, so the login normally survives rebuilds. This
-# is the belt-and-braces layer for the two cases the volume can't cover: the
-# first rebuild after that volume was introduced (it starts empty, which would
-# silently log you out), and any later volume reset.
-#
-# The backup lives in the workspace, which is bind-mounted from the host and so
-# outlives every container. Gitignored — same convention as provider and
-# mcp.env. It holds a real OAuth token, hence 0600 and never staged.
-GH_BACKUP="$(pwd)/.devcontainer/gh/hosts.yml"
-GH_LIVE="$HOME/.config/gh/hosts.yml"
-if command -v gh >/dev/null 2>&1; then
-  if [ ! -s "$GH_LIVE" ] && [ -s "$GH_BACKUP" ]; then
-    echo "    no gh login found — restoring from backup"
-    mkdir -p "$HOME/.config/gh"
-    cp "$GH_BACKUP" "$GH_LIVE" && chmod 600 "$GH_LIVE" \
-      || echo "WARN: could not restore gh auth (continuing)"
-  fi
-  # Refresh the backup whenever a working login exists, so a later re-auth or
-  # token rotation is captured rather than restoring a stale token forever.
-  if gh auth status >/dev/null 2>&1 && [ -s "$GH_LIVE" ]; then
-    mkdir -p "$(dirname "$GH_BACKUP")"
-    cp "$GH_LIVE" "$GH_BACKUP" 2>/dev/null && chmod 600 "$GH_BACKUP" 2>/dev/null || true
-  fi
-  gh auth status >/dev/null 2>&1 \
-    && echo "    gh: logged in as $(gh api user --jq .login 2>/dev/null || echo '?')" \
-    || echo "WARN: gh is not logged in — run 'gh auth login' (github MCP will fail until then)"
-fi
+echo "==> Configuring Git identity and GitHub App transport"
+# Worker checkpoints remain local and unsigned. tools/orca-feature promotes a
+# completed worktree as a GitHub-signed App commit, preserving the documented
+# trust boundary without mounting a personal signing key into workers.
+git config --local user.name 'Teck Agent'
+git config --local user.email 'jl@tecklab.dk'
+git config --local commit.gpgsign false
+git config --local credential.https://github.com.helper teck-github-app
 
 echo "==> Enabling OpenCode background subagents"
 # Full OMO can use visible background panes. teck-omo-worker also exports this

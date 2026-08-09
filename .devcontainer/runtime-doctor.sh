@@ -65,6 +65,17 @@ else
   fail 'GitHub CLI authentication failed'
 fi
 
+if [ "$(git config user.name 2>/dev/null || true)" = 'Teck Agent' ] \
+  && [ "$(git config user.email 2>/dev/null || true)" = 'jl@tecklab.dk' ]; then
+  pass 'Git checkpoint identity is configured'
+else
+  fail 'Git checkpoint identity is missing or incorrect'
+fi
+
+[ "$(git config credential.https://github.com.helper 2>/dev/null || true)" = teck-github-app ] \
+  && pass 'Git transport uses short-lived GitHub App credentials' \
+  || fail 'GitHub App credential helper is not configured'
+
 omo_config="$HOME/.omo/omo.jsonc"
 if [ -s "$omo_config" ]; then
   non_gpt_models="$(sed -nE 's/.*"model"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "$omo_config" | grep -Ev '^openai/gpt-' || true)"
@@ -97,7 +108,7 @@ if [ "$(git config --bool commit.gpgsign 2>/dev/null || true)" = true ]; then
     warn 'Git requires signed commits but its configured private key is unavailable'
   fi
 else
-  warn 'Git commit signing is not enabled in this checkout'
+  pass 'Local checkpoint commits are unsigned; App promotion provides GitHub signing'
 fi
 
 if [ -n "${SSH_TTY:-}" ]; then

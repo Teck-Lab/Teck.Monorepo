@@ -74,15 +74,10 @@ RUN arch="$(dpkg --print-architecture)" \
 # that would silently vanish on every rebuild. postCreate.sh still re-seeds
 # config.toml from the committed template on top of the volume, so the template
 # stays the source of truth for configuration while auth persists.
-# ~/.config/gh is on the same list: `gh auth login` writes its OAuth token to
-# ~/.config/gh/hosts.yml, which is NOT under any other mounted path — so without
-# its own volume every rebuild silently logged you out of GitHub. This login is
-# retained for ordinary `gh`/Git transport use; GitHub MCP authenticates
-# separately as the repository-scoped GitHub App.
 RUN mkdir -p /home/vscode/.claude-config /home/vscode/.local/share/opencode \
-      /home/vscode/.codex /home/vscode/.config/gh \
+      /home/vscode/.codex \
     && chown -R vscode:vscode /home/vscode/.claude-config /home/vscode/.local \
-      /home/vscode/.codex /home/vscode/.config
+      /home/vscode/.codex
 
 # Official GitHub MCP server. It runs directly as a stdio child of Codex or
 # OpenCode, avoiding a nested-Docker secret mount. Version and per-architecture
@@ -105,12 +100,14 @@ RUN arch="$(dpkg --print-architecture)" \
 COPY github-mcp.sh /usr/local/bin/teck-github-mcp
 COPY github-app-token.sh /usr/local/bin/teck-github-app-token
 COPY github-cli.sh /usr/local/bin/gh
+COPY git-credential-github-app.sh /usr/local/bin/git-credential-teck-github-app
 COPY git-with-github-app.sh /usr/local/bin/teck-git-with-github-app
 COPY omo-worker.sh /usr/local/bin/teck-omo-worker
 COPY workspace-entrypoint.sh /usr/local/bin/teck-workspace-entrypoint
 COPY runtime-doctor.sh /usr/local/bin/teck-runtime-doctor
 RUN chmod 0755 /usr/local/bin/teck-github-mcp \
       /usr/local/bin/teck-github-app-token /usr/local/bin/gh \
+      /usr/local/bin/git-credential-teck-github-app \
       /usr/local/bin/teck-git-with-github-app \
       /usr/local/bin/teck-omo-worker /usr/local/bin/teck-workspace-entrypoint \
       /usr/local/bin/teck-runtime-doctor
