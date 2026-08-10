@@ -5,7 +5,8 @@ access="${1:-read}"
 secret_dir="${2:-${TECK_GITHUB_SECRET_DIR:-/run/secrets/teck-github}}"
 case "$access" in
   read) permissions='{"contents":"read"}' ;;
-  write) permissions='{"contents":"write"}' ;;
+  # Publishing a commit which changes .github/workflows requires both grants.
+  write) permissions='{"contents":"write","workflows":"write"}' ;;
   projects-read) permissions='{"organization_projects":"read"}' ;;
   projects-write) permissions='{"organization_projects":"write"}' ;;
   installation) permissions='' ;;

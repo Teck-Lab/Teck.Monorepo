@@ -61,8 +61,14 @@ git push is never used.`);
   if (git(["status", "--porcelain"]).stdout.trim())
     throw new PublishError("worktree is dirty; commit or discard changes before publishing");
 
-  git(["fetch", remote, `+refs/heads/${branch}:refs/remotes/${remote}/${branch}`]);
-  const remoteHead = git(["rev-parse", `refs/remotes/${remote}/${branch}`]).stdout.trim();
+  const remoteRef = `refs/remotes/${remote}/${branch}`;
+  const fetchedBranch = git(
+    ["fetch", remote, `+refs/heads/${branch}:${remoteRef}`],
+    true,
+  );
+  const remoteHead = fetchedBranch.status === 0
+    ? git(["rev-parse", remoteRef]).stdout.trim()
+    : git(["rev-parse", "--verify", "@{upstream}"]).stdout.trim();
   const remoteTree = git(["rev-parse", `${remoteHead}^{tree}`]).stdout.trim();
   const localHistory = git(["rev-list", "HEAD"]).stdout.trim().split("\n").filter(Boolean);
   const baseline = localHistory.find(
@@ -116,11 +122,12 @@ git push is never used.`);
     localParent = item.localCommit;
   }
 
-  git(["fetch", remote, `+refs/heads/${branch}:refs/remotes/${remote}/${branch}`]);
-  const visibleHead = git(["rev-parse", `refs/remotes/${remote}/${branch}`]).stdout.trim();
+  git(["fetch", remote, `+refs/heads/${branch}:${remoteRef}`]);
+  const visibleHead = git(["rev-parse", remoteRef]).stdout.trim();
   if (visibleHead !== remoteParent)
     throw new PublishError(`published ${remoteParent}, but fetched remote head is ${visibleHead}`);
   git(["reset", "--hard", remoteParent]);
+  git(["branch", "--set-upstream-to", `${remote}/${branch}`, branch]);
   console.log(JSON.stringify({ repository, branch, commitsPublished: plan.length, head: remoteParent, verified: true }));
 }
 

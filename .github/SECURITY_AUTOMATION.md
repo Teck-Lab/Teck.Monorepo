@@ -8,11 +8,22 @@ The Project's Scrum `Priority` field remains a human product decision. Intake
 records a recommended security priority in the issue and fills the technical
 EPSS and KEV Project fields instead of overwriting product priority.
 
-Verified Dependabot pull requests are added to `Teck Scrum`. Security pull
-requests are also correlated to their tracked issues by advisory and package
-metadata, receive native `Closes #...` links, and move the tracked issue to
-`agent:in-review`. Version-update pull requests without a security advisory do
-not create or claim agent work. Approval and merge remain human decisions.
+GitHub's dependency graph and Dependabot alerts remain the dependency-security
+system of record. Renovate owns scheduled dependency updates and may read those
+alerts to create vulnerability-fix pull requests. OSV-based Renovate alerts are
+disabled so findings do not diverge from GitHub's Security tab.
+
+Verified legacy Dependabot pull requests are added to `Teck Scrum`. Security
+pull requests are also correlated to their tracked issues by advisory and
+package metadata, receive native `Closes #...` links, and move the tracked issue
+to `agent:in-review`. Version-update pull requests do not create or claim agent
+work. Approval and merge remain human decisions. Dependabot version updates are
+disabled in `.github/dependabot.yml`; after Renovate onboarding is verified,
+Dependabot security-update pull requests must also be disabled in repository
+settings so Renovate and Dependabot cannot propose the same remediation.
+Renovate pull requests are added to the Project separately. When Renovate
+includes GitHub advisory identifiers in a vulnerability-fix PR, the same
+correlator links its tracked security issues and advances them to review.
 The scheduled security intake owns issue creation; PR reconciliation never
 runs intake in parallel. Intake also keeps the oldest issue as the canonical
 record for each alert fingerprint and closes later duplicates during recovery.

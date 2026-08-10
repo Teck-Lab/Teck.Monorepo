@@ -1,0 +1,104 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "group:monorepos",
+    "security:minimumReleaseAgeNpm",
+    "security:openssf-scorecard",
+    "docker:disableMajor",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Dependency Dashboard",
+  "labels": ["dependencies"],
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "platformCommit": "enabled",
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 2,
+  "commitHourlyLimit": 4,
+  "rebaseWhen": "behind-base-branch",
+  "osvVulnerabilityAlerts": false,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["dependencies", "security"],
+    "vulnerabilityFixStrategy": "lowest",
+    "automerge": false
+  },
+  "packageRules": [
+    {
+      "description": "Keep Nx packages from the upstream Nx monorepo together",
+      "extends": ["monorepo:nx"],
+      "groupName": "Nx packages"
+    },
+    {
+      "description": "Keep Expo and React Native ecosystem packages together",
+      "matchManagers": ["bun"],
+      "matchPackageNames": [
+        "expo",
+        "expo-*",
+        "@expo/**",
+        "babel-preset-expo",
+        "metro-*",
+        "react-native",
+        "react-native-*",
+        "@react-native/**"
+      ],
+      "groupName": "Expo and React Native packages"
+    },
+    {
+      "description": "Keep Entity Framework Core packages compatible",
+      "matchManagers": ["nuget"],
+      "matchPackageNames": [
+        "Microsoft.EntityFrameworkCore",
+        "Microsoft.EntityFrameworkCore.*",
+        "Npgsql.EntityFrameworkCore.PostgreSQL",
+        "EntityFrameworkCore.Exceptions.*"
+      ],
+      "groupName": "Entity Framework Core packages"
+    },
+    {
+      "description": "Keep Microsoft.Extensions packages compatible",
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["Microsoft.Extensions.*"],
+      "groupName": "Microsoft.Extensions packages"
+    },
+    {
+      "description": "Keep OpenTelemetry packages compatible",
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["OpenTelemetry", "OpenTelemetry.*"],
+      "groupName": "OpenTelemetry packages"
+    },
+    {
+      "description": "Keep Wolverine packages compatible",
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["WolverineFx", "WolverineFx.*"],
+      "groupName": "Wolverine packages"
+    },
+    {
+      "description": "Keep FastEndpoints packages compatible",
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["FastEndpoints", "FastEndpoints.*"],
+      "groupName": "FastEndpoints packages"
+    },
+    {
+      "description": "Group routine container image updates",
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["digest", "pin", "pinDigest", "minor", "patch"],
+      "groupName": "container images"
+    },
+    {
+      "description": "Group routine GitHub Actions updates",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["digest", "minor", "patch"],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "description": "Require explicit approval for major dependency updates",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "addLabels": ["breaking"]
+    }
+  ]
+}
