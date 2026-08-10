@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   checkState,
-  dependencyBotName,
   fingerprint,
   fingerprintFromBody,
   indexIssues,
@@ -72,7 +71,6 @@ test("uses one stable issue fingerprint per pull request", () => {
   const pull = {
     number: 31,
     html_url: "https://example/pr/31",
-    user: { login: "renovate[bot]" },
     head: { ref: "dependabot/npm/foo", sha: "abc" },
   };
   const body = issueBody("Teck-Lab", "Teck.Monorepo", pull, [
@@ -83,19 +81,13 @@ test("uses one stable issue fingerprint per pull request", () => {
   assert.equal(indexIssues([issue]).get("teck-lab/teck.monorepo#31"), issue);
 });
 
-test("recognizes supported dependency update bots", () => {
-  assert.equal(dependencyBotName("dependabot[bot]"), "Dependabot");
-  assert.equal(dependencyBotName("renovate[bot]"), "Renovate");
-  assert.equal(dependencyBotName("someone"), null);
-});
-
 test("links the existing PR to exactly one repair issue", () => {
   const first = linkedPullRequestBody(
     "Dependabot details\n\n<!-- another-automation -->\nkeep me",
     91,
   );
   const updated = linkedPullRequestBody(first, 92);
-  assert.equal(updated.match(/teck-dependency-update-stuck-issue/g)?.length, 1);
+  assert.equal(updated.match(/teck-dependabot-stuck-issue/g)?.length, 1);
   assert.match(updated, /Fixes #92$/);
   assert.doesNotMatch(updated, /Fixes #91/);
   assert.match(updated, /another-automation/);

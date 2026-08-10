@@ -4,7 +4,6 @@ import { GitHubClient } from "./security-alert-intake.mjs";
 
 const configUrl = new URL("../security-intake.json", import.meta.url);
 const linkMarker = "<!-- teck-dependabot-security-links -->";
-const dependencyBots = new Set(["dependabot[bot]", "renovate[bot]"]);
 
 export function parseNames(value = "") {
   return new Set(
@@ -13,10 +12,6 @@ export function parseNames(value = "") {
       .map((name) => name.trim().toLowerCase())
       .filter(Boolean),
   );
-}
-
-export function advisoryIds(value = "") {
-  return new Set(value.match(/GHSA-[0-9A-Za-z-]+/gi)?.map((id) => id.toLowerCase()) ?? []);
 }
 
 export function dependabotIssueMetadata(body = "") {
@@ -91,7 +86,7 @@ export async function run() {
   const token = process.env.GITHUB_TOKEN;
   const [owner, repo] = (process.env.GITHUB_REPOSITORY ?? "").split("/");
   const pullNumber = Number(process.env.PR_NUMBER);
-  const suppliedGhsaId = process.env.GHSA_ID ?? "";
+  const ghsaId = process.env.GHSA_ID ?? "";
   if (!token || !owner || !repo || !pullNumber)
     throw new Error("GITHUB_TOKEN, GITHUB_REPOSITORY, and PR_NUMBER are required");
   const config = JSON.parse(await readFile(configUrl, "utf8"));
@@ -103,30 +98,24 @@ export async function run() {
     ),
   ]);
   const pullRequest = pullResponse.data;
-  if (!dependencyBots.has(pullRequest.user?.login))
-    throw new Error(`PR #${pullNumber} is not authored by a supported dependency bot`);
-  const botName = pullRequest.user.login === "renovate[bot]" ? "Renovate" : "Dependabot";
-  const advisories = advisoryIds(`${suppliedGhsaId}\n${pullRequest.body ?? ""}`);
-  const securityUpdate = advisories.size > 0 || process.env.SECURITY_UPDATE === "true";
+  if (pullRequest.user?.login !== "dependabot[bot]")
+    throw new Error(`PR #${pullNumber} is not authored by Dependabot`);
   const project = await projectContext(client, config);
-  await addPullRequestToProject(client, project, pullRequest, config, securityUpdate);
-  if (advisories.size === 0) {
+  await addPullRequestToProject(client, project, pullRequest, config, Boolean(ghsaId));
+  if (!ghsaId) {
     console.log(
-      `Added ${botName} PR #${pullNumber} to Teck Scrum; no advisory-specific issue link was supplied.`,
+      `Added version-update Dependabot PR #${pullNumber} to Teck Scrum; no security issue link is required.`,
     );
     return;
   }
-  const openIssues = issueResponse.data.filter((issue) => !issue.pull_request);
-  const issues = [
-    ...new Map(
-      [...advisories]
-        .flatMap((ghsaId) => matchingIssues(openIssues, ghsaId, process.env.DEPENDENCY_NAMES ?? ""))
-        .map((issue) => [issue.number, issue]),
-    ).values(),
-  ];
+  const issues = matchingIssues(
+    issueResponse.data.filter((issue) => !issue.pull_request),
+    ghsaId,
+    process.env.DEPENDENCY_NAMES ?? "",
+  );
   if (issues.length === 0) {
     console.log(
-      `No tracked Dependabot issue matches ${[...advisories].join(", ")}; the scheduled intake will create it before the next reconciliation.`,
+      `No tracked Dependabot issue matches ${ghsaId}; the scheduled intake will create it before the next reconciliation.`,
     );
     return;
   }
@@ -144,7 +133,7 @@ export async function run() {
     }
   }
   console.log(
-    `Linked ${botName} PR #${pullNumber} to ${issues.map((issue) => `#${issue.number}`).join(", ")} and added it to Teck Scrum.`,
+    `Linked Dependabot PR #${pullNumber} to ${issues.map((issue) => `#${issue.number}`).join(", ")} and added it to Teck Scrum.`,
   );
 }
 
