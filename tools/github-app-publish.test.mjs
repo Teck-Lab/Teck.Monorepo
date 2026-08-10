@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const source = await readFile(new URL("./github-app-publish", import.meta.url), "utf8");
+const promoteSource = await readFile(new URL("./github-app-promote", import.meta.url), "utf8");
 
 test("creates every promoted commit before one final branch advance", () => {
   assert.match(source, /const isFinalCommit = index === plan\.length - 1/);
@@ -14,4 +15,8 @@ test("uses the current upstream when publishing a new remote branch", () => {
   assert.match(source, /fetchedBranch\.status === 0/);
   assert.match(source, /"--verify", "@\{upstream\}"/);
   assert.match(source, /"--set-upstream-to"/);
+});
+
+test("uses the installation-token authorization scheme", () => {
+  assert.match(promoteSource, /Authorization: `token \$\{token\}`/);
 });

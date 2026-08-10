@@ -57,7 +57,9 @@ const token =
   String(run("teck-github-app-token", ["write"])).trim();
 const headers = {
   Accept: "application/vnd.github+json",
-  Authorization: `Bearer ${token}`,
+  // Installation access tokens may be JWT-shaped. The token scheme prevents
+  // GitHub from interpreting them as App-authentication JWTs.
+  Authorization: `token ${token}`,
   "Content-Type": "application/json",
   "X-GitHub-Api-Version": "2022-11-28",
   "User-Agent": "teck-github-app-promote",
