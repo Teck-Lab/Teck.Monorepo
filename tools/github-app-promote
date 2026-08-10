@@ -110,7 +110,16 @@ async function main() {
   const entries = [];
   for (const change of changedPaths()) {
     if (change.status === "D") {
-      entries.push({ path: change.path, sha: null });
+      const record = String(
+        run("git", ["ls-tree", baseTree, "--", change.path]),
+      ).trim();
+      const match = /^(\d+) (blob|commit) [0-9a-f]+\t/.exec(record);
+      if (!match)
+        throw new PromoteError(
+          `cannot resolve base tree entry for deletion: ${change.path}`,
+        );
+      const [, mode, type] = match;
+      entries.push({ path: change.path, mode, type, sha: null });
       continue;
     }
     const record = String(
