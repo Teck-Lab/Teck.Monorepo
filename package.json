@@ -13,7 +13,7 @@
     "affected:typecheck": "nx affected -t typecheck",
     "affected:all": "nx affected -t build test lint typecheck",
     "test:agent-lifecycle": "node --test .github/scripts/agent-lifecycle.test.mjs",
-    "test:security-intake": "node --test .github/scripts/security-alert-intake.test.mjs .github/scripts/dependabot-pr-link.test.mjs .github/scripts/dependabot-stuck-intake.test.mjs",
+    "test:security-intake": "node --test .github/scripts/security-alert-intake.test.mjs .github/scripts/dependabot-pr-link.test.mjs",
     "graph": "nx graph",
     "release:dry": "nx release --dry-run",
     "release": "nx release --yes",

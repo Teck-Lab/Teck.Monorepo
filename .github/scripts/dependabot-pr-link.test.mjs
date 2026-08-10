@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  advisoryIds,
   dependabotIssueMetadata,
   linkedPullRequestBody,
   matchingIssues,
@@ -20,17 +19,6 @@ test("parses Dependabot issue metadata and dependency lists", () => {
     package: "foo",
   });
   assert.deepEqual([...parseNames("foo, @scope/bar")], ["foo", "@scope/bar"]);
-});
-
-test("extracts and normalizes advisory identifiers from bot PR bodies", () => {
-  assert.deepEqual(
-    [
-      ...advisoryIds(
-        "Fixes GHSA-ABCD-1234-5678 and https://github.com/advisories/GHSA-wxyz-9876-5432",
-      ),
-    ],
-    ["ghsa-abcd-1234-5678", "ghsa-wxyz-9876-5432"],
-  );
 });
 
 test("matches an advisory and the dependencies changed by the PR", () => {

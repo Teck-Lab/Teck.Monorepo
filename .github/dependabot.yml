@@ -1,12 +1,11 @@
 version: 2
-# Renovate owns scheduled dependency version updates. These entries retain
-# ecosystem metadata for Dependabot security-alert remediation while preventing
-# Dependabot from opening competing routine version-update pull requests.
 updates:
   - package-ecosystem: nuget
     directory: /
     schedule: { interval: weekly }
-    open-pull-requests-limit: 0
+    # Keep the first baseline run bounded while the native NuGet updater
+    # evaluates the repository's centrally managed dependency graph.
+    open-pull-requests-limit: 5
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -18,12 +17,20 @@ updates:
   - package-ecosystem: bun
     directory: /
     schedule: { interval: weekly }
-    open-pull-requests-limit: 0
     commit-message:
       prefix: "chore"
       prefix-development: "chore"
       include: "scope"
     groups:
+      nx-minor-patch:
+        applies-to: version-updates
+        patterns: ["nx", "@nx/*"]
+        update-types: [minor, patch]
+      bun-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        exclude-patterns: ["nx", "@nx/*"]
+        update-types: [minor, patch]
       bun-security:
         applies-to: security-updates
         patterns: ["*"]
@@ -31,14 +38,22 @@ updates:
   - package-ecosystem: docker
     directory: /deploy
     schedule: { interval: weekly }
-    open-pull-requests-limit: 0
     commit-message:
       prefix: "chore"
       include: "scope"
+    groups:
+      docker-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
-    open-pull-requests-limit: 0
     commit-message:
       prefix: "chore"
       include: "scope"
+    groups:
+      actions-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
