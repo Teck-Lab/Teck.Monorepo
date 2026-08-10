@@ -9,3 +9,9 @@ test("creates every promoted commit before one final branch advance", () => {
   assert.match(source, /"--expected-head", remoteHead/);
   assert.match(source, /"--advance", String\(isFinalCommit\)/);
 });
+
+test("uses the current upstream when publishing a new remote branch", () => {
+  assert.match(source, /fetchedBranch\.status === 0/);
+  assert.match(source, /"--verify", "@\{upstream\}"/);
+  assert.match(source, /"--set-upstream-to"/);
+});
