@@ -1,0 +1,36 @@
+name: Add Renovate Pull Request to Project
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: renovate-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  project:
+    name: Add Renovate PR to Teck Scrum
+    if: github.event.pull_request.user.login == 'renovate[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.TECK_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.TECK_AUTOMATION_APP_PRIVATE_KEY }}
+          owner: Teck-Lab
+
+      - name: Checkout trusted automation
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Add pull request to Project
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SECURITY_UPDATE: ${{ contains(github.event.pull_request.labels.*.name, 'security') }}
+        run: node .github/scripts/dependabot-pr-link.mjs

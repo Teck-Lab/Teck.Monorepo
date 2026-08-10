@@ -1,8 +1,12 @@
 import { pathToFileURL } from "node:url";
 import { GitHubClient } from "./security-alert-intake.mjs";
 
-const markerPattern = /<!-- teck-dependabot-stuck: ([^\s]+) -->/;
-const prLinkMarker = "<!-- teck-dependabot-stuck-issue -->";
+const markerPattern = /<!-- teck-(?:dependency-update|dependabot)-stuck: ([^\s]+) -->/;
+const prLinkMarker = "<!-- teck-dependency-update-stuck-issue -->";
+const dependencyBots = new Map([
+  ["dependabot[bot]", "Dependabot"],
+  ["renovate[bot]", "Renovate"],
+]);
 const failedConclusions = new Set(["action_required", "failure", "startup_failure", "timed_out"]);
 const ignoredChecks = new Set([
   "Link alert issue and Project item",
@@ -17,6 +21,10 @@ export function fingerprint(owner, repo, pullNumber) {
 
 export function fingerprintFromBody(body = "") {
   return body.match(markerPattern)?.[1]?.toLowerCase() ?? null;
+}
+
+export function dependencyBotName(login = "") {
+  return dependencyBots.get(login) ?? null;
 }
 
 export function checkState(checkRuns, statuses, now = Date.now(), graceMinutes = 20) {
@@ -48,11 +56,12 @@ export function checkState(checkRuns, statuses, now = Date.now(), graceMinutes =
 
 export function issueBody(owner, repo, pull, failures) {
   const key = fingerprint(owner, repo, pull.number);
+  const bot = dependencyBotName(pull.user?.login) ?? "Dependency updater";
   return [
-    `<!-- teck-dependabot-stuck: ${key} -->`,
-    "## Stuck Dependabot pull request",
+    `<!-- teck-dependency-update-stuck: ${key} -->`,
+    `## Stuck ${bot} pull request`,
     "",
-    "Dependabot updated this branch, but its CI checks remain failed after the grace period. Repair the existing branch and PR; do not open a replacement PR.",
+    `${bot} updated this branch, but its CI checks remain failed after the grace period. Repair the existing branch and PR; do not open a replacement PR.`,
     "",
     `- Pull request: ${pull.html_url}`,
     `- Branch: \`${pull.head.ref}\``,
@@ -82,11 +91,12 @@ export function indexIssues(issues) {
 async function ensureLabels(client, owner, repo) {
   const definitions = [
     {
-      name: "dependabot:stuck",
+      name: "dependency-update:stuck",
       color: "b60205",
-      description: "Dependabot pull request requires a manual repair",
+      description: "Automated dependency pull request requires a manual repair",
     },
     { name: "ci:failed", color: "d93f0b", description: "Required CI or validation is failing" },
+    { name: "source:renovate", color: "1d76db", description: "Renovate dependency update" },
   ];
   for (const label of definitions) {
     const path = `/repos/${owner}/${repo}/labels/${encodeURIComponent(label.name)}`;
@@ -133,7 +143,9 @@ async function closeIssue(client, owner, repo, issue, reason) {
 }
 
 async function upsertStuckIssue(client, owner, repo, pull, failures, existing) {
-  const title = `[Dependabot] Repair failing CI for PR #${pull.number}`;
+  const bot = dependencyBotName(pull.user?.login) ?? "Dependency updater";
+  const sourceLabel = bot === "Renovate" ? "source:renovate" : "source:dependabot";
+  const title = `[${bot}] Repair failing CI for PR #${pull.number}`;
   const body = issueBody(owner, repo, pull, failures);
   if (!existing) {
     const response = await client.request(`/repos/${owner}/${repo}/issues`, {
@@ -141,7 +153,7 @@ async function upsertStuckIssue(client, owner, repo, pull, failures, existing) {
       body: JSON.stringify({
         title,
         body,
-        labels: ["dependabot:stuck", "ci:failed", "source:dependabot", "agent:ready"],
+        labels: ["dependency-update:stuck", "ci:failed", sourceLabel, "agent:ready"],
       }),
     });
     return response.data;
@@ -160,9 +172,9 @@ async function upsertStuckIssue(client, owner, repo, pull, failures, existing) {
       labels: [
         ...new Set([
           ...labels.filter((label) => label !== "agent:completed"),
-          "dependabot:stuck",
+          "dependency-update:stuck",
           "ci:failed",
-          "source:dependabot",
+          sourceLabel,
           ...lifecycle,
         ]),
       ],
@@ -182,12 +194,16 @@ export async function run() {
   const dryRun = process.env.DEPENDABOT_STUCK_DRY_RUN === "true";
   const [pullsResponse, issuesResponse] = await Promise.all([
     client.paginate(`/repos/${owner}/${repo}/pulls?state=open&per_page=100`),
-    client.paginate(
-      `/repos/${owner}/${repo}/issues?state=all&labels=${encodeURIComponent("dependabot:stuck")}&per_page=100`,
-    ),
+    client.paginate(`/repos/${owner}/${repo}/issues?state=all&per_page=100`),
   ]);
-  const pulls = pullsResponse.data.filter((pull) => pull.user?.login === "dependabot[bot]");
-  const existing = indexIssues(issuesResponse.data);
+  const pulls = pullsResponse.data.filter((pull) => dependencyBotName(pull.user?.login));
+  const existing = indexIssues(
+    issuesResponse.data.filter((issue) =>
+      issue.labels?.some((label) =>
+        ["dependency-update:stuck", "dependabot:stuck"].includes(label.name),
+      ),
+    ),
+  );
   const activeKeys = new Set(pulls.map((pull) => fingerprint(owner, repo, pull.number)));
   const summary = [];
 
@@ -218,7 +234,7 @@ export async function run() {
         owner,
         repo,
         issue,
-        "CI is green for the current Dependabot head commit. Closing this repair issue automatically.",
+        "CI is green for the current dependency-update head commit. Closing this repair issue automatically.",
       );
     }
   }
@@ -230,7 +246,7 @@ export async function run() {
           owner,
           repo,
           issue,
-          "The associated Dependabot pull request is no longer open. Closing this repair issue automatically.",
+          "The associated dependency-update pull request is no longer open. Closing this repair issue automatically.",
         );
     }
   }

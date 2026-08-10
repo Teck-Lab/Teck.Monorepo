@@ -4,9 +4,19 @@ import { GitHubClient } from "./security-alert-intake.mjs";
 
 const configUrl = new URL("../security-intake.json", import.meta.url);
 const linkMarker = "<!-- teck-dependabot-security-links -->";
+const dependencyBots = new Set(["dependabot[bot]", "renovate[bot]"]);
 
 export function parseNames(value = "") {
-  return new Set(value.split(",").map((name) => name.trim().toLowerCase()).filter(Boolean));
+  return new Set(
+    value
+      .split(",")
+      .map((name) => name.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+export function advisoryIds(value = "") {
+  return new Set(value.match(/GHSA-[0-9A-Za-z-]+/gi)?.map((id) => id.toLowerCase()) ?? []);
 }
 
 export function dependabotIssueMetadata(body = "") {
@@ -22,7 +32,10 @@ export function matchingIssues(issues, ghsaId, dependencyNames) {
   if (!advisory) return [];
   return issues.filter((issue) => {
     const metadata = dependabotIssueMetadata(issue.body ?? "");
-    return metadata.advisory === advisory && (!metadata.package || names.size === 0 || names.has(metadata.package));
+    return (
+      metadata.advisory === advisory &&
+      (!metadata.package || names.size === 0 || names.has(metadata.package))
+    );
   });
 }
 
@@ -36,15 +49,25 @@ export function linkedPullRequestBody(body, issues) {
 }
 
 async function projectContext(client, config) {
-  const query = `query($org:String!,$number:Int!){organization(login:$org){projectV2(number:$number){id fields(first:50){nodes{... on ProjectV2FieldCommon{id name dataType} ... on ProjectV2SingleSelectField{options{id name}}}}}}}`;
-  const data = await client.graphql(query, { org: config.project.organization, number: config.project.number });
+  const query =
+    "query($org:String!,$number:Int!){organization(login:$org){projectV2(number:$number){id fields(first:50){nodes{... on ProjectV2FieldCommon{id name dataType} ... on ProjectV2SingleSelectField{options{id name}}}}}}}";
+  const data = await client.graphql(query, {
+    org: config.project.organization,
+    number: config.project.number,
+  });
   const project = data.organization?.projectV2;
-  if (!project) throw new Error(`Project ${config.project.organization}#${config.project.number} was not found`);
+  if (!project)
+    throw new Error(
+      `Project ${config.project.organization}#${config.project.number} was not found`,
+    );
   return project;
 }
 
 async function addPullRequestToProject(client, project, pullRequest, config, security) {
-  const add = await client.graphql(`mutation($project:ID!,$content:ID!){addProjectV2ItemById(input:{projectId:$project,contentId:$content}){item{id}}}`, { project: project.id, content: pullRequest.node_id });
+  const add = await client.graphql(
+    "mutation($project:ID!,$content:ID!){addProjectV2ItemById(input:{projectId:$project,contentId:$content}){item{id}}}",
+    { project: project.id, content: pullRequest.node_id },
+  );
   const itemId = add.addProjectV2ItemById.item.id;
   const desired = {
     [config.project.fields.status]: security ? "In review" : "Ready",
@@ -53,8 +76,14 @@ async function addPullRequestToProject(client, project, pullRequest, config, sec
   for (const field of project.fields.nodes) {
     const value = desired[field.name];
     if (value === undefined) continue;
-    const option = field.options?.find((candidate) => candidate.name.toLowerCase() === value.toLowerCase());
-    if (option) await client.graphql(`mutation($project:ID!,$item:ID!,$field:ID!,$option:String!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$option}}){projectV2Item{id}}}`, { project: project.id, item: itemId, field: field.id, option: option.id });
+    const option = field.options?.find(
+      (candidate) => candidate.name.toLowerCase() === value.toLowerCase(),
+    );
+    if (option)
+      await client.graphql(
+        "mutation($project:ID!,$item:ID!,$field:ID!,$option:String!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$option}}){projectV2Item{id}}}",
+        { project: project.id, item: itemId, field: field.id, option: option.id },
+      );
   }
 }
 
@@ -62,25 +91,43 @@ export async function run() {
   const token = process.env.GITHUB_TOKEN;
   const [owner, repo] = (process.env.GITHUB_REPOSITORY ?? "").split("/");
   const pullNumber = Number(process.env.PR_NUMBER);
-  const ghsaId = process.env.GHSA_ID ?? "";
-  if (!token || !owner || !repo || !pullNumber) throw new Error("GITHUB_TOKEN, GITHUB_REPOSITORY, and PR_NUMBER are required");
+  const suppliedGhsaId = process.env.GHSA_ID ?? "";
+  if (!token || !owner || !repo || !pullNumber)
+    throw new Error("GITHUB_TOKEN, GITHUB_REPOSITORY, and PR_NUMBER are required");
   const config = JSON.parse(await readFile(configUrl, "utf8"));
   const client = new GitHubClient(token);
   const [pullResponse, issueResponse] = await Promise.all([
     client.request(`/repos/${owner}/${repo}/pulls/${pullNumber}`),
-    client.paginate(`/repos/${owner}/${repo}/issues?state=open&labels=${encodeURIComponent("security:tracked,source:dependabot")}&per_page=100`),
+    client.paginate(
+      `/repos/${owner}/${repo}/issues?state=open&labels=${encodeURIComponent("security:tracked,source:dependabot")}&per_page=100`,
+    ),
   ]);
   const pullRequest = pullResponse.data;
-  if (pullRequest.user?.login !== "dependabot[bot]") throw new Error(`PR #${pullNumber} is not authored by Dependabot`);
+  if (!dependencyBots.has(pullRequest.user?.login))
+    throw new Error(`PR #${pullNumber} is not authored by a supported dependency bot`);
+  const botName = pullRequest.user.login === "renovate[bot]" ? "Renovate" : "Dependabot";
+  const advisories = advisoryIds(`${suppliedGhsaId}\n${pullRequest.body ?? ""}`);
+  const securityUpdate = advisories.size > 0 || process.env.SECURITY_UPDATE === "true";
   const project = await projectContext(client, config);
-  await addPullRequestToProject(client, project, pullRequest, config, Boolean(ghsaId));
-  if (!ghsaId) {
-    console.log(`Added version-update Dependabot PR #${pullNumber} to Teck Scrum; no security issue link is required.`);
+  await addPullRequestToProject(client, project, pullRequest, config, securityUpdate);
+  if (advisories.size === 0) {
+    console.log(
+      `Added ${botName} PR #${pullNumber} to Teck Scrum; no advisory-specific issue link was supplied.`,
+    );
     return;
   }
-  const issues = matchingIssues(issueResponse.data.filter((issue) => !issue.pull_request), ghsaId, process.env.DEPENDENCY_NAMES ?? "");
+  const openIssues = issueResponse.data.filter((issue) => !issue.pull_request);
+  const issues = [
+    ...new Map(
+      [...advisories]
+        .flatMap((ghsaId) => matchingIssues(openIssues, ghsaId, process.env.DEPENDENCY_NAMES ?? ""))
+        .map((issue) => [issue.number, issue]),
+    ).values(),
+  ];
   if (issues.length === 0) {
-    console.log(`No tracked Dependabot issue matches ${ghsaId}; the scheduled intake will create it before the next reconciliation.`);
+    console.log(
+      `No tracked Dependabot issue matches ${[...advisories].join(", ")}; the scheduled intake will create it before the next reconciliation.`,
+    );
     return;
   }
 
@@ -90,11 +137,20 @@ export async function run() {
   });
   for (const issue of issues) {
     if (!issue.labels.some((label) => label.name === "agent:in-review")) {
-      await client.request(`/repos/${owner}/${repo}/issues/${issue.number}/labels`, { method: "POST", body: JSON.stringify({ labels: ["agent:in-review"] }) });
+      await client.request(`/repos/${owner}/${repo}/issues/${issue.number}/labels`, {
+        method: "POST",
+        body: JSON.stringify({ labels: ["agent:in-review"] }),
+      });
     }
   }
-  console.log(`Linked Dependabot PR #${pullNumber} to ${issues.map((issue) => `#${issue.number}`).join(", ")} and added it to Teck Scrum.`);
+  console.log(
+    `Linked ${botName} PR #${pullNumber} to ${issues.map((issue) => `#${issue.number}`).join(", ")} and added it to Teck Scrum.`,
+  );
 }
 
 const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : null;
-if (invokedPath === import.meta.url) run().catch((error) => { console.error(error); process.exitCode = 1; });
+if (invokedPath === import.meta.url)
+  run().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
