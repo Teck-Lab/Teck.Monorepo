@@ -9,11 +9,6 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
-    groups:
-      dotnet-security:
-        applies-to: security-updates
-        patterns: ["*"]
-        update-types: [minor, patch]
   - package-ecosystem: bun
     directory: /
     schedule: { interval: weekly }
