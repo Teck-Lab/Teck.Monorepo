@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   checkState,
+  duplicateIssues,
   fingerprint,
   fingerprintFromBody,
   indexIssues,
@@ -79,6 +80,25 @@ test("uses one stable issue fingerprint per pull request", () => {
   assert.equal(fingerprintFromBody(body), fingerprint("Teck-Lab", "Teck.Monorepo", 31));
   const issue = { number: 91, body, labels: [] };
   assert.equal(indexIssues([issue]).get("teck-lab/teck.monorepo#31"), issue);
+});
+
+test("recognizes legacy fingerprints and retains the oldest repair issue", () => {
+  const issues = [
+    {
+      number: 384,
+      body: "<!-- teck-dependabot-stuck: teck-lab/teck.monorepo#27 -->",
+    },
+    {
+      number: 301,
+      body: "<!-- teck-dependency-update-stuck: teck-lab/teck.monorepo#27 -->",
+    },
+  ];
+  const indexed = indexIssues(issues);
+  assert.equal(indexed.get("teck-lab/teck.monorepo#27").number, 301);
+  assert.deepEqual(
+    duplicateIssues(issues, indexed).map((issue) => issue.number),
+    [384],
+  );
 });
 
 test("links the existing PR to exactly one repair issue", () => {

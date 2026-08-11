@@ -1,7 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { GitHubClient } from "./security-alert-intake.mjs";
 
-const markerPattern = /<!-- teck-dependabot-stuck: ([^\s]+) -->/;
+const markerPattern = /<!-- teck-(?:dependabot|dependency-update)-stuck: ([^\s]+) -->/;
 const prLinkMarker = "<!-- teck-dependabot-stuck-issue -->";
 const failedConclusions = new Set(["action_required", "failure", "startup_failure", "timed_out"]);
 const ignoredChecks = new Set([
@@ -72,11 +72,21 @@ export function linkedPullRequestBody(body, issueNumber) {
 }
 
 export function indexIssues(issues) {
-  return new Map(
-    issues
-      .filter((issue) => !issue.pull_request && fingerprintFromBody(issue.body))
-      .map((issue) => [fingerprintFromBody(issue.body), issue]),
-  );
+  const indexed = new Map();
+  for (const issue of issues) {
+    const key = !issue.pull_request && fingerprintFromBody(issue.body);
+    if (!key) continue;
+    const current = indexed.get(key);
+    if (!current || issue.number < current.number) indexed.set(key, issue);
+  }
+  return indexed;
+}
+
+export function duplicateIssues(issues, indexed = indexIssues(issues)) {
+  return issues.filter((issue) => {
+    const key = !issue.pull_request && fingerprintFromBody(issue.body);
+    return key && indexed.get(key)?.number !== issue.number;
+  });
 }
 
 async function ensureLabels(client, owner, repo) {
@@ -188,10 +198,23 @@ export async function run() {
   ]);
   const pulls = pullsResponse.data.filter((pull) => pull.user?.login === "dependabot[bot]");
   const existing = indexIssues(issuesResponse.data);
+  const duplicates = duplicateIssues(issuesResponse.data, existing);
   const activeKeys = new Set(pulls.map((pull) => fingerprint(owner, repo, pull.number)));
   const summary = [];
 
   if (!dryRun) await ensureLabels(client, owner, repo);
+  if (!dryRun) {
+    for (const issue of duplicates) {
+      const retained = existing.get(fingerprintFromBody(issue.body));
+      await closeIssue(
+        client,
+        owner,
+        repo,
+        issue,
+        `Closing this duplicate repair issue. Dependabot PR repair is tracked by #${retained.number}.`,
+      );
+    }
+  }
   for (const pull of pulls) {
     const [checks, status] = await Promise.all([
       collectCheckRuns(client, owner, repo, pull.head.sha),
