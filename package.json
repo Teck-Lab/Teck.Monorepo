@@ -32,7 +32,7 @@
     "@nx/expo": "23.0.1",
     "@nx/js": "latest",
     "@nx/next": "latest",
-    "@nx/react": "23.0.1",
+    "@nx/react": "23.1.0",
     "@nx/storybook": "latest",
     "@swc-node/register": "~1.11.1",
     "@swc/cli": "~0.8.0",

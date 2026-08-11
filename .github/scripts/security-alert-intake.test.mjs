@@ -1,17 +1,17 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import {
-  componentForPath,
   applyDependabotRisk,
+  componentForPath,
   fingerprint,
   fingerprintFromBody,
-  issueBody,
   indexExistingIssues,
+  issueBody,
   normalizeCodeScanning,
   normalizeDependabot,
   normalizeSecretScanning,
-  priorityForSeverity,
   priorityForFinding,
+  priorityForSeverity,
   severity,
 } from "./security-alert-intake.mjs";
 
@@ -33,7 +33,10 @@ test("maps monorepo paths to project components", () => {
 test("round-trips the stable fingerprint marker", () => {
   const finding = { source: "code-scanning", number: 42, url: "https://example.test", details: [] };
   const body = issueBody(finding, "Teck-Lab", "Teck.Monorepo");
-  assert.equal(fingerprintFromBody(body), fingerprint("Teck-Lab", "Teck.Monorepo", "code-scanning", 42));
+  assert.equal(
+    fingerprintFromBody(body),
+    fingerprint("Teck-Lab", "Teck.Monorepo", "code-scanning", 42),
+  );
 });
 
 test("keeps the oldest issue for a fingerprint and identifies duplicates", () => {
@@ -45,17 +48,45 @@ test("keeps the oldest issue for a fingerprint and identifies duplicates", () =>
     { number: 10, body, pull_request: {} },
   ]);
   assert.equal(existing.get("dependabot:Teck-Lab/Teck.Monorepo:7").number, 8);
-  assert.deepEqual(duplicates.map((issue) => issue.number), [12]);
+  assert.deepEqual(
+    duplicates.map((issue) => issue.number),
+    [12],
+  );
 });
 
 test("normalizes code scanning without exposing API internals", () => {
-  const finding = normalizeCodeScanning({ number: 2, html_url: "https://example.test/2", rule: { description: "SQL injection", security_severity_level: "high", id: "cs/sql" }, tool: { name: "CodeQL" }, most_recent_instance: { location: { path: "src/services/commerce/order/a.cs" } } }, "Teck-Lab/Teck.Monorepo");
+  const finding = normalizeCodeScanning(
+    {
+      number: 2,
+      html_url: "https://example.test/2",
+      rule: { description: "SQL injection", security_severity_level: "high", id: "cs/sql" },
+      tool: { name: "CodeQL" },
+      most_recent_instance: { location: { path: "src/services/commerce/order/a.cs" } },
+    },
+    "Teck-Lab/Teck.Monorepo",
+  );
   assert.equal(finding.component, "Commerce");
   assert.equal(finding.severity, "high");
 });
 
 test("normalizes Dependabot manifests", () => {
-  const finding = normalizeDependabot({ number: 3, html_url: "https://example.test/3", dependency: { package: { name: "foo", ecosystem: "npm" }, manifest_path: "src/apps/store/package.json" }, security_advisory: { severity: "critical", summary: "Unsafe foo", ghsa_id: "GHSA-test", identifiers: [{ type: "CVE", value: "CVE-2026-1234" }] } }, "Teck-Lab/Teck.Monorepo");
+  const finding = normalizeDependabot(
+    {
+      number: 3,
+      html_url: "https://example.test/3",
+      dependency: {
+        package: { name: "foo", ecosystem: "npm" },
+        manifest_path: "src/apps/store/package.json",
+      },
+      security_advisory: {
+        severity: "critical",
+        summary: "Unsafe foo",
+        ghsa_id: "GHSA-test",
+        identifiers: [{ type: "CVE", value: "CVE-2026-1234" }],
+      },
+    },
+    "Teck-Lab/Teck.Monorepo",
+  );
   assert.equal(finding.component, "Web");
   assert.equal(finding.severity, "critical");
   applyDependabotRisk(finding, new Map([["CVE-2026-1234", 0.75]]), new Set(["CVE-2026-1234"]));
@@ -64,7 +95,16 @@ test("normalizes Dependabot manifests", () => {
 });
 
 test("secret issues are sanitized and require restricted alert review", () => {
-  const finding = normalizeSecretScanning({ number: 4, html_url: "https://example.test/4", secret: "must-not-leak", secret_type_display_name: "API token", validity: "active" }, "Teck-Lab/Teck.Monorepo");
+  const finding = normalizeSecretScanning(
+    {
+      number: 4,
+      html_url: "https://example.test/4",
+      secret: "must-not-leak",
+      secret_type_display_name: "API token",
+      validity: "active",
+    },
+    "Teck-Lab/Teck.Monorepo",
+  );
   const body = issueBody(finding, "Teck-Lab", "Teck.Monorepo");
   assert.equal(body.includes("must-not-leak"), false);
   assert.match(body, /intentionally omitted/);

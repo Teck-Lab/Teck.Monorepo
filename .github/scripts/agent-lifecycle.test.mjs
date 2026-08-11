@@ -31,10 +31,9 @@ test("accepts ready as the entry lifecycle label", () => {
 
 test("ignores an opened issue without exactly one lifecycle label", () => {
   assert.deepEqual(planIssueEvent(event("opened", []), config), { operation: "noop" });
-  assert.deepEqual(
-    planIssueEvent(event("opened", ["agent:ready", "agent:needs-input"]), config),
-    { operation: "noop" },
-  );
+  assert.deepEqual(planIssueEvent(event("opened", ["agent:ready", "agent:needs-input"]), config), {
+    operation: "noop",
+  });
 });
 
 test("rejects an issue opened directly in a non-entry lifecycle state", () => {

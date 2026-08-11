@@ -1,12 +1,7 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "model": "openai/gpt-5.6-terra",
-  "plugin": [
-    "oh-my-openagent@4.19.4",
-    "cc-safety-net",
-    "opencode-mem",
-    "opencode-snip@1.6.1"
-  ],
+  "plugin": ["oh-my-openagent@4.19.4", "cc-safety-net", "opencode-mem", "opencode-snip@1.6.1"],
   "agent": {
     "explore": { "disable": true },
     "general": { "disable": true }
@@ -56,10 +51,18 @@
     "opencode-go-b": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "OpenCode Go B",
-      "options": { "baseURL": "https://opencode.ai/zen/go/v1", "apiKey": "{env:OPENCODE_GO_KEY_2}" },
+      "options": {
+        "baseURL": "https://opencode.ai/zen/go/v1",
+        "apiKey": "{env:OPENCODE_GO_KEY_2}"
+      },
       "models": {
-        "deepseek-v4-pro": {}, "deepseek-v4-flash": {}, "glm-5.2": {}, "mimo-v2.5": {},
-        "kimi-k3": {}, "kimi-k2.7-code": {}, "qwen3.7-plus": {}
+        "deepseek-v4-pro": {},
+        "deepseek-v4-flash": {},
+        "glm-5.2": {},
+        "mimo-v2.5": {},
+        "kimi-k3": {},
+        "kimi-k2.7-code": {},
+        "qwen3.7-plus": {}
       }
     },
     "opencode-zen": {
@@ -71,7 +74,10 @@
     "nvidia": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "NVIDIA NIM",
-      "options": { "baseURL": "https://integrate.api.nvidia.com/v1", "apiKey": "{env:NVIDIA_API_KEY}" },
+      "options": {
+        "baseURL": "https://integrate.api.nvidia.com/v1",
+        "apiKey": "{env:NVIDIA_API_KEY}"
+      },
       "models": { "deepseek-ai/deepseek-v4-pro": {}, "deepseek-ai/deepseek-v4-flash": {} }
     },
     "deepseek": {
@@ -83,7 +89,10 @@
     "openrouter": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "OpenRouter",
-      "options": { "baseURL": "https://openrouter.ai/api/v1", "apiKey": "{env:OPENROUTER_API_KEY}" },
+      "options": {
+        "baseURL": "https://openrouter.ai/api/v1",
+        "apiKey": "{env:OPENROUTER_API_KEY}"
+      },
       "models": { "z-ai/glm-5.2": {}, "xiaomi/mimo-v2.5": {} }
     }
   }

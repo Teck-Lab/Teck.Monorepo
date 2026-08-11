@@ -70,7 +70,9 @@ export function normalizeDependabot(alert, repository) {
     component: componentForPath(manifest),
     title: `[Dependabot] ${advisory.summary ?? `Vulnerable ${packageName}`}`,
     url: alert.html_url,
-    cves: (advisory.identifiers ?? []).filter((identifier) => identifier.type === "CVE").map((identifier) => identifier.value),
+    cves: (advisory.identifiers ?? [])
+      .filter((identifier) => identifier.type === "CVE")
+      .map((identifier) => identifier.value),
     details: [
       `Package: \`${packageName}\` (${dependency.package?.ecosystem ?? "unknown ecosystem"})`,
       manifest ? `Manifest: \`${manifest}\`` : null,
@@ -95,7 +97,7 @@ export function normalizeSecretScanning(alert, repository) {
     number: alert.number,
     severity: alert.validity === "active" ? "critical" : "high",
     component: "Infrastructure",
-    title: `[Secret scanning] Credential exposure requires human response`,
+    title: "[Secret scanning] Credential exposure requires human response",
     url: alert.html_url,
     details: [
       `Secret type: ${alert.secret_type_display_name ?? alert.secret_type ?? "restricted"}`,
@@ -144,8 +146,14 @@ export class GitHubClient {
       },
     });
     if (allowed.includes(response.status)) return { skipped: true, status: response.status };
-    if (!response.ok) throw new Error(`GitHub API ${options.method ?? "GET"} ${url} failed (${response.status}): ${await response.text()}`);
-    return { data: response.status === 204 ? null : await response.json(), headers: response.headers };
+    if (!response.ok)
+      throw new Error(
+        `GitHub API ${options.method ?? "GET"} ${url} failed (${response.status}): ${await response.text()}`,
+      );
+    return {
+      data: response.status === 204 ? null : await response.json(),
+      headers: response.headers,
+    };
   }
 
   async paginate(path, allowed = []) {
@@ -161,8 +169,14 @@ export class GitHubClient {
   }
 
   async graphql(query, variables) {
-    const response = await this.request("/graphql", { method: "POST", body: JSON.stringify({ query, variables }) });
-    if (response.data.errors) throw new Error(`GitHub GraphQL failed: ${response.data.errors.map((error) => error.message).join("; ")}`);
+    const response = await this.request("/graphql", {
+      method: "POST",
+      body: JSON.stringify({ query, variables }),
+    });
+    if (response.data.errors)
+      throw new Error(
+        `GitHub GraphQL failed: ${response.data.errors.map((error) => error.message).join("; ")}`,
+      );
     return response.data.data;
   }
 }
@@ -172,9 +186,19 @@ async function syncLabels(client, owner, repo, labels) {
     const path = `/repos/${owner}/${repo}/labels/${encodeURIComponent(label.name)}`;
     const existing = await client.request(path, {}, [404]);
     if (existing.skipped) {
-      await client.request(`/repos/${owner}/${repo}/labels`, { method: "POST", body: JSON.stringify(label) });
+      await client.request(`/repos/${owner}/${repo}/labels`, {
+        method: "POST",
+        body: JSON.stringify(label),
+      });
     } else {
-      await client.request(path, { method: "PATCH", body: JSON.stringify({ new_name: label.name, color: label.color, description: label.description }) });
+      await client.request(path, {
+        method: "PATCH",
+        body: JSON.stringify({
+          new_name: label.name,
+          color: label.color,
+          description: label.description,
+        }),
+      });
     }
   }
 }
@@ -199,7 +223,9 @@ export function indexExistingIssues(issues) {
 }
 
 async function loadExistingIssues(client, owner, repo) {
-  const response = await client.paginate(`/repos/${owner}/${repo}/issues?state=all&labels=${encodeURIComponent("security:tracked")}&per_page=100`);
+  const response = await client.paginate(
+    `/repos/${owner}/${repo}/issues?state=all&labels=${encodeURIComponent("security:tracked")}&per_page=100`,
+  );
   return indexExistingIssues(response.data);
 }
 
@@ -216,9 +242,21 @@ async function reconcileDuplicateIssues(client, owner, repo, duplicates) {
 async function collectFindings(client, owner, repo, config) {
   const repository = `${owner}/${repo}`;
   const definitions = [
-    ["code-scanning", `/repos/${repository}/code-scanning/alerts?state=open&per_page=100`, normalizeCodeScanning],
-    ["dependabot", `/repos/${repository}/dependabot/alerts?state=open&per_page=100`, normalizeDependabot],
-    ["secret-scanning", `/repos/${repository}/secret-scanning/alerts?state=open&per_page=100`, normalizeSecretScanning],
+    [
+      "code-scanning",
+      `/repos/${repository}/code-scanning/alerts?state=open&per_page=100`,
+      normalizeCodeScanning,
+    ],
+    [
+      "dependabot",
+      `/repos/${repository}/dependabot/alerts?state=open&per_page=100`,
+      normalizeDependabot,
+    ],
+    [
+      "secret-scanning",
+      `/repos/${repository}/secret-scanning/alerts?state=open&per_page=100`,
+      normalizeSecretScanning,
+    ],
   ];
   const findings = [];
   const available = new Set();
@@ -226,7 +264,9 @@ async function collectFindings(client, owner, repo, config) {
     if (!config.sources[source]?.enabled) continue;
     const response = await client.paginate(path, [403, 404]);
     if (response.skipped) {
-      console.warn(`Skipping ${source}: API returned ${response.status}. Check the GitHub App permission and product availability.`);
+      console.warn(
+        `Skipping ${source}: API returned ${response.status}. Check the GitHub App permission and product availability.`,
+      );
       continue;
     }
     available.add(source);
@@ -242,17 +282,26 @@ async function enrichDependabot(findings) {
   try {
     const [kevResponse, epssResponses] = await Promise.all([
       fetch("https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"),
-      Promise.all(Array.from({ length: Math.ceil(cves.length / 100) }, (_, index) => {
-        const batch = cves.slice(index * 100, (index + 1) * 100).join(",");
-        return fetch(`https://api.first.org/data/v1/epss?cve=${encodeURIComponent(batch)}`);
-      })),
+      Promise.all(
+        Array.from({ length: Math.ceil(cves.length / 100) }, (_, index) => {
+          const batch = cves.slice(index * 100, (index + 1) * 100).join(",");
+          return fetch(`https://api.first.org/data/v1/epss?cve=${encodeURIComponent(batch)}`);
+        }),
+      ),
     ]);
-    if (!kevResponse.ok || epssResponses.some((response) => !response.ok)) throw new Error("risk feed returned a non-success response");
+    if (!kevResponse.ok || epssResponses.some((response) => !response.ok))
+      throw new Error("risk feed returned a non-success response");
     const kev = await kevResponse.json();
     const epss = await Promise.all(epssResponses.map((response) => response.json()));
     const kevCves = new Set((kev.vulnerabilities ?? []).map((entry) => entry.cveID));
-    const epssByCve = new Map(epss.flatMap((response) => response.data ?? []).map((entry) => [entry.cve, Number(entry.epss)]));
-    dependencyFindings.forEach((finding) => applyDependabotRisk(finding, epssByCve, kevCves));
+    const epssByCve = new Map(
+      epss
+        .flatMap((response) => response.data ?? [])
+        .map((entry) => [entry.cve, Number(entry.epss)]),
+    );
+    for (const finding of dependencyFindings) {
+      applyDependabotRisk(finding, epssByCve, kevCves);
+    }
   } catch (error) {
     console.warn(`Dependabot risk enrichment unavailable: ${error.message}`);
   }
@@ -260,36 +309,81 @@ async function enrichDependabot(findings) {
 
 async function upsertIssue(client, owner, repo, finding, existing, config) {
   const state = config.sources[finding.source].initialState;
-  const labels = ["security", "security:tracked", `source:${finding.source}`, `severity:${finding.severity}`, state, finding.kev ? "known-exploited" : null].filter(Boolean);
+  const labels = [
+    "security",
+    "security:tracked",
+    `source:${finding.source}`,
+    `severity:${finding.severity}`,
+    state,
+    finding.kev ? "known-exploited" : null,
+  ].filter(Boolean);
   const body = issueBody(finding, owner, repo);
   if (!existing) {
-    const response = await client.request(`/repos/${owner}/${repo}/issues`, { method: "POST", body: JSON.stringify({ title: finding.title, body, labels }) });
+    const response = await client.request(`/repos/${owner}/${repo}/issues`, {
+      method: "POST",
+      body: JSON.stringify({ title: finding.title, body, labels }),
+    });
     return response.data;
   }
-  const lifecycle = existing.state === "closed"
-    ? state
-    : existing.labels.map((label) => label.name).find((name) => name.startsWith("agent:"));
-  const preserved = existing.labels.map((label) => label.name).filter((name) => !name.startsWith("severity:") && !name.startsWith("source:") && !name.startsWith("agent:") && name !== "known-exploited");
+  const lifecycle =
+    existing.state === "closed"
+      ? state
+      : existing.labels.map((label) => label.name).find((name) => name.startsWith("agent:"));
+  const preserved = existing.labels
+    .map((label) => label.name)
+    .filter(
+      (name) =>
+        !name.startsWith("severity:") &&
+        !name.startsWith("source:") &&
+        !name.startsWith("agent:") &&
+        name !== "known-exploited",
+    );
   const response = await client.request(`/repos/${owner}/${repo}/issues/${existing.number}`, {
     method: "PATCH",
-    body: JSON.stringify({ title: finding.title, body, state: "open", labels: [...new Set([...preserved, `source:${finding.source}`, `severity:${finding.severity}`, lifecycle ?? state, finding.kev ? "known-exploited" : null].filter(Boolean))] }),
+    body: JSON.stringify({
+      title: finding.title,
+      body,
+      state: "open",
+      labels: [
+        ...new Set(
+          [
+            ...preserved,
+            `source:${finding.source}`,
+            `severity:${finding.severity}`,
+            lifecycle ?? state,
+            finding.kev ? "known-exploited" : null,
+          ].filter(Boolean),
+        ),
+      ],
+    }),
   });
   return response.data;
 }
 
 async function projectContext(client, config) {
-  const query = `query($org:String!,$number:Int!){organization(login:$org){projectV2(number:$number){id fields(first:50){nodes{... on ProjectV2FieldCommon{id name dataType} ... on ProjectV2SingleSelectField{options{id name}}}}}}}`;
-  const data = await client.graphql(query, { org: config.project.organization, number: config.project.number });
+  const query =
+    "query($org:String!,$number:Int!){organization(login:$org){projectV2(number:$number){id fields(first:50){nodes{... on ProjectV2FieldCommon{id name dataType} ... on ProjectV2SingleSelectField{options{id name}}}}}}}";
+  const data = await client.graphql(query, {
+    org: config.project.organization,
+    number: config.project.number,
+  });
   const project = data.organization?.projectV2;
-  if (!project) throw new Error(`Project ${config.project.organization}#${config.project.number} was not found`);
+  if (!project)
+    throw new Error(
+      `Project ${config.project.organization}#${config.project.number} was not found`,
+    );
   return project;
 }
 
 async function addToProject(client, project, issue, finding, config) {
-  const add = await client.graphql(`mutation($project:ID!,$content:ID!){addProjectV2ItemById(input:{projectId:$project,contentId:$content}){item{id}}}`, { project: project.id, content: issue.node_id });
+  const add = await client.graphql(
+    "mutation($project:ID!,$content:ID!){addProjectV2ItemById(input:{projectId:$project,contentId:$content}){item{id}}}",
+    { project: project.id, content: issue.node_id },
+  );
   const itemId = add.addProjectV2ItemById.item.id;
   const desired = {
-    [config.project.fields.status]: config.sources[finding.source].initialState === "agent:needs-input" ? "Blocked" : "Ready",
+    [config.project.fields.status]:
+      config.sources[finding.source].initialState === "agent:needs-input" ? "Blocked" : "Ready",
     [config.project.fields.workType]: "Security",
     [config.project.fields.component]: finding.component,
     [config.project.fields.kev]: finding.kev ? "Yes" : "No",
@@ -299,11 +393,20 @@ async function addToProject(client, project, issue, finding, config) {
     const value = desired[field.name];
     if (value === undefined) continue;
     if (field.dataType === "NUMBER") {
-      await client.graphql(`mutation($project:ID!,$item:ID!,$field:ID!,$number:Float!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{number:$number}}){projectV2Item{id}}}`, { project: project.id, item: itemId, field: field.id, number: value });
+      await client.graphql(
+        "mutation($project:ID!,$item:ID!,$field:ID!,$number:Float!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{number:$number}}){projectV2Item{id}}}",
+        { project: project.id, item: itemId, field: field.id, number: value },
+      );
       continue;
     }
-    const option = field.options?.find((candidate) => candidate.name.toLowerCase() === String(value).toLowerCase());
-    if (option) await client.graphql(`mutation($project:ID!,$item:ID!,$field:ID!,$option:String!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$option}}){projectV2Item{id}}}`, { project: project.id, item: itemId, field: field.id, option: option.id });
+    const option = field.options?.find(
+      (candidate) => candidate.name.toLowerCase() === String(value).toLowerCase(),
+    );
+    if (option)
+      await client.graphql(
+        "mutation($project:ID!,$item:ID!,$field:ID!,$option:String!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$option}}){projectV2Item{id}}}",
+        { project: project.id, item: itemId, field: field.id, option: option.id },
+      );
   }
 }
 
@@ -311,8 +414,16 @@ async function reconcileResolved(client, owner, repo, existing, active, availabl
   for (const [key, issue] of existing) {
     const source = key.split(":", 1)[0];
     if (!available.has(source) || active.has(key) || issue.state === "closed") continue;
-    await client.request(`/repos/${owner}/${repo}/issues/${issue.number}/comments`, { method: "POST", body: JSON.stringify({ body: "The underlying GitHub security alert is no longer open. Closing this tracking issue after automated reconciliation." }) });
-    await client.request(`/repos/${owner}/${repo}/issues/${issue.number}`, { method: "PATCH", body: JSON.stringify({ state: "closed", state_reason: "completed" }) });
+    await client.request(`/repos/${owner}/${repo}/issues/${issue.number}/comments`, {
+      method: "POST",
+      body: JSON.stringify({
+        body: "The underlying GitHub security alert is no longer open. Closing this tracking issue after automated reconciliation.",
+      }),
+    });
+    await client.request(`/repos/${owner}/${repo}/issues/${issue.number}`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "closed", state_reason: "completed" }),
+    });
   }
 }
 
@@ -331,17 +442,29 @@ export async function run() {
       counts[finding.source] = (counts[finding.source] ?? 0) + 1;
       return counts;
     }, {});
-    console.log(JSON.stringify({
-      dryRun: true,
-      project: `${config.project.organization}#${config.project.number}`,
-      availableSources: [...available].sort(),
-      findings: summary,
-      dependabotRisk: {
-        knownExploited: findings.filter((finding) => finding.source === "dependabot" && finding.kev).length,
-        epssAtLeast10Percent: findings.filter((finding) => finding.source === "dependabot" && (finding.epss ?? 0) >= 0.1).length,
-        epssAtLeast50Percent: findings.filter((finding) => finding.source === "dependabot" && (finding.epss ?? 0) >= 0.5).length,
-      },
-    }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          dryRun: true,
+          project: `${config.project.organization}#${config.project.number}`,
+          availableSources: [...available].sort(),
+          findings: summary,
+          dependabotRisk: {
+            knownExploited: findings.filter(
+              (finding) => finding.source === "dependabot" && finding.kev,
+            ).length,
+            epssAtLeast10Percent: findings.filter(
+              (finding) => finding.source === "dependabot" && (finding.epss ?? 0) >= 0.1,
+            ).length,
+            epssAtLeast50Percent: findings.filter(
+              (finding) => finding.source === "dependabot" && (finding.epss ?? 0) >= 0.5,
+            ).length,
+          },
+        },
+        null,
+        2,
+      ),
+    );
     return;
   }
   await syncLabels(client, owner, repo, config.labels);
@@ -355,8 +478,14 @@ export async function run() {
     await addToProject(client, project, issue, finding, config);
   }
   await reconcileResolved(client, owner, repo, existing, active, available);
-  console.log(`Synchronized ${findings.length} open security alert(s) into ${config.project.organization} Project #${config.project.number}.`);
+  console.log(
+    `Synchronized ${findings.length} open security alert(s) into ${config.project.organization} Project #${config.project.number}.`,
+  );
 }
 
 const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : null;
-if (invokedPath === import.meta.url) run().catch((error) => { console.error(error); process.exitCode = 1; });
+if (invokedPath === import.meta.url)
+  run().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
