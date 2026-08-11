@@ -8,6 +8,7 @@ import {
   indexIssues,
   issueBody,
   linkedPullRequestBody,
+  selectDependabotPulls,
 } from "./dependabot-stuck-intake.mjs";
 
 const now = Date.parse("2026-08-09T12:00:00Z");
@@ -111,4 +112,20 @@ test("links the existing PR to exactly one repair issue", () => {
   assert.match(updated, /Fixes #92$/);
   assert.doesNotMatch(updated, /Fixes #91/);
   assert.match(updated, /another-automation/);
+});
+
+test("targets one Dependabot pull request for event-driven reconciliation", () => {
+  const pulls = [
+    { number: 27, user: { login: "dependabot[bot]" } },
+    { number: 31, user: { login: "dependabot[bot]" } },
+    { number: 42, user: { login: "octocat" } },
+  ];
+  assert.deepEqual(
+    selectDependabotPulls(pulls, 27).map((pull) => pull.number),
+    [27],
+  );
+  assert.deepEqual(
+    selectDependabotPulls(pulls).map((pull) => pull.number),
+    [27, 31],
+  );
 });
