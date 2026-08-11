@@ -32,7 +32,7 @@
         "@commitlint/lint": "19.1.0",
         "@expo/cli": "~55.0.11",
         "@nx/devkit": "latest",
-        "@nx/docker": "23.0.1",
+        "@nx/docker": "23.1.1",
         "@nx/dotnet": "latest",
         "@nx/expo": "23.0.1",
         "@nx/js": "latest",
@@ -730,7 +730,7 @@
 
     "@nx/devkit": ["@nx/devkit@23.0.0", "", { "dependencies": { "@zkochan/js-yaml": "0.0.7", "ejs": "5.0.1", "enquirer": "~2.3.6", "minimatch": "10.2.5", "semver": "^7.6.3", "tslib": "^2.3.0", "yargs-parser": "21.1.1" }, "peerDependencies": { "nx": ">= 22 <= 24 || ^23.0.0-0" } }, "sha512-AYZWLcgYVQJjhhYwoKWFiu0u4jlrfMM64zarRbpQ7vwXWSJXCMQ2j2w9c5vzTnH3SeWigyyEYRo9xulfNESJ8w=="],
 
-    "@nx/docker": ["@nx/docker@23.0.1", "", { "dependencies": { "@nx/devkit": "23.0.1", "enquirer": "~2.3.6", "tslib": "^2.3.0" } }, "sha512-H2/wGZa10X2KhM+BzUkZLCI9wDG1kGqDGco1tDWZczKwk9ViOcwV23ljjt5RtIQIson6B7L56pO2F/8WKJ+1CQ=="],
+    "@nx/docker": ["@nx/docker@23.1.1", "", { "dependencies": { "@nx/devkit": "23.1.1", "enquirer": "~2.3.6", "tslib": "^2.3.0" } }, "sha512-0zjVbO1e0xlC8BvB2O9S5Ll23khTBYMI6Vwe3jPGs5ZhCbw9sTaqmHm9CwKA++x+lDJ9nCWI7C0lKpk9otZiAw=="],
 
     "@nx/dotnet": ["@nx/dotnet@23.0.0", "", { "dependencies": { "@nx/devkit": "23.0.0", "ignore": "^7.0.5", "tslib": "^2.3.0" } }, "sha512-Wxd6E5nk+zrdgX779BBHhQcbOJZJ0ejCCAzDQF50Sqi0eWS1+2aZ0sgztrJR5Bb7XkZaWKMhHmN3Yz1b39dcjw=="],
 
@@ -3138,7 +3138,7 @@
 
     "@nx/detox/@nx/react": ["@nx/react@23.0.1", "", { "dependencies": { "@nx/devkit": "23.0.1", "@nx/eslint": "23.0.1", "@nx/js": "23.0.1", "@nx/module-federation": "23.0.1", "@nx/rollup": "23.0.1", "@nx/web": "23.0.1", "@phenomnomnominal/tsquery": "~6.2.0", "@svgr/webpack": "^8.0.1", "express": "^4.21.2", "http-proxy-middleware": "^3.0.5", "minimatch": "10.2.5", "semver": "^7.6.3", "tslib": "^2.3.0" }, "optionalDependencies": { "@nx/vite": "23.0.1" }, "peerDependencies": { "babel-plugin-react-compiler": "^1.0.0", "react": ">=18.0.0 <20.0.0", "react-dom": ">=18.0.0 <20.0.0" }, "optionalPeers": ["babel-plugin-react-compiler"] }, "sha512-jxBLWY2PZvSh6ZEutponCkTSde05V85A3Enma+eGI9XPOFpKJxjFagzxdBmIfKZ1dEpML+00qt5JbyRTr4uZoA=="],
 
-    "@nx/docker/@nx/devkit": ["@nx/devkit@23.0.1", "", { "dependencies": { "@zkochan/js-yaml": "0.0.7", "ejs": "5.0.1", "enquirer": "~2.3.6", "minimatch": "10.2.5", "semver": "^7.6.3", "tslib": "^2.3.0", "yargs-parser": "21.1.1" }, "peerDependencies": { "nx": ">= 22 <= 24 || ^23.0.0-0" } }, "sha512-A/chuNS1RZwdbRe/Nf+w0qtPEFHLcZNPzo8Abw5mBxyXmy9yvHZpuZuqDbt/lASFU+TEb74xExL1AnKWwqpOIg=="],
+    "@nx/docker/@nx/devkit": ["@nx/devkit@23.1.1", "", { "dependencies": { "ejs": "5.0.1", "enquirer": "~2.3.6", "minimatch": "10.2.5", "semver": "^7.6.3", "tslib": "^2.3.0", "yargs-parser": "21.1.1" }, "peerDependencies": { "nx": ">= 22 <= 24 || ^23.0.0-0" } }, "sha512-FmBfS1xUkWYvDYH/ysO7gAqGlaRzugLac8SIC+X/p76WBmhM6tJhfRW/BQ8mxOFZoVLmwhIiR8X0dRPKdasFxw=="],
 
     "@nx/eslint/@nx/devkit": ["@nx/devkit@23.0.1", "", { "dependencies": { "@zkochan/js-yaml": "0.0.7", "ejs": "5.0.1", "enquirer": "~2.3.6", "minimatch": "10.2.5", "semver": "^7.6.3", "tslib": "^2.3.0", "yargs-parser": "21.1.1" }, "peerDependencies": { "nx": ">= 22 <= 24 || ^23.0.0-0" } }, "sha512-A/chuNS1RZwdbRe/Nf+w0qtPEFHLcZNPzo8Abw5mBxyXmy9yvHZpuZuqDbt/lASFU+TEb74xExL1AnKWwqpOIg=="],
 

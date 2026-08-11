@@ -91,7 +91,10 @@
     },
     "test": {
       "dependsOn": ["build"],
-      "cache": true
+      "cache": true,
+      "options": {
+        "forwardAllArgs": false
+      }
     },
     "lint": {
       "cache": true
