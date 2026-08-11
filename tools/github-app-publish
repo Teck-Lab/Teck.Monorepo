@@ -1,0 +1,139 @@
+#!/usr/bin/env bun
+
+import { spawnSync } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+class PublishError extends Error {}
+
+function run(command: string, args: string[], allowFailure = false) {
+  const result = spawnSync(command, args, {
+    encoding: "utf8",
+    maxBuffer: 1024 * 1024 * 128,
+  });
+  if (!allowFailure && result.status !== 0)
+    throw new PublishError(
+      `${command} ${args.join(" ")} failed: ${result.stderr.trim() || result.stdout.trim()}`,
+    );
+  return result;
+}
+
+function git(args: string[], allowFailure = false) {
+  return run("git", args, allowFailure);
+}
+
+function value(args: string[], name: string, fallback?: string) {
+  const index = args.indexOf(name);
+  if (index < 0) return fallback;
+  if (!args[index + 1]) throw new PublishError(`${name} requires a value`);
+  return args[index + 1];
+}
+
+function repositoryFromUrl(url: string) {
+  const match = /(?:github\.com[/:])([^/]+\/[^/]+?)(?:\.git)?$/.exec(url);
+  if (!match) throw new PublishError(`cannot derive GitHub repository from ${url}`);
+  return match[1];
+}
+
+function main() {
+  const args = process.argv.slice(2);
+  if (args.includes("--help")) {
+    console.log(`Usage: tools/github-app-publish [--remote origin] [--branch <branch>] [--repo owner/name] [--dry-run]
+
+Publish every local commit after the remote branch head as an equivalent
+GitHub App-authored, verified commit. The worktree must be clean. Ordinary
+git push is never used.`);
+    return;
+  }
+  const supported = new Set(["--remote", "--branch", "--repo", "--dry-run"]);
+  for (let index = 0; index < args.length; index++) {
+    if (!supported.has(args[index])) throw new PublishError(`unknown option: ${args[index]}`);
+    if (args[index] !== "--dry-run") index++;
+  }
+
+  const remote = value(args, "--remote", "origin")!;
+  const branch = value(
+    args,
+    "--branch",
+    git(["branch", "--show-current"]).stdout.trim(),
+  )!;
+  if (!branch) throw new PublishError("detached HEAD cannot be published; check out a branch first");
+  if (git(["status", "--porcelain"]).stdout.trim())
+    throw new PublishError("worktree is dirty; commit or discard changes before publishing");
+
+  const remoteRef = `refs/remotes/${remote}/${branch}`;
+  const fetchedBranch = git(
+    ["fetch", remote, `+refs/heads/${branch}:${remoteRef}`],
+    true,
+  );
+  const remoteHead = fetchedBranch.status === 0
+    ? git(["rev-parse", remoteRef]).stdout.trim()
+    : git(["rev-parse", "--verify", "@{upstream}"]).stdout.trim();
+  const remoteTree = git(["rev-parse", `${remoteHead}^{tree}`]).stdout.trim();
+  const localHistory = git(["rev-list", "HEAD"]).stdout.trim().split("\n").filter(Boolean);
+  const baseline = localHistory.find(
+    (commit) => git(["rev-parse", `${commit}^{tree}`]).stdout.trim() === remoteTree,
+  );
+  if (!baseline)
+    throw new PublishError(
+      `remote ${remote}/${branch} does not match any local ancestor tree; reconcile it before publishing`,
+    );
+
+  const commits = git(["rev-list", "--reverse", `${baseline}..HEAD`])
+    .stdout.trim().split("\n").filter(Boolean);
+  if (!commits.length) throw new PublishError("there are no local commits to publish");
+
+  const repository = value(args, "--repo") ??
+    repositoryFromUrl(git(["remote", "get-url", remote]).stdout.trim());
+  const plan = commits.map((commit) => ({
+    localCommit: commit,
+    message: git(["show", "-s", "--format=%B", commit]).stdout.trim(),
+    tree: git(["rev-parse", `${commit}^{tree}`]).stdout.trim(),
+  }));
+  for (const item of plan) {
+    const subject = item.message.split("\n", 1)[0];
+    if (!/^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]+\))?!?: .+/.test(subject))
+      throw new PublishError(`commit is not conventional: ${subject}`);
+  }
+  if (args.includes("--dry-run")) {
+    console.log(JSON.stringify({ repository, branch, remoteHead, commits: plan }, null, 2));
+    return;
+  }
+
+  const promote = process.env.TECK_GITHUB_PROMOTE_COMMAND ??
+    join(dirname(fileURLToPath(import.meta.url)), "github-app-promote");
+  let remoteParent = remoteHead;
+  let localParent = baseline;
+  for (const [index, item] of plan.entries()) {
+    const isFinalCommit = index === plan.length - 1;
+    const result = run(promote, [
+      "--repo", repository,
+      "--branch", branch,
+      "--parent", remoteParent,
+      "--expected-head", remoteHead,
+      "--advance", String(isFinalCommit),
+      "--base-tree", localParent,
+      "--tree", item.tree,
+      "--message", item.message,
+    ]);
+    const promoted = JSON.parse(result.stdout) as { sha: string; verified: boolean };
+    if (!promoted.verified) throw new PublishError(`GitHub did not verify ${promoted.sha}`);
+    remoteParent = promoted.sha;
+    localParent = item.localCommit;
+  }
+
+  git(["fetch", remote, `+refs/heads/${branch}:${remoteRef}`]);
+  const visibleHead = git(["rev-parse", remoteRef]).stdout.trim();
+  if (visibleHead !== remoteParent)
+    throw new PublishError(`published ${remoteParent}, but fetched remote head is ${visibleHead}`);
+  git(["reset", "--hard", remoteParent]);
+  git(["branch", "--set-upstream-to", `${remote}/${branch}`, branch]);
+  console.log(JSON.stringify({ repository, branch, commitsPublished: plan.length, head: remoteParent, verified: true }));
+}
+
+try {
+  main();
+} catch (error) {
+  console.error(`error: ${error instanceof Error ? error.message : String(error)}`);
+  process.exitCode = 1;
+}

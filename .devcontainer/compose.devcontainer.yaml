@@ -1,0 +1,19 @@
+services:
+  workspace:
+    volumes:
+      - ..:/workspaces/Teck.Monorepo:cached
+      - ${HOME}/.config/teck-orca/proton-pass.pat:/run/bootstrap/proton-pass.pat:ro
+      - ./github-app/proton-pass.env:/run/bootstrap/proton-pass.env:ro
+      - ./mcp/mcp.env:/run/secrets/teck-mcp/mcp.env:ro
+    tmpfs:
+      - /run/secrets/teck-runtime
+      - /run/secrets/teck-github
+      - /run/secrets/teck-ai
+  crawl4ai:
+    secrets:
+      - source: teck_mcp_env
+        target: /run/secrets/teck-mcp/mcp.env
+
+secrets:
+  teck_mcp_env:
+    file: ./mcp/mcp.env

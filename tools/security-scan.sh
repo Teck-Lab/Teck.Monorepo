@@ -69,7 +69,7 @@ if [ "$MODE" = "pre-push" ]; then
         echo "ERROR: malformed pre-push ref update" >&2
         exit 2
       fi
-    elif [[ "$local_ref" =~ ^refs/ ]]; then
+    elif [[ "$local_ref" =~ ^refs/ ]] || [ "$local_ref" = "HEAD" ]; then
       if [ "$local_sha" = "$ZERO_SHA" ]; then
         echo "ERROR: malformed pre-push ref update" >&2
         exit 2
@@ -167,7 +167,15 @@ if [ "$MODE" = "secrets" ] || [ "$MODE" = "staged" ]; then echo; echo "done ($MO
 # ------------------------------------------------------------------- SAST ----
 echo
 echo "--- [2] Semgrep SAST (${SEMGREP_IMAGE##*:}) ---"
-SEMGREP_TARGET="/src"
+SEMGREP_ROOT="/src"
+SEMGREP_WORKDIR="/src"
+SEMGREP_MOUNTS=(-v "$REPO_ROOT:/src")
+if [ -f "$REPO_ROOT/.git" ] && [ -n "${GITDIR:-}" ] && [ -n "${COMMONDIR:-}" ] && [ "$GITDIR" != "$COMMONDIR" ]; then
+  SEMGREP_ROOT="$REPO_ROOT"
+  SEMGREP_WORKDIR="$REPO_ROOT"
+  SEMGREP_MOUNTS=(-v "$REPO_ROOT:$REPO_ROOT" -v "$GITDIR:$GITDIR:ro" -v "$COMMONDIR:$COMMONDIR:ro")
+fi
+SEMGREP_TARGET="$SEMGREP_ROOT"
 if [ "$MODE" = "changed" ] || [ "$MODE" = "pre-push" ]; then
   # Collect changed paths but keep only regular tracked files (modes 100644/100755).
   # Symlinks (120000) and other git objects must not be passed to Semgrep because
@@ -182,15 +190,15 @@ if [ "$MODE" = "changed" ] || [ "$MODE" = "pre-push" ]; then
     SEMGREP_TARGET=""
   else
     echo "scanning ${#CHANGED[@]} changed file(s) vs $BASE_REF"
-    SEMGREP_TARGET="$(printf '/src/%s ' "${CHANGED[@]}")"
+    SEMGREP_TARGET="$(printf "$SEMGREP_ROOT/%s " "${CHANGED[@]}")"
   fi
 fi
 
 if [ -n "$SEMGREP_TARGET" ]; then
   # shellcheck disable=SC2086
-  if docker run --rm -v "$REPO_ROOT:/src" -w /src "$SEMGREP_IMAGE" \
+  if docker run --rm "${SEMGREP_MOUNTS[@]}" -w "$SEMGREP_WORKDIR" "$SEMGREP_IMAGE" \
        semgrep "${SEMGREP_CONFIGS[@]}" --error --quiet \
-       --sarif --output /src/.security/semgrep.sarif $SEMGREP_TARGET 2>&1 | tail -30; then
+       --sarif --output "$SEMGREP_ROOT/.security/semgrep.sarif" $SEMGREP_TARGET 2>&1 | tail -30; then
     echo "PASS: no Semgrep findings"
   else
     echo "FAIL: Semgrep findings -> .security/semgrep.sarif (CI uploads SARIF to GitHub Code Scanning)"
@@ -202,11 +210,13 @@ fi
 echo
 echo "--- [3] Trivy: dependency vulnerabilities ---"
 # CI evaluates dependencies from a source checkout (SBOM), so scan the same view:
-# skip agent worktrees (.claude) and regenerable build outputs (bin/obj), whose
-# stale lock files/deps.json would otherwise report versions CI never sees.
+# skip agent worktrees/runtime caches (.claude/.omo) and regenerable build
+# outputs (bin/obj), whose stale lock files/deps.json would otherwise report
+# versions CI never sees.
 if docker run --rm -v "$REPO_ROOT:/src" "$TRIVY_IMAGE" \
      fs --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --quiet \
-     --skip-dirs "/src/.claude" --skip-dirs "**/bin" --skip-dirs "**/obj" /src 2>&1 | tail -30; then
+     --skip-dirs "/src/.claude" --skip-dirs "/src/.omo" \
+     --skip-dirs "**/bin" --skip-dirs "**/obj" /src 2>&1 | tail -30; then
   echo "PASS: no HIGH/CRITICAL dependency vulnerabilities"
 else
   echo "FAIL: HIGH/CRITICAL dependency vulns (Trivy is the direct local dependency scan/report source; Dependabot/dependency review governs PR dependency policy)"

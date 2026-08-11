@@ -24,15 +24,35 @@
 # CLI) is still layered on via the `features` block in devcontainer.json.
 FROM mcr.microsoft.com/devcontainers/dotnet:2.1-10.0-noble
 
-# tmux — required by oh-my-opencode-slim's multiplexer integration: background
-# subagents are spawned into live tmux panes, so tmux must be installed and on
-# PATH. Launch OpenCode via the `omos` helper (see postCreate.sh) so it binds an
-# explicit port — pane attachment needs a real TCP listener, which OpenCode's
-# default `--port 0` does not provide. (System package → installed here, not via
-# a feature.)
+# tmux — one attached session per Orca sub-issue worker. Full OMO spawns nested
+# agents into panes in that session. teck-omo-worker supplies the explicit
+# OpenCode port required by pane attachment.
+#
+# Orca's remote relay installs node-pty at connection time. Node releases that
+# do not have a matching node-pty prebuild fall back to node-gyp, which requires
+# a complete Python standard library (including shlex) and a native compiler.
+# The Node devcontainer feature can leave only python3-minimal installed, so
+# keep these dependencies explicit instead of relying on feature internals.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends tmux \
+    && apt-get install -y --no-install-recommends \
+      build-essential \
+      python3 \
+      python3-dev \
+      tmux \
     && rm -rf /var/lib/apt/lists/*
+
+ARG PROTON_PASS_CLI_VERSION=2.2.5
+RUN arch="$(dpkg --print-architecture)" \
+    && case "$arch" in \
+         amd64) pass_arch="x86_64"; pass_sha="3971bfdb5649bc59634c2195e35259ea3f4b7889bba5a4f6698b6af50b27cf7f" ;; \
+         arm64) pass_arch="aarch64"; pass_sha="a8597eaf92631242a44c5b9b13b0fd0c0fc56b21a6c4f087b7d4c031651249b3" ;; \
+         *) echo "unsupported architecture for pass-cli: $arch" >&2; exit 1 ;; \
+       esac \
+    && curl -fsSL "https://proton.me/download/pass-cli/${PROTON_PASS_CLI_VERSION}/pass-cli-linux-${pass_arch}" -o /tmp/pass-cli \
+    && printf '%s  %s\n' "$pass_sha" /tmp/pass-cli | sha256sum -c - \
+    && install -m 0755 /tmp/pass-cli /usr/local/bin/pass-cli \
+    && rm -f /tmp/pass-cli \
+    && pass-cli --version
 
 # snip — required by the `opencode-snip` OpenCode plugin, which prefixes shell
 # commands with `snip` to filter their output before it reaches the model
@@ -62,18 +82,48 @@ RUN arch="$(dpkg --print-architecture)" \
 # plugin state. Pre-create it vscode-owned so its named volume is writable and the
 # login survives rebuilds — otherwise a root-owned volume silently loses the auth.
 #
-# ~/.codex gets the same treatment. Codex authenticates to the LiteLLM gateway via
-# the LITELLM_MASTER_KEY env var today, so it has no stored credential — but a
-# `codex login` (ChatGPT account) writes ~/.codex/auth.json, and without a volume
+# ~/.codex gets the same treatment. Codex authenticates with the ChatGPT/OpenAI
+# state mounted from WSL2; without a volume
 # that would silently vanish on every rebuild. postCreate.sh still re-seeds
 # config.toml from the committed template on top of the volume, so the template
 # stays the source of truth for configuration while auth persists.
-# ~/.config/gh is on the same list: `gh auth login` writes its OAuth token to
-# ~/.config/gh/hosts.yml, which is NOT under any other mounted path — so without
-# its own volume every rebuild silently logged you out of GitHub. The github MCP
-# server reads that token via `gh auth token`, so losing it also breaks the
-# librarian's repo access, not just the CLI.
 RUN mkdir -p /home/vscode/.claude-config /home/vscode/.local/share/opencode \
-      /home/vscode/.codex /home/vscode/.config/gh \
+      /home/vscode/.codex \
     && chown -R vscode:vscode /home/vscode/.claude-config /home/vscode/.local \
-      /home/vscode/.codex /home/vscode/.config
+      /home/vscode/.codex
+
+# Official GitHub MCP server. It runs directly as a stdio child of Codex or
+# OpenCode, avoiding a nested-Docker secret mount. Version and per-architecture
+# checksums are pinned so rebuilds cannot silently pick up a different binary.
+ARG GITHUB_MCP_VERSION=1.8.0
+RUN arch="$(dpkg --print-architecture)" \
+    && case "$arch" in \
+         amd64) mcp_arch="x86_64"; mcp_sha="b2754921aec1b1302b19a71531d26d242ef0e7f1e05696b8444beab5a7e61d5b" ;; \
+         arm64) mcp_arch="arm64"; mcp_sha="c4b0fe8d4e31c079e5c3f3a54050a08449dae6fa8189ec5998822555ad27bde8" ;; \
+         *) echo "unsupported architecture for github-mcp-server: $arch" >&2; exit 1 ;; \
+       esac \
+    && archive="github-mcp-server_Linux_${mcp_arch}.tar.gz" \
+    && curl -fsSL "https://github.com/github/github-mcp-server/releases/download/v${GITHUB_MCP_VERSION}/${archive}" -o "/tmp/${archive}" \
+    && printf '%s  %s\n' "$mcp_sha" "/tmp/${archive}" | sha256sum -c - \
+    && tar -xzf "/tmp/${archive}" -C /tmp github-mcp-server \
+    && install -m 0755 /tmp/github-mcp-server /usr/local/bin/github-mcp-server \
+    && rm -f "/tmp/${archive}" /tmp/github-mcp-server \
+    && github-mcp-server --version
+
+COPY github-mcp.sh /usr/local/bin/teck-github-mcp
+COPY github-app-token.sh /usr/local/bin/teck-github-app-token
+COPY github-cli.sh /usr/local/bin/gh
+COPY git-credential-github-app.sh /usr/local/bin/git-credential-teck-github-app
+COPY git-with-github-app.sh /usr/local/bin/teck-git-with-github-app
+COPY omo-worker.sh /usr/local/bin/teck-omo-worker
+COPY workspace-entrypoint.sh /usr/local/bin/teck-workspace-entrypoint
+COPY runtime-doctor.sh /usr/local/bin/teck-runtime-doctor
+COPY proton-bootstrap.sh /usr/local/bin/teck-proton-bootstrap
+COPY materialize-proton-secrets.sh /usr/local/bin/teck-materialize-proton-secrets
+RUN chmod 0755 /usr/local/bin/teck-github-mcp \
+      /usr/local/bin/teck-github-app-token /usr/local/bin/gh \
+      /usr/local/bin/git-credential-teck-github-app \
+      /usr/local/bin/teck-git-with-github-app \
+      /usr/local/bin/teck-omo-worker /usr/local/bin/teck-workspace-entrypoint \
+      /usr/local/bin/teck-runtime-doctor /usr/local/bin/teck-proton-bootstrap \
+      /usr/local/bin/teck-materialize-proton-secrets

@@ -1,15 +1,10 @@
 # Codex CLI config — seeded into ~/.codex/config.toml by postCreate.sh.
 #
-# Points Codex at the local LiteLLM gateway (OpenAI-compatible) instead of OpenAI
-# directly, so it draws on the per-model route pools (model = a real model id). The API key
-# is read from the LITELLM_MASTER_KEY env var (exported into the shell by
-# postCreate.sh from .devcontainer/litellm/litellm.env) — no `codex login` needed.
-#
-# NOTE: top-level keys MUST appear before the [model_providers.litellm] table —
-# in TOML, any key after a table header belongs to that table.
+# Uses direct OpenAI authentication mounted from WSL2. OpenCode/OMO owns the
+# lower-cost provider fallback chains; Codex remains the GPT-native path.
 
-model = "deepseek-v4-pro"
-model_provider = "litellm"
+model = "gpt-5.6-terra"
+model_provider = "openai"
 
 # The dev container itself is the security boundary (privileged, convenience-first
 # — see README "Security"). Disable Codex's inner sandbox + approval prompts for
@@ -17,8 +12,32 @@ model_provider = "litellm"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
 
-[model_providers.litellm]
-name = "LiteLLM local gateway"
-base_url = "http://localhost:4000/v1"
-env_key = "LITELLM_MASTER_KEY"
-wire_api = "chat"        # LiteLLM speaks /v1/chat/completions
+# Local stdio GitHub MCP authenticated as the repository-scoped GitHub App.
+# It is optional until .devcontainer/github-app/ has been populated locally.
+[mcp_servers.github]
+command = "/usr/local/bin/teck-github-mcp"
+enabled = true
+required = false
+startup_timeout_sec = 20
+tool_timeout_sec = 120
+enabled_tools = [
+  "get_repository_tree",
+  "get_file_contents",
+  "get_commit",
+  "list_branches",
+  "list_commits",
+  "issue_read",
+  "issue_write",
+  "sub_issue_write",
+  "add_issue_comment",
+  "search_issues",
+  "list_issues",
+  "create_pull_request",
+  "update_pull_request",
+  "pull_request_read",
+  "list_pull_requests",
+  "search_pull_requests",
+  "actions_get",
+  "actions_list",
+  "get_job_logs",
+]

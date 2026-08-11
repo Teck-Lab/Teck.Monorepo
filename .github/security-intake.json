@@ -1,0 +1,46 @@
+{
+  "project": {
+    "organization": "Teck-Lab",
+    "number": 3,
+    "fields": {
+      "status": "Status",
+      "workType": "Work type",
+      "component": "Component",
+      "epss": "EPSS",
+      "kev": "KEV"
+    }
+  },
+  "sources": {
+    "code-scanning": { "enabled": true, "initialState": "agent:ready" },
+    "dependabot": { "enabled": true, "initialState": "agent:ready" },
+    "secret-scanning": { "enabled": true, "initialState": "agent:needs-input" }
+  },
+  "labels": [
+    { "name": "security", "color": "b60205", "description": "Security remediation work" },
+    {
+      "name": "security:tracked",
+      "color": "5319e7",
+      "description": "Synchronized from a GitHub security alert"
+    },
+    {
+      "name": "source:code-scanning",
+      "color": "d4c5f9",
+      "description": "GitHub code scanning finding"
+    },
+    { "name": "source:dependabot", "color": "d4c5f9", "description": "GitHub Dependabot alert" },
+    {
+      "name": "source:secret-scanning",
+      "color": "d4c5f9",
+      "description": "GitHub secret scanning alert"
+    },
+    {
+      "name": "known-exploited",
+      "color": "b60205",
+      "description": "Listed in the CISA Known Exploited Vulnerabilities catalog"
+    },
+    { "name": "severity:low", "color": "0e8a16", "description": "Low security severity" },
+    { "name": "severity:medium", "color": "fbca04", "description": "Medium security severity" },
+    { "name": "severity:high", "color": "ff7f00", "description": "High security severity" },
+    { "name": "severity:critical", "color": "b60205", "description": "Critical security severity" }
+  ]
+}

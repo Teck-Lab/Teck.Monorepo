@@ -1,0 +1,4 @@
+interface:
+  display_name: "Teck Feature Flow"
+  short_description: "Coordinate issue-backed feature worktrees"
+  default_prompt: "Use $teck-feature-flow to coordinate this GitHub feature and its sub-issues."

@@ -1,0 +1,44 @@
+{
+  "labels": [
+    { "name": "agent:ready", "color": "0e8a16", "description": "Eligible for Orca intake" },
+    {
+      "name": "agent:claimed",
+      "color": "1d76db",
+      "description": "Accepted by an Orca feature orchestrator"
+    },
+    {
+      "name": "agent:needs-input",
+      "color": "fbca04",
+      "description": "Waiting for a person to answer or decide"
+    },
+    {
+      "name": "agent:in-review",
+      "color": "5319e7",
+      "description": "Implementation PR is awaiting human review"
+    },
+    {
+      "name": "agent:completed",
+      "color": "6f42c1",
+      "description": "Agent-owned work has completed"
+    }
+  ],
+  "transitions": {
+    "agent:ready": [null, "agent:needs-input", "agent:completed"],
+    "agent:claimed": ["agent:ready", "agent:needs-input"],
+    "agent:needs-input": ["agent:ready", "agent:claimed", "agent:in-review"],
+    "agent:in-review": ["agent:claimed", "agent:needs-input"],
+    "agent:completed": ["agent:claimed", "agent:in-review"]
+  },
+  "project": {
+    "organization": "Teck-Lab",
+    "number": 3,
+    "statusField": "Status",
+    "statuses": {
+      "agent:ready": "Ready",
+      "agent:claimed": "In progress",
+      "agent:needs-input": "Blocked",
+      "agent:in-review": "In review",
+      "agent:completed": "Done"
+    }
+  }
+}

@@ -19,7 +19,7 @@ Detailed, authoritative conventions live in a hierarchy of `AGENTS.md` files —
 
 ## Commands
 
-Nx orchestrates both stacks. Bun is the package manager (`packageManager: bun@1.2.0`); npm scripts in `package.json` wrap the common targets.
+Nx orchestrates both stacks. Bun is the package manager (`packageManager: bun@1.2.5`); npm scripts in `package.json` wrap the common targets.
 
 ```bash
 nx affected -t build test lint typecheck   # what PR checks run — use this before pushing

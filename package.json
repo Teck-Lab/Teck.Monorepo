@@ -12,6 +12,8 @@
     "affected:lint": "nx affected -t lint",
     "affected:typecheck": "nx affected -t typecheck",
     "affected:all": "nx affected -t build test lint typecheck",
+    "test:agent-lifecycle": "node --test .github/scripts/agent-lifecycle.test.mjs",
+    "test:security-intake": "node --test .github/scripts/security-alert-intake.test.mjs .github/scripts/dependabot-pr-link.test.mjs",
     "graph": "nx graph",
     "release:dry": "nx release --dry-run",
     "release": "nx release --yes",
@@ -20,6 +22,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
+    "@commitlint/config-conventional": "19.1.0",
+    "@commitlint/ensure": "19.0.3",
+    "@commitlint/lint": "19.1.0",
     "@expo/cli": "~55.0.11",
     "@nx/devkit": "latest",
     "@nx/docker": "23.0.1",
@@ -46,7 +51,7 @@
     "tailwindcss": "^4",
     "typescript": "^5.7.0"
   },
-  "packageManager": "bun@1.2.0",
+  "packageManager": "bun@1.2.5",
   "workspaces": ["src/apps/*", "src/packages/*"],
   "dependencies": {
     "@expo/metro-config": "~55.0.8",

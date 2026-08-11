@@ -1,6 +1,6 @@
 # SearXNG settings template for the MCP research backend.
 #
-# start-mcp.sh renders this to settings.yml (gitignored) on first run, replacing
+# prepare-compose.sh renders this to settings.yml (gitignored) before Compose starts, replacing
 # __SECRET_KEY__ with a freshly generated value. compose bind-mounts the result
 # over /etc/searxng/settings.yml.
 #

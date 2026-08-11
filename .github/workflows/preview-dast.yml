@@ -1,0 +1,121 @@
+name: Preview API Security Tests
+
+on:
+  workflow_call:
+    inputs:
+      base-url:
+        description: HTTPS base URL of the deployed preview
+        required: true
+        type: string
+      schema-url:
+        description: OpenAPI schema URL exposed by the preview
+        required: true
+        type: string
+      report-only:
+        description: Report findings without failing the caller
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      api-authorization:
+        description: Optional complete Authorization header value for authenticated API fuzzing
+        required: false
+  workflow_dispatch:
+    inputs:
+      base-url:
+        description: HTTPS base URL of the deployed preview
+        required: true
+        type: string
+      schema-url:
+        description: OpenAPI schema URL exposed by the preview
+        required: true
+        type: string
+      report-only:
+        description: Report findings without failing the run
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-dast-${{ inputs.base-url }}
+  cancel-in-progress: true
+
+jobs:
+  validate-target:
+    name: Validate isolated preview target
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse non-HTTPS and production targets
+        env:
+          BASE_URL: ${{ inputs.base-url }}
+        run: |
+          case "$BASE_URL" in
+            https://*) ;;
+            *) echo "DAST requires an HTTPS preview URL." >&2; exit 1 ;;
+          esac
+          host=$(printf '%s' "$BASE_URL" | sed -E 's#^https://([^/]+).*$#\1#')
+          case "$host" in
+            *preview*|*canary*|*.dev.*|*.staging.*) ;;
+            *) echo "Refusing to scan target without a preview/canary/dev/staging hostname: $host" >&2; exit 1 ;;
+          esac
+
+  zap-baseline:
+    name: OWASP ZAP baseline
+    needs: validate-target
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ inputs.report-only }}
+    steps:
+      - name: Run passive and baseline web checks
+        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
+        with:
+          target: ${{ inputs.base-url }}
+          allow_issue_writing: false
+          fail_action: true
+          artifact_name: zap-preview-report
+
+  schemathesis:
+    name: OpenAPI property and fuzz testing
+    needs: validate-target
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ inputs.report-only }}
+    steps:
+      - name: Exercise the preview API from its schema
+        uses: schemathesis/action@6c9e276658035ff34e8076397be5c5bceb8414f3 # v3
+        with:
+          schema: ${{ inputs.schema-url }}
+          base-url: ${{ inputs.base-url }}
+          checks: all
+          max-examples: 50
+          wait-for-schema: 60
+          version: '4.24.3'
+          authorization: ${{ secrets['api-authorization'] }}
+          coverage-pr-comment: false
+          coverage-artifact-name: schemathesis-preview-coverage
+
+  security-headers:
+    name: HTTPS and browser security headers
+    needs: validate-target
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ inputs.report-only }}
+    steps:
+      - name: Validate security headers
+        env:
+          BASE_URL: ${{ inputs.base-url }}
+        run: |
+          headers=$(curl --fail --silent --show-error --location --max-redirs 2 --max-time 30 --dump-header - --output /dev/null "$BASE_URL" | tr -d '\r' | tr '[:upper:]' '[:lower:]')
+          required=(
+            '^strict-transport-security:'
+            '^x-content-type-options:[[:space:]]*nosniff'
+            '^content-security-policy:'
+          )
+          failed=0
+          for pattern in "${required[@]}"; do
+            if ! grep -Eq "$pattern" <<<"$headers"; then
+              echo "Missing required response header matching $pattern" >&2
+              failed=1
+            fi
+          done
+          exit "$failed"

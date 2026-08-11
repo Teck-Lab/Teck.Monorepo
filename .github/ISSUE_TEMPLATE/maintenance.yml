@@ -1,0 +1,94 @@
+name: Maintenance
+description: Define agent-ready technical, dependency, tooling, or operational work.
+title: "chore: "
+labels:
+  - "agent:ready"
+body:
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: What should be improved, upgraded, removed, or maintained?
+    validations:
+      required: true
+
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Rationale
+      description: Why is this work needed now, and what happens if it is deferred?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Commerce
+        - Operations
+        - Content
+        - Gateway
+        - Web
+        - Platform
+        - Infrastructure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Low
+        - Medium
+        - High
+        - Urgent
+    validations:
+      required: true
+
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      options:
+        - Unknown
+        - XS
+        - S
+        - M
+        - L
+        - XL
+    validations:
+      required: true
+
+  - type: input
+    id: sprint
+    attributes:
+      label: Sprint
+      description: Optional Teck Scrum iteration name.
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints and compatibility
+      description: Note compatibility, migration, rollout, downtime, or dependency constraints. Write N/A when none apply.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Ready for Orca
+      options:
+        - label: The objective, constraints, and completion criteria are sufficient for an agent to begin.
+          required: true

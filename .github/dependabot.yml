@@ -1,14 +1,231 @@
 version: 2
 updates:
+  # NuGet uses one repository-wide Directory.Packages.props, but discovery is
+  # scoped so the native updater does not restore the entire monorepo in one
+  # job. Minor and patch updates become one PR per scope; major updates remain
+  # individual PRs for explicit review.
   - package-ecosystem: nuget
+    directory: /src/services/commerce/basket
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      basket-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: nuget
+    directory: /src/services/commerce/catalog
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      catalog-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: nuget
+    directory: /src/services/commerce/customer
+    schedule: { interval: weekly, day: tuesday }
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      customer-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: nuget
+    directory: /src/services/commerce/inventory
+    schedule: { interval: weekly, day: tuesday }
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      inventory-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: nuget
+    directory: /src/services/commerce/order
+    schedule: { interval: weekly, day: wednesday }
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      order-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: nuget
+    directory: /src/services/commerce/pricing
+    schedule: { interval: weekly, day: wednesday }
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      pricing-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: nuget
+    directory: /src/services/operations/billing
+    schedule: { interval: weekly, day: thursday }
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      billing-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: nuget
+    directory: /src/services/gateway
+    schedule: { interval: weekly, day: thursday }
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      gateway-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: nuget
+    directory: /src/shared
+    schedule: { interval: weekly, day: friday }
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      shared-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: nuget
+    directory: /src/aspire
+    schedule: { interval: weekly, day: friday }
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      aspire-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: nuget
+    directory: /tests/architecture
+    schedule: { interval: weekly, day: saturday }
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      architecture-tests-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: nuget
+    directory: /tests/integration
+    schedule: { interval: weekly, day: saturday }
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      integration-tests-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: nuget
+    directory: /tests/unit
+    schedule: { interval: weekly, day: sunday }
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      unit-tests-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: bun
     directory: /
     schedule: { interval: weekly }
-  - package-ecosystem: npm
-    directory: /
-    schedule: { interval: weekly }
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    groups:
+      nx-minor-patch:
+        applies-to: version-updates
+        patterns: ["nx", "@nx/*"]
+        update-types: [minor, patch]
+      bun-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        exclude-patterns: ["nx", "@nx/*"]
+        update-types: [minor, patch]
+      bun-security:
+        applies-to: security-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
   - package-ecosystem: docker
     directory: /deploy
     schedule: { interval: weekly }
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      docker-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      actions-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
