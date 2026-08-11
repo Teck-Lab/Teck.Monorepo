@@ -89,6 +89,14 @@ export function duplicateIssues(issues, indexed = indexIssues(issues)) {
   });
 }
 
+export function selectDependabotPulls(pulls, requestedPullNumber = null) {
+  return pulls.filter(
+    (pull) =>
+      pull.user?.login === "dependabot[bot]" &&
+      (requestedPullNumber === null || pull.number === requestedPullNumber),
+  );
+}
+
 async function ensureLabels(client, owner, repo) {
   const definitions = [
     {
@@ -187,8 +195,15 @@ export async function run() {
   if (!token || !owner || !repo) throw new Error("GITHUB_TOKEN and GITHUB_REPOSITORY are required");
   const client = new GitHubClient(token);
   const graceMinutes = Number(process.env.DEPENDABOT_STUCK_GRACE_MINUTES ?? 20);
-  if (!Number.isFinite(graceMinutes) || graceMinutes < 1)
-    throw new Error("DEPENDABOT_STUCK_GRACE_MINUTES must be a positive number");
+  if (!Number.isFinite(graceMinutes) || graceMinutes < 0)
+    throw new Error("DEPENDABOT_STUCK_GRACE_MINUTES must be a non-negative number");
+  const requestedPullNumberRaw = process.env.DEPENDABOT_STUCK_PR_NUMBER?.trim();
+  const requestedPullNumber = requestedPullNumberRaw ? Number(requestedPullNumberRaw) : null;
+  if (
+    requestedPullNumber !== null &&
+    (!Number.isSafeInteger(requestedPullNumber) || requestedPullNumber < 1)
+  )
+    throw new Error("DEPENDABOT_STUCK_PR_NUMBER must be a positive integer");
   const dryRun = process.env.DEPENDABOT_STUCK_DRY_RUN === "true";
   const [pullsResponse, issuesResponse] = await Promise.all([
     client.paginate(`/repos/${owner}/${repo}/pulls?state=open&per_page=100`),
@@ -196,10 +211,13 @@ export async function run() {
       `/repos/${owner}/${repo}/issues?state=all&labels=${encodeURIComponent("dependabot:stuck")}&per_page=100`,
     ),
   ]);
-  const pulls = pullsResponse.data.filter((pull) => pull.user?.login === "dependabot[bot]");
+  const allDependabotPulls = selectDependabotPulls(pullsResponse.data);
+  const pulls = selectDependabotPulls(allDependabotPulls, requestedPullNumber);
   const existing = indexIssues(issuesResponse.data);
   const duplicates = duplicateIssues(issuesResponse.data, existing);
-  const activeKeys = new Set(pulls.map((pull) => fingerprint(owner, repo, pull.number)));
+  const activeKeys = new Set(
+    allDependabotPulls.map((pull) => fingerprint(owner, repo, pull.number)),
+  );
   const summary = [];
 
   if (!dryRun) await ensureLabels(client, owner, repo);

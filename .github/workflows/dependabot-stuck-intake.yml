@@ -1,8 +1,9 @@
 name: Dependabot Stuck PR Intake
 
 on:
-  schedule:
-    - cron: "7,22,37,52 * * * *"
+  workflow_run: # zizmor: ignore[dangerous-triggers] executes only trusted default-branch policy and never PR code
+    workflows: [CI, CodeQL, Security Scans]
+    types: [completed]
   workflow_dispatch:
     inputs:
       dry-run:
@@ -21,6 +22,11 @@ concurrency:
 jobs:
   reconcile:
     name: Reconcile failing Dependabot PRs
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]' &&
+      github.event.workflow_run.pull_requests[0].number != null)
     runs-on: ubuntu-latest
     steps:
       - name: Mint GitHub App token
@@ -30,13 +36,40 @@ jobs:
           app-id: ${{ vars.TECK_AUTOMATION_APP_ID }}
           private-key: ${{ secrets.TECK_AUTOMATION_APP_PRIVATE_KEY }}
           owner: Teck-Lab
+          repositories: Teck.Monorepo
+          permission-checks: read
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
+          permission-statuses: read
 
       - name: Checkout trusted intake policy
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Reconcile stuck Dependabot pull requests
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           DEPENDABOT_STUCK_DRY_RUN: ${{ inputs['dry-run'] || 'false' }}
-          DEPENDABOT_STUCK_GRACE_MINUTES: "20"
-        run: node .github/scripts/dependabot-stuck-intake.mjs
+          DEPENDABOT_STUCK_GRACE_MINUTES: ${{ github.event_name == 'workflow_run' && '0' || '20' }}
+          DEPENDABOT_STUCK_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || '' }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" != workflow_run ]; then
+            node .github/scripts/dependabot-stuck-intake.mjs
+            exit
+          fi
+
+          result_file="$(mktemp)"
+          trap 'rm -f "$result_file"' EXIT
+          for attempt in 1 2 3 4 5 6; do
+            node .github/scripts/dependabot-stuck-intake.mjs > "$result_file"
+            cat "$result_file"
+            if jq -e '[.pullRequests[].state] | all(. != "pending")' "$result_file" >/dev/null; then
+              exit 0
+            fi
+            [ "$attempt" -eq 6 ] || sleep 10
+          done
+
+          echo "Checks are still pending; a later workflow completion will reconcile this PR."
