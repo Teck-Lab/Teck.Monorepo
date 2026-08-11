@@ -12,7 +12,10 @@ Verified Dependabot pull requests are added to `Teck Scrum`. Security pull
 requests are also correlated to their tracked issues by advisory and package
 metadata, receive native `Closes #...` links, and move the tracked issue to
 `agent:in-review`. Version-update pull requests without a security advisory do
-not create or claim agent work. Approval and merge remain human decisions.
+not create or claim agent work. Routine NuGet minor and patch updates are
+scoped by project area, approved by the automation App, and configured for
+squash auto-merge after every required check passes. Major and security updates
+remain human approval and merge decisions.
 The scheduled security intake owns issue creation; PR reconciliation never
 runs intake in parallel. Intake also keeps the oldest issue as the canonical
 record for each alert fingerprint and closes later duplicates during recovery.
