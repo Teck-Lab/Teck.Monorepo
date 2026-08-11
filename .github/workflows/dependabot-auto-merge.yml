@@ -1,57 +1,55 @@
 name: Auto-merge Safe Dependabot Updates
 
 on:
-  pull_request_target:
-    types: [opened, reopened, synchronize]
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: dependabot-auto-merge
+  cancel-in-progress: false
 
 jobs:
-  enable:
+  reconcile:
     name: Approve and enable auto-merge
-    if: >-
-      github.event.pull_request.user.login == 'dependabot[bot]' &&
-      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
-      - name: Mint GitHub App token
+      - name: Mint repository-scoped GitHub App token
         id: app-token
         uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
         with:
           app-id: ${{ vars.TECK_AUTOMATION_APP_ID }}
           private-key: ${{ secrets.TECK_AUTOMATION_APP_PRIVATE_KEY }}
           owner: Teck-Lab
+          repositories: Teck.Monorepo
+          permission-contents: write
+          permission-pull-requests: write
 
-      - name: Fetch verified Dependabot metadata
-        id: metadata
-        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
-        with:
-          github-token: ${{ steps.app-token.outputs.token }}
-          alert-lookup: true
-
-      - name: Approve safe NuGet update
-        if: >-
-          steps.metadata.outputs.package-ecosystem == 'nuget' &&
-          steps.metadata.outputs.ghsa-id == '' &&
-          (steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
-           steps.metadata.outputs.update-type == 'version-update:semver-minor')
+      - name: Reconcile safe NuGet updates
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr review --approve "$PR_URL"
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh pr list \
+            --repo "$GH_REPO" \
+            --state open \
+            --author "app/dependabot" \
+            --limit 100 \
+            --json url,headRefName \
+            --jq '.[] | select(.headRefName | startswith("dependabot/nuget/") and contains("-minor-patch-")) | .url' |
+          while IFS= read -r pr_url; do
+            [ -n "$pr_url" ] || continue
 
-      - name: Enable squash auto-merge for safe NuGet update
-        if: >-
-          steps.metadata.outputs.package-ecosystem == 'nuget' &&
-          steps.metadata.outputs.ghsa-id == '' &&
-          (steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
-           steps.metadata.outputs.update-type == 'version-update:semver-minor')
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr merge --auto --squash "$PR_URL"
+            review_decision="$(gh pr view "$pr_url" --json reviewDecision --jq '.reviewDecision')"
+            if [ "$review_decision" != "APPROVED" ]; then
+              gh pr review --approve "$pr_url"
+            fi
+
+            auto_merge="$(gh pr view "$pr_url" --json autoMergeRequest --jq '.autoMergeRequest != null')"
+            if [ "$auto_merge" != "true" ]; then
+              gh pr merge --auto --squash "$pr_url"
+            fi
+          done

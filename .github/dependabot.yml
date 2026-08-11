@@ -8,6 +8,8 @@ updates:
     directory: /src/services/commerce/basket
     schedule: { interval: weekly, day: monday }
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -20,6 +22,8 @@ updates:
     directory: /src/services/commerce/catalog
     schedule: { interval: weekly, day: monday }
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -32,6 +36,8 @@ updates:
     directory: /src/services/commerce/customer
     schedule: { interval: weekly, day: tuesday }
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -44,6 +50,8 @@ updates:
     directory: /src/services/commerce/inventory
     schedule: { interval: weekly, day: tuesday }
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -56,6 +64,8 @@ updates:
     directory: /src/services/commerce/order
     schedule: { interval: weekly, day: wednesday }
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -68,6 +78,8 @@ updates:
     directory: /src/services/commerce/pricing
     schedule: { interval: weekly, day: wednesday }
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -80,6 +92,8 @@ updates:
     directory: /src/services/operations/billing
     schedule: { interval: weekly, day: thursday }
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -92,6 +106,8 @@ updates:
     directory: /src/services/gateway
     schedule: { interval: weekly, day: thursday }
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -104,6 +120,8 @@ updates:
     directory: /src/shared
     schedule: { interval: weekly, day: friday }
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -116,6 +134,8 @@ updates:
     directory: /src/aspire
     schedule: { interval: weekly, day: friday }
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -128,6 +148,8 @@ updates:
     directory: /tests/architecture
     schedule: { interval: weekly, day: saturday }
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -140,6 +162,8 @@ updates:
     directory: /tests/integration
     schedule: { interval: weekly, day: saturday }
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -152,6 +176,8 @@ updates:
     directory: /tests/unit
     schedule: { interval: weekly, day: sunday }
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
