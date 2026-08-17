@@ -76,13 +76,22 @@ if [ -s "$omo_config" ]; then
   [ "$actual_sisyphus" = "$expected_sisyphus" ] \
     && pass 'Sisyphus has the expected Kimi K2.7-to-GPT fallback chain' \
     || fail 'Sisyphus fallback chain is missing or out of order'
+  expected_deepseek_routes='["deepseek/deepseek-v4-flash","deepseek/deepseek-v4-flash","deepseek/deepseek-v4-flash"]'
+  actual_deepseek_routes="$(jq -c '[
+    ."[opencode]".agents.librarian.models[1].model,
+    ."[opencode]".agents.explore.models[1].model,
+    ."[opencode]".categories.quick.models[1].model
+  ]' "$omo_config" 2>/dev/null || true)"
+  [ "$actual_deepseek_routes" = "$expected_deepseek_routes" ] \
+    && pass 'Direct DeepSeek V4 Flash backs supported utility routes' \
+    || fail 'DeepSeek V4 Flash utility fallbacks are missing or use the wrong provider'
   unexpected="$(jq -r '[
-    (."[opencode]".agents | to_entries[] | select(.key != "sisyphus") | .value.model?),
-    (."[opencode]".categories | to_entries[] | .value.model?)
-  ] | .[] | select(startswith("openai/gpt-") | not)' "$omo_config" 2>/dev/null || true)"
+    (."[opencode]".agents | to_entries[] | select(.key != "sisyphus") | .value | (.model?, .models[]?.model?)),
+    (."[opencode]".categories | to_entries[] | .value | (.model?, .models[]?.model?))
+  ] | .[] | select(startswith("openai/gpt-") | not) | select(. != "deepseek/deepseek-v4-flash")' "$omo_config" 2>/dev/null || true)"
   [ -z "$unexpected" ] \
-    && pass 'Orchestrated OMO agents and categories remain GPT-only' \
-    || fail 'A non-Sisyphus OMO route uses a non-GPT model'
+    && pass 'Other orchestrated OMO routes remain GPT-only' \
+    || fail 'An unsupported non-GPT OMO route is configured'
 else
   fail 'OMO configuration is missing'
 fi

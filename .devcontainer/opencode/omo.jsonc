@@ -52,12 +52,16 @@
         "reasoning": "medium"
       },
       "librarian": {
-        "model": "openai/gpt-5.6-luna",
-        "reasoning": "medium"
+        "models": [
+          { "model": "openai/gpt-5.6-luna", "reasoning": "medium" },
+          { "model": "deepseek/deepseek-v4-flash", "reasoning": "max" }
+        ]
       },
       "explore": {
-        "model": "openai/gpt-5.6-luna",
-        "reasoning": "medium"
+        "models": [
+          { "model": "openai/gpt-5.6-luna", "reasoning": "medium" },
+          { "model": "deepseek/deepseek-v4-flash", "reasoning": "max" }
+        ]
       },
       "sisyphus-junior": {
         "model": "openai/gpt-5.6-luna",
@@ -66,8 +70,10 @@
     },
     "categories": {
       "quick": {
-        "model": "openai/gpt-5.6-luna",
-        "reasoning": "low"
+        "models": [
+          { "model": "openai/gpt-5.6-luna", "reasoning": "low" },
+          { "model": "deepseek/deepseek-v4-flash", "reasoning": "off" }
+        ]
       },
       "deep": {
         "model": "openai/gpt-5.6-sol",
