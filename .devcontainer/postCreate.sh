@@ -149,7 +149,7 @@ fi
 SECRET_ENV_MARKER='# Load read-only Teck runtime secrets without printing them.'
 if ! grep -qxF "$SECRET_ENV_MARKER" "$HOME/.bashrc" 2>/dev/null; then
   printf '\n%s\n%s\n' "$SECRET_ENV_MARKER" \
-    'for teck_env in /run/secrets/teck-mcp/mcp.env; do if [ -s "$teck_env" ]; then set -a; source "$teck_env"; set +a; fi; done; unset teck_env' \
+    'for teck_env in /run/secrets/teck-ai/providers.env /run/secrets/teck-mcp/mcp.env; do if [ -s "$teck_env" ]; then set -a; source "$teck_env"; set +a; fi; done; unset teck_env' \
     >> "$HOME/.bashrc"
 fi
 

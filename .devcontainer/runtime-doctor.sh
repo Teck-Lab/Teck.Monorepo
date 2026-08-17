@@ -42,6 +42,16 @@ fi
   && pass 'OpenCode authentication is mounted' \
   || fail 'OpenCode authentication is missing'
 
+if [ -s /run/secrets/teck-ai/providers.env ]; then
+  mode="$(stat -c '%a' /run/secrets/teck-ai/providers.env 2>/dev/null || true)"
+  case "$mode" in
+    400|440|600|640) pass 'Provider credentials are mounted with restricted permissions' ;;
+    *) fail "Provider credential file mode is ${mode:-unknown}" ;;
+  esac
+else
+  fail 'Provider credentials are not mounted'
+fi
+
 if gh auth status >/dev/null 2>&1; then
   pass 'GitHub CLI authentication works'
 else

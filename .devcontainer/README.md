@@ -24,6 +24,11 @@ Full OMO defaults every agent and category to GPT through the mounted OpenCode
 and OpenAI subscription authentication. Luna handles quick lookup work, Terra
 handles standard work, and Sol handles deep planning and implementation.
 
+OpenCode Go subscriptions 1 and 2, direct DeepSeek, and OpenRouter remain
+registered for explicit use. Their four credentials are resolved from Proton
+Pass by the Orca recipe and mounted read-only at runtime; they are not OMO
+defaults and never live under `.devcontainer`.
+
 Codex uses the OpenAI authentication mounted from WSL2 and does not require a
 provider-key file or an in-container login.
 

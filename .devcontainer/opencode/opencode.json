@@ -65,21 +65,6 @@
         "qwen3.7-plus": {}
       }
     },
-    "opencode-zen": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "OpenCode Zen",
-      "options": { "baseURL": "https://opencode.ai/zen/v1", "apiKey": "{env:OPENCODE_GO_KEY}" },
-      "models": { "deepseek-v4-flash-free": {}, "mimo-v2.5-free": {} }
-    },
-    "nvidia": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "NVIDIA NIM",
-      "options": {
-        "baseURL": "https://integrate.api.nvidia.com/v1",
-        "apiKey": "{env:NVIDIA_API_KEY}"
-      },
-      "models": { "deepseek-ai/deepseek-v4-pro": {}, "deepseek-ai/deepseek-v4-flash": {} }
-    },
     "deepseek": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "DeepSeek",
