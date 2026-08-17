@@ -20,9 +20,11 @@ agent auth volumes, and tmpfs-backed secrets.
 
 ## AI routing
 
-Full OMO defaults every agent and category to GPT through the mounted OpenCode
-and OpenAI subscription authentication. Luna handles quick lookup work, Terra
-handles standard work, and Sol handles deep planning and implementation.
+OMO routes the ordinary Sisyphus agent through Kimi K3 on OpenCode Go 1, then
+Kimi K2.7 Code on OpenCode Go 2, with GPT-5.6 Sol as its final fallback. The
+orchestrated planner, executors, specialists, and every category remain GPT-5.6
+routed: Luna handles quick lookup work, Terra handles standard work, and Sol
+handles deep planning and implementation.
 
 OpenCode Go subscriptions 1 and 2, direct DeepSeek, and OpenRouter remain
 registered for explicit use. Their four credentials are resolved from Proton
@@ -46,7 +48,7 @@ use `teck-runtime-doctor` when service readiness matters; Compose continues to
 health-check both backends independently.
 
 Run `teck-runtime-doctor` inside a workspace to verify agent authentication,
-GitHub CLI access, Git identity and transport, GPT-only OMO routing, research
+GitHub CLI access, Git identity and transport, bounded OMO routing, research
 services, the publication policy, and tmux attachment without printing
 credentials.
 

@@ -71,10 +71,18 @@ fi
 
 omo_config="$HOME/.omo/omo.jsonc"
 if [ -s "$omo_config" ]; then
-  non_gpt_models="$(sed -nE 's/.*"model"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "$omo_config" | grep -Ev '^openai/gpt-' || true)"
-  [ -z "$non_gpt_models" ] \
-    && pass 'OMO routes every agent and category to GPT' \
-    || fail 'OMO contains a non-GPT default model'
+  expected_sisyphus='["opencode-go-a/kimi-k3","opencode-go-b/kimi-k2.7-code","openai/gpt-5.6-sol"]'
+  actual_sisyphus="$(jq -c '[."[opencode]".agents.sisyphus.models[] | if type == "string" then . else .model end]' "$omo_config" 2>/dev/null || true)"
+  [ "$actual_sisyphus" = "$expected_sisyphus" ] \
+    && pass 'Sisyphus has the expected Kimi-to-GPT fallback chain' \
+    || fail 'Sisyphus fallback chain is missing or out of order'
+  unexpected="$(jq -r '[
+    (."[opencode]".agents | to_entries[] | select(.key != "sisyphus") | .value.model?),
+    (."[opencode]".categories | to_entries[] | .value.model?)
+  ] | .[] | select(startswith("openai/gpt-") | not)' "$omo_config" 2>/dev/null || true)"
+  [ -z "$unexpected" ] \
+    && pass 'Orchestrated OMO agents and categories remain GPT-only' \
+    || fail 'A non-Sisyphus OMO route uses a non-GPT model'
 else
   fail 'OMO configuration is missing'
 fi
