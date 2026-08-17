@@ -43,7 +43,7 @@ chmod 600 "$runtime_override"
 
 runtime_config="$runtime_dir/devcontainer.json"
 jq --arg base "$workspace_dir/.devcontainer" --arg override "$runtime_override" \
-  '.dockerComposeFile = [($base + "/compose.yaml"), ($base + "/compose.devcontainer.yaml"), ($base + "/mcp/compose.yaml"), $override]' \
+  '.dockerComposeFile = [($base + "/compose.yaml"), ($base + "/mcp/compose.yaml"), $override]' \
   "$workspace_dir/.devcontainer/devcontainer.json" > "$runtime_config"
 
 export COMPOSE_PROJECT_NAME="$name"

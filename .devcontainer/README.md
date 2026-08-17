@@ -8,8 +8,7 @@ service is the container opened by Dev Containers and Orca; `searxng` and
 
 Open the repository in a Dev Containers client. `devcontainer.json` merges:
 
-- `compose.yaml` — the workspace service and service dependencies;
-- `compose.devcontainer.yaml` — the local source mount;
+- `compose.yaml` — the workspace service, local mounts, and shared secrets;
 - `mcp/compose.yaml` — SearXNG and Crawl4AI.
 
 `initializeCommand` runs `prepare-compose.sh` before Compose. It renders the
