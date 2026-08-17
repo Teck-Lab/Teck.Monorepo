@@ -176,11 +176,10 @@ tools/orca-feature integrate --issue 121
 ```
 
 The helper requires clean parent/worker trees, satisfied dependencies, and
-worker commits. It squash-applies the worker result, then uses the GitHub App
-to create one verified remote commit with the exact resulting Git tree. It
-serializes promotion by requiring the remote feature head to match the local
-parent. If Git reports a conflict, resolve or abort it in the parent checkout;
-the helper does not mark the issue integrated after a failed promotion.
+worker commits. It squash-applies the worker result and creates one
+conventional local commit with the exact resulting Git tree. If Git reports a
+conflict, resolve or abort it in the parent checkout;
+the helper does not mark the issue integrated after a failed integration.
 
 After validation, use GitHub MCP to comment with the integrated commit and
 close the sub-issue. Once `worker_done` has been accepted, stop its exact tmux

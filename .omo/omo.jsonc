@@ -3,7 +3,7 @@
   "[opencode]": {
     "agents": {
       "sisyphus": {
-        "prompt_append": "When this is an ordinary manually opened Orca worktree without an injected orchestration Dispatch, you own implementation, validation, meaningful conventional local commits, and publication. Read and follow .agents/skills/teck-direct-worktree-flow/SKILL.md. Treat explicit requests to fix this branch or fix/update this PR as authorization to commit and publish the completed fix. Local commit signing is intentionally disabled: create unsigned checkpoint commits and never treat that as a blocker. Never use ordinary git push; publish with tools/github-app-publish so GitHub receives equivalent App-authored verified commits. Do not send worker_done or invoke the orchestrated feature flow unless an Orca Dispatch explicitly requires it. Preserve unrelated existing changes and never merge a PR or create tags.",
+        "prompt_append": "When this is an ordinary manually opened Orca worktree without an injected orchestration Dispatch, you own implementation, validation, meaningful conventional local commits, and publication. Read and follow .agents/skills/teck-direct-worktree-flow/SKILL.md. Treat explicit requests to fix this branch or fix/update this PR as authorization to commit and publish the completed fix. Local commit signing is intentionally disabled: create unsigned checkpoint commits and never treat that as a blocker. Use the authenticated GitHub CLI for publication; never force-push. Do not send worker_done or invoke the orchestrated feature flow unless an Orca Dispatch explicitly requires it. Preserve unrelated existing changes and never merge a PR or create tags.",
         "permission": {
           "bash": {
             "*": "allow",
@@ -11,7 +11,7 @@
             "git merge*": "deny",
             "git rebase*": "deny",
             "git worktree*": "deny",
-            "teck-git-with-github-app*": "deny"
+            "git push --force*": "deny"
           }
         }
       },
@@ -22,7 +22,7 @@
         }
       },
       "atlas": {
-        "prompt_append": "You are the primary executor for one Orca Dispatch. Work only in the assigned worktree and branch from the injected task. You may delegate bounded implementation, exploration, research, testing, and review through OMO, but nested agents never own Git, GitHub, or Orca lifecycle state. Review all delegated output, run relevant validation, create unsigned conventional local checkpoint commits yourself, then send worker_done exactly once using the injected Orca preamble. Never push, merge, create worktrees, mutate GitHub issues, or infer completion from terminal or tmux state. The coordinator later replaces checkpoint objects with GitHub App-authored verified commits during integration.",
+        "prompt_append": "You are the primary executor for one Orca Dispatch. Work only in the assigned worktree and branch from the injected task. You may delegate bounded implementation, exploration, research, testing, and review through OMO, but nested agents never own Git, GitHub, or Orca lifecycle state. Review all delegated output, run relevant validation, create unsigned conventional local checkpoint commits yourself, then send worker_done exactly once using the injected Orca preamble. Never push, merge, create worktrees, mutate GitHub issues, or infer completion from terminal or tmux state. The coordinator later squash-integrates checkpoint commits into the parent branch.",
         "permission": {
           "github_*": "deny",
           "bash": {
@@ -31,12 +31,12 @@
             "git merge*": "deny",
             "git rebase*": "deny",
             "git worktree*": "deny",
-            "teck-git-with-github-app*": "deny"
+            "git push --force*": "deny"
           }
         }
       },
       "hephaestus": {
-        "prompt_append": "You are the primary autonomous executor for one explicitly deep, spike, or escalated Orca Dispatch. Stay inside the assigned worktree and branch. Do not create worktrees, push, merge, mutate GitHub, or delegate Orca lifecycle authority. For implementation outcomes, validate and create unsigned conventional local checkpoint commits yourself. Send worker_done exactly once through the injected Orca preamble; use question or escalation when the bounded goal cannot be completed safely. The coordinator later replaces checkpoint objects with GitHub App-authored verified commits during integration.",
+        "prompt_append": "You are the primary autonomous executor for one explicitly deep, spike, or escalated Orca Dispatch. Stay inside the assigned worktree and branch. Do not create worktrees, push, merge, mutate GitHub, or delegate Orca lifecycle authority. For implementation outcomes, validate and create unsigned conventional local checkpoint commits yourself. Send worker_done exactly once through the injected Orca preamble; use question or escalation when the bounded goal cannot be completed safely. The coordinator later squash-integrates checkpoint commits into the parent branch.",
         "permission": {
           "github_*": "deny",
           "bash": {
@@ -45,7 +45,7 @@
             "git merge*": "deny",
             "git rebase*": "deny",
             "git worktree*": "deny",
-            "teck-git-with-github-app*": "deny"
+            "git push --force*": "deny"
           }
         }
       },
@@ -63,7 +63,7 @@
             "orca*": "deny",
             "orca-ide*": "deny",
             "orca-dev*": "deny",
-            "teck-git-with-github-app*": "deny"
+            "git push --force*": "deny"
           }
         }
       },

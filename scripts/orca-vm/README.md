@@ -20,14 +20,11 @@ Update the distribution or checkout path there if either changes.
 
 ## One-time setup
 
-1. Put the Proton Pass CLI PAT at
-   `~/.config/teck-orca/proton-pass.pat` with mode `0600`.
-2. Keep the existing gitignored Proton references in
-   `.devcontainer/github-app/proton-pass.env` and MCP references in
+1. Keep the existing gitignored MCP references in
    `.devcontainer/mcp/mcp.env`.
-3. Sign in to Codex and OpenCode once in WSL so their existing auth files can
+2. Sign in to GitHub CLI, Codex, and OpenCode once in WSL so their existing auth files can
    be mounted into each Dev Container.
-4. Validate the recipe statically with
+3. Validate the recipe statically with
    `orca-ide vm recipe doctor local-devcontainer --repo-path . --json`.
 
 For a live validation, add `--provision`; this creates and destroys a real

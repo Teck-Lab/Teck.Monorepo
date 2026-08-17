@@ -2,8 +2,6 @@ services:
   workspace:
     volumes:
       - ..:/workspaces/Teck.Monorepo:cached
-      - ${TECK_PROTON_PAT_FILE:-${HOME}/.config/teck-orca/proton-pass.pat}:/run/bootstrap/proton-pass.pat:ro
-      - ${TECK_PROTON_REFS_FILE:-./github-app/proton-pass.env}:/run/bootstrap/proton-pass.env:ro
       - ${TECK_MCP_ENV_FILE:-./mcp/mcp.env}:/run/secrets/teck-mcp/mcp.env:ro
     tmpfs:
       - /run/secrets/teck-runtime

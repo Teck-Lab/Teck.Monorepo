@@ -15,8 +15,6 @@ trap cleanup_on_error EXIT
 
 [ -s "$orca_codex_auth_file" ] || { echo "Codex credential file missing: $orca_codex_auth_file" >&2; exit 1; }
 [ -s "$orca_opencode_auth_file" ] || { echo "OpenCode credential file missing: $orca_opencode_auth_file" >&2; exit 1; }
-[ -s "$orca_proton_config" ] || { echo "Proton reference file missing: $orca_proton_config" >&2; exit 1; }
-[ -s "$orca_proton_pat_file" ] || { echo "Proton PAT missing: $orca_proton_pat_file" >&2; exit 1; }
 ensure_key
 identity_file="$(wslpath -w "$orca_key_file")"
 
@@ -40,7 +38,7 @@ runtime_override="$runtime_dir/compose.runtime.json"
 jq -n --arg runtimeDir "$runtime_dir" --arg sshKey "$(<"$orca_key_file.pub")" --arg sshPort "$ssh_port" \
   '{services:{workspace:{restart:"unless-stopped",entrypoint:["/usr/local/share/docker-init.sh","/usr/local/bin/orca-docker-ssh-entrypoint"],
       ports:[("0.0.0.0:"+$sshPort+":22")],labels:{"teck.orca.runtime-state-dir":$runtimeDir},
-      environment:{ORCA_SSH_PUBLIC_KEY:$sshKey,TECK_SKIP_PROTON_BOOTSTRAP:"0"}}}}' > "$runtime_override"
+      environment:{ORCA_SSH_PUBLIC_KEY:$sshKey}}}}' > "$runtime_override"
 chmod 600 "$runtime_override"
 
 runtime_config="$runtime_dir/devcontainer.json"
@@ -49,8 +47,6 @@ jq --arg base "$workspace_dir/.devcontainer" --arg override "$runtime_override" 
   "$workspace_dir/.devcontainer/devcontainer.json" > "$runtime_config"
 
 export COMPOSE_PROJECT_NAME="$name"
-export TECK_PROTON_PAT_FILE="$orca_proton_pat_file"
-export TECK_PROTON_REFS_FILE="$orca_proton_config"
 export TECK_MCP_ENV_FILE="$orca_repo_root/.devcontainer/mcp/mcp.env"
 up_result="$(npx --yes @devcontainers/cli@0.88.0 up --workspace-folder "$workspace_dir" --config "$runtime_config")"
 container_id="$(jq -er '.containerId' <<<"$up_result")"

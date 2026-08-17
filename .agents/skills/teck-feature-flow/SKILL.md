@@ -1,6 +1,6 @@
 ---
 name: teck-feature-flow
-description: Coordinate a Teck feature from a GitHub parent issue and sub-issues using one Orca feature environment, native Orca child worktrees, supervised orchestration Tasks, visible tmux-hosted OMO/OpenCode workers, GitHub App-authored conventional commits, local integration, and one final reviewed PR. Use when planning or decomposing parent work, dispatching dependency-aware sub-issues, supervising OMO workers, integrating child branches, or preparing the feature PR.
+description: Coordinate a Teck feature from a GitHub parent issue and sub-issues using one Orca feature environment, native Orca child worktrees, supervised orchestration Tasks, visible tmux-hosted OMO/OpenCode workers, conventional commits, local integration, and one final reviewed PR. Use when planning or decomposing parent work, dispatching dependency-aware sub-issues, supervising OMO workers, integrating child branches, or preparing the feature PR.
 ---
 
 # Teck feature flow
@@ -13,7 +13,7 @@ Use three separate state owners:
 
 - GitHub MCP: durable parent/sub-issues, comments, PR, reviewers, and checks.
 - Native Orca worktrees: child checkout, branch, terminal, and UI lineage.
-- `tools/orca-feature`: parent integration bookkeeping and App promotion.
+- `tools/orca-feature`: parent integration bookkeeping and local squash commits.
 - Orca orchestration: live Run, Tasks, dependencies, Dispatches, questions, and completion.
 
 Read [references/workflow.md](references/workflow.md) before starting or
@@ -37,8 +37,8 @@ resolved Orca CLI before running orchestration commands.
   messages; the primary worker owns those responsibilities.
 - Let the coordinator alone merge into and push the parent feature branch.
 - Workers may create unsigned conventional checkpoint commits locally. Never
-  push a worker branch. The coordinator promotes each completed sub-feature as
-  one GitHub App-authored, verified commit on the remote parent branch.
+  push a worker branch. The coordinator integrates each completed sub-feature
+  as one conventional commit and alone pushes the parent branch.
 - Treat plan-review defects as parent sub-issues with `kind=plan-defect`.
 - Represent execution dependencies in Orca Tasks and `tools/orca-feature`.
   Add a durable `Blocked by #...` issue comment when GitHub MCP lacks a

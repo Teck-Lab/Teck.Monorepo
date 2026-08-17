@@ -5,7 +5,7 @@
       "sisyphus": {
         "model": "openai/gpt-5.6-sol",
         "reasoning": "medium",
-        "prompt_append": "When this is an ordinary manually opened Orca worktree without an injected orchestration Dispatch, you own implementation, validation, meaningful conventional local commits, and publication. Read and follow .agents/skills/teck-direct-worktree-flow/SKILL.md. Treat explicit requests to fix this branch or fix/update this PR as authorization to commit and publish the completed fix. Local commit signing is intentionally disabled: create unsigned checkpoint commits and never treat that as a blocker. Never use ordinary git push; publish with tools/github-app-publish so GitHub receives equivalent App-authored verified commits. Do not send worker_done or invoke the orchestrated feature flow unless an Orca Dispatch explicitly requires it. Preserve unrelated existing changes and never merge a PR or create tags.",
+        "prompt_append": "When this is an ordinary manually opened Orca worktree without an injected orchestration Dispatch, you own implementation, validation, meaningful conventional local commits, and publication. Read and follow .agents/skills/teck-direct-worktree-flow/SKILL.md. Treat explicit requests to fix this branch or fix/update this PR as authorization to commit and publish the completed fix. Local commit signing is intentionally disabled: create unsigned checkpoint commits and never treat that as a blocker. Use the authenticated GitHub CLI for publication; never force-push. Do not send worker_done or invoke the orchestrated feature flow unless an Orca Dispatch explicitly requires it. Preserve unrelated existing changes and never merge a PR or create tags.",
         "permission": {
           "bash": {
             "*": "allow",
@@ -13,7 +13,7 @@
             "git merge*": "deny",
             "git rebase*": "deny",
             "git worktree*": "deny",
-            "teck-git-with-github-app*": "deny"
+            "git push --force*": "deny"
           }
         }
       },

@@ -132,14 +132,11 @@ cp .devcontainer/opencode/omo.jsonc "$HOME/.omo/omo.jsonc" || echo "WARN: could 
 # memory web UI on :4747. The plugin itself auto-installs via opencode.json.
 cp .devcontainer/opencode/opencode-mem.jsonc "$HOME/.config/opencode/opencode-mem.jsonc" || echo "WARN: could not seed opencode-mem config (continuing)"
 
-echo "==> Configuring Git identity and GitHub App transport"
-# Worker checkpoints remain local and unsigned. tools/orca-feature promotes a
-# completed worktree as a GitHub-signed App commit, preserving the documented
-# trust boundary without mounting a personal signing key into workers.
-git config --local user.name 'Teck Agent'
+echo "==> Configuring Git identity and GitHub CLI transport"
+git config --local user.name 'CptPowerTurtle'
 git config --local user.email 'jl@tecklab.dk'
 git config --local commit.gpgsign false
-git config --local credential.https://github.com.helper teck-github-app
+git config --local credential.https://github.com.helper '!gh auth git-credential'
 
 echo "==> Enabling OpenCode background subagents"
 # Full OMO can use visible background panes. teck-omo-worker also exports this
@@ -152,7 +149,7 @@ fi
 SECRET_ENV_MARKER='# Load read-only Teck runtime secrets without printing them.'
 if ! grep -qxF "$SECRET_ENV_MARKER" "$HOME/.bashrc" 2>/dev/null; then
   printf '\n%s\n%s\n' "$SECRET_ENV_MARKER" \
-    'for teck_env in /run/secrets/teck-ai/providers.env /run/secrets/teck-mcp/mcp.env; do if [ -s "$teck_env" ]; then set -a; source "$teck_env"; set +a; fi; done; unset teck_env' \
+    'for teck_env in /run/secrets/teck-mcp/mcp.env; do if [ -s "$teck_env" ]; then set -a; source "$teck_env"; set +a; fi; done; unset teck_env' \
     >> "$HOME/.bashrc"
 fi
 

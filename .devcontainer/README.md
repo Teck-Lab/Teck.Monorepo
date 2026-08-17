@@ -13,9 +13,7 @@ Open the repository in a Dev Containers client. `devcontainer.json` merges:
 - `mcp/compose.yaml` — SearXNG and Crawl4AI.
 
 `initializeCommand` runs `prepare-compose.sh` before Compose. It renders the
-gitignored SearXNG settings and generates the Crawl4AI token. The workspace
-entrypoint obtains direct AI provider credentials from Proton Pass at every
-container start.
+gitignored SearXNG settings and generates the Crawl4AI token.
 
 Orca's `local-devcontainer` recipe launches the same Compose topology with a
 per-workspace override for the isolated repository, random SSH port, persistent
@@ -23,22 +21,9 @@ agent auth volumes, and tmpfs-backed secrets.
 
 ## AI routing
 
-There is no local model gateway. OpenCode registers each upstream directly:
-
-- `opencode-go-a` and `opencode-go-b` for the two Go subscriptions;
-- `opencode-zen` for free Zen routes;
-- `nvidia`, `deepseek`, and `openrouter` for their direct APIs;
-- `openai` for the GPT fallback and primary planning/execution agents.
-
-Full OMO currently defaults every agent and category to GPT. Luna handles quick
-lookup work, Terra handles standard work, and Sol handles deep planning and
-implementation. The other providers remain registered for future routing.
-
-Provider secrets come from per-workspace tmpfs files created through Proton
-Pass. They are deliberately not Compose `env_file` values, because rendered
-Compose diagnostics would otherwise print every credential. The Proton PAT is
-mounted read-only; resolved values exist only in the container's tmpfs and are
-recreated automatically after a restart.
+Full OMO defaults every agent and category to GPT through the mounted OpenCode
+and OpenAI subscription authentication. Luna handles quick lookup work, Terra
+handles standard work, and Sol handles deep planning and implementation.
 
 Codex uses the OpenAI authentication mounted from WSL2 and does not require a
 provider-key file or an in-container login.
@@ -57,8 +42,8 @@ use `teck-runtime-doctor` when service readiness matters; Compose continues to
 health-check both backends independently.
 
 Run `teck-runtime-doctor` inside a workspace to verify agent authentication,
-GitHub App access, Git identity and transport, GPT-only OMO routing, research
-services, the promotion signing policy, and tmux attachment without printing
+GitHub CLI access, Git identity and transport, GPT-only OMO routing, research
+services, the publication policy, and tmux attachment without printing
 credentials.
 
 ## Worker flow
@@ -73,12 +58,9 @@ worker owns Git and Orca lifecycle messages.
 
 - OpenCode and Codex auth files are mounted read-only from WSL2.
 - Their writable state lives in named Docker volumes.
-- GitHub MCP uses the repository GitHub App files mounted at
-  `/run/secrets/teck-github`.
-- Provider keys and GitHub App credentials are loaded from Proton Pass and are
-  never baked into the image.
-- Completed worker trees are promoted by the GitHub App flow; they are not
-  pushed directly.
+- GitHub MCP and Git use the GitHub CLI session mounted from WSL2.
+- Workers never push child branches; the coordinator pushes the integrated
+  parent feature branch.
 
 ## Docker and tests
 

@@ -433,30 +433,13 @@ function integrate(options: ParsedOptions): void {
 
   requireWorkerCommits(root, state.parentBranch, entry.branch);
   const message = option(options, "--message") ?? `feat(${state.parentSlug}): integrate #${issue} ${entry.slug}`;
-  const parent = git(["rev-parse", "HEAD"], state.parentRoot).stdout.trim();
   const merge = git(["merge", "--squash", entry.branch], state.parentRoot, false);
   if (merge.exitCode !== 0) {
     throw new FlowError(`merge stopped before integration completed; resolve or abort it in the parent checkout:\n${merge.stderr.trim() || merge.stdout.trim()}`);
   }
-  const tree = git(["write-tree"], state.parentRoot).stdout.trim();
-  const promotionTool = process.env.TECK_GITHUB_PROMOTE_COMMAND ?? join(root, "tools/github-app-promote");
-  const promote = run([
-    promotionTool,
-    "--repo", process.env.TECK_GITHUB_PROMOTE_COMMAND ? "Teck-Lab/test-fixture" : githubRepository(root),
-    "--branch", state.parentBranch,
-    "--parent", parent,
-    "--tree", tree,
-    "--message", message,
-  ], state.parentRoot, false);
-  if (promote.exitCode !== 0) {
-    git(["reset", "--hard", parent], state.parentRoot);
-    throw new FlowError(`GitHub App promotion failed; local squash was discarded:\n${promote.stderr.trim() || promote.stdout.trim()}`);
-  }
-  const promoted = JSON.parse(promote.stdout) as { sha: string; verified: boolean };
-  git(["fetch", "origin", `${state.parentBranch}:refs/remotes/origin/${state.parentBranch}`], state.parentRoot);
-  git(["reset", "--hard", promoted.sha], state.parentRoot);
+  git(["commit", "-m", message], state.parentRoot);
   entry.status = "integrated";
-  entry.integratedCommit = promoted.sha;
+  entry.integratedCommit = git(["rev-parse", "HEAD"], state.parentRoot).stdout.trim();
   saveState(root, state);
   console.log(`Integrated #${issue} as ${entry.integratedCommit}`);
 }
@@ -471,7 +454,7 @@ function removeWorktree(options: ParsedOptions): void {
     throw new FlowError(`Orca still owns the child checkout: ${entry.path}; release its Dispatch and remove it with 'orca worktree rm' first`);
   }
   if (!entry.integratedCommit || git(["merge-base", "--is-ancestor", entry.integratedCommit, state.parentBranch], root, false).exitCode !== 0) {
-    throw new FlowError(`refusing to remove #${issue}: promoted commit is not contained in ${state.parentBranch}`);
+    throw new FlowError(`refusing to remove #${issue}: integrated commit is not contained in ${state.parentBranch}`);
   }
   entry.status = "removed";
   saveState(root, state);

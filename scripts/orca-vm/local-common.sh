@@ -16,8 +16,6 @@ orca_windows_profile="$(/mnt/c/Windows/System32/cmd.exe /d /c 'echo %USERPROFILE
 orca_key_file="${ORCA_SSH_KEY_FILE:-$(wslpath -u "$orca_windows_profile")/.ssh/orca-teck-local-ed25519}"
 orca_codex_auth_file="${ORCA_CODEX_AUTH_FILE:-$HOME/.codex/auth.json}"
 orca_opencode_auth_file="${ORCA_OPENCODE_AUTH_FILE:-$HOME/.local/share/opencode/auth.json}"
-orca_proton_config="${ORCA_PROTON_CONFIG:-$orca_repo_root/.devcontainer/github-app/proton-pass.env}"
-orca_proton_pat_file="${PROTON_PASS_PERSONAL_ACCESS_TOKEN_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/teck-orca/proton-pass.pat}"
 orca_project_root="/workspaces/Teck.Monorepo"
 
 ensure_key() {
