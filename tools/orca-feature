@@ -14,6 +14,7 @@ interface WorktreeEntry {
   kind: Kind;
   branch: string;
   path: string;
+  orcaWorktreeId?: string;
   dependsOn: number[];
   executionMode: ExecutionMode;
   status: WorkStatus;
@@ -64,6 +65,10 @@ function git(args: string[], cwd?: string, check = true): CommandResult {
 
 function repositoryRoot(): string {
   return resolve(git(["rev-parse", "--show-toplevel"]).stdout.trim());
+}
+
+function repositoryRootAt(path: string): string {
+  return resolve(git(["rev-parse", "--show-toplevel"], path).stdout.trim());
 }
 
 function commonGitDirectory(root: string): string {
@@ -266,7 +271,7 @@ function initialize(options: ParsedOptions): void {
   console.log(options.flags.has("--json") ? JSON.stringify(state, null, 2) : `Initialized #${issue} on ${featureBranch}`);
 }
 
-function addWorktree(options: ParsedOptions): void {
+function registerWorktree(options: ParsedOptions): void {
   const root = repositoryRoot();
   const state = loadState(root);
   const issue = integerOption(options, "--issue");
@@ -275,10 +280,14 @@ function addWorktree(options: ParsedOptions): void {
 
   const title = option(options, "--title") ?? "";
   const slug = slugify(option(options, "--slug") ?? (title || String(issue)));
-  const branch = option(options, "--branch") ?? `subfeature/${state.parentIssue}/${issue}-${slug}`;
-  const path = join(state.worktreeRoot, `${issue}-${slug}`);
-  if (existsSync(path)) throw new FlowError(`worktree path already exists: ${path}`);
-  if (branchExists(root, branch)) throw new FlowError(`branch already exists: ${branch}`);
+  const path = resolve(requiredOption(options, "--path"));
+  const branch = requiredOption(options, "--branch");
+  const orcaWorktreeId = requiredOption(options, "--worktree-id");
+  if (!existsSync(path)) throw new FlowError(`Orca worktree path does not exist: ${path}`);
+  const registeredRoot = repositoryRootAt(path);
+  if (registeredRoot !== path) throw new FlowError(`registered path is not a Git worktree root: ${path}`);
+  if (currentBranch(path) !== branch) throw new FlowError(`registered path is not on branch ${branch}: ${path}`);
+  if (branch === state.parentBranch) throw new FlowError("child worktree must not use the parent feature branch");
 
   const dependencies = [...new Set(repeatedIntegers(options, "--depends-on"))].sort((a, b) => a - b);
   const known = new Set(state.worktrees.map((item) => item.issue));
@@ -289,8 +298,6 @@ function addWorktree(options: ParsedOptions): void {
   if (!["feature", "plan-defect", "validation"].includes(rawKind)) throw new FlowError(`unsupported --kind: ${rawKind}`);
   const kind = rawKind as Kind;
   const mode = executionMode(option(options, "--mode"), kind === "validation" ? "quick" : "planned");
-  mkdirSync(dirname(path), { recursive: true });
-  git(["worktree", "add", "-b", branch, path, state.parentBranch], root);
   const entry: WorktreeEntry = {
     issue,
     title,
@@ -298,6 +305,7 @@ function addWorktree(options: ParsedOptions): void {
     kind,
     branch,
     path,
+    orcaWorktreeId,
     dependsOn: dependencies,
     executionMode: mode,
     status: "ready",
@@ -305,7 +313,7 @@ function addWorktree(options: ParsedOptions): void {
   state.worktrees.push(entry);
   state.worktrees.sort((a, b) => a.issue - b.issue);
   saveState(root, state);
-  console.log(options.flags.has("--json") ? JSON.stringify(entry, null, 2) : `Created #${issue}: ${path} (${branch})`);
+  console.log(options.flags.has("--json") ? JSON.stringify(entry, null, 2) : `Registered #${issue}: ${path} (${branch})`);
 }
 
 function showStatus(options: ParsedOptions): void {
@@ -425,30 +433,13 @@ function integrate(options: ParsedOptions): void {
 
   requireWorkerCommits(root, state.parentBranch, entry.branch);
   const message = option(options, "--message") ?? `feat(${state.parentSlug}): integrate #${issue} ${entry.slug}`;
-  const parent = git(["rev-parse", "HEAD"], state.parentRoot).stdout.trim();
   const merge = git(["merge", "--squash", entry.branch], state.parentRoot, false);
   if (merge.exitCode !== 0) {
     throw new FlowError(`merge stopped before integration completed; resolve or abort it in the parent checkout:\n${merge.stderr.trim() || merge.stdout.trim()}`);
   }
-  const tree = git(["write-tree"], state.parentRoot).stdout.trim();
-  const promotionTool = process.env.TECK_GITHUB_PROMOTE_COMMAND ?? join(root, "tools/github-app-promote");
-  const promote = run([
-    promotionTool,
-    "--repo", process.env.TECK_GITHUB_PROMOTE_COMMAND ? "Teck-Lab/test-fixture" : githubRepository(root),
-    "--branch", state.parentBranch,
-    "--parent", parent,
-    "--tree", tree,
-    "--message", message,
-  ], state.parentRoot, false);
-  if (promote.exitCode !== 0) {
-    git(["reset", "--hard", parent], state.parentRoot);
-    throw new FlowError(`GitHub App promotion failed; local squash was discarded:\n${promote.stderr.trim() || promote.stdout.trim()}`);
-  }
-  const promoted = JSON.parse(promote.stdout) as { sha: string; verified: boolean };
-  git(["fetch", "origin", `${state.parentBranch}:refs/remotes/origin/${state.parentBranch}`], state.parentRoot);
-  git(["reset", "--hard", promoted.sha], state.parentRoot);
+  git(["commit", "-m", message], state.parentRoot);
   entry.status = "integrated";
-  entry.integratedCommit = promoted.sha;
+  entry.integratedCommit = git(["rev-parse", "HEAD"], state.parentRoot).stdout.trim();
   saveState(root, state);
   console.log(`Integrated #${issue} as ${entry.integratedCommit}`);
 }
@@ -459,12 +450,12 @@ function removeWorktree(options: ParsedOptions): void {
   const issue = integerOption(options, "--issue");
   const entry = entryFor(state, issue);
   if (entry.status !== "integrated") throw new FlowError(`refusing to remove #${issue}: status is ${entry.status}, not integrated`);
-  if (existsSync(entry.path)) requireClean(entry.path, `sub-issue #${issue} worktree`);
-  if (!entry.integratedCommit || git(["merge-base", "--is-ancestor", entry.integratedCommit, state.parentBranch], root, false).exitCode !== 0) {
-    throw new FlowError(`refusing to remove #${issue}: promoted commit is not contained in ${state.parentBranch}`);
+  if (existsSync(entry.path)) {
+    throw new FlowError(`Orca still owns the child checkout: ${entry.path}; release its Dispatch and remove it with 'orca worktree rm' first`);
   }
-  stopWorkerSession(state, entry);
-  if (existsSync(entry.path)) git(["worktree", "remove", entry.path], root);
+  if (!entry.integratedCommit || git(["merge-base", "--is-ancestor", entry.integratedCommit, state.parentBranch], root, false).exitCode !== 0) {
+    throw new FlowError(`refusing to remove #${issue}: integrated commit is not contained in ${state.parentBranch}`);
+  }
   entry.status = "removed";
   saveState(root, state);
   console.log(`Removed worktree for #${issue}; branch retained: ${entry.branch}`);
@@ -497,14 +488,14 @@ const help = `usage: tools/orca-feature <command> [options]
 
 commands:
   init           adopt or create the parent feature branch
-  add            create an internal worktree for a sub-issue
+  register       register an existing native Orca child worktree
   status         show parent and worktree integration state
   dispatch-info  emit an Orca task/terminal payload
-  sync           fast-forward undispatched dependent work to the parent
+  sync           fast-forward an undispatched child to the parent
   set-status     record worker lifecycle state
   stop           stop the sub-issue's tmux worker session
   integrate      merge a completed sub-feature into the parent
-  remove         remove an integrated worktree without deleting its branch
+  remove         record a native child already removed through Orca
   pr-info        emit final PR readiness and branch information`;
 
 function main(): void {
@@ -516,7 +507,7 @@ function main(): void {
   const options = parseOptions(rawOptions);
   switch (command) {
     case "init": initialize(options); break;
-    case "add": addWorktree(options); break;
+    case "register": registerWorktree(options); break;
     case "status": showStatus(options); break;
     case "dispatch-info": dispatchInfo(options); break;
     case "sync": syncWorktree(options); break;

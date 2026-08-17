@@ -1,6 +1,6 @@
 ---
 name: teck-direct-worktree-flow
-description: Complete and publish work performed directly in an ordinary Orca worktree without an orchestration Run. Use when Sisyphus is handling a manually assigned branch, issue, Dependabot PR, CI repair, or one-off change and must validate, create local commits, publish through the GitHub App, or update an existing PR. Do not use for sub-issues dispatched through the orchestrated teck-feature-flow.
+description: Complete and publish work performed directly in an ordinary Orca worktree without an orchestration Run. Use when Sisyphus is handling a manually assigned branch, issue, Dependabot PR, CI repair, or one-off change and must validate, create local commits, push through the authenticated GitHub CLI, or update an existing PR. Do not use for sub-issues dispatched through the orchestrated teck-feature-flow.
 ---
 
 # Teck direct worktree flow
@@ -21,31 +21,24 @@ received an orchestration Dispatch.
 git -c commit.gpgsign=false commit -m "fix(scope): concise description"
 ```
 
-Do not commit unrelated files. Do not use ordinary `git push`, force-push,
-merge a PR, create tags, or run `nx release`.
+Do not commit unrelated files. Never force-push, merge a PR, create tags, or
+run `nx release`.
 
 ## Publish
 
 Treat “fix this branch,” “fix/update this PR,” and equivalent explicit branch
 or PR repair requests as authorization to commit and publish the completed fix.
 Also publish when the user asks to commit and push, publish, or finalize.
-Otherwise keep changes local. Require a clean worktree, then preview and
-publish:
+Otherwise keep changes local. Require a clean worktree, fetch the remote, and
+publish without force:
 
 ```bash
-tools/github-app-publish --dry-run
-tools/github-app-publish
+git fetch origin
+git push --set-upstream origin HEAD
 ```
 
-The publisher preserves each local commit boundary and message while replacing
-the unsigned local objects with GitHub App-authored verified commits. It
-refuses dirty worktrees, non-conventional commits, detached HEAD, remote
-divergence, and unverified results. After success it resets the local branch to
-the verified remote head; the existing PR updates automatically.
-
-If publication fails, do not use `git push` as a fallback. Fetch and inspect the
-remote branch, reconcile deliberately, rerun validation when the tree changes,
-and retry the publisher.
+If publication fails, fetch and inspect the remote branch, reconcile
+deliberately, rerun validation when the tree changes, and retry. Never force.
 
 ## Report
 

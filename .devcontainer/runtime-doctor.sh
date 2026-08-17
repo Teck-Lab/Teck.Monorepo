@@ -8,7 +8,7 @@ pass() { printf 'PASS  %s\n' "$1"; }
 fail() { printf 'FAIL  %s\n' "$1"; failures=$((failures + 1)); }
 warn() { printf 'WARN  %s\n' "$1"; warnings=$((warnings + 1)); }
 
-for env_file in /run/secrets/teck-ai/providers.env /run/secrets/teck-mcp/mcp.env; do
+for env_file in /run/secrets/teck-mcp/mcp.env; do
   if [ -s "$env_file" ]; then
     set -a
     # shellcheck disable=SC1090
@@ -42,39 +42,22 @@ fi
   && pass 'OpenCode authentication is mounted' \
   || fail 'OpenCode authentication is missing'
 
-if [ -s /run/secrets/teck-ai/providers.env ]; then
-  mode="$(stat -c '%a' /run/secrets/teck-ai/providers.env 2>/dev/null || true)"
-  if [ "$mode" = 400 ] || [ "$mode" = 440 ] || [ "$mode" = 600 ] || [ "$mode" = 640 ]; then
-    pass 'AI provider secret file has restricted permissions'
-  else
-    warn "AI provider secret file mode is ${mode:-unknown}"
-  fi
-else
-  warn 'AI provider secret file is not mounted (currently optional for GPT-only OMO)'
-fi
-
-if teck-github-app-token read >/dev/null 2>&1; then
-  pass 'GitHub App authentication works'
-else
-  fail 'GitHub App authentication failed'
-fi
-
 if gh auth status >/dev/null 2>&1; then
-  pass 'GitHub CLI authenticates through the GitHub App'
+  pass 'GitHub CLI authentication works'
 else
   fail 'GitHub CLI authentication failed'
 fi
 
-if [ "$(git config user.name 2>/dev/null || true)" = 'Teck Agent' ] \
+if [ "$(git config user.name 2>/dev/null || true)" = 'CptPowerTurtle' ] \
   && [ "$(git config user.email 2>/dev/null || true)" = 'jl@tecklab.dk' ]; then
   pass 'Git checkpoint identity is configured'
 else
   fail 'Git checkpoint identity is missing or incorrect'
 fi
 
-[ "$(git config credential.https://github.com.helper 2>/dev/null || true)" = teck-github-app ] \
-  && pass 'Git transport uses short-lived GitHub App credentials' \
-  || fail 'GitHub App credential helper is not configured'
+[ "$(git config credential.https://github.com.helper 2>/dev/null || true)" = '!gh auth git-credential' ] \
+  && pass 'Git transport uses GitHub CLI credentials' \
+  || fail 'GitHub CLI credential helper is not configured'
 
 omo_config="$HOME/.omo/omo.jsonc"
 if [ -s "$omo_config" ]; then
@@ -108,7 +91,7 @@ if [ "$(git config --bool commit.gpgsign 2>/dev/null || true)" = true ]; then
     warn 'Git requires signed commits but its configured private key is unavailable'
   fi
 else
-  pass 'Local checkpoint commits are unsigned; App promotion provides GitHub signing'
+  pass 'Local checkpoint commits are intentionally unsigned'
 fi
 
 if [ -n "${SSH_TTY:-}" ]; then

@@ -12,8 +12,7 @@ model_provider = "openai"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
 
-# Local stdio GitHub MCP authenticated as the repository-scoped GitHub App.
-# It is optional until .devcontainer/github-app/ has been populated locally.
+# Local stdio GitHub MCP authenticated through the mounted GitHub CLI session.
 [mcp_servers.github]
 command = "/usr/local/bin/teck-github-mcp"
 enabled = true

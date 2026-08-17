@@ -36,23 +36,16 @@ FROM mcr.microsoft.com/devcontainers/dotnet:2.1-10.0-noble
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
       build-essential \
+      openssh-server \
       python3 \
       python3-dev \
       tmux \
     && rm -rf /var/lib/apt/lists/*
 
-ARG PROTON_PASS_CLI_VERSION=2.2.5
-RUN arch="$(dpkg --print-architecture)" \
-    && case "$arch" in \
-         amd64) pass_arch="x86_64"; pass_sha="3971bfdb5649bc59634c2195e35259ea3f4b7889bba5a4f6698b6af50b27cf7f" ;; \
-         arm64) pass_arch="aarch64"; pass_sha="a8597eaf92631242a44c5b9b13b0fd0c0fc56b21a6c4f087b7d4c031651249b3" ;; \
-         *) echo "unsupported architecture for pass-cli: $arch" >&2; exit 1 ;; \
-       esac \
-    && curl -fsSL "https://proton.me/download/pass-cli/${PROTON_PASS_CLI_VERSION}/pass-cli-linux-${pass_arch}" -o /tmp/pass-cli \
-    && printf '%s  %s\n' "$pass_sha" /tmp/pass-cli | sha256sum -c - \
-    && install -m 0755 /tmp/pass-cli /usr/local/bin/pass-cli \
-    && rm -f /tmp/pass-cli \
-    && pass-cli --version
+RUN mkdir -p /run/sshd /home/vscode/.ssh \
+    && chmod 700 /home/vscode/.ssh \
+    && chown -R vscode:vscode /home/vscode/.ssh \
+    && ssh-keygen -A
 
 # snip — required by the `opencode-snip` OpenCode plugin, which prefixes shell
 # commands with `snip` to filter their output before it reaches the model
@@ -111,19 +104,12 @@ RUN arch="$(dpkg --print-architecture)" \
     && github-mcp-server --version
 
 COPY github-mcp.sh /usr/local/bin/teck-github-mcp
-COPY github-app-token.sh /usr/local/bin/teck-github-app-token
 COPY github-cli.sh /usr/local/bin/gh
-COPY git-credential-github-app.sh /usr/local/bin/git-credential-teck-github-app
-COPY git-with-github-app.sh /usr/local/bin/teck-git-with-github-app
 COPY omo-worker.sh /usr/local/bin/teck-omo-worker
 COPY workspace-entrypoint.sh /usr/local/bin/teck-workspace-entrypoint
 COPY runtime-doctor.sh /usr/local/bin/teck-runtime-doctor
-COPY proton-bootstrap.sh /usr/local/bin/teck-proton-bootstrap
-COPY materialize-proton-secrets.sh /usr/local/bin/teck-materialize-proton-secrets
-RUN chmod 0755 /usr/local/bin/teck-github-mcp \
-      /usr/local/bin/teck-github-app-token /usr/local/bin/gh \
-      /usr/local/bin/git-credential-teck-github-app \
-      /usr/local/bin/teck-git-with-github-app \
+COPY orca-ssh-entrypoint.sh /usr/local/bin/orca-docker-ssh-entrypoint
+RUN chmod 0755 /usr/local/bin/teck-github-mcp /usr/local/bin/gh \
       /usr/local/bin/teck-omo-worker /usr/local/bin/teck-workspace-entrypoint \
-      /usr/local/bin/teck-runtime-doctor /usr/local/bin/teck-proton-bootstrap \
-      /usr/local/bin/teck-materialize-proton-secrets
+      /usr/local/bin/teck-runtime-doctor \
+      /usr/local/bin/orca-docker-ssh-entrypoint

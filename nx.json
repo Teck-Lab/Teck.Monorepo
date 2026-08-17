@@ -21,7 +21,6 @@
     },
     {
       "plugin": "@nx/docker",
-      "exclude": ["scripts/orca-vm/Dockerfile"],
       "options": {
         "buildTarget": {
           "name": "docker:build",

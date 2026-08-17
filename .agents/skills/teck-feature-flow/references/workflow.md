@@ -2,9 +2,9 @@
 
 ## Contents
 
-- Establish the parent feature
-- Register sub-issues and plan defects
-- Create Orca Tasks and same-container workers
+- Establish and plan the parent feature
+- Reconcile sub-issues and the Task DAG
+- Create native child worktrees with visible OMO workers
 - Supervise completion
 - Integrate in dependency order
 - Prepare the final PR
@@ -34,75 +34,102 @@ tools/orca-feature init --issue 120 --slug billing-overhaul \
 ```
 
 Create or bind one Orca Run for the parent objective. Do not create one Run per
-sub-issue.
-
-## 2. Register sub-issues and plan defects
-
-Use GitHub MCP `issue_write` to create missing issues and `sub_issue_write` to
-attach them to the parent. Use `issue_read:get_sub_issues` to reconcile before
-creating anything; do not duplicate an existing sub-issue.
-
-Register each GitHub sub-issue locally:
+sub-issue:
 
 ```bash
-tools/orca-feature add --issue 121 --title "Tax system" --kind feature --json
-tools/orca-feature add --issue 122 --title "Rounding policy is undefined" \
-  --kind plan-defect --mode planned --depends-on 121 --json
+orca orchestration run-create --objective "Implement GitHub parent #120" --json
 ```
 
-Execution modes are durable local routing policy:
+## 2. Plan and reconcile executable children
 
-- `planned` (default): Prometheus plans and reviews; `/start-work` hands the
-  plan to Atlas for execution.
-- `quick`: the same Prometheus -> Atlas ownership path with an intentionally
-  compact plan and inexpensive `quick` delegation.
+When the parent is not already decomposed, create one planning Task and run it
+in a fresh OMO planner terminal in the parent feature worktree. The planner may
+read GitHub and the repository, but it must not mutate issues, Tasks, branches,
+worktrees, or code. After `worker_done`, the coordinator reviews its plan.
+
+Launch the planner visibly through the same tmux wrapper, using the parent issue
+as its bounded planning identity, then inject the planning Task:
+
+```bash
+orca orchestration task-create --spec "Plan-only decomposition for GitHub parent #120. Do not edit or invoke /start-work; return leaves, dependencies, acceptance criteria, validation, overlap risks, and plan defects through worker_done." --json
+orca terminal create --worktree active --title feature-120-plan \
+  --command "teck-omo-worker --worktree . --parent-issue 120 --issue 120 --slug feature-plan --mode planned" --json
+orca terminal wait --terminal <planner-handle> --for tui-idle --timeout-ms 60000 --json
+orca orchestration dispatch --task <planning-task-id> --to <planner-handle> --inject --json
+```
+
+The Task spec must explicitly require a plan-only `worker_done` and forbid
+`/start-work`; the coordinator, not Prometheus, materializes the approved leaves.
+
+Use GitHub MCP `issue_write` to create missing executable leaf issues and
+`sub_issue_write` to attach them to the parent. Re-read sub-issues before every
+mutation and never duplicate an existing child. Create one Orca Task per child;
+translate GitHub blockers to Task IDs in `--deps`. If GitHub cannot mutate a
+dependency, comment `Blocked by #121` on #122 while keeping Orca's DAG as the
+execution authority.
+
+Create implementation Tasks only after the approved GitHub children exist:
+
+```bash
+orca orchestration task-create --spec "Implement GitHub sub-issue #121 ..." --json
+orca orchestration task-create --spec "Implement GitHub sub-issue #122 ..." \
+  --deps '["<task-121-id>"]' --json
+```
+
+Use durable execution modes only for OMO routing:
+
+- `planned` (default): Prometheus plans/reviews the leaf, then Atlas executes.
+- `quick`: Prometheus produces a compact plan, then Atlas executes.
 - `autonomous`: Hephaestus owns a deep end-to-end implementation.
-- `spike`: Hephaestus performs a bounded investigation; production commits are
-  required only when the task explicitly requests them.
+- `spike`: Hephaestus performs a bounded investigation.
 
-Register dependencies only after the referenced worktree exists. If the active
-GitHub MCP version cannot mutate issue dependencies, comment `Blocked by #121`
-on #122; Orca and the helper remain the executable dependency authorities.
+## 3. Create native child worktrees with visible OMO workers
 
-## 3. Create Orca Tasks and same-container workers
-
-Fetch the local payload:
+Start only Tasks returned by `orca orchestration task-list --ready`. Create the
+native child first, explicitly parented to the active feature worktree:
 
 ```bash
+orca orchestration task-list --ready --json
+orca worktree create --name issue-121-tax-system \
+  --parent-worktree active --setup run --json
+```
+
+Read the returned full worktree ID, path, and branch. Register that existing
+checkout for integration bookkeeping; the helper must never create it:
+
+```bash
+tools/orca-feature register --issue 121 --title "Tax system" \
+  --path <worktree-path> --branch <branch> \
+  --worktree-id <full-worktree-id> --mode planned --json
 tools/orca-feature dispatch-info --issue 121
 ```
 
-Dispatch only when `ready=true`. If prerequisites are integrated but
-`needsSync=true`, fast-forward the still-undispatched branch and read the
-payload again:
+Use the `terminalCommand` returned by `dispatch-info` to start the dedicated
+tmux-hosted OMO worker in the child, then inject the Orca Dispatch:
 
 ```bash
-tools/orca-feature sync --issue 121
-tools/orca-feature dispatch-info --issue 121
-```
-
-`sync` refuses active/diverged work; never use it to rewrite a worker branch.
-
-Create an Orca Task using `taskSpec`. Translate `dependsOn` issue numbers to
-the corresponding Orca Task IDs and pass them as Task dependencies.
-
-`worker-start --worktree new-*` is wrong for this topology because it creates a
-separate Orca workspace/environment. Read `terminalCommand`, `taskSpec`,
-`primaryAgent`, and `tmuxSession` from `dispatch-info`; never reconstruct them.
-Create a terminal in the active workspace with the emitted command:
-
-```bash
-orca-ide terminal create --worktree active --title issue-121-tax \
-  --command "<terminalCommand from dispatch-info>" --json
-orca-ide terminal wait --terminal <handle> --for tui-idle --timeout-ms 60000 --json
-orca-ide orchestration dispatch --task <task_id> --to <handle> --inject --json
+orca terminal create --worktree id:<full-worktree-id> \
+  --title issue-121-tax --command "<terminalCommand>" --json
+orca terminal wait --terminal <agent-handle> --for tui-idle \
+  --timeout-ms 60000 --json
+orca orchestration dispatch --task <task-id> --to <agent-handle> --inject --json
 tools/orca-feature set-status --issue 121 --status dispatched
 ```
 
-The launcher creates or attaches one foreground tmux session per sub-issue,
-allocates a unique OpenCode server port, fixes the session working directory to
-the assigned Git worktree, and starts full OMO. Start all independent ready
-workers before waiting.
+This low-level composition is intentional: the standard `worker-start` cannot
+express the custom OMO agent/mode arguments, while `teck-omo-worker` supplies
+the visible tmux panes. If bare child creation produced a fallback shell, close
+it only after `terminal list/show` proves it is unused. The child remains in the
+parent feature's disposable devcontainer; do not select another recipe.
+
+Start all independent ready workers before waiting. Never place two writers in
+one worktree or parallelize workers that overlap files, generated artifacts,
+ports, databases, or mutable services.
+
+Materialize children lazily: do not create #122's child worktree until its Task
+is ready. Because `integrate` resets the parent checkout to the exact promoted
+App commit, a later child created from `active` starts from the reconciled
+parent feature head.
 
 ## 4. Supervise completion
 
@@ -115,10 +142,16 @@ guide. A worker must:
 3. Create conventional local checkpoint commits; never push the worker branch.
 4. Send `worker_done` exactly once with outcome and modified files.
 
+A valid `worker_done` automatically completes its Dispatch and Task, which is
+what releases dependent Tasks in Orca's DAG. Process the entire Delivery before
+acknowledging it; do not follow a valid completion with a redundant manual
+`task-update --status completed`.
+
 For `planned` and `quick` work, Prometheus writes and reviews the constrained
 plan before `/start-work` transfers execution to Atlas in the same OpenCode
 session. Atlas remains the primary Orca worker: it reviews delegated output,
-validates, signs the conventional commit, and sends `worker_done`. For
+validates, creates the unsigned conventional checkpoint commit, and sends
+`worker_done`. For
 `autonomous` and `spike`, Hephaestus is the primary worker. Do not run Atlas and
 Hephaestus as concurrent writers in one worktree.
 
@@ -143,23 +176,27 @@ tools/orca-feature integrate --issue 121
 ```
 
 The helper requires clean parent/worker trees, satisfied dependencies, and
-worker commits. It squash-applies the worker result, then uses the GitHub App
-to create one verified remote commit with the exact resulting Git tree. It
-serializes promotion by requiring the remote feature head to match the local
-parent. If Git reports a conflict, resolve or abort it in the parent checkout;
-the helper does not mark the issue integrated after a failed promotion.
+worker commits. It squash-applies the worker result and creates one
+conventional local commit with the exact resulting Git tree. If Git reports a
+conflict, resolve or abort it in the parent checkout;
+the helper does not mark the issue integrated after a failed integration.
 
 After validation, use GitHub MCP to comment with the integrated commit and
-close the sub-issue. Then optionally remove the checkout while retaining its
-branch:
+close the sub-issue. Once `worker_done` has been accepted, stop its exact tmux
+session, release the settled Dispatch terminal, remove the native child through
+Orca, and only then record that confirmed removal locally:
 
 ```bash
+tools/orca-feature stop --issue 121
+orca orchestration worker-release --dispatch <dispatch-id> --json
+orca worktree rm --worktree id:<full-worktree-id> --json
 tools/orca-feature remove --issue 121
 ```
 
-`remove` stops the sub-issue's exact tmux session before removing the clean
-worktree. To stop a worker without removing its worktree, use
-`tools/orca-feature stop --issue 121`.
+Never substitute terminal closure or raw `git worktree remove` for Orca-owned
+cleanup. `stop` terminates the completed worker's exact tmux session after its
+accepted `worker_done`; it is not lifecycle settlement. `remove` only records a
+removal already completed by Orca and refuses while the checkout still exists.
 
 ## 6. Prepare the final PR
 

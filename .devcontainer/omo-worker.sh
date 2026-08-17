@@ -59,6 +59,9 @@ if tmux has-session -t "=$session" 2>/dev/null; then
       "$session" "$primary_agent" "$mode" "$worktree"
     exit 0
   fi
+  if [ -n "${TMUX:-}" ]; then
+    exec tmux switch-client -t "=$session"
+  fi
   exec tmux attach-session -t "=$session"
 fi
 
@@ -77,4 +80,8 @@ command -v tmux >/dev/null || { echo "tmux is not installed" >&2; exit 1; }
 
 printf -v launch 'cd %q && exec env OPENCODE_CONFIG_DIR=%q OPENCODE_PORT=%q OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true OMO_DISABLE_POSTHOG=1 OMO_SEND_ANONYMOUS_TELEMETRY=0 opencode --port %q --agent %q' \
   "$worktree" "$config_dir" "$port" "$port" "$primary_agent"
+if [ -n "${TMUX:-}" ]; then
+  tmux new-session -d -s "$session" -c "$worktree" "$launch"
+  exec tmux switch-client -t "=$session"
+fi
 exec tmux new-session -s "$session" -c "$worktree" "$launch"
