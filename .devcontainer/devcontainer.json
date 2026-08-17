@@ -1,6 +1,6 @@
 {
   "name": "Teck Platform",
-  "dockerComposeFile": ["compose.yaml", "compose.devcontainer.yaml", "mcp/compose.yaml"],
+  "dockerComposeFile": ["compose.yaml", "mcp/compose.yaml"],
   "service": "workspace",
   "workspaceFolder": "/workspaces/Teck.Monorepo",
   "initializeCommand": "bash .devcontainer/prepare-compose.sh",

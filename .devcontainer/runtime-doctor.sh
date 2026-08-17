@@ -42,6 +42,16 @@ fi
   && pass 'OpenCode authentication is mounted' \
   || fail 'OpenCode authentication is missing'
 
+if [ -s /run/secrets/teck-ai/providers.env ]; then
+  mode="$(stat -c '%a' /run/secrets/teck-ai/providers.env 2>/dev/null || true)"
+  case "$mode" in
+    400|440|600|640) pass 'Provider credentials are mounted with restricted permissions' ;;
+    *) fail "Provider credential file mode is ${mode:-unknown}" ;;
+  esac
+else
+  fail 'Provider credentials are not mounted'
+fi
+
 if gh auth status >/dev/null 2>&1; then
   pass 'GitHub CLI authentication works'
 else
@@ -61,10 +71,34 @@ fi
 
 omo_config="$HOME/.omo/omo.jsonc"
 if [ -s "$omo_config" ]; then
-  non_gpt_models="$(sed -nE 's/.*"model"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "$omo_config" | grep -Ev '^openai/gpt-' || true)"
-  [ -z "$non_gpt_models" ] \
-    && pass 'OMO routes every agent and category to GPT' \
-    || fail 'OMO contains a non-GPT default model'
+  expected_sisyphus='["opencode-go-a/kimi-k2.7-code","opencode-go-b/kimi-k2.7-code","openai/gpt-5.6-sol"]'
+  actual_sisyphus="$(jq -c '[."[opencode]".agents.sisyphus.models[] | if type == "string" then . else .model end]' "$omo_config" 2>/dev/null || true)"
+  [ "$actual_sisyphus" = "$expected_sisyphus" ] \
+    && pass 'Sisyphus has the expected Kimi K2.7-to-GPT fallback chain' \
+    || fail 'Sisyphus fallback chain is missing or out of order'
+  expected_junior='["opencode-go-a/kimi-k2.7-code","opencode-go-b/kimi-k2.7-code","openai/gpt-5.6-sol"]'
+  actual_junior="$(jq -c '[."[opencode]".agents."sisyphus-junior".models[] | if type == "string" then . else .model end]' "$omo_config" 2>/dev/null || true)"
+  [ "$actual_junior" = "$expected_junior" ] \
+    && pass 'Sisyphus-Junior has the expected Kimi K2.7-to-GPT fallback chain' \
+    || fail 'Sisyphus-Junior fallback chain is missing or out of order'
+  expected_deepseek_routes='[["deepseek/deepseek-v4-flash","openrouter/deepseek/deepseek-v4-flash-0731"],["deepseek/deepseek-v4-flash","openrouter/deepseek/deepseek-v4-flash-0731"],["deepseek/deepseek-v4-flash","openrouter/deepseek/deepseek-v4-flash-0731"]]'
+  actual_deepseek_routes="$(jq -c '[
+    [."[opencode]".agents.librarian.models[1:3][].model],
+    [."[opencode]".agents.explore.models[1:3][].model],
+    [."[opencode]".categories.quick.models[1:3][].model]
+  ]' "$omo_config" 2>/dev/null || true)"
+  [ "$actual_deepseek_routes" = "$expected_deepseek_routes" ] \
+    && pass 'Current direct and OpenRouter DeepSeek V4 Flash models back supported utility routes' \
+    || fail 'DeepSeek V4 Flash utility fallbacks are missing, stale, or use the wrong provider'
+  unexpected="$(jq -r '[
+    (."[opencode]".agents | to_entries[] | select(.key != "sisyphus" and .key != "sisyphus-junior") | .value | (.model?, .models[]?.model?)),
+    (."[opencode]".categories | to_entries[] | .value | (.model?, .models[]?.model?))
+  ] | .[] | select(startswith("openai/gpt-") | not)
+    | select(. != "deepseek/deepseek-v4-flash")
+    | select(. != "openrouter/deepseek/deepseek-v4-flash-0731")' "$omo_config" 2>/dev/null || true)"
+  [ -z "$unexpected" ] \
+    && pass 'Other orchestrated OMO routes remain GPT-only' \
+    || fail 'An unsupported non-GPT OMO route is configured'
 else
   fail 'OMO configuration is missing'
 fi

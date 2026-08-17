@@ -3,7 +3,7 @@ set -euo pipefail
 
 : "${ORCA_SSH_PUBLIC_KEY:?ORCA_SSH_PUBLIC_KEY is required}"
 
-for env_file in /run/secrets/teck-mcp/mcp.env; do
+for env_file in /run/secrets/teck-ai/providers.env /run/secrets/teck-mcp/mcp.env; do
   if [ -s "$env_file" ]; then
     set -a
     # shellcheck disable=SC1090

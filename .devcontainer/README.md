@@ -8,8 +8,7 @@ service is the container opened by Dev Containers and Orca; `searxng` and
 
 Open the repository in a Dev Containers client. `devcontainer.json` merges:
 
-- `compose.yaml` — the workspace service and service dependencies;
-- `compose.devcontainer.yaml` — the local source mount;
+- `compose.yaml` — the workspace service, local mounts, and shared secrets;
 - `mcp/compose.yaml` — SearXNG and Crawl4AI.
 
 `initializeCommand` runs `prepare-compose.sh` before Compose. It renders the
@@ -21,9 +20,16 @@ agent auth volumes, and tmpfs-backed secrets.
 
 ## AI routing
 
-Full OMO defaults every agent and category to GPT through the mounted OpenCode
-and OpenAI subscription authentication. Luna handles quick lookup work, Terra
-handles standard work, and Sol handles deep planning and implementation.
+OMO routes the ordinary Sisyphus agent through Kimi K2.7 Code on OpenCode Go 1,
+then the same model on OpenCode Go 2, with GPT-5.6 Sol as its final fallback. The
+orchestrated planner, executors, specialists, and every category remain GPT-5.6
+routed: Luna handles quick lookup work, Terra handles standard work, and Sol
+handles deep planning and implementation.
+
+OpenCode Go subscriptions 1 and 2, direct DeepSeek, and OpenRouter remain
+registered for explicit use. Their four credentials are resolved from Proton
+Pass by the Orca recipe and mounted read-only at runtime; they are not OMO
+defaults and never live under `.devcontainer`.
 
 Codex uses the OpenAI authentication mounted from WSL2 and does not require a
 provider-key file or an in-container login.
@@ -42,7 +48,7 @@ use `teck-runtime-doctor` when service readiness matters; Compose continues to
 health-check both backends independently.
 
 Run `teck-runtime-doctor` inside a workspace to verify agent authentication,
-GitHub CLI access, Git identity and transport, GPT-only OMO routing, research
+GitHub CLI access, Git identity and transport, bounded OMO routing, research
 services, the publication policy, and tmux attachment without printing
 credentials.
 

@@ -20,14 +20,24 @@ Update the distribution or checkout path there if either changes.
 
 ## One-time setup
 
-1. Keep the existing gitignored MCP references in
+1. Keep Proton `pass://` references for `OPENCODE_GO_KEY`,
+   `OPENCODE_GO_KEY_2`, `DEEPSEEK_API_KEY`, and `OPENROUTER_API_KEY` in
+   `~/.config/teck-orca/providers.env`. This file contains references only.
+2. Put the narrowly scoped Proton PAT at
+   `~/.config/teck-orca/proton-pass.pat` with mode `0600`.
+3. Keep the existing gitignored MCP references in
    `.devcontainer/mcp/mcp.env`.
-2. Sign in to GitHub CLI, Codex, and OpenCode once in WSL so their existing auth files can
+4. Sign in to GitHub CLI, Codex, and OpenCode once in WSL so their existing auth files can
    be mounted into each Dev Container.
-3. Validate the recipe statically with
+5. Validate the recipe statically with
    `orca-ide vm recipe doctor local-devcontainer --repo-path . --json`.
 
 For a live validation, add `--provision`; this creates and destroys a real
 Dev Container. Future changes merged into the selected repository ref are
 automatically applied the next time Orca creates a workspace. Docker's normal
 build cache keeps unchanged Features and Dockerfile layers fast.
+
+At creation time the recipe resolves only those four provider values into the
+workspace runtime directory with mode `0600`, mounts the file read-only, logs
+Proton Pass out, and removes the file with the disposable workspace. Resolved
+credentials never live in the repository or recipe JSON.

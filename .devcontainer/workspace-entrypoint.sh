@@ -12,6 +12,7 @@ load_env_file() {
   set +a
 }
 
+load_env_file /run/secrets/teck-ai/providers.env
 load_env_file /run/secrets/teck-mcp/mcp.env
 
 if [ "$#" -eq 0 ]; then
