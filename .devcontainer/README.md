@@ -22,14 +22,20 @@ agent auth volumes, and tmpfs-backed secrets.
 
 OMO routes the ordinary Sisyphus agent through Kimi K2.7 Code on OpenCode Go 1,
 then the same model on OpenCode Go 2, with GPT-5.6 Sol as its final fallback. The
-orchestrated planner, executors, specialists, and every category remain GPT-5.6
-routed: Luna handles quick lookup work, Terra handles standard work, and Sol
-handles deep planning and implementation.
+orchestrated planner, executors, and specialists remain GPT-5.6 routed. Luna
+handles quick lookup work, Terra handles standard work, and Sol handles deep
+planning and implementation. Direct DeepSeek V4 Flash and its dated OpenRouter
+route back the supported utility/search paths.
 
 OpenCode Go subscriptions 1 and 2, direct DeepSeek, and OpenRouter remain
-registered for explicit use. Their four credentials are resolved from Proton
-Pass by the Orca recipe and mounted read-only at runtime; they are not OMO
-defaults and never live under `.devcontainer`.
+registered for explicit use and configured fallbacks. Their four credentials
+are resolved from Proton Pass by the Orca recipe and mounted read-only at
+runtime; they never live under `.devcontainer`.
+
+The pinned OMO 4.19 runtime reads its generated user configuration from
+`~/.config/opencode/oh-my-openagent.jsonc` and repository policy from
+`.opencode/oh-my-openagent.jsonc`. The committed devcontainer template is
+materialized into that supported user path during post-create.
 
 Codex uses the OpenAI authentication mounted from WSL2 and does not require a
 provider-key file or an in-container login.
