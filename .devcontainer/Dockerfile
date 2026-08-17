@@ -36,10 +36,16 @@ FROM mcr.microsoft.com/devcontainers/dotnet:2.1-10.0-noble
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
       build-essential \
+      openssh-server \
       python3 \
       python3-dev \
       tmux \
     && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /run/sshd /home/vscode/.ssh \
+    && chmod 700 /home/vscode/.ssh \
+    && chown -R vscode:vscode /home/vscode/.ssh \
+    && ssh-keygen -A
 
 ARG PROTON_PASS_CLI_VERSION=2.2.5
 RUN arch="$(dpkg --print-architecture)" \
@@ -120,10 +126,12 @@ COPY workspace-entrypoint.sh /usr/local/bin/teck-workspace-entrypoint
 COPY runtime-doctor.sh /usr/local/bin/teck-runtime-doctor
 COPY proton-bootstrap.sh /usr/local/bin/teck-proton-bootstrap
 COPY materialize-proton-secrets.sh /usr/local/bin/teck-materialize-proton-secrets
+COPY orca-ssh-entrypoint.sh /usr/local/bin/orca-docker-ssh-entrypoint
 RUN chmod 0755 /usr/local/bin/teck-github-mcp \
       /usr/local/bin/teck-github-app-token /usr/local/bin/gh \
       /usr/local/bin/git-credential-teck-github-app \
       /usr/local/bin/teck-git-with-github-app \
       /usr/local/bin/teck-omo-worker /usr/local/bin/teck-workspace-entrypoint \
       /usr/local/bin/teck-runtime-doctor /usr/local/bin/teck-proton-bootstrap \
-      /usr/local/bin/teck-materialize-proton-secrets
+      /usr/local/bin/teck-materialize-proton-secrets \
+      /usr/local/bin/orca-docker-ssh-entrypoint

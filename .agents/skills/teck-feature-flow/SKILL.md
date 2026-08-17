@@ -1,17 +1,19 @@
 ---
 name: teck-feature-flow
-description: Coordinate a Teck feature from a GitHub parent issue and sub-issues using one Orca feature container, internal Git worktrees, full OMO/OpenCode workers, signed conventional commits, local integration, and one final reviewed PR. Use when starting or continuing an issue-backed feature, turning plan-review defects into tracked sub-work, dispatching parallel sub-features, integrating completed worker branches, or preparing the feature PR.
+description: Coordinate a Teck feature from a GitHub parent issue and sub-issues using one Orca feature environment, native Orca child worktrees, supervised orchestration Tasks, visible tmux-hosted OMO/OpenCode workers, GitHub App-authored conventional commits, local integration, and one final reviewed PR. Use when planning or decomposing parent work, dispatching dependency-aware sub-issues, supervising OMO workers, integrating child branches, or preparing the feature PR.
 ---
 
 # Teck feature flow
 
-Keep one Orca workspace/container per parent feature. Create ordinary Git
-worktrees inside it for sub-issues; do not create Orca child workspaces.
+Keep one recipe-backed Orca workspace/container per parent feature. Create one
+native Orca child worktree in that environment for each executable GitHub
+sub-issue. Do not provision another recipe environment for a child.
 
 Use three separate state owners:
 
 - GitHub MCP: durable parent/sub-issues, comments, PR, reviewers, and checks.
-- `tools/orca-feature`: local branches, internal worktrees, and integration state.
+- Native Orca worktrees: child checkout, branch, terminal, and UI lineage.
+- `tools/orca-feature`: parent integration bookkeeping and App promotion.
 - Orca orchestration: live Run, Tasks, dependencies, Dispatches, questions, and completion.
 
 Read [references/workflow.md](references/workflow.md) before starting or
@@ -20,12 +22,15 @@ resolved Orca CLI before running orchestration commands.
 
 ## Guardrails
 
-- Let workers commit only in their assigned internal worktrees.
+- Let workers commit only in their assigned Orca child worktrees.
 - Use full OMO as the worker harness.
-- Use Prometheus -> Atlas for `planned` and `quick` work. Use Hephaestus only
-  for explicitly `autonomous` or `spike` work, or a coordinator-approved
-  escalation after Atlas has stopped editing.
-- Treat tmux as process visibility, never lifecycle authority. Only an Orca
+- Run feature-level planning before materializing missing executable children.
+  Let the coordinator review the plan and alone reconcile GitHub sub-issues and
+  the Orca DAG. Use Prometheus -> Atlas for planned/quick implementation and
+  Hephaestus only for explicitly autonomous/spike work.
+- Keep each primary OMO worker in its dedicated tmux session so planner,
+  executor, deep-worker, and background-agent activity remains visible. Treat
+  tmux as process visibility, never lifecycle authority. Only an Orca
   `worker_done`, `question`, or `escalation` changes coordinator state.
 - Let nested OMO agents edit only within the assigned worktree. They may not
   commit, push, merge, create worktrees, mutate GitHub, or send Orca lifecycle

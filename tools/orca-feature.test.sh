@@ -40,8 +40,16 @@ export TECK_GITHUB_PROMOTE_COMMAND="$fixture/promote"
 
 cd "$fixture/repo"
 "$tool" init --issue 120 --slug billing-overhaul --title 'Billing overhaul' --create-branch
-"$tool" add --issue 121 --title 'Tax system' --kind feature
-"$tool" add --issue 122 --title 'Plan review defect' --kind plan-defect --mode autonomous --depends-on 121
+tax_path="$fixture/issue-121-tax-system"
+defect_path="$fixture/issue-122-plan-review-defect"
+git worktree add -b subfeature/120/121-tax-system "$tax_path" feature/120-billing-overhaul >/dev/null
+"$tool" register --issue 121 --title 'Tax system' --kind feature \
+  --path "$tax_path" --branch subfeature/120/121-tax-system \
+  --worktree-id "fixture::$tax_path"
+git worktree add -b subfeature/120/122-plan-review-defect "$defect_path" feature/120-billing-overhaul >/dev/null
+"$tool" register --issue 122 --title 'Plan review defect' --kind plan-defect \
+  --mode autonomous --depends-on 121 --path "$defect_path" \
+  --branch subfeature/120/122-plan-review-defect --worktree-id "fixture::$defect_path"
 
 tmux new-session -d -s teck-120-121-tax-system
 "$tool" stop --issue 121 >/dev/null
@@ -50,7 +58,6 @@ if tmux has-session -t =teck-120-121-tax-system 2>/dev/null; then
   exit 1
 fi
 
-tax_path="$fixture/.orca-worktrees/120/121-tax-system"
 printf 'tax\n' > "$tax_path/tax.txt"
 git -C "$tax_path" add tax.txt
 git -C "$tax_path" commit -m 'feat(billing): add tax system' >/dev/null
@@ -71,7 +78,6 @@ bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.ready !== false || d.n
 ready="$("$tool" dispatch-info --issue 122)"
 bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.ready !== true || d.needsSync !== false) process.exit(1)' <<<"$ready"
 
-defect_path="$fixture/.orca-worktrees/120/122-plan-review-defect"
 printf 'defect\n' > "$defect_path/defect.txt"
 git -C "$defect_path" add defect.txt
 git -C "$defect_path" commit -m 'fix(billing): resolve plan review defect' >/dev/null
@@ -83,7 +89,9 @@ bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (!d.parentClean || !d.wor
 pr="$("$tool" pr-info)"
 bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (!d.ready || JSON.stringify(d.integratedSubIssues) !== "[121,122]") process.exit(1)' <<<"$pr"
 
+git worktree remove "$tax_path"
+git worktree remove "$defect_path"
 "$tool" remove --issue 121
 "$tool" remove --issue 122
 [ ! -e "$tax_path" ] && [ ! -e "$defect_path" ]
-echo 'PASS: internal feature worktree lifecycle'
+echo 'PASS: native Orca child registration and integration lifecycle'
