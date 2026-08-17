@@ -76,6 +76,11 @@ if [ -s "$omo_config" ]; then
   [ "$actual_sisyphus" = "$expected_sisyphus" ] \
     && pass 'Sisyphus has the expected Kimi K2.7-to-GPT fallback chain' \
     || fail 'Sisyphus fallback chain is missing or out of order'
+  expected_junior='["opencode-go-a/kimi-k2.7-code","opencode-go-b/kimi-k2.7-code","openai/gpt-5.6-sol"]'
+  actual_junior="$(jq -c '[."[opencode]".agents."sisyphus-junior".models[] | if type == "string" then . else .model end]' "$omo_config" 2>/dev/null || true)"
+  [ "$actual_junior" = "$expected_junior" ] \
+    && pass 'Sisyphus-Junior has the expected Kimi K2.7-to-GPT fallback chain' \
+    || fail 'Sisyphus-Junior fallback chain is missing or out of order'
   expected_deepseek_routes='[["deepseek/deepseek-v4-flash","openrouter/deepseek/deepseek-v4-flash-0731"],["deepseek/deepseek-v4-flash","openrouter/deepseek/deepseek-v4-flash-0731"],["deepseek/deepseek-v4-flash","openrouter/deepseek/deepseek-v4-flash-0731"]]'
   actual_deepseek_routes="$(jq -c '[
     [."[opencode]".agents.librarian.models[1:3][].model],
@@ -86,7 +91,7 @@ if [ -s "$omo_config" ]; then
     && pass 'Current direct and OpenRouter DeepSeek V4 Flash models back supported utility routes' \
     || fail 'DeepSeek V4 Flash utility fallbacks are missing, stale, or use the wrong provider'
   unexpected="$(jq -r '[
-    (."[opencode]".agents | to_entries[] | select(.key != "sisyphus") | .value | (.model?, .models[]?.model?)),
+    (."[opencode]".agents | to_entries[] | select(.key != "sisyphus" and .key != "sisyphus-junior") | .value | (.model?, .models[]?.model?)),
     (."[opencode]".categories | to_entries[] | .value | (.model?, .models[]?.model?))
   ] | .[] | select(startswith("openai/gpt-") | not)
     | select(. != "deepseek/deepseek-v4-flash")

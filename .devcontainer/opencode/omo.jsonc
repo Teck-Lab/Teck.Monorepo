@@ -66,8 +66,11 @@
         ]
       },
       "sisyphus-junior": {
-        "model": "openai/gpt-5.6-luna",
-        "reasoning": "low"
+        "models": [
+          "opencode-go-a/kimi-k2.7-code",
+          "opencode-go-b/kimi-k2.7-code",
+          { "model": "openai/gpt-5.6-sol", "reasoning": "medium" }
+        ]
       }
     },
     "categories": {
