@@ -78,7 +78,11 @@
         "baseURL": "https://openrouter.ai/api/v1",
         "apiKey": "{env:OPENROUTER_API_KEY}"
       },
-      "models": { "z-ai/glm-5.2": {}, "xiaomi/mimo-v2.5": {} }
+      "models": {
+        "deepseek/deepseek-v4-flash-0731": { "name": "DeepSeek V4 Flash 0731" },
+        "z-ai/glm-5.2": {},
+        "xiaomi/mimo-v2.5": {}
+      }
     }
   }
 }

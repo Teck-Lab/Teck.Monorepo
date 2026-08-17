@@ -76,19 +76,21 @@ if [ -s "$omo_config" ]; then
   [ "$actual_sisyphus" = "$expected_sisyphus" ] \
     && pass 'Sisyphus has the expected Kimi K2.7-to-GPT fallback chain' \
     || fail 'Sisyphus fallback chain is missing or out of order'
-  expected_deepseek_routes='["deepseek/deepseek-v4-flash","deepseek/deepseek-v4-flash","deepseek/deepseek-v4-flash"]'
+  expected_deepseek_routes='[["deepseek/deepseek-v4-flash","openrouter/deepseek/deepseek-v4-flash-0731"],["deepseek/deepseek-v4-flash","openrouter/deepseek/deepseek-v4-flash-0731"],["deepseek/deepseek-v4-flash","openrouter/deepseek/deepseek-v4-flash-0731"]]'
   actual_deepseek_routes="$(jq -c '[
-    ."[opencode]".agents.librarian.models[1].model,
-    ."[opencode]".agents.explore.models[1].model,
-    ."[opencode]".categories.quick.models[1].model
+    [."[opencode]".agents.librarian.models[1:3][].model],
+    [."[opencode]".agents.explore.models[1:3][].model],
+    [."[opencode]".categories.quick.models[1:3][].model]
   ]' "$omo_config" 2>/dev/null || true)"
   [ "$actual_deepseek_routes" = "$expected_deepseek_routes" ] \
-    && pass 'Direct DeepSeek V4 Flash backs supported utility routes' \
-    || fail 'DeepSeek V4 Flash utility fallbacks are missing or use the wrong provider'
+    && pass 'Current direct and OpenRouter DeepSeek V4 Flash models back supported utility routes' \
+    || fail 'DeepSeek V4 Flash utility fallbacks are missing, stale, or use the wrong provider'
   unexpected="$(jq -r '[
     (."[opencode]".agents | to_entries[] | select(.key != "sisyphus") | .value | (.model?, .models[]?.model?)),
     (."[opencode]".categories | to_entries[] | .value | (.model?, .models[]?.model?))
-  ] | .[] | select(startswith("openai/gpt-") | not) | select(. != "deepseek/deepseek-v4-flash")' "$omo_config" 2>/dev/null || true)"
+  ] | .[] | select(startswith("openai/gpt-") | not)
+    | select(. != "deepseek/deepseek-v4-flash")
+    | select(. != "openrouter/deepseek/deepseek-v4-flash-0731")' "$omo_config" 2>/dev/null || true)"
   [ -z "$unexpected" ] \
     && pass 'Other orchestrated OMO routes remain GPT-only' \
     || fail 'An unsupported non-GPT OMO route is configured'

@@ -54,13 +54,15 @@
       "librarian": {
         "models": [
           { "model": "openai/gpt-5.6-luna", "reasoning": "medium" },
-          { "model": "deepseek/deepseek-v4-flash", "reasoning": "max" }
+          { "model": "deepseek/deepseek-v4-flash", "reasoning": "max" },
+          { "model": "openrouter/deepseek/deepseek-v4-flash-0731", "reasoning": "max" }
         ]
       },
       "explore": {
         "models": [
           { "model": "openai/gpt-5.6-luna", "reasoning": "medium" },
-          { "model": "deepseek/deepseek-v4-flash", "reasoning": "max" }
+          { "model": "deepseek/deepseek-v4-flash", "reasoning": "max" },
+          { "model": "openrouter/deepseek/deepseek-v4-flash-0731", "reasoning": "max" }
         ]
       },
       "sisyphus-junior": {
@@ -72,7 +74,8 @@
       "quick": {
         "models": [
           { "model": "openai/gpt-5.6-luna", "reasoning": "low" },
-          { "model": "deepseek/deepseek-v4-flash", "reasoning": "off" }
+          { "model": "deepseek/deepseek-v4-flash", "reasoning": "off" },
+          { "model": "openrouter/deepseek/deepseek-v4-flash-0731", "reasoning": "off" }
         ]
       },
       "deep": {
