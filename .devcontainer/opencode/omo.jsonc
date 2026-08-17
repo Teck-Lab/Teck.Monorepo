@@ -4,7 +4,7 @@
     "agents": {
       "sisyphus": {
         "models": [
-          "opencode-go-a/kimi-k3",
+          "opencode-go-a/kimi-k2.7-code",
           "opencode-go-b/kimi-k2.7-code",
           { "model": "openai/gpt-5.6-sol", "reasoning": "medium" }
         ],

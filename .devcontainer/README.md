@@ -20,8 +20,8 @@ agent auth volumes, and tmpfs-backed secrets.
 
 ## AI routing
 
-OMO routes the ordinary Sisyphus agent through Kimi K3 on OpenCode Go 1, then
-Kimi K2.7 Code on OpenCode Go 2, with GPT-5.6 Sol as its final fallback. The
+OMO routes the ordinary Sisyphus agent through Kimi K2.7 Code on OpenCode Go 1,
+then the same model on OpenCode Go 2, with GPT-5.6 Sol as its final fallback. The
 orchestrated planner, executors, specialists, and every category remain GPT-5.6
 routed: Luna handles quick lookup work, Terra handles standard work, and Sol
 handles deep planning and implementation.
