@@ -83,7 +83,7 @@ jobs:
     continue-on-error: ${{ inputs.report-only }}
     steps:
       - name: Exercise the preview API from its schema
-        uses: schemathesis/action@6c9e276658035ff34e8076397be5c5bceb8414f3 # v3
+        uses: schemathesis/action@806cace2053cbbac93188e1281ff7da415643160 # v3
         with:
           schema: ${{ inputs.schema-url }}
           base-url: ${{ inputs.base-url }}
