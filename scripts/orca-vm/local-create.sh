@@ -65,7 +65,11 @@ jq --arg base "$workspace_dir/.devcontainer" --arg override "$runtime_override" 
 export COMPOSE_PROJECT_NAME="$name"
 export TECK_MCP_ENV_FILE="$orca_repo_root/.devcontainer/mcp/mcp.env"
 export TECK_PROVIDER_ENV_FILE="$provider_env"
-up_result="$(npx --yes @devcontainers/cli@0.88.0 up --workspace-folder "$workspace_dir" --config "$runtime_config")"
+devcontainer_up=(npx --yes @devcontainers/cli@0.88.0 up --workspace-folder "$workspace_dir" --config "$runtime_config")
+if ! up_result="$("${devcontainer_up[@]}")"; then
+  echo 'Initial Dev Container startup failed after the image build; retrying once.' >&2
+  up_result="$("${devcontainer_up[@]}")"
+fi
 container_id="$(jq -er '.containerId' <<<"$up_result")"
 port="$(docker port "$container_id" 22/tcp | sed -nE 's/.*:([0-9]+)$/\1/p' | head -1)"
 [ -n "$port" ] || { echo 'Could not resolve the published SSH port.' >&2; exit 1; }
