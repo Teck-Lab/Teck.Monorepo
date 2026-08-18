@@ -115,7 +115,7 @@ echo "==> Seeding direct-provider agent CLI configs (Codex + OpenCode)"
 # The committed templates are the source of truth; re-copied on every rebuild.
 # OpenCode reads provider keys directly from the workspace environment; Codex
 # uses the OpenAI authentication mounted from WSL2.
-mkdir -p "$HOME/.codex" "$HOME/.config/opencode" "$HOME/.omo"
+mkdir -p "$HOME/.codex" "$HOME/.config/opencode"
 # Remove the retired alternate OpenCode profile from persistent config volumes.
 # This path was created by earlier versions of this repository and otherwise
 # survives container rebuilds indefinitely.
@@ -123,10 +123,11 @@ rm -rf "$HOME/.config/opencode/profiles/slim"
 cp .devcontainer/codex/config.toml "$HOME/.codex/config.toml" || echo "WARN: could not seed codex config (continuing)"
 cp .devcontainer/opencode/opencode.json "$HOME/.config/opencode/opencode.json" || echo "WARN: could not seed opencode config (continuing)"
 cp .devcontainer/opencode/tui.json "$HOME/.config/opencode/tui.json" || echo "WARN: could not seed OpenCode TUI config (continuing)"
-# Full OMO is the default worker harness. Its unified config is deliberately
-# re-seeded from the repository so provider/model policy is reproducible while
-# OpenCode auth remains in the persistent data volume.
-cp .devcontainer/opencode/omo.jsonc "$HOME/.omo/omo.jsonc" || echo "WARN: could not seed OMO config (continuing)"
+# OMO 4.19 reads the legacy OpenCode config path. Keep the committed unified
+# template as the source of truth and materialize its OpenCode block there.
+rm -f "$HOME/.omo/omo.jsonc"
+jq '."[opencode]"' .devcontainer/opencode/omo.jsonc > "$HOME/.config/opencode/oh-my-openagent.jsonc" \
+  || echo "WARN: could not seed OMO config (continuing)"
 # opencode-mem config: enables auto-capture through a direct low-cost provider, stores
 # memories under the persisted ~/.local/share/opencode volume, and serves the
 # memory web UI on :4747. The plugin itself auto-installs via opencode.json.
