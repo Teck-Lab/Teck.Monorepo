@@ -25,6 +25,7 @@ export default {
     },
   ],
   rules: {
+    "body-max-line-length": [0],
     "subject-case": [0],
     "subject-case-unless-dependabot": [2, "always"],
   },
