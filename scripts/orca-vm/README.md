@@ -15,14 +15,16 @@ image. Native Orca child worktrees and their OMO workers live inside that same
 feature environment. VS Code can attach to the running container and sees the
 same definition, tools, mounts, extensions, and workspace folder.
 
-The lifecycle commands in `orca.yaml` bridge Orca Desktop on Windows into WSL.
-Update the distribution or checkout path there if either changes.
+The lifecycle commands bridge Orca Desktop on Windows into WSL. Orca's
+`ORCA_REPO_PATH` is passed through `WSLENV` with path translation, so the recipe
+does not depend on a particular checkout, Orca workspace, branch name, WSL
+distribution, or Linux username. It uses the machine's default WSL environment.
 
 ## One-time setup
 
-1. Keep Proton `pass://` references for `OPENCODE_GO_KEY`,
-   `OPENCODE_GO_KEY_2`, `DEEPSEEK_API_KEY`, and `OPENROUTER_API_KEY` in
-   `~/.config/teck-orca/providers.env`. This file contains references only.
+1. The non-secret Proton `pass://` references for `OPENCODE_GO_KEY`,
+   `OPENCODE_GO_KEY_2`, `DEEPSEEK_API_KEY`, and `OPENROUTER_API_KEY` live in
+   the repo-owned `scripts/orca-vm/providers.env` file.
 2. Put the narrowly scoped Proton PAT at
    `~/.config/teck-orca/proton-pass.pat` with mode `0600`.
 3. Keep the existing gitignored MCP references in

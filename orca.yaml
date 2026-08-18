@@ -1,5 +1,5 @@
 environmentRecipes:
   - id: local-devcontainer
     name: Local Dev Container
-    create: wsl.exe --distribution Ubuntu --user jacob --cd /home/jacob/orca/workspaces/Teck.Monorepo/scoter/scripts/orca-vm --exec bash ./local-create.sh
-    destroy: wsl.exe --distribution Ubuntu --user jacob --cd /home/jacob/orca/workspaces/Teck.Monorepo/scoter/scripts/orca-vm --exec bash ./local-destroy.sh
+    create: set WSLENV=ORCA_REPO_PATH/up&&wsl.exe --exec bash -lc $ORCA_REPO_PATH/scripts/orca-vm/local-create.sh
+    destroy: set WSLENV=ORCA_REPO_PATH/up&&wsl.exe --exec bash -lc $ORCA_REPO_PATH/scripts/orca-vm/local-destroy.sh
