@@ -42,7 +42,7 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "babel-preset-expo": "~55.0.7",
+    "babel-preset-expo": "~57.0.7",
     "husky": "^9.1.7",
     "metro-config": "~0.83.0",
     "metro-resolver": "~0.83.0",
