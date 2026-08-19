@@ -22,8 +22,10 @@ command -v pass-cli >/dev/null || { echo 'Proton Pass CLI is required on the WSL
 ensure_key
 identity_file="$(wslpath -w "$orca_key_file")"
 
-raw_name="orca-${ORCA_VM_RECIPE_ID:-local}-${ORCA_VM_INSTANCE_ID:-$(date +%s)}"
-name="$(printf '%s' "$raw_name" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9_-' '-' | cut -c1-63)"
+attempt_suffix="$(date +%s)"
+raw_name="orca-${ORCA_VM_RECIPE_ID:-local}-${ORCA_VM_INSTANCE_ID:-workspace}"
+name_prefix="$(printf '%s' "$raw_name" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9_-' '-' | cut -c1-52)"
+name="${name_prefix%-}-${attempt_suffix}"
 runtime_dir="${XDG_STATE_HOME:-$HOME/.local/state}/teck-orca/runtimes/$name"
 workspace_dir="$runtime_dir/workspace"
 install -d -m 0700 "$runtime_dir"
@@ -43,10 +45,11 @@ rm -rf -- "$provider_session"
 # Each parent feature receives its own checkout. The Dev Container CLI reads
 # the definition from that checkout, so changes merged into the selected ref
 # are applied automatically on the next Orca workspace creation.
-git clone --shared --no-checkout "$orca_repo_root" "$workspace_dir" >&2
+git clone --no-checkout "$orca_repo_root" "$workspace_dir" >&2
 source_ref="${ORCA_REPO_REF:-$(git -C "$orca_repo_root" branch --show-current)}"
 [ -n "$source_ref" ] || source_ref=main
-git -C "$workspace_dir" checkout "$source_ref" >&2
+source_commit="$(git -C "$orca_repo_root" rev-parse --verify "${source_ref}^{commit}")"
+git -C "$workspace_dir" checkout --detach "$source_commit" >&2
 git -C "$workspace_dir" remote set-url origin "$(git -C "$orca_repo_root" remote get-url origin)"
 
 ssh_port="$(node -e 'const net=require("net");const s=net.createServer();s.listen(0,"127.0.0.1",()=>{console.log(s.address().port);s.close()})')"
