@@ -63,7 +63,7 @@ jq --arg base "$workspace_dir/.devcontainer" --arg override "$runtime_override" 
   "$workspace_dir/.devcontainer/devcontainer.json" > "$runtime_config"
 
 export COMPOSE_PROJECT_NAME="$name"
-export TECK_MCP_ENV_FILE="$orca_repo_root/.devcontainer/mcp/mcp.env"
+export TECK_MCP_ENV_FILE="$workspace_dir/.devcontainer/mcp/mcp.env"
 export TECK_PROVIDER_ENV_FILE="$provider_env"
 up_result="$(npx --yes @devcontainers/cli@0.88.0 up --workspace-folder "$workspace_dir" --config "$runtime_config")"
 container_id="$(jq -er '.containerId' <<<"$up_result")"
