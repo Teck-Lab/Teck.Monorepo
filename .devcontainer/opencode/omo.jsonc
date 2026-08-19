@@ -132,13 +132,11 @@
       "layout": "main-horizontal",
       "main_pane_size": 60,
       "main_pane_min_width": 90,
-      "agent_pane_min_width": 36,
-      "isolation": "inline"
+      "agent_pane_min_width": 36
     },
     "git_master": {
       "commit_footer": false,
-      "include_co_authored_by": false,
-      "git_env_prefix": "GIT_MASTER=1"
+      "include_co_authored_by": false
     },
     "disabled_hooks": ["auto-update-checker", "startup-toast"],
     "experimental": {
