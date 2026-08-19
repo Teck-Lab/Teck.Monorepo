@@ -81,9 +81,10 @@ RUN arch="$(dpkg --print-architecture)" \
 # config.toml from the committed template on top of the volume, so the template
 # stays the source of truth for configuration while auth persists.
 RUN mkdir -p /home/vscode/.claude-config /home/vscode/.local/share/opencode \
-      /home/vscode/.codex \
+      /home/vscode/.codex /workspaces \
     && chown -R vscode:vscode /home/vscode/.claude-config /home/vscode/.local \
-      /home/vscode/.codex
+      /home/vscode/.codex /workspaces \
+    && chmod 0775 /workspaces
 
 # Official GitHub MCP server. It runs directly as a stdio child of Codex or
 # OpenCode, avoiding a nested-Docker secret mount. Version and per-architecture
