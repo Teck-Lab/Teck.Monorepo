@@ -36,7 +36,7 @@ jobs:
       # otherwise defaults to --base=main, which is not a local ref on the runner
       # (checkout leaves a detached HEAD) -> "unknown revision 'main'".
       - name: Derive nx affected SHAs
-        uses: nrwl/nx-set-shas@3e9ad7370203c1e93d109be57f3b72eb0eb511b1 # v4
+        uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5.0.1
 
       - name: Affected checks
         run: bunx nx affected -t build test lint typecheck --verbose
@@ -59,7 +59,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Derive nx affected SHAs
-        uses: nrwl/nx-set-shas@3e9ad7370203c1e93d109be57f3b72eb0eb511b1 # v4
+        uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5.0.1
 
       - name: Run architecture tests
         run: bunx nx affected -t test --projects='*.Architecture.UnitTests'
