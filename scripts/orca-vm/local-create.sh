@@ -42,12 +42,15 @@ pass-cli run --env-file "$orca_provider_refs_file" -- \
 pass-cli logout --force >/dev/null 2>&1 || true
 rm -rf -- "$provider_session"
 
-# Each parent feature receives its own checkout. The Dev Container CLI reads
-# the definition from that checkout, so changes merged into the selected ref
-# are applied automatically on the next Orca workspace creation.
+# Each parent feature receives its own checkout. Runtime infrastructure comes
+# from the latest main branch rather than the requested worktree base: an old
+# feature branch must not boot obsolete credentials, mounts, or permissions.
+# Orca fetches and checks out ORCA_REPO_REF after connecting to this runtime.
 git clone --no-checkout "$orca_repo_root" "$workspace_dir" >&2
-source_ref="${ORCA_REPO_REF:-$(git -C "$orca_repo_root" branch --show-current)}"
-[ -n "$source_ref" ] || source_ref=main
+source_ref="${ORCA_ENVIRONMENT_REF:-origin/main}"
+if [ -z "${ORCA_ENVIRONMENT_REF:-}" ]; then
+  git -C "$orca_repo_root" fetch origin refs/heads/main:refs/remotes/origin/main >&2
+fi
 source_commit="$(git -C "$orca_repo_root" rev-parse --verify "${source_ref}^{commit}")"
 git -C "$workspace_dir" checkout --detach "$source_commit" >&2
 git -C "$workspace_dir" remote set-url origin "$(git -C "$orca_repo_root" remote get-url origin)"
