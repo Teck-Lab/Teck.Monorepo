@@ -41,6 +41,9 @@ Thumbs.db
 
 # SDD controller scratch (ledger, briefs, review packages)
 .superpowers/
+
+# OMO workspace runtime state (plans, tasks, notepads, migration/session data)
+.omo/
 # Next.js
 .next
 out
