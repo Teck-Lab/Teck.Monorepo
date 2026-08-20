@@ -3,3 +3,16 @@ environmentRecipes:
     name: Local Dev Container
     create: set WSLENV=ORCA_REPO_PATH/up&&wsl.exe --exec bash -lc $ORCA_REPO_PATH/scripts/orca-vm/local-create.sh
     destroy: set WSLENV=ORCA_REPO_PATH/up&&wsl.exe --exec bash -lc $ORCA_REPO_PATH/scripts/orca-vm/local-destroy.sh
+
+issueCommand: |
+  You are the coordinator for {{artifact_url}}.
+
+  Load and follow the repository's teck-feature-flow skill, including its
+  referenced workflow. Also load the Orca orchestration skill and its
+  version-matched live guide before running orchestration commands.
+
+  Treat the linked GitHub issue as the parent feature and execute the complete
+  coordinator -> OMO planner -> coordinator-reviewed Task DAG -> OMO child
+  worker -> coordinator integration flow. Do not implement the feature
+  directly in this coordinator worktree, and do not substitute untracked
+  subagents for Orca Dispatches.
