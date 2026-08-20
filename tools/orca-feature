@@ -115,7 +115,9 @@ function executionMode(raw: string | undefined, fallback: ExecutionMode = "plann
 }
 
 function primaryAgent(mode: ExecutionMode): string {
-  return ["autonomous", "spike"].includes(mode) ? "hephaestus" : "prometheus";
+  return ["autonomous", "spike"].includes(mode)
+    ? "Hephaestus - Deep Agent"
+    : "Prometheus - Plan Builder";
 }
 
 function branchExists(root: string, branch: string): boolean {

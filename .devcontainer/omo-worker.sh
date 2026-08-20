@@ -32,8 +32,11 @@ done
 [[ "$parent_issue" =~ ^[1-9][0-9]*$ ]] || { echo "--parent-issue must be a positive integer" >&2; exit 2; }
 [[ "$issue" =~ ^[1-9][0-9]*$ ]] || { echo "--issue must be a positive integer" >&2; exit 2; }
 case "$mode" in
-  planned|quick) primary_agent="prometheus" ;;
-  autonomous|spike) primary_agent="hephaestus" ;;
+  # OpenCode's --agent option resolves the registered display name. Passing
+  # OMO's lowercase configuration key silently falls back to the default
+  # Sisyphus primary instead of selecting the requested agent.
+  planned|quick) primary_agent="Prometheus - Plan Builder" ;;
+  autonomous|spike) primary_agent="Hephaestus - Deep Agent" ;;
   *) echo "unsupported --mode: $mode" >&2; exit 2 ;;
 esac
 config_dir="$HOME/.config/opencode"

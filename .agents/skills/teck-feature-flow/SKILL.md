@@ -31,8 +31,9 @@ resolved Orca CLI before running orchestration commands.
 - Use full OMO as the worker harness.
 - Run feature-level planning before materializing missing executable children.
   Let the coordinator review the plan and alone reconcile GitHub sub-issues and
-  the Orca DAG. Use Prometheus -> Atlas for planned/quick implementation and
-  Hephaestus only for explicitly autonomous/spike work.
+  the Orca DAG. Use the registered `Prometheus - Plan Builder` primary for
+  planned/quick work before Atlas executes. Use the registered
+  `Hephaestus - Deep Agent` primary only for explicitly autonomous/spike work.
 - Launch each primary OMO worker directly in its dedicated Orca terminal so
   Orca recognizes OpenCode and can inject the authoritative Dispatch preamble.
   Only an Orca `worker_done`, `question`, or `escalation` changes coordinator

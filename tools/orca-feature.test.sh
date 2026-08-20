@@ -51,6 +51,9 @@ git worktree add -b subfeature/120/122-plan-review-defect "$defect_path" feature
   --mode autonomous --depends-on 121 --path "$defect_path" \
   --branch subfeature/120/122-plan-review-defect --worktree-id "fixture::$defect_path"
 
+planned_info="$("$tool" dispatch-info --issue 121)"
+bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.executionMode !== "planned" || d.primaryAgent !== "Prometheus - Plan Builder") process.exit(1)' <<<"$planned_info"
+
 printf 'tax\n' > "$tax_path/tax.txt"
 git -C "$tax_path" add tax.txt
 git -C "$tax_path" commit -m 'feat(billing): add tax system' >/dev/null
