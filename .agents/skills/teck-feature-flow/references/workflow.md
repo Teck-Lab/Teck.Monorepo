@@ -11,6 +11,46 @@ Initialize or adopt the parent feature branch with `tools/orca-feature init`.
 Create or bind exactly one Orca Run for the parent. Do not create a Run per
 sub-issue.
 
+## Coordinator supervision loop
+
+Starting a worker begins supervision; it is never the end of a coordinator
+turn. After every `worker-start`, repeatedly:
+
+1. wait for `worker_done`, `question`, or `escalation` using the exact commands
+   from the version-matched Orca orchestration guide;
+2. process every delivery before acknowledging it;
+3. validate the reported artifact, worktree, commits, and evidence for that
+   Task type;
+4. settle or redispatch the attempt through Orca, then re-read the Task DAG;
+5. reconcile the corresponding GitHub sub-issue and blocker edges through MCP;
+6. re-read both durable graphs and dispatch the next eligible Task; and
+7. continue until a terminal condition below is actually true.
+
+Use bounded waits so progress can be reported, but a timeout or idle terminal
+is not completion. Do not replace the authoritative waiter with terminal
+scraping. Record the returned Dispatch ID and terminal handle in the progress
+update so a human can locate the dedicated worker.
+
+`worker_done` means only that one worker attempt ended. It does not complete an
+Orca Task or GitHub sub-issue, release a dependency, close a worktree, or make a
+downstream Task eligible. Those are coordinator-owned reconciliation steps.
+
+The coordinator may yield a final response only when either:
+
+- the parent PR is open after clean final QA and required CI; or
+- progress is impossible without one precisely named human decision, missing
+  access grant, or external state change, and the coordinator has recorded the
+  blocker durably.
+
+The coordinator must not yield a final response when any of these exist:
+
+- an unacknowledged lifecycle delivery;
+- an active or completed-but-unreconciled Dispatch;
+- a ready Orca Task;
+- an open actionable GitHub sub-issue;
+- a GitHub or Orca blocker edge awaiting reconciliation; or
+- a review or QA rerun required by a completed repair.
+
 ## 2. Dedicated planning and plan review
 
 Create a read-only planning Task whose spec contains:
@@ -38,6 +78,13 @@ For every actionable plan finding, create a GitHub sub-issue, attach it to the
 parent, add a native blocker edge to the affected leaf or parent, and mirror
 that dependency in Orca. Dispatch findings to an executor and repeat plan
 review until clean.
+
+When a plan-defect executor sends `worker_done`, validate the repaired artifact
+and dispatch a fresh independent plan reviewer. Only a clean review permits the
+coordinator to record evidence, close that GitHub defect sub-issue, settle its
+Orca Task, and release its blocker edges. If review still fails, keep the defect
+open and continue the repair/review loop. Never report the defect complete just
+because its repair worker exited successfully.
 
 Only after clean plan review may the coordinator create or reconcile executable
 GitHub sub-issues and their Orca Tasks. Re-read before and after every mutation;

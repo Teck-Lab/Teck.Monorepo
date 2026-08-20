@@ -2,8 +2,21 @@
 set -euo pipefail
 
 tool="$(cd "$(dirname "$0")" && pwd)/orca-feature"
+workflow="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/workflow.md"
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
+
+for contract in \
+  'Starting a worker begins supervision' \
+  'worker_done.*one worker attempt ended' \
+  'completed-but-unreconciled Dispatch' \
+  'open actionable GitHub sub-issue' \
+  'dispatch a fresh independent plan reviewer'; do
+  grep -Eq "$contract" "$workflow" || {
+    echo "Missing coordinator completion-loop contract: $contract" >&2
+    exit 1
+  }
+done
 
 git init --bare "$fixture/origin.git" >/dev/null
 git clone "$fixture/origin.git" "$fixture/repo" >/dev/null 2>&1
