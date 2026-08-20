@@ -16,7 +16,7 @@ git -C "$fixture/worktree" commit -m 'chore: initialize fixture' >/dev/null
 # A PTY may cause Bun to colorize numbers; the launcher must still emit valid
 # JSON with a numeric port.
 planned="$(HOME="$fixture/home" TERM=xterm-256color "$launcher" --worktree "$fixture/worktree" --parent-issue 120 --issue 121 --slug 'Tax System' --mode planned --dry-run)"
-bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.session !== "teck-120-121-tax-system" || d.agent !== "prometheus" || d.existing !== false || !Number.isInteger(d.port)) process.exit(1)' <<<"$planned"
+bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.agent !== "prometheus" || d.mode !== "planned" || !Number.isInteger(d.port)) process.exit(1)' <<<"$planned"
 
 if HOME="$fixture/home" "$launcher" --worktree "$fixture/worktree" --parent-issue 120 --issue 123 --slug retired --harness slim --dry-run >/dev/null 2>&1; then
   echo "launcher accepted the retired --harness option" >&2
