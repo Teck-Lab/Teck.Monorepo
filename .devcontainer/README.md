@@ -60,11 +60,11 @@ credentials.
 
 ## Worker flow
 
-Full OMO is the default OpenCode harness. Prometheus and Atlas handle planned
-work; Hephaestus handles explicitly autonomous/spike work. `teck-omo-worker`
-launches OpenCode directly so Orca can inject tracked Dispatches. Nested agents may inspect,
-research, edit, test, and review only within the assigned worktree; the primary
-worker owns Git and Orca lifecycle messages.
+Full OMO is the default OpenCode harness. A dedicated Prometheus launcher owns
+plan-only parent decomposition. Orca launches implementation workers natively,
+and the seeded default selects Atlas so Orca can inject tracked Dispatches.
+Nested agents may inspect, research, edit, test, and review only within the
+assigned worktree; the primary worker owns Git and Orca lifecycle messages.
 
 ## Authentication and persistence
 

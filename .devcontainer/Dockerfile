@@ -106,12 +106,12 @@ RUN arch="$(dpkg --print-architecture)" \
 
 COPY github-mcp.sh /usr/local/bin/teck-github-mcp
 COPY github-cli.sh /usr/local/bin/gh
-COPY omo-worker.sh /usr/local/bin/teck-omo-worker
+COPY omo-planner.sh /usr/local/bin/teck-omo-planner
 COPY workspace-entrypoint.sh /usr/local/bin/teck-workspace-entrypoint
 COPY runtime-doctor.sh /usr/local/bin/teck-runtime-doctor
 COPY orca-ssh-entrypoint.sh /usr/local/bin/orca-docker-ssh-entrypoint
 COPY orca-cli.sh /usr/local/bin/orca
 RUN chmod 0755 /usr/local/bin/teck-github-mcp /usr/local/bin/gh \
-      /usr/local/bin/teck-omo-worker /usr/local/bin/teck-workspace-entrypoint \
+      /usr/local/bin/teck-omo-planner /usr/local/bin/teck-workspace-entrypoint \
       /usr/local/bin/teck-runtime-doctor /usr/local/bin/orca \
       /usr/local/bin/orca-docker-ssh-entrypoint

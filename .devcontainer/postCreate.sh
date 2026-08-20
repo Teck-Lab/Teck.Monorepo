@@ -150,8 +150,7 @@ git config --local commit.gpgsign false
 git config --local credential.https://github.com.helper '!gh auth git-credential'
 
 echo "==> Enabling OpenCode background subagents"
-# Full OMO can use visible background panes. teck-omo-worker also exports this
-# explicitly per worker.
+# Full OMO can use visible background panes.
 BG_LINE='export OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true'
 if ! grep -qxF "$BG_LINE" "$HOME/.bashrc" 2>/dev/null; then
   printf '\n# Required by OMO background orchestration\n%s\n' "$BG_LINE" >> "$HOME/.bashrc"

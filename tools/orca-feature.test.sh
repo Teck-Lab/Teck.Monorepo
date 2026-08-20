@@ -48,18 +48,18 @@ git worktree add -b subfeature/120/121-tax-system "$tax_path" feature/120-billin
   --worktree-id "fixture::$tax_path"
 git worktree add -b subfeature/120/122-plan-review-defect "$defect_path" feature/120-billing-overhaul >/dev/null
 "$tool" register --issue 122 --title 'Plan review defect' --kind plan-defect \
-  --mode autonomous --depends-on 121 --path "$defect_path" \
+  --mode quick --depends-on 121 --path "$defect_path" \
   --branch subfeature/120/122-plan-review-defect --worktree-id "fixture::$defect_path"
 
 planned_info="$("$tool" dispatch-info --issue 121)"
-bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.executionMode !== "planned" || d.primaryAgent !== "Prometheus - Plan Builder") process.exit(1)' <<<"$planned_info"
+bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.executionMode !== "planned" || d.primaryAgent !== "Atlas - Plan Executor") process.exit(1)' <<<"$planned_info"
 
 printf 'tax\n' > "$tax_path/tax.txt"
 git -C "$tax_path" add tax.txt
 git -C "$tax_path" commit -m 'feat(billing): add tax system' >/dev/null
 
 blocked="$("$tool" dispatch-info --issue 122)"
-bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.ready !== false || JSON.stringify(d.blockedBy) !== "[121]" || d.executionMode !== "autonomous" || d.primaryAgent !== "hephaestus" || !d.terminalCommand.includes("teck-omo-worker")) process.exit(1)' <<<"$blocked"
+bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.ready !== false || JSON.stringify(d.blockedBy) !== "[121]" || d.executionMode !== "quick" || d.primaryAgent !== "Atlas - Plan Executor" || "terminalCommand" in d) process.exit(1)' <<<"$blocked"
 
 if "$tool" dispatch-info --issue 122 --harness slim >/dev/null 2>&1; then
   echo "dispatch-info accepted the retired --harness option" >&2

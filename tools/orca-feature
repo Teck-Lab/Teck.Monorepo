@@ -5,7 +5,7 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 
 type Kind = "feature" | "plan-defect" | "validation";
 type WorkStatus = "ready" | "dispatched" | "completed" | "blocked" | "integrated" | "removed";
-type ExecutionMode = "planned" | "autonomous" | "quick" | "spike";
+type ExecutionMode = "planned" | "quick";
 
 interface WorktreeEntry {
   issue: number;
@@ -102,22 +102,12 @@ function slugify(value: string): string {
   return slug;
 }
 
-function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", `'\\''`)}'`;
-}
-
 function executionMode(raw: string | undefined, fallback: ExecutionMode = "planned"): ExecutionMode {
   const value = raw ?? fallback;
-  if (!(["planned", "autonomous", "quick", "spike"] as string[]).includes(value)) {
+  if (!(["planned", "quick"] as string[]).includes(value)) {
     throw new FlowError(`unsupported --mode: ${value}`);
   }
   return value as ExecutionMode;
-}
-
-function primaryAgent(mode: ExecutionMode): string {
-  return ["autonomous", "spike"].includes(mode)
-    ? "Hephaestus - Deep Agent"
-    : "Prometheus - Plan Builder";
 }
 
 function branchExists(root: string, branch: string): boolean {
@@ -339,28 +329,13 @@ function dispatchInfo(options: ParsedOptions): void {
   const pending = entry.dependsOn.filter((issue) => entryFor(state, issue).status !== "integrated");
   const status = worktreeStatus(root, state, entry);
   const mode = executionMode(option(options, "--mode"), entry.executionMode ?? "planned");
-  const agent = primaryAgent(mode);
-  const launcherArgs = [
-    "teck-omo-worker",
-    "--worktree", entry.path,
-    "--parent-issue", String(state.parentIssue),
-    "--issue", String(entry.issue),
-    "--slug", entry.slug,
-    "--mode", mode,
-  ];
   const modeInstruction = mode === "planned"
-    ? "Use Prometheus to create and review a constrained plan, then /start-work so Atlas executes it."
-    : mode === "quick"
-      ? "Use Prometheus to create a compact bounded plan, then /start-work so Atlas delegates inexpensive quick tasks."
-      : mode === "spike"
-        ? "Use Hephaestus for a bounded investigation; do not create production commits unless the task explicitly requires them."
-        : "Use Hephaestus as the autonomous GPT-native primary executor for this deep task.";
+    ? "Use Atlas to create or review a constrained internal plan, then execute it in this Dispatch."
+    : "Use Atlas to execute a compact bounded plan and delegate only inexpensive isolated work.";
   console.log(JSON.stringify({
     ...entry,
     executionMode: mode,
-    primaryAgent: agent,
-    launcherArgs,
-    terminalCommand: launcherArgs.map(shellQuote).join(" "),
+    primaryAgent: "Atlas - Plan Executor",
     parentIssue: state.parentIssue,
     parentBranch: state.parentBranch,
     blockedBy: pending,
