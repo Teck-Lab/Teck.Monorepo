@@ -17,7 +17,7 @@ for env_file in /run/secrets/teck-mcp/mcp.env; do
   fi
 done
 
-for command_name in git jq tmux curl codex opencode bun dotnet python3 make g++ docker; do
+for command_name in git jq tmux curl codex opencode orca bun dotnet python3 make g++ docker; do
   command -v "$command_name" >/dev/null 2>&1 \
     && pass "$command_name is installed" \
     || fail "$command_name is missing"
