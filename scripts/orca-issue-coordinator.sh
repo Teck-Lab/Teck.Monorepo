@@ -24,6 +24,10 @@ command -v "${orca_cli[0]}" >/dev/null || {
   echo "Orca CLI is not available in the workspace environment" >&2
   exit 1
 }
+command -v jq >/dev/null || {
+  echo "jq is required to resolve the existing OpenCode terminal" >&2
+  exit 1
+}
 
 prompt="You are the Orca coordinator for ${issue_url}.
 
@@ -33,8 +37,56 @@ Treat the linked GitHub issue as the parent feature and execute the complete coo
 
 cd "$worktree"
 
-# Orca deliberately restores focus to the original agent pane after creating
-# this issue-command split. With no --terminal selector, these commands target
-# that focused agent rather than this short-lived helper shell.
-"${orca_cli[@]}" terminal wait --for tui-idle --timeout-ms 120000 --json >/dev/null
-"${orca_cli[@]}" terminal send --text "$prompt" --enter --json >/dev/null
+# The issue-command shell is the active leaf by the time this command runs.
+# Resolve other panes in the same worktree, then let Orca's TUI readiness probe
+# distinguish the selected agent from setup or ordinary shell panes.
+terminal_list="$(
+  "${orca_cli[@]}" terminal list \
+    --worktree "path:$worktree" \
+    --include-visual-layouts \
+    --json
+)"
+mapfile -t candidates < <(
+  jq -r --arg worktree "$worktree" '
+    [
+      .result.visualLayouts[]?
+      | select(.worktreePath == $worktree)
+      | ..
+      | objects
+      | .activeLeafId?
+      | select(. != null)
+    ] as $activeLeaves
+    | .result.terminals[]?
+    | select(
+        .worktreePath == $worktree
+        and .connected == true
+        and .writable == true
+      )
+    | .leafId as $leaf
+    | select(($activeLeaves | index($leaf)) == null)
+    | .handle
+  ' <<<"$terminal_list"
+)
+
+agent_handle=""
+for candidate in "${candidates[@]}"; do
+  if "${orca_cli[@]}" terminal wait \
+    --terminal "$candidate" \
+    --for tui-idle \
+    --timeout-ms 120000 \
+    --json >/dev/null; then
+    agent_handle="$candidate"
+    break
+  fi
+done
+
+if [[ -z "$agent_handle" ]]; then
+  echo "could not resolve an idle agent terminal outside the issue-command split" >&2
+  exit 1
+fi
+
+"${orca_cli[@]}" terminal send \
+  --terminal "$agent_handle" \
+  --text "$prompt" \
+  --enter \
+  --json >/dev/null
