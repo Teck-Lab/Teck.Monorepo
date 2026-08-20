@@ -32,10 +32,10 @@ registered for explicit use and configured fallbacks. Their four credentials
 are resolved from Proton Pass by the Orca recipe and mounted read-only at
 runtime; they never live under `.devcontainer`.
 
-The pinned OMO 4.19 runtime reads its generated user configuration from
-`~/.config/opencode/oh-my-openagent.jsonc` and repository policy from
-`.opencode/oh-my-openagent.jsonc`. The committed devcontainer template is
-materialized into that supported user path during post-create.
+The pinned OMO 4.19.4 runtime reads the unified configuration seeded at
+`~/.omo/omo.jsonc` from `.devcontainer/opencode/omo.jsonc`. OMO 4.19.4 may show
+a known false validation warning for this configuration, but the runtime loads
+it. Generated `.omo/` project state is ignored and never committed.
 
 Codex uses the OpenAI authentication mounted from WSL2 and does not require a
 provider-key file or an in-container login.
