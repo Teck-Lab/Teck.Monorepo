@@ -28,6 +28,15 @@ command -v jq >/dev/null || {
   echo "jq is required to resolve the existing OpenCode terminal" >&2
   exit 1
 }
+command -v opencode >/dev/null || {
+  echo "OpenCode is not installed in the workspace environment" >&2
+  exit 1
+}
+config_dir="$HOME/.config/opencode"
+[[ -s "$config_dir/opencode.json" ]] || {
+  echo "OpenCode profile is not seeded: $config_dir/opencode.json" >&2
+  exit 1
+}
 
 prompt="You are the Orca coordinator for ${issue_url}.
 
@@ -37,9 +46,10 @@ Treat the linked GitHub issue as the parent feature and execute the complete coo
 
 cd "$worktree"
 
-# The issue-command shell is the active leaf by the time this command runs.
-# Resolve other panes in the same worktree, then let Orca's TUI readiness probe
-# distinguish the selected agent from setup or ordinary shell panes.
+# Orca launches the selected agent and this issue-command shell in separate
+# panes. Relay input delivery to the selected OpenCode pane is not reliable, so
+# identify that empty agent pane, close it, and replace this shell process with
+# the coordinator TUI using OpenCode's native initial-prompt option.
 terminal_list="$(
   "${orca_cli[@]}" terminal list \
     --worktree "path:$worktree" \
@@ -85,8 +95,11 @@ if [[ -z "$agent_handle" ]]; then
   exit 1
 fi
 
-"${orca_cli[@]}" terminal send \
-  --terminal "$agent_handle" \
-  --text "$prompt" \
-  --enter \
-  --json >/dev/null
+"${orca_cli[@]}" terminal close --terminal "$agent_handle" --json >/dev/null
+
+exec env \
+  OPENCODE_CONFIG_DIR="$config_dir" \
+  OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true \
+  OMO_DISABLE_POSTHOG=1 \
+  OMO_SEND_ANONYMOUS_TELEMETRY=0 \
+  opencode --agent sisyphus --prompt "$prompt"
