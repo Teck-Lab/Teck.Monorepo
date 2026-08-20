@@ -5,6 +5,11 @@ description: Coordinate a Teck feature from a GitHub parent issue and sub-issues
 
 # Teck feature flow
 
+The parent feature coordinator is native Codex. Codex owns the durable Orca
+Run, Task DAG, GitHub reconciliation, worker supervision, integration, and final
+PR preparation. It must not implement the feature directly. OMO/OpenCode is
+reserved for the plan-only worker and dispatched child implementation workers.
+
 Keep one recipe-backed Orca workspace/container per parent feature. Create one
 native Orca child worktree in that environment for each executable GitHub
 sub-issue. Do not provision another recipe environment for a child.
