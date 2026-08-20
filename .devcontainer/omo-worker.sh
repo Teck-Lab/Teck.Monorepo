@@ -65,7 +65,9 @@ if tmux has-session -t "=$session" 2>/dev/null; then
   exec tmux attach-session -t "=$session"
 fi
 
-port="$(bun -e 'const s=Bun.listen({hostname:"127.0.0.1",port:0,socket:{data(){}}}); console.log(s.port); s.stop();')"
+# Bun may colorize numeric console output when the launcher runs inside Orca's
+# PTY. ANSI bytes make the numeric guard reject an otherwise valid port.
+port="$(NO_COLOR=1 bun -e 'const s=Bun.listen({hostname:"127.0.0.1",port:0,socket:{data(){}}}); console.log(s.port); s.stop();')"
 [[ "$port" =~ ^[1-9][0-9]*$ ]] || { echo "could not allocate an OpenCode port" >&2; exit 1; }
 
 if $dry_run; then
