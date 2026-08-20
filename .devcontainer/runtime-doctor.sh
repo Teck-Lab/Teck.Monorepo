@@ -70,6 +70,11 @@ fi
   || fail 'GitHub CLI credential helper is not configured'
 
 omo_config="$HOME/.omo/omo.jsonc"
+opencode_config="$HOME/.config/opencode/opencode.json"
+[ "$(jq -r '.default_agent // empty' "$opencode_config" 2>/dev/null || true)" = 'Atlas - Plan Executor' ] \
+  && pass 'Native implementation workers default to Atlas' \
+  || fail 'Native OpenCode implementation default is not Atlas'
+
 if [ -s "$omo_config" ]; then
   expected_sisyphus='["opencode-go-a/kimi-k2.7-code","opencode-go-b/kimi-k2.7-code","openai/gpt-5.6-sol"]'
   actual_sisyphus="$(jq -c '[."[opencode]".agents.sisyphus.models[] | if type == "string" then . else .model end]' "$omo_config" 2>/dev/null || true)"

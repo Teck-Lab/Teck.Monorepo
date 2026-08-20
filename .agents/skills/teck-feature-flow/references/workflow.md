@@ -47,15 +47,17 @@ in a fresh OMO planner terminal in the parent feature worktree. The planner may
 read GitHub and the repository, but it must not mutate issues, Tasks, branches,
 worktrees, or code. After `worker_done`, the coordinator reviews its plan.
 
-Launch the planner visibly through the direct OMO wrapper, using the parent issue
-as its bounded planning identity, then inject the planning Task:
+Launch the dedicated Prometheus planner, wait for readiness, then create the
+tracked Dispatch and deliver Orca's exact returned lifecycle preamble:
 
 ```bash
 orca orchestration task-create --spec "Plan-only decomposition for GitHub parent #120. Do not edit or invoke /start-work; return leaves, dependencies, acceptance criteria, validation, overlap risks, and plan defects through worker_done." --json
 orca terminal create --worktree active --title feature-120-plan \
-  --command "teck-omo-worker --worktree . --parent-issue 120 --issue 120 --slug feature-plan --mode planned" --json
-orca terminal wait --terminal <planner-handle> --for tui-idle --timeout-ms 60000 --json
-orca orchestration dispatch --task <planning-task-id> --to <planner-handle> --inject --json
+  --command "teck-omo-planner" --json
+orca terminal wait --terminal <planner-handle> --for tui-idle \
+  --timeout-ms 60000 --json
+tools/orca-dispatch-terminal --task <planning-task-id> \
+  --terminal <planner-handle>
 orca orchestration dispatch-show --task <planning-task-id> --json
 ```
 
@@ -65,10 +67,11 @@ The visible primary must be `Prometheus - Plan Builder`. Seeing Sisyphus means
 agent selection fell back and the planning worker is invalid; stop and relaunch
 it rather than accepting output from the wrong primary.
 
-A Dispatch record or capability hash alone does not prove that the injected
-lifecycle preamble reached the worker. Require observable task processing and
-an authoritative Orca lifecycle message. Text that merely says `worker_done`
-in the terminal is not completion and must never be reconciled as a Delivery.
+The dispatch helper must report `delivered: true`. It sends Orca's returned
+capability-bearing preamble verbatim and never reconstructs lifecycle commands.
+Require observable task processing after delivery.
+Text that merely says `worker_done` in the terminal is not completion and must
+never be reconciled as a Delivery.
 
 Use GitHub MCP `issue_write` to create missing executable leaf issues and
 `sub_issue_write` to attach them to the parent. Re-read sub-issues before every
@@ -87,10 +90,9 @@ orca orchestration task-create --spec "Implement GitHub sub-issue #122 ..." \
 
 Use durable execution modes only for OMO routing:
 
-- `planned` (default): Prometheus plans/reviews the leaf, then Atlas executes.
-- `quick`: Prometheus produces a compact plan, then Atlas executes.
-- `autonomous`: Hephaestus owns a deep end-to-end implementation.
-- `spike`: Hephaestus performs a bounded investigation.
+- `planned` (default): Atlas creates or reviews a constrained internal plan,
+  then executes it.
+- `quick`: Atlas executes a compact bounded plan.
 
 ## 3. Create native child worktrees with visible OMO workers
 
@@ -113,24 +115,21 @@ tools/orca-feature register --issue 121 --title "Tax system" \
 tools/orca-feature dispatch-info --issue 121
 ```
 
-Use the `terminalCommand` returned by `dispatch-info` to start the dedicated
-OMO/OpenCode worker directly in the child terminal, then inject the Orca Dispatch:
+Start the dedicated OMO/OpenCode worker through Orca's native supervised
+composition. The seeded OpenCode configuration selects Atlas for implementation:
 
 ```bash
-orca terminal create --worktree id:<full-worktree-id> \
-  --title issue-121-tax --command "<terminalCommand>" --json
-orca terminal wait --terminal <agent-handle> --for tui-idle \
-  --timeout-ms 60000 --json
-orca orchestration dispatch --task <task-id> --to <agent-handle> --inject --json
+orca orchestration worker-start --task <task-id> \
+  --worktree id:<full-worktree-id> --agent opencode --json
 orca orchestration dispatch-show --task <task-id> --json
 tools/orca-feature set-status --issue 121 --status dispatched
 ```
 
-This low-level composition is intentional: the standard `worker-start` cannot
-express the custom OMO agent/mode arguments, while `teck-omo-worker` replaces
-itself with the recognized OpenCode process. If bare child creation produced a fallback shell, close
-it only after `terminal list/show` proves it is unused. The child remains in the
-parent feature's disposable devcontainer; do not select another recipe.
+This native composition is intentional: Orca owns the implementation-agent
+launch, readiness, Dispatch creation, and lifecycle injection, while
+OpenCode's seeded `default_agent` selects Atlas.
+The child remains in the parent feature's disposable devcontainer; do not
+select another recipe.
 
 Start all independent ready workers before waiting. Never place two writers in
 one worktree or parallelize workers that overlap files, generated artifacts,
@@ -157,13 +156,10 @@ what releases dependent Tasks in Orca's DAG. Process the entire Delivery before
 acknowledging it; do not follow a valid completion with a redundant manual
 `task-update --status completed`.
 
-For `planned` and `quick` work, Prometheus writes and reviews the constrained
-plan before `/start-work` transfers execution to Atlas in the same OpenCode
-session. Atlas remains the primary Orca worker: it reviews delegated output,
+For implementation Tasks, Atlas is the primary Orca worker: it may create or
+review a bounded internal plan, delegates only within the assigned worktree,
 validates, creates the unsigned conventional checkpoint commit, and sends
-`worker_done`. For
-`autonomous` and `spike`, Hephaestus is the primary worker. Do not run Atlas and
-Hephaestus as concurrent writers in one worktree.
+`worker_done`.
 
 After successful `worker_done`:
 
