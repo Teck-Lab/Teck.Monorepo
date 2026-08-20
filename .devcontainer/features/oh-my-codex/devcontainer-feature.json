@@ -1,0 +1,7 @@
+{
+  "id": "oh-my-codex",
+  "version": "1.0.0",
+  "name": "Oh My Codex",
+  "description": "Installs the repository-pinned Oh My Codex CLI.",
+  "installsAfter": ["ghcr.io/devcontainers/features/node"]
+}

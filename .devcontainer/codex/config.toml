@@ -1,16 +1,29 @@
 # Codex CLI config — seeded into ~/.codex/config.toml by postCreate.sh.
 #
-# Uses direct OpenAI authentication mounted from WSL2. OpenCode/OMO owns the
-# lower-cost provider fallback chains; Codex remains the GPT-native path.
+# Uses direct OpenAI authentication mounted from WSL2. Orca owns durable
+# orchestration; Oh My Codex contributes native Codex roles and skills.
 
 model = "gpt-5.6-terra"
 model_provider = "openai"
+model_reasoning_effort = "high"
 
 # The dev container itself is the security boundary (privileged, convenience-first
 # — see README "Security"). Disable Codex's inner sandbox + approval prompts for
-# headless agent use, mirroring the `claude --dangerously-skip-permissions` alias.
+# headless agent use inside the disposable Orca workspace.
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
+
+[features]
+multi_agent = true
+hooks = true
+plugins = true
+goals = true
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 6
+default_subagent_model = "gpt-5.6-luna"
+default_subagent_reasoning_effort = "xhigh"
 
 # Local stdio GitHub MCP authenticated through the mounted GitHub CLI session.
 [mcp_servers.github]
@@ -28,6 +41,8 @@ enabled_tools = [
   "issue_read",
   "issue_write",
   "sub_issue_write",
+  "issue_dependency_read",
+  "issue_dependency_write",
   "add_issue_comment",
   "search_issues",
   "list_issues",

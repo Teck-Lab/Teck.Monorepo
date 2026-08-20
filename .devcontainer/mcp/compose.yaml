@@ -1,5 +1,4 @@
-# Self-hosted MCP backends for OpenCode research agents
-# (oracle, librarian, fixer). Secrets and the SearXNG settings file are prepared
+# Self-hosted MCP backends for agent research. Secrets and the SearXNG settings file are prepared
 # on the host before Compose starts.
 #
 # Images are PINNED per the repo convention — never `latest`. Bump deliberately.

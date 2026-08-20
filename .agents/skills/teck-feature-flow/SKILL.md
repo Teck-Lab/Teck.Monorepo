@@ -1,71 +1,44 @@
 ---
 name: teck-feature-flow
-description: Coordinate a Teck feature from a GitHub parent issue and sub-issues using one Orca feature environment, native Orca child worktrees, supervised orchestration Tasks, visible OMO/OpenCode worker terminals, conventional commits, local integration, and one final reviewed PR. Use when planning or decomposing parent work, dispatching dependency-aware sub-issues, supervising OMO workers, integrating child branches, or preparing the feature PR.
+description: Coordinate a Teck parent GitHub issue through native Orca Tasks, GitHub sub-issues and blockers, isolated Orca child worktrees, dedicated Codex planner/reviewer/executor/QA workers, local integration, and one final PR. Use for parent issue intake, Task-DAG reconciliation, worker supervision, integration, and final PR preparation.
 ---
 
-# Teck feature flow
+# Teck feature coordinator
 
-The parent feature coordinator is native Codex. Codex owns the durable Orca
-Run, Task DAG, GitHub reconciliation, worker supervision, integration, and final
-PR preparation. It must not implement the feature directly. OMO/OpenCode is
-reserved for the plan-only worker and dispatched child implementation workers.
+Coordinate only. Do not inspect implementation details to replace a planner,
+edit product code, perform code review, or perform QA in the parent worktree.
 
-Keep one recipe-backed Orca workspace/container per parent feature. Create one
-native Orca child worktree in that environment for each executable GitHub
-sub-issue. Do not provision another recipe environment for a child.
+Use four state owners:
 
-Use three separate state owners:
+- GitHub MCP: durable parent/sub-issues, native blockers, comments, PR, and CI.
+- Orca orchestration: Run, Task DAG, Dispatches, questions, and completion.
+- Native Orca worktrees: isolated leaf branches, terminals, and UI lineage.
+- `tools/orca-feature`: local integration bookkeeping only.
 
-- GitHub MCP: durable parent/sub-issues, comments, PR, reviewers, and checks.
-- Native Orca worktrees: child checkout, branch, terminal, and UI lineage.
-- `tools/orca-feature`: parent integration bookkeeping and local squash commits.
-- Orca orchestration: live Run, Tasks, dependencies, Dispatches, questions, and completion.
+Read [references/workflow.md](references/workflow.md) completely before
+starting or resuming. Load Orca's version-matched orchestration guide before
+running any orchestration command.
 
-Read [references/workflow.md](references/workflow.md) before starting or
-resuming a flow. Load the live Orca orchestration guide with the session's
-resolved Orca CLI before running orchestration commands.
+## Non-negotiable boundaries
 
-## Guardrails
-
-- Let workers commit only in their assigned Orca child worktrees.
-- Use full OMO as the worker harness.
-- Run feature-level planning before materializing missing executable children.
-  Let the coordinator review the plan and alone reconcile GitHub sub-issues and
-  the Orca DAG. Use the dedicated Prometheus planning launcher only for
-  plan-only parent decomposition.
-- Start each implementation worker with Orca's native
-  `orchestration worker-start --agent opencode` composition. Orca must own
-  launch, readiness, Dispatch creation, and lifecycle-preamble injection. Only
-  an Orca `worker_done`, `question`, or `escalation` changes coordinator state.
-- Let nested OMO agents edit only within the assigned worktree. They may not
-  commit, push, merge, create worktrees, mutate GitHub, or send Orca lifecycle
-  messages; the primary worker owns those responsibilities.
-- Let the coordinator alone merge into and push the parent feature branch.
-- Workers may create unsigned conventional checkpoint commits locally. Never
-  push a worker branch. The coordinator integrates each completed sub-feature
-  as one conventional commit and alone pushes the parent branch.
-- Treat plan-review defects as parent sub-issues with `kind=plan-defect`.
-- Represent execution dependencies in Orca Tasks and `tools/orca-feature`.
-  Add a durable `Blocked by #...` issue comment when GitHub MCP lacks a
-  dependency mutation tool.
-- Use one final PR from the parent feature branch to the default branch unless
-  the user explicitly requests sub-feature PRs.
-- Never expose GitHub MCP file-write/remote-commit, workflow-dispatch,
-  review-submission, or merge tools in this flow.
-- Require the parent lifecycle to be normalized to the single
-  `agent:claimed` label before creating the feature Run. Request transitions
-  by adding the target label without first removing the current label; the
-  lifecycle workflow validates the pair and removes the old label. Apply
-  `agent:needs-input` while blocked on a human decision and `agent:in-review`
-  after opening the final PR. The workflow applies `agent:completed` when the
-  parent closes.
-- Never merge the final PR. Request the human review and stop at the PR.
-- Never create tags or run `nx release` from the feature branch.
-
-## Recovery
-
-Run `tools/orca-feature status --json`, inspect Orca `task-list` and
-`dispatch-show`, and read the GitHub parent/sub-issues before changing state.
-Do not infer completion from a terminal becoming idle. Require a valid
-`worker_done`, clean worktree, relevant checks, and local commits before App
-promotion.
+- Start every durable worker with Orca `worker-start --agent codex`.
+- Never create a terminal and inject a reconstructed prompt manually.
+- Never use OMX worktrees, `$team`, tmux workers, `$autopilot`, `$ralph`, or an
+  OMX goal ledger. OMX is role/skill guidance inside native Codex only.
+- Planning, plan review, implementation, code review, and QA are separate
+  Dispatches. A coordinator may reconcile their results but never substitutes
+  for them.
+- Each executable implementation leaf maps to one GitHub sub-issue, one Orca
+  Task, and one native Orca child worktree.
+- Ephemeral native Codex subagents may exist only inside an executor Dispatch.
+  They inherit that leaf's scope and never own GitHub, Git, Orca, or lifecycle.
+- Every actionable review finding becomes a GitHub sub-issue and native blocker.
+  Informational observations remain evidence on the reviewed issue.
+- Mirror GitHub blockers in Orca Task dependencies. Re-read both graphs after
+  mutation; disagreement blocks dispatch.
+- Reviewers and QA never repair findings. Dispatch a finding to an executor and
+  re-run the affected review after integration.
+- Only the coordinator integrates child commits, publishes the parent branch,
+  creates the final PR, and updates parent lifecycle labels.
+- Never merge the final PR, create tags, run `nx release`, force push, or bypass
+  hooks.

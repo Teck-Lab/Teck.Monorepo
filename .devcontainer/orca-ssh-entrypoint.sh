@@ -8,7 +8,7 @@ set -euo pipefail
 # root-owned unless the remote-runtime entrypoint prepares it explicitly.
 install -d -m 0775 -o vscode -g vscode /workspaces
 
-for env_file in /run/secrets/teck-ai/providers.env /run/secrets/teck-mcp/mcp.env; do
+for env_file in /run/secrets/teck-mcp/mcp.env; do
   if [ -s "$env_file" ]; then
     set -a
     # shellcheck disable=SC1090

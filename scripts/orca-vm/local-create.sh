@@ -6,7 +6,6 @@ name=""
 runtime_dir=""
 cleanup_on_error() {
   if [ "$?" -ne 0 ] && [ -n "$name" ]; then
-    pass-cli logout --force >/dev/null 2>&1 || true
     containers="$(docker ps -aq --filter "label=com.docker.compose.project=$name")"
     [ -z "$containers" ] || docker rm -f $containers >/dev/null 2>&1 || true
     [ -z "$runtime_dir" ] || rm -rf -- "$runtime_dir"
@@ -15,10 +14,6 @@ cleanup_on_error() {
 trap cleanup_on_error EXIT
 
 [ -s "$orca_codex_auth_file" ] || { echo "Codex credential file missing: $orca_codex_auth_file" >&2; exit 1; }
-[ -s "$orca_opencode_auth_file" ] || { echo "OpenCode credential file missing: $orca_opencode_auth_file" >&2; exit 1; }
-[ -s "$orca_provider_refs_file" ] || { echo "Provider references missing: $orca_provider_refs_file" >&2; exit 1; }
-[ -s "$orca_proton_pat_file" ] || { echo "Proton PAT missing: $orca_proton_pat_file" >&2; exit 1; }
-command -v pass-cli >/dev/null || { echo 'Proton Pass CLI is required on the WSL host.' >&2; exit 1; }
 ensure_key
 identity_file="$(wslpath -w "$orca_key_file")"
 
@@ -29,18 +24,6 @@ name="${name_prefix%-}-${attempt_suffix}"
 runtime_dir="${XDG_STATE_HOME:-$HOME/.local/state}/teck-orca/runtimes/$name"
 workspace_dir="$runtime_dir/workspace"
 install -d -m 0700 "$runtime_dir"
-provider_env="$runtime_dir/providers.env"
-provider_session="$runtime_dir/proton-session"
-install -d -m 0700 "$provider_session"
-export PROTON_PASS_SESSION_DIR="$provider_session"
-export PROTON_PASS_KEY_PROVIDER=fs PROTON_PASS_DISABLE_TELEMETRY=1
-export PROTON_PASS_PERSONAL_ACCESS_TOKEN="$(tr -d '\r\n' < "$orca_proton_pat_file")"
-pass-cli login >/dev/null
-unset PROTON_PASS_PERSONAL_ACCESS_TOKEN
-pass-cli run --env-file "$orca_provider_refs_file" -- \
-  "$orca_vm_dir/materialize-provider-env.sh" "$provider_env"
-pass-cli logout --force >/dev/null 2>&1 || true
-rm -rf -- "$provider_session"
 
 # Each parent feature receives its own checkout. Runtime infrastructure comes
 # from the latest main branch rather than the requested worktree base: an old
@@ -70,7 +53,6 @@ jq --arg base "$workspace_dir/.devcontainer" --arg override "$runtime_override" 
 
 export COMPOSE_PROJECT_NAME="$name"
 export TECK_MCP_ENV_FILE="$workspace_dir/.devcontainer/mcp/mcp.env"
-export TECK_PROVIDER_ENV_FILE="$provider_env"
 up_result="$(npx --yes @devcontainers/cli@0.88.0 up --workspace-folder "$workspace_dir" --config "$runtime_config")"
 container_id="$(jq -er '.containerId' <<<"$up_result")"
 port="$(docker port "$container_id" 22/tcp | sed -nE 's/.*:([0-9]+)$/\1/p' | head -1)"
