@@ -78,23 +78,17 @@ mapfile -t candidates < <(
   ' <<<"$terminal_list"
 )
 
-agent_handle=""
-for candidate in "${candidates[@]}"; do
-  if "${orca_cli[@]}" terminal wait \
-    --terminal "$candidate" \
-    --for tui-idle \
-    --timeout-ms 120000 \
-    --json >/dev/null; then
-    agent_handle="$candidate"
-    break
-  fi
-done
-
-if [[ -z "$agent_handle" ]]; then
-  echo "could not resolve an idle agent terminal outside the issue-command split" >&2
+if (( ${#candidates[@]} != 1 )); then
+  echo "expected exactly one sibling agent terminal, found ${#candidates[@]}" >&2
+  jq -r --arg worktree "$worktree" '
+    .result.terminals[]?
+    | select(.worktreePath == $worktree)
+    | "terminal=\(.handle) leaf=\(.leafId) title=\(.title) connected=\(.connected) writable=\(.writable)"
+  ' <<<"$terminal_list" >&2
   exit 1
 fi
 
+agent_handle="${candidates[0]}"
 "${orca_cli[@]}" terminal close --terminal "$agent_handle" --json >/dev/null
 
 exec env \
