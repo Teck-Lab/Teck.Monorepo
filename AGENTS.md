@@ -9,10 +9,13 @@ When Orca starts that Codex session with a GitHub issue URL matching
 `https://github.com/Teck-Lab/Teck.Monorepo/issues/<number>`, treat it as parent
 feature intake. Load and follow the `teck-feature-flow` skill and its referenced
 workflow, then load the version-matched Orca orchestration guide before running
-orchestration commands. Act as the coordinator; do not implement the feature
-directly in the parent worktree or replace Orca Dispatches with untracked
-subagents. Codex owns coordination and integration; OMO/OpenCode remains the
-planner and dispatched child-worker harness.
+orchestration commands. Act as the coordinator; do not implement, plan, or
+review the feature directly in the parent worktree and do not replace Orca
+Dispatches with untracked subagents. Orca owns durable coordination and
+worktrees. Dedicated native Codex workers own planning, plan review, leaf
+execution, code review, and final QA. Oh My Codex may supply role and skill
+guidance inside a Codex worker, but must not create a second worktree, tmux,
+team, or lifecycle system.
 
 An explicit Orca worker Dispatch takes precedence over the parent-intake rule.
 Remain within the assigned child worktree and follow the role and completion

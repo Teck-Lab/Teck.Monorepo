@@ -5,7 +5,6 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 
 type Kind = "feature" | "plan-defect" | "validation";
 type WorkStatus = "ready" | "dispatched" | "completed" | "blocked" | "integrated" | "removed";
-type ExecutionMode = "planned" | "quick";
 
 interface WorktreeEntry {
   issue: number;
@@ -16,7 +15,6 @@ interface WorktreeEntry {
   path: string;
   orcaWorktreeId?: string;
   dependsOn: number[];
-  executionMode: ExecutionMode;
   status: WorkStatus;
   integratedCommit?: string;
 }
@@ -100,14 +98,6 @@ function slugify(value: string): string {
   const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   if (!slug) throw new FlowError("slug must contain a letter or number");
   return slug;
-}
-
-function executionMode(raw: string | undefined, fallback: ExecutionMode = "planned"): ExecutionMode {
-  const value = raw ?? fallback;
-  if (!(["planned", "quick"] as string[]).includes(value)) {
-    throw new FlowError(`unsupported --mode: ${value}`);
-  }
-  return value as ExecutionMode;
 }
 
 function branchExists(root: string, branch: string): boolean {
@@ -277,7 +267,6 @@ function registerWorktree(options: ParsedOptions): void {
   const rawKind = option(options, "--kind") ?? "feature";
   if (!["feature", "plan-defect", "validation"].includes(rawKind)) throw new FlowError(`unsupported --kind: ${rawKind}`);
   const kind = rawKind as Kind;
-  const mode = executionMode(option(options, "--mode"), kind === "validation" ? "quick" : "planned");
   const entry: WorktreeEntry = {
     issue,
     title,
@@ -287,7 +276,6 @@ function registerWorktree(options: ParsedOptions): void {
     path,
     orcaWorktreeId,
     dependsOn: dependencies,
-    executionMode: mode,
     status: "ready",
   };
   state.worktrees.push(entry);
@@ -317,32 +305,6 @@ function showStatus(options: ParsedOptions): void {
     if (item.merged) flags.push("merged");
     console.log(`  #${item.issue} ${item.kind}: ${item.branch} [${flags.join(", ")}]`);
   }
-}
-
-function dispatchInfo(options: ParsedOptions): void {
-  if (option(options, "--harness") !== undefined || options.flags.has("--harness")) {
-    throw new FlowError("--harness was removed; full OMO is the only worker runtime");
-  }
-  const root = repositoryRoot();
-  const state = loadState(root);
-  const entry = entryFor(state, integerOption(options, "--issue"));
-  const pending = entry.dependsOn.filter((issue) => entryFor(state, issue).status !== "integrated");
-  const status = worktreeStatus(root, state, entry);
-  const mode = executionMode(option(options, "--mode"), entry.executionMode ?? "planned");
-  const modeInstruction = mode === "planned"
-    ? "Use Atlas to create or review a constrained internal plan, then execute it in this Dispatch."
-    : "Use Atlas to execute a compact bounded plan and delegate only inexpensive isolated work.";
-  console.log(JSON.stringify({
-    ...entry,
-    executionMode: mode,
-    primaryAgent: "Atlas - Plan Executor",
-    parentIssue: state.parentIssue,
-    parentBranch: state.parentBranch,
-    blockedBy: pending,
-    needsSync: status.behind > 0,
-    ready: pending.length === 0 && status.behind === 0 && entry.status === "ready",
-    taskSpec: `Implement GitHub sub-issue #${entry.issue} (${entry.kind}, ${mode}): ${entry.title || entry.slug}. ${modeInstruction} Work only in ${entry.path} on branch ${entry.branch}. Nested agents may not commit, push, merge, create worktrees, mutate GitHub, or send Orca lifecycle messages. The primary worker must review delegated output, run relevant checks, create conventional local checkpoint commits without pushing them, and send worker_done exactly once.`,
-  }, null, 2));
 }
 
 function syncWorktree(options: ParsedOptions): void {
@@ -445,7 +407,6 @@ commands:
   init           adopt or create the parent feature branch
   register       register an existing native Orca child worktree
   status         show parent and worktree integration state
-  dispatch-info  emit an Orca task/terminal payload
   sync           fast-forward an undispatched child to the parent
   set-status     record worker lifecycle state
   integrate      merge a completed sub-feature into the parent
@@ -463,7 +424,6 @@ function main(): void {
     case "init": initialize(options); break;
     case "register": registerWorktree(options); break;
     case "status": showStatus(options); break;
-    case "dispatch-info": dispatchInfo(options); break;
     case "sync": syncWorktree(options); break;
     case "set-status": setWorkStatus(options); break;
     case "integrate": integrate(options); break;

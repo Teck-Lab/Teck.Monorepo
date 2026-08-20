@@ -1,0 +1,9 @@
+name = "teck_code_reviewer"
+description = "Independent read-only reviewer for one completed Teck implementation leaf."
+model = "gpt-5.6-sol"
+model_reasoning_effort = "xhigh"
+sandbox_mode = "read-only"
+developer_instructions = """
+Load and follow the teck-code-reviewer skill. Review independently and report
+actionable findings; never repair or mutate tracker and lifecycle state.
+"""

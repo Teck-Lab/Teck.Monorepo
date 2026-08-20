@@ -17,7 +17,7 @@ for env_file in /run/secrets/teck-mcp/mcp.env; do
   fi
 done
 
-for command_name in git jq tmux curl codex opencode orca bun dotnet python3 make g++ docker; do
+for command_name in git jq curl codex omx orca bun dotnet python3 make g++ docker; do
   command -v "$command_name" >/dev/null 2>&1 \
     && pass "$command_name is installed" \
     || fail "$command_name is missing"
@@ -38,20 +38,6 @@ fi
 [ -s "$HOME/.codex/auth.json" ] \
   && pass 'Codex authentication is mounted' \
   || fail 'Codex authentication is missing'
-[ -s "$HOME/.local/share/opencode/auth.json" ] \
-  && pass 'OpenCode authentication is mounted' \
-  || fail 'OpenCode authentication is missing'
-
-if [ -s /run/secrets/teck-ai/providers.env ]; then
-  mode="$(stat -c '%a' /run/secrets/teck-ai/providers.env 2>/dev/null || true)"
-  case "$mode" in
-    400|440|600|640) pass 'Provider credentials are mounted with restricted permissions' ;;
-    *) fail "Provider credential file mode is ${mode:-unknown}" ;;
-  esac
-else
-  fail 'Provider credentials are not mounted'
-fi
-
 if gh auth status >/dev/null 2>&1; then
   pass 'GitHub CLI authentication works'
 else
@@ -69,43 +55,26 @@ fi
   && pass 'Git transport uses GitHub CLI credentials' \
   || fail 'GitHub CLI credential helper is not configured'
 
-omo_config="$HOME/.omo/omo.jsonc"
-opencode_config="$HOME/.config/opencode/opencode.json"
-[ "$(jq -r '.default_agent // empty' "$opencode_config" 2>/dev/null || true)" = 'Atlas - Plan Executor' ] \
-  && pass 'Native implementation workers default to Atlas' \
-  || fail 'Native OpenCode implementation default is not Atlas'
-
-if [ -s "$omo_config" ]; then
-  expected_sisyphus='["opencode-go-a/kimi-k2.7-code","opencode-go-b/kimi-k2.7-code","openai/gpt-5.6-sol"]'
-  actual_sisyphus="$(jq -c '[."[opencode]".agents.sisyphus.models[] | if type == "string" then . else .model end]' "$omo_config" 2>/dev/null || true)"
-  [ "$actual_sisyphus" = "$expected_sisyphus" ] \
-    && pass 'Sisyphus has the expected Kimi K2.7-to-GPT fallback chain' \
-    || fail 'Sisyphus fallback chain is missing or out of order'
-  expected_junior='["opencode-go-a/kimi-k2.7-code","opencode-go-b/kimi-k2.7-code","openai/gpt-5.6-sol"]'
-  actual_junior="$(jq -c '[."[opencode]".agents."sisyphus-junior".models[] | if type == "string" then . else .model end]' "$omo_config" 2>/dev/null || true)"
-  [ "$actual_junior" = "$expected_junior" ] \
-    && pass 'Sisyphus-Junior has the expected Kimi K2.7-to-GPT fallback chain' \
-    || fail 'Sisyphus-Junior fallback chain is missing or out of order'
-  expected_deepseek_routes='[["deepseek/deepseek-v4-flash","openrouter/deepseek/deepseek-v4-flash-0731"],["deepseek/deepseek-v4-flash","openrouter/deepseek/deepseek-v4-flash-0731"],["deepseek/deepseek-v4-flash","openrouter/deepseek/deepseek-v4-flash-0731"]]'
-  actual_deepseek_routes="$(jq -c '[
-    [."[opencode]".agents.librarian.models[1:3][].model],
-    [."[opencode]".agents.explore.models[1:3][].model],
-    [."[opencode]".categories.quick.models[1:3][].model]
-  ]' "$omo_config" 2>/dev/null || true)"
-  [ "$actual_deepseek_routes" = "$expected_deepseek_routes" ] \
-    && pass 'Current direct and OpenRouter DeepSeek V4 Flash models back supported utility routes' \
-    || fail 'DeepSeek V4 Flash utility fallbacks are missing, stale, or use the wrong provider'
-  unexpected="$(jq -r '[
-    (."[opencode]".agents | to_entries[] | select(.key != "sisyphus" and .key != "sisyphus-junior") | .value | (.model?, .models[]?.model?)),
-    (."[opencode]".categories | to_entries[] | .value | (.model?, .models[]?.model?))
-  ] | .[] | select(startswith("openai/gpt-") | not)
-    | select(. != "deepseek/deepseek-v4-flash")
-    | select(. != "openrouter/deepseek/deepseek-v4-flash-0731")' "$omo_config" 2>/dev/null || true)"
-  [ -z "$unexpected" ] \
-    && pass 'Other orchestrated OMO routes remain GPT-only' \
-    || fail 'An unsupported non-GPT OMO route is configured'
+if omx --version 2>/dev/null | grep -q '0\.20\.5'; then
+  pass 'Oh My Codex 0.20.5 is installed'
 else
-  fail 'OMO configuration is missing'
+  fail 'Oh My Codex 0.20.5 is not installed'
+fi
+
+if omx doctor >/dev/null 2>&1; then
+  pass 'Oh My Codex setup is healthy'
+else
+  fail 'Oh My Codex doctor reported an unhealthy setup'
+fi
+
+if awk '/^\[agents\]$/{section=1; next} /^\[/{section=0} section && /^enabled = true$/{found=1} END{exit !found}' \
+    "$HOME/.codex/config.toml" 2>/dev/null \
+  && grep -q 'issue_dependency_read' "$HOME/.codex/config.toml" \
+  && grep -q 'issue_dependency_write' "$HOME/.codex/config.toml" \
+  && grep -q -- '--features issue_dependencies' /usr/local/bin/teck-github-mcp; then
+  pass 'Codex multi-agent and GitHub dependency tools are configured'
+else
+  fail 'Codex multi-agent or GitHub dependency tools are missing'
 fi
 
 curl -fsS --max-time 5 "${SEARXNG_URL:-http://searxng:8080}/healthz" >/dev/null 2>&1 \
@@ -131,14 +100,6 @@ if [ "$(git config --bool commit.gpgsign 2>/dev/null || true)" = true ]; then
   fi
 else
   pass 'Local checkpoint commits are intentionally unsigned'
-fi
-
-if [ -n "${SSH_TTY:-}" ]; then
-  [ -n "${TMUX:-}" ] \
-    && pass 'Interactive SSH terminal is attached to tmux' \
-    || fail 'Interactive SSH terminal is not attached to tmux'
-else
-  pass 'Non-interactive session correctly skips tmux attachment'
 fi
 
 printf '\nRuntime doctor: %d failure(s), %d warning(s)\n' "$failures" "$warnings"

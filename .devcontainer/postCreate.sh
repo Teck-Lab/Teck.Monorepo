@@ -49,99 +49,29 @@ fi
 echo "==> Ensuring a local HTTPS development certificate exists"
 dotnet dev-certs https || echo "WARN: could not create HTTPS dev cert (continuing)"
 
-echo "==> Installing Claude Code plugins into the mounted Claude config volume"
-# CLAUDE_CONFIG_DIR (set in devcontainer.json) relocates the whole Claude state
-# tree onto the mounted volume. Fall back to ~/.claude if it's somehow unset so
-# this script still works outside the dev container.
-CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-
-# SELF-HEAL: the plugin registries store ABSOLUTE installPath/installLocation
-# values, and they live on the persisted volume. If the config dir ever moves
-# (as it did when CLAUDE_CONFIG_DIR was introduced), the registries travel with
-# the volume still pointing at the OLD path — and every install then fails with
-# "Source path does not exist: <old path>" while `claude plugin install` silently
-# no-ops because the registry claims the plugin is already installed. Purging the
-# two registry files makes them rebuild against the current path; the installs
-# below repopulate them. Only triggers when a stale path is actually present.
-MKT_REG="$CLAUDE_DIR/plugins/known_marketplaces.json"
-PLG_REG="$CLAUDE_DIR/plugins/installed_plugins.json"
-stale=0
-if command -v jq >/dev/null 2>&1; then
-  # Any recorded location that isn't under the CURRENT config dir is stale.
-  [ -f "$MKT_REG" ] && [ "$(jq -r --arg d "$CLAUDE_DIR" \
-      '[.[]?.installLocation // empty | select(startswith($d) | not)] | length' "$MKT_REG" 2>/dev/null || echo 0)" != "0" ] && stale=1
-  [ -f "$PLG_REG" ] && [ "$(jq -r --arg d "$CLAUDE_DIR" \
-      '[.plugins[]?[]?.installPath // empty | select(startswith($d) | not)] | length' "$PLG_REG" 2>/dev/null || echo 0)" != "0" ] && stale=1
-fi
-if [ "$stale" = "1" ]; then
-  echo "    stale plugin registry paths detected — purging so they rebuild at $CLAUDE_DIR"
-  rm -f "$MKT_REG" "$PLG_REG"
-fi
-# The committed .claude/settings.json declares these as enabled, but enabled
-# plugins only auto-install behind an interactive trust prompt. Installing them
-# explicitly here is headless and deterministic: `claude plugin install` just
-# git-clones the (public) marketplaces into ~/.claude/plugins/, so it needs no
-# auth and runs before first sign-in. Tolerant of failure so the container still
-# comes up if GitHub is unreachable (the trust-prompt path remains as fallback).
-CLAUDE_PLUGIN_SET='official:superpowers,microsoft-docs,typescript-lsp,security-guidance,playwright,frontend-design,csharp-lsp,github;claude-hud:claude-hud'
-CLAUDE_PLUGIN_STAMP="$CLAUDE_DIR/plugins/.teck-plugin-set"
-if command -v claude >/dev/null 2>&1 \
-  && { [ ! -f "$CLAUDE_PLUGIN_STAMP" ] || [ "$(<"$CLAUDE_PLUGIN_STAMP")" != "$CLAUDE_PLUGIN_SET" ]; }; then
-  claude plugin marketplace add anthropics/claude-plugins-official || echo "WARN: marketplace add (official) failed (continuing)"
-  claude plugin marketplace add jarrodwatts/claude-hud || echo "WARN: marketplace add (claude-hud) failed (continuing)"
-  for p in superpowers microsoft-docs typescript-lsp security-guidance playwright frontend-design csharp-lsp github; do
-    claude plugin install "$p@claude-plugins-official" || echo "WARN: install $p failed (continuing)"
-  done
-  claude plugin install claude-hud@claude-hud || echo "WARN: install claude-hud failed (continuing)"
-  mkdir -p "$(dirname "$CLAUDE_PLUGIN_STAMP")"
-  printf '%s' "$CLAUDE_PLUGIN_SET" > "$CLAUDE_PLUGIN_STAMP"
-
-  echo "==> Seeding claude-hud display config"
-  mkdir -p "$CLAUDE_DIR/plugins/claude-hud"
-  cp .devcontainer/claude-hud-config.json "$CLAUDE_DIR/plugins/claude-hud/config.json" || echo "WARN: could not seed claude-hud config (continuing)"
+echo "==> Configuring Oh My Codex"
+# OMX is installed by the Node feature during the image build. Use its official
+# user-scoped setup outside the repository so generated .omx state never dirties
+# a worktree. Orca remains the lifecycle/worktree owner; OMX contributes only
+# native Codex roles, skills, and hooks.
+mkdir -p "$HOME/.codex" "$SETUP_CACHE_DIR/omx-setup"
+cp .devcontainer/codex/config.toml "$HOME/.codex/config.toml" \
+  || echo "WARN: could not seed Codex config (continuing)"
+omx_version="$(omx --version 2>/dev/null || true)"
+omx_stamp="$HOME/.codex/.teck-omx-version"
+if [ -n "$omx_version" ] \
+  && { [ ! -f "$omx_stamp" ] || [ "$(<"$omx_stamp")" != "$omx_version" ]; }; then
+  if (cd "$SETUP_CACHE_DIR/omx-setup" \
+      && omx setup --scope user --legacy --no-merge-agents </dev/null); then
+    printf '%s' "$omx_version" > "$omx_stamp"
+  else
+    echo "WARN: OMX setup failed (continuing so the workspace remains repairable)"
+  fi
+elif [ -z "$omx_version" ]; then
+  echo "WARN: 'omx' CLI is not on PATH (continuing)"
 else
-  command -v claude >/dev/null 2>&1 \
-    && echo "==> Claude plugin set unchanged; reusing installed plugins" \
-    || echo "WARN: 'claude' CLI not on PATH; skipping plugin install (continuing)"
+  echo "==> OMX $omx_version is already configured"
 fi
-
-echo "==> Installing low-prompt 'claude' alias in ~/.bashrc"
-ALIAS_LINE="alias claude='claude --dangerously-skip-permissions'"
-if ! grep -qxF "$ALIAS_LINE" "$HOME/.bashrc" 2>/dev/null; then
-  printf '\n# Convenience-first: run Claude Code without permission prompts inside the isolated container\n%s\n' "$ALIAS_LINE" >> "$HOME/.bashrc"
-fi
-
-echo "==> Seeding direct-provider agent CLI configs (Codex + OpenCode)"
-# The committed templates are the source of truth; re-copied on every rebuild.
-# OpenCode reads provider keys directly from the workspace environment; Codex
-# uses the OpenAI authentication mounted from WSL2.
-mkdir -p "$HOME/.codex" "$HOME/.config/opencode" "$HOME/.omo"
-# Remove the retired alternate OpenCode profile from persistent config volumes.
-# This path was created by earlier versions of this repository and otherwise
-# survives container rebuilds indefinitely.
-rm -rf "$HOME/.config/opencode/profiles/slim"
-cp .devcontainer/codex/config.toml "$HOME/.codex/config.toml" || echo "WARN: could not seed codex config (continuing)"
-cp .devcontainer/opencode/opencode.json "$HOME/.config/opencode/opencode.json" || echo "WARN: could not seed opencode config (continuing)"
-cp .devcontainer/opencode/tui.json "$HOME/.config/opencode/tui.json" || echo "WARN: could not seed OpenCode TUI config (continuing)"
-# OMO 4.19.4 loads the unified user configuration despite its known false
-# validation warning. Seed it directly so startup never migrates or modifies a
-# repository-local legacy config.
-rm -f "$HOME/.config/opencode/oh-my-openagent.jsonc" \
-  "$HOME/.config/opencode/oh-my-opencode.jsonc"
-cp .devcontainer/opencode/omo.jsonc "$HOME/.omo/omo.jsonc" \
-  || echo "WARN: could not seed OMO config (continuing)"
-# opencode-mem config: enables auto-capture through a direct low-cost provider, stores
-# memories under the persisted ~/.local/share/opencode volume, and serves the
-# memory web UI on :4747. The plugin itself auto-installs via opencode.json.
-cp .devcontainer/opencode/opencode-mem.jsonc "$HOME/.config/opencode/opencode-mem.jsonc" || echo "WARN: could not seed opencode-mem config (continuing)"
-
-echo "==> Prewarming OpenCode plugins"
-# Orca gives a newly launched OpenCode TUI a short window to accept its linked
-# issue draft. A fresh per-workspace container has an empty OpenCode package
-# cache, and resolving OMO plus the other declared plugins on first launch can
-# take much longer than that window. Resolve the real configuration now, while
-# the Dev Container CLI is still provisioning, so Orca only sees a ready cache.
-opencode debug config >/dev/null
 
 echo "==> Configuring Git identity and GitHub CLI transport"
 git config --local user.name 'CptPowerTurtle'
@@ -149,25 +79,10 @@ git config --local user.email 'jl@tecklab.dk'
 git config --local commit.gpgsign false
 git config --local credential.https://github.com.helper '!gh auth git-credential'
 
-echo "==> Enabling OpenCode background subagents"
-# Full OMO can use visible background panes.
-BG_LINE='export OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true'
-if ! grep -qxF "$BG_LINE" "$HOME/.bashrc" 2>/dev/null; then
-  printf '\n# Required by OMO background orchestration\n%s\n' "$BG_LINE" >> "$HOME/.bashrc"
-fi
-
 SECRET_ENV_MARKER='# Load read-only Teck runtime secrets without printing them.'
 if ! grep -qxF "$SECRET_ENV_MARKER" "$HOME/.bashrc" 2>/dev/null; then
   printf '\n%s\n%s\n' "$SECRET_ENV_MARKER" \
-    'for teck_env in /run/secrets/teck-ai/providers.env /run/secrets/teck-mcp/mcp.env; do if [ -s "$teck_env" ]; then set -a; source "$teck_env"; set +a; fi; done; unset teck_env' \
-    >> "$HOME/.bashrc"
-fi
-
-echo "==> Enabling persistent tmux for interactive Orca SSH terminals"
-TMUX_MARKER='# Orca interactive SSH terminals resume the workspace tmux session.'
-if ! grep -qxF "$TMUX_MARKER" "$HOME/.bashrc" 2>/dev/null; then
-  printf '\n%s\n%s\n' "$TMUX_MARKER" \
-    'if [ -n "${SSH_TTY:-}" ] && [ -z "${TMUX:-}" ] && command -v tmux >/dev/null 2>&1; then exec tmux new-session -A -s orca; fi' \
+    'for teck_env in /run/secrets/teck-mcp/mcp.env; do if [ -s "$teck_env" ]; then set -a; source "$teck_env"; set +a; fi; done; unset teck_env' \
     >> "$HOME/.bashrc"
 fi
 

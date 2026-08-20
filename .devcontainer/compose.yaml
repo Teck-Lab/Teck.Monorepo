@@ -11,7 +11,6 @@ services:
     volumes:
       - ..:/workspaces/Teck.Monorepo:cached
       - ${TECK_MCP_ENV_FILE:-./mcp/mcp.env}:/run/secrets/teck-mcp/mcp.env:ro
-      - ${TECK_PROVIDER_ENV_FILE:-/dev/null}:/run/secrets/teck-ai/providers.env:ro
 
   crawl4ai:
     secrets:

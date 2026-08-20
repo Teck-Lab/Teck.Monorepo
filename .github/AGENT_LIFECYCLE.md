@@ -47,7 +47,7 @@ managed issue into the Project.
 
 The workflow deliberately does not start coding agents. Orca polls for
 `agent:ready`, claims an issue, creates its per-workspace environment, and
-starts the Atlas feature orchestrator. This keeps GitHub Actions deterministic
+starts the native Codex feature coordinator. This keeps GitHub Actions deterministic
 and keeps multi-agent execution in Orca.
 
 The `Teck Scrum` organization Project is the visual planning layer. Security
