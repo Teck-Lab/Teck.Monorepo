@@ -46,9 +46,15 @@ jq -n --arg runtimeDir "$runtime_dir" --arg sshKey "$(<"$orca_key_file.pub")" --
       environment:{ORCA_SSH_PUBLIC_KEY:$sshKey}}}}' > "$runtime_override"
 chmod 600 "$runtime_override"
 
-runtime_config="$runtime_dir/devcontainer.json"
+# Keep the generated config inside the checkout's .devcontainer directory and
+# retain the required devcontainer.json filename. Local Feature paths resolve
+# relative to this nested config, so shift them back to the source feature dir.
+runtime_config_dir="$workspace_dir/.devcontainer/.orca-runtime"
+runtime_config="$runtime_config_dir/devcontainer.json"
+install -d "$runtime_config_dir"
 jq --arg base "$workspace_dir/.devcontainer" --arg override "$runtime_override" \
-  '.dockerComposeFile = [($base + "/compose.yaml"), ($base + "/mcp/compose.yaml"), $override]' \
+  '.dockerComposeFile = [($base + "/compose.yaml"), ($base + "/mcp/compose.yaml"), $override]
+   | .features |= with_entries(.key |= sub("^\\./features/"; "../features/"))' \
   "$workspace_dir/.devcontainer/devcontainer.json" > "$runtime_config"
 
 export COMPOSE_PROJECT_NAME="$name"
