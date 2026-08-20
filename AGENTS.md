@@ -2,6 +2,20 @@
 
 Nx monorepo for the Teck platform — a fresh multi-tenant commerce platform. Contains .NET microservices (Domain + Application + Host) and Next.js frontend applications. Canonical rules live here and in `.github/instructions/`.
 
+## Orca issue routing
+
+When Orca starts the primary agent with a GitHub issue URL matching
+`https://github.com/Teck-Lab/Teck.Monorepo/issues/<number>`, treat it as parent
+feature intake. Load and follow the `teck-feature-flow` skill and its referenced
+workflow, then load the version-matched Orca orchestration guide before running
+orchestration commands. Act as the coordinator; do not implement the feature
+directly in the parent worktree or replace Orca Dispatches with untracked
+subagents.
+
+An explicit Orca worker Dispatch takes precedence over the parent-intake rule.
+Remain within the assigned child worktree and follow the role and completion
+contract supplied by that Dispatch.
+
 ## Repository Layout
 
 ```
