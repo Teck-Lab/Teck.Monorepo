@@ -16,7 +16,10 @@ git -C "$fixture/worktree" commit -m 'chore: initialize fixture' >/dev/null
 # A PTY may cause Bun to colorize numbers; the launcher must still emit valid
 # JSON with a numeric port.
 planned="$(HOME="$fixture/home" TERM=xterm-256color "$launcher" --worktree "$fixture/worktree" --parent-issue 120 --issue 121 --slug 'Tax System' --mode planned --dry-run)"
-bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.agent !== "prometheus" || d.mode !== "planned" || !Number.isInteger(d.port)) process.exit(1)' <<<"$planned"
+bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.agent !== "Prometheus - Plan Builder" || d.mode !== "planned" || !Number.isInteger(d.port)) process.exit(1)' <<<"$planned"
+
+quick="$(HOME="$fixture/home" "$launcher" --worktree "$fixture/worktree" --parent-issue 120 --issue 121 --slug quick --mode quick --dry-run)"
+bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.agent !== "Prometheus - Plan Builder" || d.mode !== "quick") process.exit(1)' <<<"$quick"
 
 if HOME="$fixture/home" "$launcher" --worktree "$fixture/worktree" --parent-issue 120 --issue 123 --slug retired --harness slim --dry-run >/dev/null 2>&1; then
   echo "launcher accepted the retired --harness option" >&2
@@ -24,7 +27,7 @@ if HOME="$fixture/home" "$launcher" --worktree "$fixture/worktree" --parent-issu
 fi
 
 autonomous="$(HOME="$fixture/home" "$launcher" --worktree "$fixture/worktree" --parent-issue 120 --issue 122 --slug checkout --mode autonomous --dry-run)"
-bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.agent !== "hephaestus" || d.mode !== "autonomous") process.exit(1)' <<<"$autonomous"
+bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.agent !== "Hephaestus - Deep Agent" || d.mode !== "autonomous") process.exit(1)' <<<"$autonomous"
 
 if HOME="$fixture/home" "$launcher" --worktree "$fixture/worktree" --parent-issue 120 --issue 124 --slug bad --mode unknown --dry-run >/dev/null 2>&1; then
   echo "launcher accepted an invalid mode" >&2

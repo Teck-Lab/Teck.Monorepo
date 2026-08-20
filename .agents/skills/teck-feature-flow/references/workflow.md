@@ -56,10 +56,19 @@ orca terminal create --worktree active --title feature-120-plan \
   --command "teck-omo-worker --worktree . --parent-issue 120 --issue 120 --slug feature-plan --mode planned" --json
 orca terminal wait --terminal <planner-handle> --for tui-idle --timeout-ms 60000 --json
 orca orchestration dispatch --task <planning-task-id> --to <planner-handle> --inject --json
+orca orchestration dispatch-show --task <planning-task-id> --json
 ```
 
 The Task spec must explicitly require a plan-only `worker_done` and forbid
 `/start-work`; the coordinator, not Prometheus, materializes the approved leaves.
+The visible primary must be `Prometheus - Plan Builder`. Seeing Sisyphus means
+agent selection fell back and the planning worker is invalid; stop and relaunch
+it rather than accepting output from the wrong primary.
+
+A Dispatch record or capability hash alone does not prove that the injected
+lifecycle preamble reached the worker. Require observable task processing and
+an authoritative Orca lifecycle message. Text that merely says `worker_done`
+in the terminal is not completion and must never be reconciled as a Delivery.
 
 Use GitHub MCP `issue_write` to create missing executable leaf issues and
 `sub_issue_write` to attach them to the parent. Re-read sub-issues before every
@@ -113,6 +122,7 @@ orca terminal create --worktree id:<full-worktree-id> \
 orca terminal wait --terminal <agent-handle> --for tui-idle \
   --timeout-ms 60000 --json
 orca orchestration dispatch --task <task-id> --to <agent-handle> --inject --json
+orca orchestration dispatch-show --task <task-id> --json
 tools/orca-feature set-status --issue 121 --status dispatched
 ```
 
