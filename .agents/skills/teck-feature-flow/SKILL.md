@@ -1,6 +1,6 @@
 ---
 name: teck-feature-flow
-description: Coordinate a Teck feature from a GitHub parent issue and sub-issues using one Orca feature environment, native Orca child worktrees, supervised orchestration Tasks, visible tmux-hosted OMO/OpenCode workers, conventional commits, local integration, and one final reviewed PR. Use when planning or decomposing parent work, dispatching dependency-aware sub-issues, supervising OMO workers, integrating child branches, or preparing the feature PR.
+description: Coordinate a Teck feature from a GitHub parent issue and sub-issues using one Orca feature environment, native Orca child worktrees, supervised orchestration Tasks, visible OMO/OpenCode worker terminals, conventional commits, local integration, and one final reviewed PR. Use when planning or decomposing parent work, dispatching dependency-aware sub-issues, supervising OMO workers, integrating child branches, or preparing the feature PR.
 ---
 
 # Teck feature flow
@@ -33,10 +33,10 @@ resolved Orca CLI before running orchestration commands.
   Let the coordinator review the plan and alone reconcile GitHub sub-issues and
   the Orca DAG. Use Prometheus -> Atlas for planned/quick implementation and
   Hephaestus only for explicitly autonomous/spike work.
-- Keep each primary OMO worker in its dedicated tmux session so planner,
-  executor, deep-worker, and background-agent activity remains visible. Treat
-  tmux as process visibility, never lifecycle authority. Only an Orca
-  `worker_done`, `question`, or `escalation` changes coordinator state.
+- Launch each primary OMO worker directly in its dedicated Orca terminal so
+  Orca recognizes OpenCode and can inject the authoritative Dispatch preamble.
+  Only an Orca `worker_done`, `question`, or `escalation` changes coordinator
+  state.
 - Let nested OMO agents edit only within the assigned worktree. They may not
   commit, push, merge, create worktrees, mutate GitHub, or send Orca lifecycle
   messages; the primary worker owns those responsibilities.

@@ -24,9 +24,9 @@
 # CLI) is still layered on via the `features` block in devcontainer.json.
 FROM mcr.microsoft.com/devcontainers/dotnet:2.1-10.0-noble
 
-# tmux — one attached session per Orca sub-issue worker. Full OMO spawns nested
-# agents into panes in that session. teck-omo-worker supplies the explicit
-# OpenCode port required by pane attachment.
+# tmux remains available for persistent interactive SSH sessions. OMO workers
+# launch OpenCode directly in Orca terminals so lifecycle preambles can be
+# injected into a recognized agent process.
 #
 # Orca's remote relay installs node-pty at connection time. Node releases that
 # do not have a matching node-pty prebuild fall back to node-gyp, which requires

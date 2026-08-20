@@ -3,7 +3,7 @@ set -euo pipefail
 
 tool="$(cd "$(dirname "$0")" && pwd)/orca-feature"
 fixture="$(mktemp -d)"
-trap 'tmux kill-session -t =teck-120-121-tax-system >/dev/null 2>&1 || true; rm -rf "$fixture"' EXIT
+trap 'rm -rf "$fixture"' EXIT
 
 git init --bare "$fixture/origin.git" >/dev/null
 git clone "$fixture/origin.git" "$fixture/repo" >/dev/null 2>&1
@@ -50,13 +50,6 @@ git worktree add -b subfeature/120/122-plan-review-defect "$defect_path" feature
 "$tool" register --issue 122 --title 'Plan review defect' --kind plan-defect \
   --mode autonomous --depends-on 121 --path "$defect_path" \
   --branch subfeature/120/122-plan-review-defect --worktree-id "fixture::$defect_path"
-
-tmux new-session -d -s teck-120-121-tax-system
-"$tool" stop --issue 121 >/dev/null
-if tmux has-session -t =teck-120-121-tax-system 2>/dev/null; then
-  echo 'worker tmux session was not stopped' >&2
-  exit 1
-fi
 
 printf 'tax\n' > "$tax_path/tax.txt"
 git -C "$tax_path" add tax.txt

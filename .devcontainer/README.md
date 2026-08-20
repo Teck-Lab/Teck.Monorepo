@@ -55,14 +55,14 @@ health-check both backends independently.
 
 Run `teck-runtime-doctor` inside a workspace to verify agent authentication,
 GitHub CLI access, Git identity and transport, bounded OMO routing, research
-services, the publication policy, and tmux attachment without printing
+services, the publication policy, and SSH session attachment without printing
 credentials.
 
 ## Worker flow
 
 Full OMO is the default OpenCode harness. Prometheus and Atlas handle planned
 work; Hephaestus handles explicitly autonomous/spike work. `teck-omo-worker`
-creates the tmux session for an Orca sub-issue. Nested agents may inspect,
+launches OpenCode directly so Orca can inject tracked Dispatches. Nested agents may inspect,
 research, edit, test, and review only within the assigned worktree; the primary
 worker owns Git and Orca lifecycle messages.
 
