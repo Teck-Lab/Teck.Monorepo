@@ -4,13 +4,15 @@ Nx monorepo for the Teck platform — a fresh multi-tenant commerce platform. Co
 
 ## Orca issue routing
 
-When Orca starts the primary agent with a GitHub issue URL matching
+Use native Codex as the primary agent for a parent GitHub issue workspace.
+When Orca starts that Codex session with a GitHub issue URL matching
 `https://github.com/Teck-Lab/Teck.Monorepo/issues/<number>`, treat it as parent
 feature intake. Load and follow the `teck-feature-flow` skill and its referenced
 workflow, then load the version-matched Orca orchestration guide before running
 orchestration commands. Act as the coordinator; do not implement the feature
 directly in the parent worktree or replace Orca Dispatches with untracked
-subagents.
+subagents. Codex owns coordination and integration; OMO/OpenCode remains the
+planner and dispatched child-worker harness.
 
 An explicit Orca worker Dispatch takes precedence over the parent-intake rule.
 Remain within the assigned child worktree and follow the role and completion
