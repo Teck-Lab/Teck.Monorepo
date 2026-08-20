@@ -7,7 +7,8 @@ runtime_dir="$(jq -er '.recipeResult.userData.runtimeDir // empty' <<<"$payload"
 state_root="${XDG_STATE_HOME:-$HOME/.local/state}/teck-orca/runtimes"
 case "$runtime_dir" in "$state_root/"*) ;; *) echo "Refusing unexpected runtime path: $runtime_dir" >&2; exit 1 ;; esac
 
-[ -s "$runtime_dir/devcontainer.json" ] && [ -d "$runtime_dir/workspace" ] || {
+[ -s "$runtime_dir/workspace/.devcontainer/.orca-runtime/devcontainer.json" ] \
+  && [ -d "$runtime_dir/workspace" ] || {
   echo 'Dev Container metadata missing; refusing an unscoped cleanup.' >&2
   exit 1
 }
