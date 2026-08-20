@@ -135,6 +135,14 @@ cp .devcontainer/opencode/omo.jsonc "$HOME/.omo/omo.jsonc" \
 # memory web UI on :4747. The plugin itself auto-installs via opencode.json.
 cp .devcontainer/opencode/opencode-mem.jsonc "$HOME/.config/opencode/opencode-mem.jsonc" || echo "WARN: could not seed opencode-mem config (continuing)"
 
+echo "==> Prewarming OpenCode plugins"
+# Orca gives a newly launched OpenCode TUI a short window to accept its linked
+# issue draft. A fresh per-workspace container has an empty OpenCode package
+# cache, and resolving OMO plus the other declared plugins on first launch can
+# take much longer than that window. Resolve the real configuration now, while
+# the Dev Container CLI is still provisioning, so Orca only sees a ready cache.
+opencode debug config >/dev/null
+
 echo "==> Configuring Git identity and GitHub CLI transport"
 git config --local user.name 'CptPowerTurtle'
 git config --local user.email 'jl@tecklab.dk'
