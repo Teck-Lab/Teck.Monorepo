@@ -47,7 +47,7 @@ in a fresh OMO planner terminal in the parent feature worktree. The planner may
 read GitHub and the repository, but it must not mutate issues, Tasks, branches,
 worktrees, or code. After `worker_done`, the coordinator reviews its plan.
 
-Launch the planner visibly through the same tmux wrapper, using the parent issue
+Launch the planner visibly through the direct OMO wrapper, using the parent issue
 as its bounded planning identity, then inject the planning Task:
 
 ```bash
@@ -105,7 +105,7 @@ tools/orca-feature dispatch-info --issue 121
 ```
 
 Use the `terminalCommand` returned by `dispatch-info` to start the dedicated
-tmux-hosted OMO worker in the child, then inject the Orca Dispatch:
+OMO/OpenCode worker directly in the child terminal, then inject the Orca Dispatch:
 
 ```bash
 orca terminal create --worktree id:<full-worktree-id> \
@@ -117,8 +117,8 @@ tools/orca-feature set-status --issue 121 --status dispatched
 ```
 
 This low-level composition is intentional: the standard `worker-start` cannot
-express the custom OMO agent/mode arguments, while `teck-omo-worker` supplies
-the visible tmux panes. If bare child creation produced a fallback shell, close
+express the custom OMO agent/mode arguments, while `teck-omo-worker` replaces
+itself with the recognized OpenCode process. If bare child creation produced a fallback shell, close
 it only after `terminal list/show` proves it is unused. The child remains in the
 parent feature's disposable devcontainer; do not select another recipe.
 
@@ -182,20 +182,18 @@ conflict, resolve or abort it in the parent checkout;
 the helper does not mark the issue integrated after a failed integration.
 
 After validation, use GitHub MCP to comment with the integrated commit and
-close the sub-issue. Once `worker_done` has been accepted, stop its exact tmux
-session, release the settled Dispatch terminal, remove the native child through
-Orca, and only then record that confirmed removal locally:
+close the sub-issue. Once `worker_done` has been accepted, release the settled
+Dispatch terminal, remove the native child through Orca, and only then record
+that confirmed removal locally:
 
 ```bash
-tools/orca-feature stop --issue 121
 orca orchestration worker-release --dispatch <dispatch-id> --json
 orca worktree rm --worktree id:<full-worktree-id> --json
 tools/orca-feature remove --issue 121
 ```
 
 Never substitute terminal closure or raw `git worktree remove` for Orca-owned
-cleanup. `stop` terminates the completed worker's exact tmux session after its
-accepted `worker_done`; it is not lifecycle settlement. `remove` only records a
+cleanup. `remove` only records a
 removal already completed by Orca and refuses while the checkout still exists.
 
 ## 6. Prepare the final PR

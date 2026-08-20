@@ -118,18 +118,6 @@ function primaryAgent(mode: ExecutionMode): string {
   return ["autonomous", "spike"].includes(mode) ? "hephaestus" : "prometheus";
 }
 
-function workerSession(state: FeatureState, entry: WorktreeEntry): string {
-  return `teck-${state.parentIssue}-${entry.issue}-${entry.slug}`.slice(0, 72);
-}
-
-function stopWorkerSession(state: FeatureState, entry: WorktreeEntry): boolean {
-  const session = workerSession(state, entry);
-  const exists = run(["tmux", "has-session", "-t", `=${session}`], undefined, false);
-  if (exists.exitCode !== 0) return false;
-  run(["tmux", "kill-session", "-t", `=${session}`]);
-  return true;
-}
-
 function branchExists(root: string, branch: string): boolean {
   return git(["show-ref", "--verify", "--quiet", `refs/heads/${branch}`], root, false).exitCode === 0;
 }
@@ -350,7 +338,6 @@ function dispatchInfo(options: ParsedOptions): void {
   const status = worktreeStatus(root, state, entry);
   const mode = executionMode(option(options, "--mode"), entry.executionMode ?? "planned");
   const agent = primaryAgent(mode);
-  const tmuxSession = workerSession(state, entry);
   const launcherArgs = [
     "teck-omo-worker",
     "--worktree", entry.path,
@@ -370,7 +357,6 @@ function dispatchInfo(options: ParsedOptions): void {
     ...entry,
     executionMode: mode,
     primaryAgent: agent,
-    tmuxSession,
     launcherArgs,
     terminalCommand: launcherArgs.map(shellQuote).join(" "),
     parentIssue: state.parentIssue,
@@ -461,14 +447,6 @@ function removeWorktree(options: ParsedOptions): void {
   console.log(`Removed worktree for #${issue}; branch retained: ${entry.branch}`);
 }
 
-function stopWorker(options: ParsedOptions): void {
-  const root = repositoryRoot();
-  const state = loadState(root);
-  const entry = entryFor(state, integerOption(options, "--issue"));
-  const stopped = stopWorkerSession(state, entry);
-  console.log(stopped ? `Stopped tmux worker ${workerSession(state, entry)}` : `No tmux worker is running for #${entry.issue}`);
-}
-
 function prInfo(): void {
   const root = repositoryRoot();
   const state = loadState(root);
@@ -493,7 +471,6 @@ commands:
   dispatch-info  emit an Orca task/terminal payload
   sync           fast-forward an undispatched child to the parent
   set-status     record worker lifecycle state
-  stop           stop the sub-issue's tmux worker session
   integrate      merge a completed sub-feature into the parent
   remove         record a native child already removed through Orca
   pr-info        emit final PR readiness and branch information`;
@@ -512,7 +489,6 @@ function main(): void {
     case "dispatch-info": dispatchInfo(options); break;
     case "sync": syncWorktree(options); break;
     case "set-status": setWorkStatus(options); break;
-    case "stop": stopWorker(options); break;
     case "integrate": integrate(options); break;
     case "remove": removeWorktree(options); break;
     case "pr-info": prInfo(); break;

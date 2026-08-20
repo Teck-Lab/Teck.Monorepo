@@ -48,42 +48,25 @@ test "$(realpath "$git_root")" = "$worktree" || {
   exit 1
 }
 
-safe_slug="$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//')"
-test -n "$safe_slug" || safe_slug="work"
-session="teck-${parent_issue}-${issue}-${safe_slug}"
-session="${session:0:72}"
-
-if tmux has-session -t "=$session" 2>/dev/null; then
-  if $dry_run; then
-    printf '{"session":"%s","existing":true,"agent":"%s","mode":"%s","worktree":"%s"}\n' \
-      "$session" "$primary_agent" "$mode" "$worktree"
-    exit 0
-  fi
-  if [ -n "${TMUX:-}" ]; then
-    exec tmux switch-client -t "=$session"
-  fi
-  exec tmux attach-session -t "=$session"
-fi
-
 # Bun may colorize numeric console output when the launcher runs inside Orca's
 # PTY. ANSI bytes make the numeric guard reject an otherwise valid port.
 port="$(NO_COLOR=1 bun -e 'const s=Bun.listen({hostname:"127.0.0.1",port:0,socket:{data(){}}}); console.log(s.port); s.stop();')"
 [[ "$port" =~ ^[1-9][0-9]*$ ]] || { echo "could not allocate an OpenCode port" >&2; exit 1; }
 
 if $dry_run; then
-  printf '{"session":"%s","existing":false,"agent":"%s","mode":"%s","worktree":"%s","port":%s,"configDir":"%s"}\n' \
-    "$session" "$primary_agent" "$mode" "$worktree" "$port" "$config_dir"
+  printf '{"agent":"%s","mode":"%s","worktree":"%s","port":%s,"configDir":"%s"}\n' \
+    "$primary_agent" "$mode" "$worktree" "$port" "$config_dir"
   exit 0
 fi
 
 test -s "$config_dir/opencode.json" || { echo "OpenCode profile is not seeded: $config_dir/opencode.json" >&2; exit 1; }
 command -v opencode >/dev/null || { echo "opencode is not installed" >&2; exit 1; }
-command -v tmux >/dev/null || { echo "tmux is not installed" >&2; exit 1; }
 
-printf -v launch 'cd %q && exec env OPENCODE_CONFIG_DIR=%q OPENCODE_PORT=%q OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true OMO_DISABLE_POSTHOG=1 OMO_SEND_ANONYMOUS_TELEMETRY=0 opencode --port %q --agent %q' \
-  "$worktree" "$config_dir" "$port" "$port" "$primary_agent"
-if [ -n "${TMUX:-}" ]; then
-  tmux new-session -d -s "$session" -c "$worktree" "$launch"
-  exec tmux switch-client -t "=$session"
-fi
-exec tmux new-session -s "$session" -c "$worktree" "$launch"
+cd "$worktree"
+exec env \
+  OPENCODE_CONFIG_DIR="$config_dir" \
+  OPENCODE_PORT="$port" \
+  OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true \
+  OMO_DISABLE_POSTHOG=1 \
+  OMO_SEND_ANONYMOUS_TELEMETRY=0 \
+  opencode --port "$port" --agent "$primary_agent"
