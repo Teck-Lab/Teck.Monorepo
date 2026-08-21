@@ -4,8 +4,9 @@ source "$(dirname "$0")/local-common.sh"
 
 name=""
 runtime_dir=""
+created_this_attempt=0
 cleanup_on_error() {
-  if [ "$?" -ne 0 ] && [ -n "$name" ]; then
+  if [ "$?" -ne 0 ] && [ "$created_this_attempt" = 1 ] && [ -n "$name" ]; then
     containers="$(docker ps -aq --filter "label=com.docker.compose.project=$name")"
     [ -z "$containers" ] || docker rm -f $containers >/dev/null 2>&1 || true
     [ -z "$runtime_dir" ] || rm -rf -- "$runtime_dir"
@@ -17,13 +18,35 @@ trap cleanup_on_error EXIT
 ensure_key
 identity_file="$(wslpath -w "$orca_key_file")"
 
-attempt_suffix="$(date +%s)"
 raw_name="orca-${ORCA_VM_RECIPE_ID:-local}-${ORCA_VM_INSTANCE_ID:-workspace}"
 name_prefix="$(printf '%s' "$raw_name" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9_-' '-' | cut -c1-52)"
-name="${name_prefix%-}-${attempt_suffix}"
-runtime_dir="${XDG_STATE_HOME:-$HOME/.local/state}/teck-orca/runtimes/$name"
+name="${name_prefix%-}"
+runtime_dir="$orca_runtime_state_root/$name"
 workspace_dir="$runtime_dir/workspace"
+[ "${ORCA_RECIPE_RESULT_SCHEMA_VERSION:-}" = 2 ] || {
+  echo 'local-devcontainer requires recipe result schema version 2.' >&2
+  exit 1
+}
+[ -n "${ORCA_REPO_REF_HEAD:-}" ] || { echo 'ORCA_REPO_REF_HEAD is required.' >&2; exit 1; }
+[ -n "${ORCA_REPO_BRANCH:-}" ] || { echo 'ORCA_REPO_BRANCH is required.' >&2; exit 1; }
+
+if [ -d "$runtime_dir" ]; then
+  validate_runtime_dir "$runtime_dir"
+  existing_head="$(git -C "$workspace_dir" rev-parse HEAD)"
+  existing_branch="$(git -C "$workspace_dir" branch --show-current)"
+  [ "$existing_head" = "$ORCA_REPO_REF_HEAD" ] && [ "$existing_branch" = "$ORCA_REPO_BRANCH" ] || {
+    echo "Runtime identity collision: $name owns $existing_branch@$existing_head, requested $ORCA_REPO_BRANCH@$ORCA_REPO_REF_HEAD" >&2
+    exit 1
+  }
+  containers="$(docker ps -aq --filter "label=com.docker.compose.project=$name")"
+  [ -n "$containers" ] || { echo "Runtime state exists without containers: $runtime_dir" >&2; exit 1; }
+  docker start $containers >/dev/null
+  emit_workspace_recipe_result "$name" "$runtime_dir" "$identity_file"
+  trap - EXIT
+  exit 0
+fi
 install -d -m 0700 "$runtime_dir"
+created_this_attempt=1
 
 # Each parent feature receives its own checkout. Runtime infrastructure comes
 # from the latest main branch rather than the requested worktree base: an old
@@ -36,7 +59,7 @@ if [ -z "${ORCA_ENVIRONMENT_REF:-}" ]; then
 fi
 source_commit="$(git -C "$orca_repo_root" rev-parse --verify "${source_ref}^{commit}")"
 git -C "$workspace_dir" checkout --detach "$source_commit" >&2
-git -C "$workspace_dir" remote set-url origin "$(git -C "$orca_repo_root" remote get-url origin)"
+git -C "$workspace_dir" remote set-url origin "${ORCA_REPO_URL:-$(git -C "$orca_repo_root" remote get-url origin)}"
 
 ssh_port="$(node -e 'const net=require("net");const s=net.createServer();s.listen(0,"127.0.0.1",()=>{console.log(s.address().port);s.close()})')"
 runtime_override="$runtime_dir/compose.runtime.json"
@@ -61,21 +84,13 @@ export COMPOSE_PROJECT_NAME="$name"
 export TECK_MCP_ENV_FILE="$workspace_dir/.devcontainer/mcp/mcp.env"
 up_result="$(npx --yes @devcontainers/cli@0.88.0 up --workspace-folder "$workspace_dir" --config "$runtime_config")"
 container_id="$(jq -er '.containerId' <<<"$up_result")"
-port="$(docker port "$container_id" 22/tcp | sed -nE 's/.*:([0-9]+)$/\1/p' | head -1)"
-[ -n "$port" ] || { echo 'Could not resolve the published SSH port.' >&2; exit 1; }
 
-ssh_ready=0
-for _ in $(seq 1 45); do
-  if /mnt/c/Windows/System32/OpenSSH/ssh.exe -o BatchMode=yes -o ConnectTimeout=1 \
-      -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -o LogLevel=ERROR \
-      -o IdentitiesOnly=yes -i "$identity_file" -p "$port" vscode@127.0.0.1 true >/dev/null 2>&1; then
-    ssh_ready=1; break
-  fi
-  sleep 1
-done
-[ "$ssh_ready" = 1 ] || { docker logs "$container_id" >&2 || true; echo 'Workspace SSH transport did not become ready.' >&2; exit 1; }
+# The environment checkout is the final Orca workspace. Infrastructure was
+# built from current main above; now bind the requested branch to its pinned
+# source commit so Orca does not create a second linked worktree/workspace.
+git -C "$workspace_dir" fetch origin "${ORCA_REPO_REF:-origin/main}" >&2
+git -C "$workspace_dir" cat-file -e "${ORCA_REPO_REF_HEAD}^{commit}"
+git -C "$workspace_dir" checkout -B "$ORCA_REPO_BRANCH" "$ORCA_REPO_REF_HEAD" >&2
 
-jq -cn --argjson port "$port" --arg key "$identity_file" --arg root "$orca_project_root" \
-  --arg name "$name" --arg runtime "$runtime_dir" \
-  '{schemaVersion:1,connection:{type:"ssh",projectRoot:$root,target:{label:"Teck Dev Container",host:"127.0.0.1",port:$port,username:"vscode",identityFile:$key,identitiesOnly:true}},userData:{provider:"devcontainer-cli",resourceId:$name,runtimeDir:$runtime}}'
+emit_workspace_recipe_result "$name" "$runtime_dir" "$identity_file"
 trap - EXIT
