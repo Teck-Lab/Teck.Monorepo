@@ -46,18 +46,6 @@ The coordinator may yield a final response only when either:
   access grant, or external state change, and the coordinator has recorded the
   blocker durably.
 
-Immediately before either terminal response, run the full exit audit in
-`state-machine.md`, then open the managed Codex Stop-hook gate with one of:
-
-```bash
-tools/orca-feature allow-stop --reason final-pr --evidence <parent-pr-url>
-tools/orca-feature allow-stop --reason human-blocker --evidence <issue-or-comment-url>
-```
-
-The gate is bound to the parent issue and current HEAD. Any subsequent feature
-ledger mutation removes it, and any commit makes it stale. Never open it for a
-progress update, worker timeout, active review, or unreconciled delivery.
-
 The coordinator must not yield a final response when any of these exist:
 
 - an unacknowledged lifecycle delivery;

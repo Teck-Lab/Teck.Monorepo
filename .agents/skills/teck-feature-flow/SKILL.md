@@ -60,8 +60,5 @@ its convergence and exit audits as gates, not suggestions.
   active Dispatch, a ready Task, an open actionable sub-issue, or a blocker edge
   remains. Stop only for a precise human decision/access blocker or the final
   open PR after clean QA and required CI.
-- The managed Codex Stop hook enforces this boundary in an initialized parent
-  worktree. Open its gate only with `tools/orca-feature allow-stop` after the
-  mandatory exit audit; never disable, bypass, or modify the hook during a run.
 - Never merge the final PR, create tags, run `nx release`, force push, or bypass
   hooks.
