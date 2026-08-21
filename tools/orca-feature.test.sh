@@ -2,6 +2,7 @@
 set -euo pipefail
 
 tool="$(cd "$(dirname "$0")" && pwd)/orca-feature"
+stop_hook="$(cd "$(dirname "$0")/.." && pwd)/.devcontainer/codex/orca-coordinator-stop.py"
 workflow="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/workflow.md"
 state_machine="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/state-machine.md"
 fixture="$(mktemp -d)"
@@ -70,12 +71,22 @@ export TECK_GITHUB_PROMOTE_COMMAND="$fixture/promote"
 
 cd "$fixture/repo"
 "$tool" init --issue 120 --slug billing-overhaul --title 'Billing overhaul' --create-branch
+
+stop_result="$(printf '{"stop_hook_active":false}\n' | python3 "$stop_hook")"
+bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.decision !== "block" || !d.reason.includes("not allowed to stop")) process.exit(1)' <<<"$stop_result"
+
+"$tool" allow-stop --reason human-blocker \
+  --evidence 'https://github.com/Teck-Lab/Teck.Monorepo/issues/120#issuecomment-1'
+[ -z "$(printf '{"stop_hook_active":false}\n' | python3 "$stop_hook")" ]
+
 tax_path="$fixture/issue-121-tax-system"
 defect_path="$fixture/issue-122-plan-review-defect"
 git worktree add -b subfeature/120/121-tax-system "$tax_path" feature/120-billing-overhaul >/dev/null
 "$tool" register --issue 121 --title 'Tax system' --kind feature \
   --path "$tax_path" --branch subfeature/120/121-tax-system \
   --worktree-id "fixture::$tax_path"
+stop_result="$(printf '{"stop_hook_active":true}\n' | python3 "$stop_hook")"
+bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (d.decision !== "block" || !d.reason.includes("previous continuation")) process.exit(1)' <<<"$stop_result"
 git worktree add -b subfeature/120/122-plan-review-defect "$defect_path" feature/120-billing-overhaul >/dev/null
 "$tool" register --issue 122 --title 'Plan review defect' --kind plan-defect \
   --depends-on 121 --path "$defect_path" \

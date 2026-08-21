@@ -55,7 +55,11 @@ COPY workspace-entrypoint.sh /usr/local/bin/teck-workspace-entrypoint
 COPY runtime-doctor.sh /usr/local/bin/teck-runtime-doctor
 COPY orca-ssh-entrypoint.sh /usr/local/bin/orca-docker-ssh-entrypoint
 COPY orca-cli.sh /usr/local/bin/orca
+COPY codex/orca-coordinator-stop.py /usr/local/lib/teck/codex/orca-coordinator-stop.py
+COPY codex/hooks.json /etc/codex/hooks.json
 RUN chmod 0755 /usr/local/bin/teck-github-mcp /usr/local/bin/gh \
       /usr/local/bin/teck-workspace-entrypoint \
       /usr/local/bin/teck-runtime-doctor /usr/local/bin/orca \
-      /usr/local/bin/orca-docker-ssh-entrypoint
+      /usr/local/bin/orca-docker-ssh-entrypoint \
+      /usr/local/lib/teck/codex/orca-coordinator-stop.py \
+    && chmod 0644 /etc/codex/hooks.json

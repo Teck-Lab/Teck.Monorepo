@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 
 type Kind = "feature" | "plan-defect" | "validation";
@@ -78,6 +78,15 @@ function statePath(root: string): string {
   return join(commonGitDirectory(root), "orca-feature", "state.json");
 }
 
+function stopGatePath(root: string): string {
+  return join(commonGitDirectory(root), "orca-feature", "coordinator-stop-gate.json");
+}
+
+function clearStopGate(root: string): void {
+  const path = stopGatePath(root);
+  if (existsSync(path)) unlinkSync(path);
+}
+
 function loadState(root: string): FeatureState {
   const path = statePath(root);
   if (!existsSync(path)) {
@@ -92,6 +101,7 @@ function saveState(root: string, state: FeatureState): void {
   const temporary = `${path}.tmp`;
   writeFileSync(temporary, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
   renameSync(temporary, path);
+  clearStopGate(root);
 }
 
 function slugify(value: string): string {
@@ -401,6 +411,40 @@ function prInfo(): void {
   }, null, 2));
 }
 
+function allowStop(options: ParsedOptions): void {
+  const root = repositoryRoot();
+  const state = loadState(root);
+  if (resolve(state.parentRoot) !== root || currentBranch(root) !== state.parentBranch) {
+    throw new FlowError("allow-stop must run from the initialized parent feature worktree");
+  }
+  const reason = requiredOption(options, "--reason");
+  if (!["final-pr", "human-blocker"].includes(reason)) {
+    throw new FlowError("--reason must be final-pr or human-blocker");
+  }
+  const evidence = requiredOption(options, "--evidence");
+  if (!/^https:\/\/github\.com\/Teck-Lab\/Teck\.Monorepo\/(pull|issues)\/[1-9][0-9]*(?:#issuecomment-[1-9][0-9]*)?$/.test(evidence)) {
+    throw new FlowError("--evidence must be a Teck.Monorepo PR, issue, or issue-comment URL");
+  }
+  if (reason === "final-pr") {
+    const incomplete = state.worktrees.filter((entry) => !["integrated", "removed"].includes(entry.status));
+    if (incomplete.length || !isClean(state.parentRoot)) {
+      throw new FlowError("final-pr stop requires a clean parent and every registered child integrated or removed");
+    }
+  }
+  const gate = {
+    schemaVersion: 1,
+    parentIssue: state.parentIssue,
+    reason,
+    evidence,
+    head: git(["rev-parse", "HEAD"], root).stdout.trim(),
+    createdAt: new Date().toISOString(),
+  };
+  const path = stopGatePath(root);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(gate, null, 2)}\n`, { mode: 0o600 });
+  console.log(`Coordinator stop allowed for ${reason}: ${evidence}`);
+}
+
 const help = `usage: tools/orca-feature <command> [options]
 
 commands:
@@ -411,7 +455,8 @@ commands:
   set-status     record worker lifecycle state
   integrate      merge a completed sub-feature into the parent
   remove         record a native child already removed through Orca
-  pr-info        emit final PR readiness and branch information`;
+  pr-info        emit final PR readiness and branch information
+  allow-stop     open the Codex Stop-hook gate after a valid terminal state`;
 
 function main(): void {
   const [command, ...rawOptions] = process.argv.slice(2);
@@ -429,6 +474,7 @@ function main(): void {
     case "integrate": integrate(options); break;
     case "remove": removeWorktree(options); break;
     case "pr-info": prInfo(); break;
+    case "allow-stop": allowStop(options); break;
     default: throw new FlowError(`unknown command: ${command}\n${help}`);
   }
 }
