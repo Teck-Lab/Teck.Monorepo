@@ -33,20 +33,18 @@ its convergence and exit audits as gates, not suggestions.
   Dispatches. A coordinator may reconcile their results but never substitutes
   for them.
 - After `worker-start` succeeds, supervision remains owned by this coordinator
-  Run until the Dispatch is settled and reconciled. Between lifecycle events,
-  let the native Orca mail-pointer mechanism re-engage the idle Codex
-  coordinator; ending one Codex turn is not feature completion.
+  Run until the Dispatch is settled and reconciled. Keep the coordinator turn
+  alive with Orca's foreground rolling `check --wait` loop until every expected
+  Dispatch settles; starting a worker is never a terminal response condition.
 - A valid `worker_done` for the active Task and Dispatch automatically completes
   that Orca Task and Dispatch. Never follow it with
   `task-update --status completed`. It does not close a GitHub sub-issue,
   release a GitHub blocker, prove the artifact acceptable, or authorize the
   next wave before coordinator validation and reconciliation.
-- Do not leave `check --wait` running as a Codex background command. Its waiter
-  reserves matching lifecycle messages and suppresses Orca's native idle mail
-  pointer. When Orca injects `You have ... orchestration messages`, run
-  `check`, consume and acknowledge the Delivery, reconcile it, and let the
-  coordinator idle again only when no immediately actionable Delivery or ready
-  Task remains.
+- Run `check --wait` in the foreground, never as a detached shell job. Treat a
+  timeout or empty Delivery as a supervision checkpoint, not permission to
+  answer or worker failure. Process and acknowledge one bounded Delivery, then
+  atomically acknowledge-and-wait again until every expected Dispatch settles.
 - Accept lifecycle messages only for the exact current Task and Dispatch IDs.
   A stale, duplicate, failed, or superseded attempt cannot advance state.
 - On start or resume, reconstruct state from GitHub, Orca, the feature ledger,
@@ -76,9 +74,10 @@ its convergence and exit audits as gates, not suggestions.
 - Only the coordinator integrates child commits, publishes the parent branch,
   creates the final PR, and updates parent lifecycle labels.
 - Never yield a final response while an unacknowledged lifecycle delivery, an
-  active Dispatch, a ready Task, an open actionable sub-issue, or a blocker edge
-  remains. Stop only for a precise human decision/access blocker or the final
-  open PR after clean QA and required CI.
+  active or expected Dispatch, a ready Task, an open actionable sub-issue, or a
+  blocker edge remains. Do not say that Orca will re-engage the coordinator and
+  then return: remain in the rolling wait loop. Stop only for a precise human
+  decision/access blocker or the final open PR after clean QA and required CI.
 - Never report the parent complete merely because one child or blocker repair
   completed. Completion requires every parent sub-issue to be closed with
   accepted evidence or explicitly classified as non-actionable, every blocker
