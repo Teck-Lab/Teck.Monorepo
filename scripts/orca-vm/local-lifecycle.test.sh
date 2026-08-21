@@ -9,11 +9,15 @@ common="$repo_root/scripts/orca-vm/local-common.sh"
 grep -q 'checkoutMode: provisioned-root' "$recipe"
 grep -q 'local-suspend.cmd' "$recipe"
 grep -q 'local-resume.cmd' "$recipe"
+grep -q "create: '%ORCA_REPO_PATH%" "$recipe"
 grep -q 'ORCA_RECIPE_RESULT_SCHEMA_VERSION.*2' "$create"
 grep -q 'ORCA_REPO_REF_HEAD' "$create"
+grep -q 'origin/\*) fetch_ref=' "$create"
+grep -q 'refs/remotes/origin/\*) fetch_ref=' "$create"
 grep -q 'ORCA_REPO_BRANCH' "$create"
 grep -q 'schemaVersion:2,checkoutMode:"provisioned-root"' "$common"
 grep -q 'ORCA_VM_INSTANCE_ID:-workspace' "$create"
+grep -q 'ORCA_RECIPE_ID:-' "$create"
 grep -q 'created_this_attempt=0' "$create"
 grep -q 'created_this_attempt" = 1' "$create"
 grep -q 'Runtime identity collision' "$create"
@@ -28,8 +32,16 @@ for script in local-common.sh local-create.sh local-suspend.sh local-resume.sh l
 done
 
 for launcher in local-create.cmd local-suspend.cmd local-resume.cmd local-destroy.cmd; do
-  grep -q 'WSLENV=ORCA_REPO_PATH/up' "$repo_root/scripts/orca-vm/$launcher"
+  grep -q 'pushd "%SystemRoot%"' "$repo_root/scripts/orca-vm/$launcher"
+  grep -q 'powershell.exe -NoProfile -ExecutionPolicy Bypass' "$repo_root/scripts/orca-vm/$launcher"
 done
+grep -q "ORCA_REPO_PATH/up" "$repo_root/scripts/orca-vm/local-launch.ps1"
+grep -q "ORCA_RECIPE_RESULT_SCHEMA_VERSION" "$repo_root/scripts/orca-vm/local-launch.ps1"
+grep -q "ORCA_RECIPE_ID" "$repo_root/scripts/orca-vm/local-launch.ps1"
+grep -q "ORCA_VM_INSTANCE_ID" "$repo_root/scripts/orca-vm/local-launch.ps1"
+grep -q "ORCA_REPO_REF_HEAD" "$repo_root/scripts/orca-vm/local-launch.ps1"
+grep -q 'Select-Object -Unique' "$repo_root/scripts/orca-vm/local-launch.ps1"
+grep -q '\[Console\]::In.ReadToEnd()' "$repo_root/scripts/orca-vm/local-launch.ps1"
 
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
