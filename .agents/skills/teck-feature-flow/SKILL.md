@@ -32,18 +32,21 @@ its convergence and exit audits as gates, not suggestions.
 - Planning, plan review, implementation, code review, and QA are separate
   Dispatches. A coordinator may reconcile their results but never substitutes
   for them.
-- After `worker-start` succeeds, remain in the supervision loop until that
-  Dispatch is authoritatively settled and its result is reconciled. A progress
-  summary is not a terminal condition.
+- After `worker-start` succeeds, supervision remains owned by this coordinator
+  Run until the Dispatch is settled and reconciled. Between lifecycle events,
+  let the native Orca mail-pointer mechanism re-engage the idle Codex
+  coordinator; ending one Codex turn is not feature completion.
 - A valid `worker_done` for the active Task and Dispatch automatically completes
   that Orca Task and Dispatch. Never follow it with
   `task-update --status completed`. It does not close a GitHub sub-issue,
   release a GitHub blocker, prove the artifact acceptable, or authorize the
   next wave before coordinator validation and reconciliation.
-- Use Orca's foreground rolling delivery loop. If the command runner returns a
-  process/session handle for `check --wait`, poll that same process until the
-  bounded wait finishes; never abandon it as a background task or return a
-  progress-only response while its Dispatch remains active.
+- Do not leave `check --wait` running as a Codex background command. Its waiter
+  reserves matching lifecycle messages and suppresses Orca's native idle mail
+  pointer. When Orca injects `You have ... orchestration messages`, run
+  `check`, consume and acknowledge the Delivery, reconcile it, and let the
+  coordinator idle again only when no immediately actionable Delivery or ready
+  Task remains.
 - Accept lifecycle messages only for the exact current Task and Dispatch IDs.
   A stale, duplicate, failed, or superseded attempt cannot advance state.
 - On start or resume, reconstruct state from GitHub, Orca, the feature ledger,
@@ -56,8 +59,18 @@ its convergence and exit audits as gates, not suggestions.
   They inherit that leaf's scope and never own GitHub, Git, Orca, or lifecycle.
 - Every actionable review finding becomes a GitHub sub-issue and native blocker.
   Informational observations remain evidence on the reviewed issue.
+- Every actionable blocker sub-issue must contain or cite an approved executable
+  plan before dispatch. Dispatch ready blocker Tasks before the Tasks they
+  block. After an accepted repair is integrated and independently revalidated,
+  reconcile and release its GitHub/Orca edges, re-read both graphs, and
+  immediately dispatch every newly unblocked eligible Task.
 - Mirror GitHub blockers in Orca Task dependencies. Re-read both graphs after
   mutation; disagreement blocks dispatch.
+- Preserve dependency direction from the approved plan. If it says `A waits
+  for B`, then A is blocked by B and B is the eligible predecessor. An open
+  overlapping issue alone never reverses that edge or blocks B; create and
+  verify the missing directed edge, then continue B unless live execution or
+  another explicit dependency proves a real collision.
 - Reviewers and QA never repair findings. Dispatch a finding to an executor and
   re-run the affected review after integration.
 - Only the coordinator integrates child commits, publishes the parent branch,
@@ -66,5 +79,9 @@ its convergence and exit audits as gates, not suggestions.
   active Dispatch, a ready Task, an open actionable sub-issue, or a blocker edge
   remains. Stop only for a precise human decision/access blocker or the final
   open PR after clean QA and required CI.
+- Never report the parent complete merely because one child or blocker repair
+  completed. Completion requires every parent sub-issue to be closed with
+  accepted evidence or explicitly classified as non-actionable, every blocker
+  edge reconciled, and every required review/QA rerun clean.
 - Never merge the final PR, create tags, run `nx release`, force push, or bypass
   hooks.

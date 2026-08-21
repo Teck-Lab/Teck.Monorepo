@@ -66,10 +66,43 @@ fingerprint, and repair the missing half idempotently. Never erase the
 successful half to hide drift. Before adding an edge, reject self-dependencies,
 duplicates, reversed producer/consumer direction, and cycles.
 
+Dependency direction is semantic, not inferred from issue state. The approved
+plan statement `A waits for B` means A has a `blocked_by` edge to B and the Orca
+Task for A depends on B. An open A does not block B merely because their file or
+resource scopes overlap. If neither issue has active execution and the approved
+direction is safe, create and verify the missing GitHub edge and Orca dependency,
+reserve the shared resource for B, and dispatch B. Stop only when a live worker,
+worktree, conflicting immutable plan, cycle, or missing mutation authority makes
+the approved ordering unsafe or impossible.
+
 Use one finding issue per stable fingerprint: review kind, reviewed issue,
 artifact/SHA, file or component, and normalized finding. Reuse or reopen it
 until independent review accepts the repair. Do not create a fresh issue for
 each retry, and do not accept an externally closed issue without evidence.
+
+## Blocker-first DAG progression
+
+An actionable blocker is executable work, not a reason for the coordinator to
+stop. Before dispatch, its GitHub sub-issue and Orca Task must cite the approved
+plan version, exact scope, acceptance criteria, dependencies, validation, and
+owned resources. If that contract is absent or changed, dispatch planning and
+independent plan review for the blocker first; do not send an executor an
+unreviewed finding description.
+
+Dispatch ready blocker Tasks before their blocked dependents. A successful
+worker report does not release the edge: validate, independently review,
+integrate, and reconcile the blocker in GitHub and Orca first. Then re-read both
+graphs, identify every Task made ready by that transition, and dispatch all
+resource-safe eligible Tasks in the next wave before the coordinator idles.
+If a blocker repair fails review, keep its issue and edges open, create or reuse
+the repair Task, and repeat the repair/review cycle.
+
+Parent completion is a graph-wide condition. Enumerate all current sub-issues
+recursively and prove each is either closed with accepted evidence or durably
+classified non-actionable. The parent remains incomplete while any actionable
+child is open, any dependency or synchronization edge is unresolved, any Task
+is ready/dispatched/blocked by remediable work, or any required review or QA
+rerun remains.
 
 ## Plans and review freshness
 

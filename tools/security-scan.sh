@@ -28,6 +28,10 @@ SEMGREP_CONFIGS=(--config p/csharp --config p/secrets --config p/r2c-security-au
 # not, which is how local scans lose their meaning.
 GITLEAKS_IMAGE="ghcr.io/gitleaks/gitleaks:v8.18.4"
 TRIVY_IMAGE="aquasec/trivy:0.58.0"
+# Use Aqua Security's official GHCR artifact directly. Trivy's default first
+# choice is the Google pull-through mirror, whose manifest and blobs can become
+# temporarily inconsistent and make the security gate fail before scanning.
+TRIVY_DB_REPOSITORY="ghcr.io/aquasecurity/trivy-db:2"
 
 MODE="changed"
 case "${1:-}" in
@@ -214,7 +218,8 @@ echo "--- [3] Trivy: dependency vulnerabilities ---"
 # outputs (bin/obj), whose stale lock files/deps.json would otherwise report
 # versions CI never sees.
 if docker run --rm -v "$REPO_ROOT:/src" "$TRIVY_IMAGE" \
-     fs --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --quiet \
+     fs --db-repository "$TRIVY_DB_REPOSITORY" \
+     --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --quiet \
      --skip-dirs "/src/.claude" --skip-dirs "/src/.omx" \
      --skip-dirs "**/bin" --skip-dirs "**/obj" /src 2>&1 | tail -30; then
   echo "PASS: no HIGH/CRITICAL dependency vulnerabilities"

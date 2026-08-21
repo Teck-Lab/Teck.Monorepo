@@ -11,8 +11,9 @@ for contract in \
   'Starting a worker begins supervision' \
   'worker_done.*automatically marks that' \
   'task-update --status completed' \
-  'check --ack <delivery-id> --wait' \
-  'poll that same handle' \
+  'submits a mail pointer' \
+  'do not launch `check --wait` as a Codex background command' \
+  'check --ack <delivery-id> --json' \
   'dispatch every newly eligible Task' \
   'completed-but-unreconciled Dispatch' \
   'open actionable GitHub sub-issue' \
@@ -27,6 +28,12 @@ for contract in \
   'Task ID and Dispatch ID exactly match' \
   'Process a valid message completely before acknowledging' \
   'reconcile existing records idempotently before creating' \
+  'Dependency direction is semantic' \
+  'An open A does not block B' \
+  'Blocker-first DAG progression' \
+  'actionable blocker is executable work' \
+  'Dispatch ready blocker Tasks before' \
+  'Parent completion is a graph-wide condition' \
   'Ignored `.omx/` plans.*scratch space' \
   'invalidates affected approval' \
   'worktree is clean and all intended changes are committed' \
