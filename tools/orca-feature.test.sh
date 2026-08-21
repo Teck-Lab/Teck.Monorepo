@@ -9,7 +9,11 @@ trap 'rm -rf "$fixture"' EXIT
 
 for contract in \
   'Starting a worker begins supervision' \
-  'worker_done.*one worker attempt ended' \
+  'worker_done.*automatically marks that' \
+  'task-update --status completed' \
+  'check --ack <delivery-id> --wait' \
+  'poll that same handle' \
+  'dispatch every newly eligible Task' \
   'completed-but-unreconciled Dispatch' \
   'open actionable GitHub sub-issue' \
   'dispatch a fresh independent plan reviewer'; do

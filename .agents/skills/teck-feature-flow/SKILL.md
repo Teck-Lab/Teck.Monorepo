@@ -35,9 +35,15 @@ its convergence and exit audits as gates, not suggestions.
 - After `worker-start` succeeds, remain in the supervision loop until that
   Dispatch is authoritatively settled and its result is reconciled. A progress
   summary is not a terminal condition.
-- `worker_done` completes only the worker attempt. It never closes a GitHub
-  sub-issue, releases a blocker, completes the corresponding Orca Task, or
-  authorizes the next wave by itself.
+- A valid `worker_done` for the active Task and Dispatch automatically completes
+  that Orca Task and Dispatch. Never follow it with
+  `task-update --status completed`. It does not close a GitHub sub-issue,
+  release a GitHub blocker, prove the artifact acceptable, or authorize the
+  next wave before coordinator validation and reconciliation.
+- Use Orca's foreground rolling delivery loop. If the command runner returns a
+  process/session handle for `check --wait`, poll that same process until the
+  bounded wait finishes; never abandon it as a background task or return a
+  progress-only response while its Dispatch remains active.
 - Accept lifecycle messages only for the exact current Task and Dispatch IDs.
   A stale, duplicate, failed, or superseded attempt cannot advance state.
 - On start or resume, reconstruct state from GitHub, Orca, the feature ledger,
