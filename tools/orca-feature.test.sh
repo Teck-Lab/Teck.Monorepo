@@ -3,6 +3,7 @@ set -euo pipefail
 
 tool="$(cd "$(dirname "$0")" && pwd)/orca-feature"
 workflow="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/workflow.md"
+state_machine="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/state-machine.md"
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
 
@@ -14,6 +15,22 @@ for contract in \
   'dispatch a fresh independent plan reviewer'; do
   grep -Eq "$contract" "$workflow" || {
     echo "Missing coordinator completion-loop contract: $contract" >&2
+    exit 1
+  }
+done
+
+for contract in \
+  'Task ID and Dispatch ID exactly match' \
+  'Process a valid message completely before acknowledging' \
+  'reconcile existing records idempotently before creating' \
+  'Ignored `.omx/` plans.*scratch space' \
+  'invalidates affected approval' \
+  'worktree is clean and all intended changes are committed' \
+  'dependency graphs permit it.*writes/resources are' \
+  'issues remain open until the authoritative post-merge alert' \
+  'Mandatory exit audit'; do
+  grep -Eiq "$contract" "$state_machine" || {
+    echo "Missing coordinator failure-state contract: $contract" >&2
     exit 1
   }
 done

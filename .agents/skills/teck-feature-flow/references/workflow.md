@@ -1,5 +1,9 @@
 # Native Orca and Codex feature workflow
 
+Read [state-machine.md](state-machine.md) completely before running commands.
+Its identity, recovery, convergence, review-freshness, and exit audits apply to
+every section below.
+
 ## 1. Intake and initialize
 
 Read the GitHub parent, sub-issues, dependencies, labels, and comments through
@@ -74,6 +78,11 @@ Wait for authoritative `worker_done`. Then create a separate plan-review Task
 using `teck-plan-reviewer`, the OMX `critic` role, Sol/xhigh, and the planner's
 artifact. The coordinator does not review the plan itself.
 
+Planner files under ignored runtime directories such as `.omx/` are scratch
+artifacts, not durable handoff state. Before settling planning, persist the
+approved plan (or a stable link plus digest and full acceptance contract) in
+the GitHub parent and Orca Task graph as required by the state-machine guide.
+
 For every actionable plan finding, create a GitHub sub-issue, attach it to the
 parent, add a native blocker edge to the affected leaf or parent, and mirror
 that dependency in Orca. Dispatch findings to an executor and repeat plan
@@ -125,6 +134,8 @@ generated outputs, databases, ports, indexes, or mutable services.
 After executor `worker_done`, require a clean worktree, local commit, and
 validation evidence. Create a separate review Task against the same leaf issue
 and worktree using `teck-code-reviewer`, OMX `code-reviewer`, and Sol/xhigh.
+Record the exact reviewed branch-tip SHA. Any later commit invalidates that
+review and requires a fresh independent review.
 
 Every actionable finding becomes a new GitHub sub-issue under the parent and a
 native blocker of the affected implementation issue. Create a corresponding
@@ -149,6 +160,8 @@ After all leaves are integrated, create a final QA Task in the parent worktree
 using `teck-feature-qa`, OMX `qa-tester` plus `verifier`, and Sol/xhigh. QA is
 read-only and reviews the entire integrated feature against the parent issue,
 approved plan, repository rules, and required validation.
+Record the exact parent SHA reviewed by QA. Any later integration, repair,
+rebase, or publication change invalidates QA and requires a fresh run.
 
 Every actionable QA finding becomes a GitHub sub-issue blocking the parent and
 an Orca Task dependency. Repair it in a new native child worktree through an

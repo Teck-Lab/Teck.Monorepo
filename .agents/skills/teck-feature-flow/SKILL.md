@@ -19,6 +19,10 @@ Read [references/workflow.md](references/workflow.md) completely before
 starting or resuming. Load Orca's version-matched orchestration guide before
 running any orchestration command.
 
+The workflow requires the coordinator to read and apply
+[references/state-machine.md](references/state-machine.md) completely. Treat
+its convergence and exit audits as gates, not suggestions.
+
 ## Non-negotiable boundaries
 
 - Start every durable worker with Orca `worker-start --agent codex`.
@@ -34,6 +38,12 @@ running any orchestration command.
 - `worker_done` completes only the worker attempt. It never closes a GitHub
   sub-issue, releases a blocker, completes the corresponding Orca Task, or
   authorizes the next wave by itself.
+- Accept lifecycle messages only for the exact current Task and Dispatch IDs.
+  A stale, duplicate, failed, or superseded attempt cannot advance state.
+- On start or resume, reconstruct state from GitHub, Orca, the feature ledger,
+  and native worktrees before creating or dispatching anything.
+- Bind plans, reviews, validation, and QA to immutable artifact digests and Git
+  SHAs. Any changed artifact or branch tip invalidates the earlier approval.
 - Each executable implementation leaf maps to one GitHub sub-issue, one Orca
   Task, and one native Orca child worktree.
 - Ephemeral native Codex subagents may exist only inside an executor Dispatch.

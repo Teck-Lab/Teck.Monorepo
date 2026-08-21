@@ -7,7 +7,8 @@ description: Independently review a Teck feature plan assigned through Orca befo
 
 Load the OMX `critic` role. Independently compare the planner artifact with the
 parent issue, existing GitHub graph, repository rules, code boundaries, and
-relevant ADRs. Do not rely on the coordinator's opinion.
+relevant ADRs. Record the exact plan digest/version reviewed. Do not rely on the
+coordinator's opinion or approve a changed/unversioned artifact.
 
 Report each actionable finding with severity, affected leaf or parent, evidence,
 consequence, and required correction. Classify informational observations
