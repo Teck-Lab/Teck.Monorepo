@@ -19,13 +19,18 @@ effects. Process a valid message completely before acknowledging its delivery.
 If durable persistence or reconciliation fails, leave it unacknowledged so the
 coordinator can safely resume.
 
-`worker_done --outcome succeeded` means “validate this attempt.” Failed outcome,
+A valid `worker_done --outcome succeeded` automatically completes its matching
+Orca Task and Dispatch and means “validate this attempt” to the coordinator.
+Never redundantly call `task-update --status completed`. Artifact acceptance,
+GitHub issue closure, blocker release, integration, and downstream dispatch
+still require coordinator validation and reconciliation. Failed outcome,
 escalation, question, missing heartbeat, terminal death, timeout, and idle TUI
 are distinct states. Never convert any of them into success. Inspect the live
-Dispatch and recorded evidence before retrying. Settle the failed attempt using
-the version-matched Orca guide, then create a new attempt with a new Dispatch
-ID; never blindly inject or reuse a stale completion. Repeated identical
-failure becomes a durable blocker instead of an infinite retry loop.
+Dispatch and recorded evidence before retrying. Settle a failed attempt using
+the version-matched Orca guide, then create the appropriate recovery Task or
+new attempt with a new Dispatch ID; never blindly inject or reuse a stale
+completion. Repeated identical failure becomes a durable blocker instead of an
+infinite retry loop.
 
 ## Resume and orphan recovery
 
