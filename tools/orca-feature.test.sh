@@ -30,6 +30,10 @@ for contract in \
   'reconcile existing records idempotently before creating' \
   'Dependency direction is semantic' \
   'An open A does not block B' \
+  'Blocker-first DAG progression' \
+  'actionable blocker is executable work' \
+  'Dispatch ready blocker Tasks before' \
+  'Parent completion is a graph-wide condition' \
   'Ignored `.omx/` plans.*scratch space' \
   'invalidates affected approval' \
   'worktree is clean and all intended changes are committed' \

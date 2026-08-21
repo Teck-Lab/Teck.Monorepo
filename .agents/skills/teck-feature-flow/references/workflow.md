@@ -108,12 +108,23 @@ parent, add a native blocker edge to the affected leaf or parent, and mirror
 that dependency in Orca. Dispatch findings to an executor and repeat plan
 review until clean.
 
+Before dispatching that executor, ensure the finding sub-issue and Task cite an
+approved executable plan with scope, acceptance criteria, dependencies,
+validation, and resource ownership. If the finding changes the plan, run a
+dedicated planner and independent plan reviewer first. A blocker is the next
+work item in the DAG, not a terminal status update.
+
 When a plan-defect executor sends `worker_done`, validate the repaired artifact
 and dispatch a fresh independent plan reviewer. Only a clean review permits the
 coordinator to record evidence, close that GitHub defect sub-issue, settle its
 Orca Task, and release its blocker edges. If review still fails, keep the defect
 open and continue the repair/review loop. Never report the defect complete just
 because its repair worker exited successfully.
+
+Immediately after releasing accepted blocker edges, re-read GitHub and Orca,
+compute the newly-ready wave, and dispatch every resource-safe eligible Task.
+Do not idle or report the parent complete between blocker reconciliation and
+dispatch of work that the blocker just released.
 
 Only after clean plan review may the coordinator create or reconcile executable
 GitHub sub-issues and their Orca Tasks. Re-read before and after every mutation;

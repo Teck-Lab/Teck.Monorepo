@@ -59,6 +59,11 @@ its convergence and exit audits as gates, not suggestions.
   They inherit that leaf's scope and never own GitHub, Git, Orca, or lifecycle.
 - Every actionable review finding becomes a GitHub sub-issue and native blocker.
   Informational observations remain evidence on the reviewed issue.
+- Every actionable blocker sub-issue must contain or cite an approved executable
+  plan before dispatch. Dispatch ready blocker Tasks before the Tasks they
+  block. After an accepted repair is integrated and independently revalidated,
+  reconcile and release its GitHub/Orca edges, re-read both graphs, and
+  immediately dispatch every newly unblocked eligible Task.
 - Mirror GitHub blockers in Orca Task dependencies. Re-read both graphs after
   mutation; disagreement blocks dispatch.
 - Preserve dependency direction from the approved plan. If it says `A waits
@@ -74,5 +79,9 @@ its convergence and exit audits as gates, not suggestions.
   active Dispatch, a ready Task, an open actionable sub-issue, or a blocker edge
   remains. Stop only for a precise human decision/access blocker or the final
   open PR after clean QA and required CI.
+- Never report the parent complete merely because one child or blocker repair
+  completed. Completion requires every parent sub-issue to be closed with
+  accepted evidence or explicitly classified as non-actionable, every blocker
+  edge reconciled, and every required review/QA rerun clean.
 - Never merge the final PR, create tags, run `nx release`, force push, or bypass
   hooks.
