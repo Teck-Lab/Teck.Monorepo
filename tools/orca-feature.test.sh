@@ -4,6 +4,7 @@ set -euo pipefail
 tool="$(cd "$(dirname "$0")" && pwd)/orca-feature"
 workflow="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/workflow.md"
 state_machine="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/state-machine.md"
+agent_instructions="$(cd "$(dirname "$0")/.." && pwd)/AGENTS.md"
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
 
@@ -13,15 +14,30 @@ for contract in \
   'task-update --status completed' \
   'foreground rolling wait' \
   'timeout or.*count:0.*checkpoint' \
+  'ordinary `orca orchestration check --json` to recover mail' \
   'check --ack <delivery-id> --wait' \
   'Do not end the coordinator Codex turn while active workers remain' \
   'Orca will re-engage the coordinator' \
+  'still-running `check --wait` process' \
+  'stablyai/orca#11787' \
+  '#10663 reports typed waits missing queued mail' \
+  '#9228 tracks durable coordinator wake/resume' \
+  '#15185 condition where ready work can fail to wake' \
   'dispatch every newly eligible Task' \
   'completed-but-unreconciled Dispatch' \
   'open actionable GitHub sub-issue' \
   'dispatch a fresh independent plan reviewer'; do
   grep -Eq "$contract" "$workflow" || {
     echo "Missing coordinator completion-loop contract: $contract" >&2
+    exit 1
+  }
+done
+
+for contract in \
+  'foreground rolling `check --wait` loop' \
+  'still-running worker is never permission to return a final response'; do
+  grep -Fq "$contract" "$agent_instructions" || {
+    echo "Missing parent coordinator startup contract: $contract" >&2
     exit 1
   }
 done
