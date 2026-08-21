@@ -20,24 +20,41 @@ sub-issue.
 Starting a worker begins supervision; it is never the end of a coordinator
 turn. After every `worker-start`, repeatedly:
 
-1. wait for `worker_done`, `question`, or `escalation` using the exact commands
-   from the version-matched Orca orchestration guide;
-2. process every delivery before acknowledging it;
-3. validate the reported artifact, worktree, commits, and evidence for that
+1. run the version-matched guide's authoritative waiter in the foreground:
+   `orca orchestration check --wait --types worker_done,escalation,question --timeout-ms 900000 --json`;
+2. if the command runner yields a process/session handle, poll that same handle
+   until the bounded command exits; do not leave the waiter in the background;
+3. process every message in the returned Delivery before acknowledging it;
+4. for an accepted worker result, choose terminal reuse with `worker-start
+   --terminal` or release it with `worker-release` before acknowledging the
+   Delivery;
+5. validate the reported artifact, worktree, commits, and evidence for that
    Task type;
-4. settle or redispatch the attempt through Orca, then re-read the Task DAG;
-5. reconcile the corresponding GitHub sub-issue and blocker edges through MCP;
-6. re-read both durable graphs and dispatch the next eligible Task; and
-7. continue until a terminal condition below is actually true.
+6. reconcile the corresponding GitHub sub-issue and blocker edges through MCP;
+7. re-read both durable graphs and dispatch every newly eligible Task whose
+   dependencies and resources permit execution; and
+8. atomically acknowledge and continue waiting with
+   `orca orchestration check --ack <delivery-id> --wait --types worker_done,escalation,question
+   --timeout-ms 900000 --json`, continuing until a terminal condition below is
+   actually true.
 
-Use bounded waits so progress can be reported, but a timeout or idle terminal
-is not completion. Do not replace the authoritative waiter with terminal
-scraping. Record the returned Dispatch ID and terminal handle in the progress
-update so a human can locate the dedicated worker.
+Use bounded waits, but a timeout or idle terminal is not completion. After a
+timeout, re-read the Run and Tasks and begin another bounded foreground wait.
+Do not replace the authoritative waiter with terminal scraping, sleeps, or a
+background shell job. Record the returned Dispatch ID and terminal handle in
+durable state so the dedicated worker can be located.
 
-`worker_done` means only that one worker attempt ended. It does not complete an
-Orca Task or GitHub sub-issue, release a dependency, close a worktree, or make a
-downstream Task eligible. Those are coordinator-owned reconciliation steps.
+A valid `worker_done` for the active Task and Dispatch automatically marks that
+Orca Task and Dispatch completed. Do not call `task-update --status completed`
+after it. The message does not close a GitHub sub-issue, release a GitHub
+blocker, accept an artifact, close a worktree, or authorize downstream dispatch
+before coordinator validation and graph reconciliation.
+
+Current Orca has a documented upstream quiescence gap when a consumed delivery
+makes another Task ready but the coordinator ends instead of dispatching or
+waiting again (stablyai/orca#15185). Do not invent a hook or launcher around
+it: prevent that state by dispatching newly-ready work before responding and
+using the atomic acknowledge-and-wait command above.
 
 The coordinator may yield a final response only when either:
 
