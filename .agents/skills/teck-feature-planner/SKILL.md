@@ -17,8 +17,11 @@ Return an executable plan containing:
 - file, generated-artifact, database, port, and mutable-service overlap risks
 - missing decisions or plan defects
 - recommended Luna/xhigh or Terra/high executor routing per leaf
+- the source issue/graph version and a stable digest-ready artifact boundary
 
 Do not edit files, create issues, mutate Git or GitHub, create worktrees, start
 implementation, or delegate. Send `worker_done` exactly once using the injected
-Orca contract. If required evidence or an owner decision is unavailable, send a
-question or escalation instead of guessing.
+Orca contract with the exact Task and Dispatch IDs and report path. Treat local
+`.omx/` output as scratch that the coordinator must promote durably. If required
+evidence or an owner decision is unavailable, send a question or escalation
+instead of guessing.

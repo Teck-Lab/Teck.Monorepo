@@ -1,5 +1,9 @@
 # Native Orca and Codex feature workflow
 
+Read [state-machine.md](state-machine.md) completely before running commands.
+Its identity, recovery, convergence, review-freshness, and exit audits apply to
+every section below.
+
 ## 1. Intake and initialize
 
 Read the GitHub parent, sub-issues, dependencies, labels, and comments through
@@ -10,6 +14,46 @@ lifecycle label.
 Initialize or adopt the parent feature branch with `tools/orca-feature init`.
 Create or bind exactly one Orca Run for the parent. Do not create a Run per
 sub-issue.
+
+## Coordinator supervision loop
+
+Starting a worker begins supervision; it is never the end of a coordinator
+turn. After every `worker-start`, repeatedly:
+
+1. wait for `worker_done`, `question`, or `escalation` using the exact commands
+   from the version-matched Orca orchestration guide;
+2. process every delivery before acknowledging it;
+3. validate the reported artifact, worktree, commits, and evidence for that
+   Task type;
+4. settle or redispatch the attempt through Orca, then re-read the Task DAG;
+5. reconcile the corresponding GitHub sub-issue and blocker edges through MCP;
+6. re-read both durable graphs and dispatch the next eligible Task; and
+7. continue until a terminal condition below is actually true.
+
+Use bounded waits so progress can be reported, but a timeout or idle terminal
+is not completion. Do not replace the authoritative waiter with terminal
+scraping. Record the returned Dispatch ID and terminal handle in the progress
+update so a human can locate the dedicated worker.
+
+`worker_done` means only that one worker attempt ended. It does not complete an
+Orca Task or GitHub sub-issue, release a dependency, close a worktree, or make a
+downstream Task eligible. Those are coordinator-owned reconciliation steps.
+
+The coordinator may yield a final response only when either:
+
+- the parent PR is open after clean final QA and required CI; or
+- progress is impossible without one precisely named human decision, missing
+  access grant, or external state change, and the coordinator has recorded the
+  blocker durably.
+
+The coordinator must not yield a final response when any of these exist:
+
+- an unacknowledged lifecycle delivery;
+- an active or completed-but-unreconciled Dispatch;
+- a ready Orca Task;
+- an open actionable GitHub sub-issue;
+- a GitHub or Orca blocker edge awaiting reconciliation; or
+- a review or QA rerun required by a completed repair.
 
 ## 2. Dedicated planning and plan review
 
@@ -34,10 +78,22 @@ Wait for authoritative `worker_done`. Then create a separate plan-review Task
 using `teck-plan-reviewer`, the OMX `critic` role, Sol/xhigh, and the planner's
 artifact. The coordinator does not review the plan itself.
 
+Planner files under ignored runtime directories such as `.omx/` are scratch
+artifacts, not durable handoff state. Before settling planning, persist the
+approved plan (or a stable link plus digest and full acceptance contract) in
+the GitHub parent and Orca Task graph as required by the state-machine guide.
+
 For every actionable plan finding, create a GitHub sub-issue, attach it to the
 parent, add a native blocker edge to the affected leaf or parent, and mirror
 that dependency in Orca. Dispatch findings to an executor and repeat plan
 review until clean.
+
+When a plan-defect executor sends `worker_done`, validate the repaired artifact
+and dispatch a fresh independent plan reviewer. Only a clean review permits the
+coordinator to record evidence, close that GitHub defect sub-issue, settle its
+Orca Task, and release its blocker edges. If review still fails, keep the defect
+open and continue the repair/review loop. Never report the defect complete just
+because its repair worker exited successfully.
 
 Only after clean plan review may the coordinator create or reconcile executable
 GitHub sub-issues and their Orca Tasks. Re-read before and after every mutation;
@@ -78,6 +134,8 @@ generated outputs, databases, ports, indexes, or mutable services.
 After executor `worker_done`, require a clean worktree, local commit, and
 validation evidence. Create a separate review Task against the same leaf issue
 and worktree using `teck-code-reviewer`, OMX `code-reviewer`, and Sol/xhigh.
+Record the exact reviewed branch-tip SHA. Any later commit invalidates that
+review and requires a fresh independent review.
 
 Every actionable finding becomes a new GitHub sub-issue under the parent and a
 native blocker of the affected implementation issue. Create a corresponding
@@ -102,6 +160,8 @@ After all leaves are integrated, create a final QA Task in the parent worktree
 using `teck-feature-qa`, OMX `qa-tester` plus `verifier`, and Sol/xhigh. QA is
 read-only and reviews the entire integrated feature against the parent issue,
 approved plan, repository rules, and required validation.
+Record the exact parent SHA reviewed by QA. Any later integration, repair,
+rebase, or publication change invalidates QA and requires a fresh run.
 
 Every actionable QA finding becomes a GitHub sub-issue blocking the parent and
 an Orca Task dependency. Repair it in a new native child worktree through an

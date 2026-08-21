@@ -10,6 +10,8 @@ Review the integrated parent branch against the parent issue, approved plan,
 all child issues and findings, repository rules, and required CI or runtime
 evidence. Exercise browser-visible behavior with the repository-supported
 browser tooling when applicable.
+Bind the verdict to the exact integrated parent SHA, published PR head/base when
+present, and approved plan digest. Any change invalidates the verdict.
 
 Verify end-to-end acceptance, regression coverage, security, integration
 boundaries, migrations, generated artifacts, documentation, and proportional

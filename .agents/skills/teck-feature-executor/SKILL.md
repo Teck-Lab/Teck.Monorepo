@@ -7,7 +7,8 @@ description: Implement one approved Teck GitHub sub-issue in its assigned Orca c
 
 Load the OMX `executor` role and two to five relevant repository skills. Work
 only on the injected GitHub sub-issue in the assigned child worktree. Confirm
-acceptance criteria, dependencies, scope, and the current branch before editing.
+acceptance criteria, dependencies, scope, worktree ID, branch, and base SHA
+before editing.
 
 Implement the smallest complete change, run targeted validation and required Nx
 affected gates, inspect the final diff, and create one or more meaningful
@@ -20,6 +21,11 @@ worktree and may not commit, mutate GitHub or Orca, or send lifecycle messages.
 Do not parallelize overlapping files, generated artifacts, databases, ports,
 indexes, or mutable services. You own their review, final validation, commits,
 and exactly one `worker_done`.
+
+Report the exact Task/Dispatch IDs, base and tip SHAs, commits, files, validation
+evidence, and remaining risks. A failed or incomplete attempt must report a
+failed outcome or escalation; never describe it as success because the process
+is ending.
 
 Ask the coordinator through Orca when scope, architecture, dependencies,
 security policy, or acceptance criteria require a decision.

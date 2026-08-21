@@ -8,6 +8,8 @@ description: Independently review a completed Teck implementation leaf in its Or
 Load the OMX `code-reviewer` role and relevant review or security skills. Read
 the linked GitHub sub-issue, approved plan, worktree commits and diff, applicable
 `AGENTS.md`, context, ADRs, and validation evidence.
+Bind the verdict to the exact reviewed branch-tip SHA and plan digest. Stop if
+either changes during review.
 
 Perform independent specification and quality/security passes. Report findings
 in severity order with file or symbol, evidence, consequence, and required
