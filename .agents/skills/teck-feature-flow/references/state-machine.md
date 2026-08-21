@@ -225,3 +225,10 @@ The coordinator may stop normally only when all applicable answers are no:
 If any answer is yes, continue reconciliation or record the exact durable human
 or external blocker. “Worker finished,” “terminal idle,” “progress reported,”
 and “sub-issue exists” are never valid terminal conditions.
+
+For Codex coordinators, `.codex/hooks.json` enforces the most frequently missed
+edge: an actionable review delivery sets a session-local
+`repairDispatchRequired` latch. Only a successful `orca orchestration
+worker-start` clears it. A `Stop` attempt while latched returns `decision:
+block`, turning the missing repair dispatch into the next model turn instead of
+allowing a progress-only response to strand the Run.

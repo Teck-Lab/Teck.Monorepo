@@ -65,6 +65,14 @@ the rolling wait until all expected Dispatches settle. This prevents a
 completed worker or newly-ready dependent from being stranded by a coordinator
 final response.
 
+The repository Codex hooks provide a deterministic backstop for the commonly
+missed review-to-repair edge. `PostToolUse` records a rejected/actionable
+review delivery, and `Stop` continues the coordinator turn until a successful
+repair `worker-start` occurs. Do not bypass or satisfy this guard with prose:
+perform the missing graph transition and resume the foreground rolling wait.
+Dispatched worker sessions are excluded because `worker_done` is their required
+terminal transition.
+
 This explicit loop is required even on Orca versions with idle mail-pointer
 delivery. Upstream issue stablyai/orca#11787 documents Run-mailbox push gaps and
 their later partial repairs; #10663 reports typed waits missing queued mail;

@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+test -f .codex/hooks.json
+test -x tools/orca-coordinator-hook
+test -x tools/orca-coordinator-hook.test.sh
+jq -e '.hooks.Stop and .hooks.PostToolUse' .codex/hooks.json >/dev/null
+tools/orca-coordinator-hook.test.sh
+
 tool="$(cd "$(dirname "$0")" && pwd)/orca-feature"
 workflow="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/workflow.md"
 state_machine="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/state-machine.md"
