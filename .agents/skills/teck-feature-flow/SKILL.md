@@ -61,6 +61,11 @@ its convergence and exit audits as gates, not suggestions.
   Informational observations remain evidence on the reviewed issue.
 - Mirror GitHub blockers in Orca Task dependencies. Re-read both graphs after
   mutation; disagreement blocks dispatch.
+- Preserve dependency direction from the approved plan. If it says `A waits
+  for B`, then A is blocked by B and B is the eligible predecessor. An open
+  overlapping issue alone never reverses that edge or blocks B; create and
+  verify the missing directed edge, then continue B unless live execution or
+  another explicit dependency proves a real collision.
 - Reviewers and QA never repair findings. Dispatch a finding to an executor and
   re-run the affected review after integration.
 - Only the coordinator integrates child commits, publishes the parent branch,

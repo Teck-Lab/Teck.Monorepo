@@ -28,6 +28,8 @@ for contract in \
   'Task ID and Dispatch ID exactly match' \
   'Process a valid message completely before acknowledging' \
   'reconcile existing records idempotently before creating' \
+  'Dependency direction is semantic' \
+  'An open A does not block B' \
   'Ignored `.omx/` plans.*scratch space' \
   'invalidates affected approval' \
   'worktree is clean and all intended changes are committed' \

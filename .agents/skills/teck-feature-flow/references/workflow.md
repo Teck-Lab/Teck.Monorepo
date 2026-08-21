@@ -125,6 +125,14 @@ Start only Tasks reported ready by Orca and unblocked in GitHub. Create the
 native Orca child worktree from the current verified parent feature head, then
 register that existing checkout with `tools/orca-feature register`.
 
+Before treating overlap as a dispatch blocker, distinguish ordering from active
+contention. Apply the approved direction exactly: `A waits for B` blocks A on B,
+not B on A. An open but inactive A is not a reason to stop B. Create and verify
+the native GitHub blocker edge and matching Orca dependency, record B's exclusive
+resource reservation, and dispatch B. Escalate only if A already has live
+execution, the directed edge would cycle or contradict another approved plan,
+or the required relationship cannot be written and verified.
+
 Each Task spec contains:
 
 - `ROLE: feature executor`

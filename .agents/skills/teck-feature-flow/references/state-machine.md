@@ -66,6 +66,15 @@ fingerprint, and repair the missing half idempotently. Never erase the
 successful half to hide drift. Before adding an edge, reject self-dependencies,
 duplicates, reversed producer/consumer direction, and cycles.
 
+Dependency direction is semantic, not inferred from issue state. The approved
+plan statement `A waits for B` means A has a `blocked_by` edge to B and the Orca
+Task for A depends on B. An open A does not block B merely because their file or
+resource scopes overlap. If neither issue has active execution and the approved
+direction is safe, create and verify the missing GitHub edge and Orca dependency,
+reserve the shared resource for B, and dispatch B. Stop only when a live worker,
+worktree, conflicting immutable plan, cycle, or missing mutation authority makes
+the approved ordering unsafe or impossible.
+
 Use one finding issue per stable fingerprint: review kind, reviewed issue,
 artifact/SHA, file or component, and normalized finding. Reuse or reopen it
 until independent review accepts the repair. Do not create a fresh issue for
