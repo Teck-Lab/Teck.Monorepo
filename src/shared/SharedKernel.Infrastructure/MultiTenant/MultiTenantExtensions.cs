@@ -296,10 +296,9 @@ string httpClientName = "TenantApi")
             if (logger?.IsEnabled(LogLevel.Information) == true)
             {
                 logger.LogInformation(
-                    "Delegate header strategy resolved tenant header. HeaderName={HeaderName}; HeaderValue={HeaderValue}; Path={Path}; TraceId={TraceId}",
+                    "Delegate header strategy resolved tenant header. HeaderName={HeaderName}; HeaderValue={HeaderValue}; TraceId={TraceId}",
                     options.TenantIdHeaderName,
                     tenantIdValue,
-                    httpContext.Request.Path,
                     httpContext.TraceIdentifier);
             }
 
