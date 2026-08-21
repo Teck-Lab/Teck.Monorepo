@@ -57,11 +57,36 @@ its convergence and exit audits as gates, not suggestions.
   They inherit that leaf's scope and never own GitHub, Git, Orca, or lifecycle.
 - Every actionable review finding becomes a GitHub sub-issue and native blocker.
   Informational observations remain evidence on the reviewed issue.
+- Every coordinator-created or rewritten GitHub issue body must use readable
+  Markdown with real line breaks and the ordered sections `## Scope`,
+  `## Acceptance criteria`, `## Validation`, and `## Constraints`. Write bodies
+  through a file/body-file input rather than escaped JSON or shell text. Read
+  the issue back after mutation and reject it if it contains literal `\\n`
+  sequences, missing/duplicate/out-of-order headings, or an empty required
+  section. Repair malformed durable state before planning or dispatch continues.
 - Every actionable blocker sub-issue must contain or cite an approved executable
   plan before dispatch. Dispatch ready blocker Tasks before the Tasks they
   block. After an accepted repair is integrated and independently revalidated,
   reconcile and release its GitHub/Orca edges, re-read both graphs, and
   immediately dispatch every newly unblocked eligible Task.
+- The assigned parent coordinator owns the complete outcome through the final
+  PR, including cross-parent blockers required by its approved plan. Only a
+  provably live coordinator and current Dispatch count as another owner;
+  historical Runs, comments, attempts, worktrees, branches, artifacts, and
+  settled or abandoned Dispatches do not. If a required blocker has no live
+  owner, claim it in the current coordination, reconcile and reuse any partial
+  work, finish or repair it, independently review and integrate it, then release
+  its edges and immediately dispatch the work it unblocks. Never classify an
+  actionable code issue as an external-state stopping condition merely because
+  it belongs to another parent or was partly attempted elsewhere.
+- Treat the executable frontier as every open, dependency-unblocked issue with
+  no verified live Orca claim. Before claiming one, fetch its full title, body,
+  labels, comments, relationships, and all candidate Run/Task/Dispatch records.
+  A claim is valid only when durable issue evidence names the same current live
+  Run, Task, Dispatch, and coordinator verified in Orca. Re-read immediately
+  after claiming and immediately before acceptance/integration; reconcile any
+  competing live claim instead of duplicating work. In human-facing output,
+  refer to issues by linked title, not bare-number chains.
 - Mirror GitHub blockers in Orca Task dependencies. Re-read both graphs after
   mutation; disagreement blocks dispatch.
 - Preserve dependency direction from the approved plan. If it says `A waits
@@ -77,7 +102,9 @@ its convergence and exit audits as gates, not suggestions.
   active or expected Dispatch, a ready Task, an open actionable sub-issue, or a
   blocker edge remains. Do not say that Orca will re-engage the coordinator and
   then return: remain in the rolling wait loop. Stop only for a precise human
-  decision/access blocker or the final open PR after clean QA and required CI.
+  human-only decision/access blocker or the final open PR after clean QA and
+  required CI. Unowned, partial, failed, stale, or cross-parent implementation
+  work is executable recovery work, not an external blocker.
 - Never report the parent complete merely because one child or blocker repair
   completed. Completion requires every parent sub-issue to be closed with
   accepted evidence or explicitly classified as non-actionable, every blocker

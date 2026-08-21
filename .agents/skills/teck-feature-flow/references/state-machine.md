@@ -80,6 +80,13 @@ artifact/SHA, file or component, and normalized finding. Reuse or reopen it
 until independent review accepts the repair. Do not create a fresh issue for
 each retry, and do not accept an externally closed issue without evidence.
 
+GitHub issue readability is part of durable convergence. Every coordinator
+issue body uses real Markdown line breaks and exactly one ordered `## Scope`,
+`## Acceptance criteria`, `## Validation`, and `## Constraints` section with
+non-empty content. Use body-file input, read the stored body back, and treat
+literal `\\n` sequences or malformed sections as a failed half-mutation. Repair
+that issue idempotently before mirroring it into Orca or dispatching any worker.
+
 ## Blocker-first DAG progression
 
 An actionable blocker is executable work, not a reason for the coordinator to
@@ -88,6 +95,41 @@ plan version, exact scope, acceptance criteria, dependencies, validation, and
 owned resources. If that contract is absent or changed, dispatch planning and
 independent plan review for the blocker first; do not send an executor an
 unreviewed finding description.
+
+Parent assignment is outcome ownership. It includes required blockers even
+when they are attached to another parent, have records from older Runs, or are
+partly implemented. Treat ownership as a live lease: only a verified live
+coordinator plus its current active Dispatch owns the work. Historical or
+settled state never owns anything.
+
+If no live owner exists, the assigned coordinator must adopt the existing
+blocker without duplicating its GitHub issue, reconcile recoverable partial
+state by immutable IDs and SHAs, and continue from the first unproven gate.
+Finish or repair implementation, repeat independent review when evidence is
+stale, integrate the accepted SHA into the required base, release the blocker,
+and dispatch the newly-ready dependent wave. “External,” “cross-parent,”
+“previously owned,” “partly done,” and “another Run touched it” are forbidden
+terminal classifications for actionable implementation work.
+
+If a verified live owner exists, prevent duplicate editing but keep outcome
+supervision with the assigned parent coordinator through an explicit tracked
+handoff/dependency. The parent coordinator remains active until accepted
+integration or a genuinely human-only authority/access blocker; it cannot turn
+another agent's live ownership into permission to return a final response.
+
+Model selection like a tracker frontier: eligible work is open, unblocked,
+resource-safe, and unclaimed. A valid claim is two-sided durable evidence—the
+GitHub issue records exact Run/Task/Dispatch/coordinator identity and Orca proves
+that same Dispatch is current and live. Assignees, comments, branches,
+worktrees, artifacts, and historical Tasks are insufficient alone. Fetch the
+complete issue and candidate Orca state immediately before claim, read both
+sides back after claim, and repeat the read immediately before acceptance,
+integration, or closure to close the claim race.
+
+Use linked issue titles in human-facing maps and summaries. Bare IDs remain
+stable machine keys but never replace readable names. Each executable contract
+lives on exactly one canonical issue; parents and dependencies link and gist it
+instead of copying a second version that can drift.
 
 Dispatch ready blocker Tasks before their blocked dependents. A successful
 worker report does not release the edge: validate, independently review,
