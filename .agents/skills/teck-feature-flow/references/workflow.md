@@ -81,6 +81,12 @@ The coordinator may report the workflow itself complete only when either:
   access grant, or external state change, and the coordinator has recorded the
   blocker durably.
 
+The external-state clause is subordinate to blocker-first progression. It
+applies only to state the coordinator cannot produce through repository,
+GitHub, Orca, worker, review, integration, or validation actions. An open code
+issue, cross-parent dependency, previous failed attempt, partial implementation,
+missing review, or unintegrated commit is actionable work and never qualifies.
+
 The coordinator must not report workflow completion when any of these exist:
 
 - an unacknowledged lifecycle delivery;
@@ -145,7 +151,108 @@ Only after clean plan review may the coordinator create or reconcile executable
 GitHub sub-issues and their Orca Tasks. Re-read before and after every mutation;
 never duplicate an existing issue or edge.
 
+Every created or rewritten issue must follow the canonical readable structure
+used by executable leaves:
+
+```markdown
+## Scope
+
+...
+
+## Acceptance criteria
+
+- ...
+
+## Validation
+
+- ...
+
+## Constraints
+
+...
+```
+
+Write the body through a temporary Markdown file and the GitHub client's
+body-file input. Never construct issue Markdown with literal `\\n` escapes.
+Immediately read the body back from GitHub and verify real line breaks, exactly
+one of each required heading in the order above, and non-empty content beneath
+every heading. A malformed or unreadable issue is an unreconciled mutation:
+repair and re-read it before creating its Orca Task, dependency, or Dispatch.
+
 ## 3. Dispatch executable leaves
+
+### Required blockers outside the current parent
+
+The assigned parent coordinator owns all work necessary to deliver its parent,
+not merely issues already attached beneath it. For every required blocker,
+resolve current ownership from live Orca state before deciding what to do:
+
+1. A current owner exists only when a live coordinator and current active
+   Dispatch can be identified and verified. Old issue comments, Run records,
+   Tasks, Dispatch attempts, branches, worktrees, commits, or artifacts do not
+   establish current ownership.
+2. If a live owner exists, establish an explicit supervised handoff or tracked
+   dependency relationship and keep the assigned parent coordination active
+   until the blocker is accepted and integrated. Another live owner prevents
+   duplicate editing; it does not permit the assigned coordinator to finish.
+3. If no live owner exists, claim the existing blocker for the current
+   coordination. Reuse the existing GitHub issue; do not create a duplicate.
+   Reconcile any recoverable Task, worktree, branch, commits, artifacts, plan,
+   reviews, and validation by immutable identity before creating new state.
+   First read its complete title, body, comments, relationships, and current
+   state. If its body is malformed, repair it to the canonical issue structure
+   and verify the GitHub read-back before treating it as executable.
+4. Partial work is a recovery input. Validate its scope, cleanliness, commit
+   reachability, plan/review freshness, and base. Dispatch only the missing or
+   defective remainder; never discard sound work or accept stale evidence.
+5. Finish or repair the blocker through the normal planner/executor/independent
+   review/integration gates. Then reconcile and release its GitHub and Orca
+   dependency edges, re-read both graphs, and immediately dispatch every newly
+   unblocked resource-safe Task.
+
+This ownership resolution takes precedence over every generic external-wait or
+stop clause. Only a specifically identified human decision, missing access
+grant, or authority that cannot be obtained through the supported workflow may
+stop the coordinator before the final PR.
+
+### Executable frontier and claims
+
+Use the tracker as the canonical index and each issue as the single source for
+its executable contract. Do not duplicate a child issue's details into another
+issue; link it by its readable title and keep the authoritative scope,
+acceptance criteria, validation, and constraints on that child.
+
+The executable frontier is the set of issues that are open, dependency-
+unblocked in both GitHub and Orca, resource-safe, and without a verified live
+claim. Determine it from current tracker and Orca state, never from remembered
+issue numbers or old comments.
+
+Before claiming a frontier issue:
+
+1. fetch its full title, body, labels, comments, parent/sub-issue relationships,
+   blocker relationships, and linked development state;
+2. search candidate Orca Runs, Tasks, Dispatches, terminals, and worktrees;
+3. classify partial artifacts and settled attempts as recovery evidence, never
+   as ownership; and
+4. verify immediately before mutation that it remains open, unblocked, and
+   without a competing live Dispatch.
+
+Create or reconcile its Task and start the worker through Orca, then record a
+durable claim containing the exact Run, Task, Dispatch, coordinator, worktree,
+and timestamp. Read both GitHub and Orca back immediately. A comment, assignee,
+branch, worktree, or Task without the matching current live Dispatch is not a
+claim. If the two systems disagree, stop duplicate dispatch only, repair the
+claim record, and continue the blocker-first workflow.
+
+Immediately before accepting, integrating, or closing the issue, re-fetch its
+body, relationships, claims, and live Dispatch state. If a competing live claim
+appeared, reconcile it before mutation. Otherwise finish the current issue,
+advance the frontier, and take the next newly-unblocked issue; do not return a
+final response between frontier transitions.
+
+In narration and durable summaries, use `[Issue title](URL)` so humans can scan
+the workflow. Bare numbers remain machine identity fields, never the primary
+human-readable description.
 
 Start only Tasks reported ready by Orca and unblocked in GitHub. Create the
 native Orca child worktree from the current verified parent feature head, then

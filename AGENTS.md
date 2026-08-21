@@ -23,6 +23,17 @@ expected Dispatch settles. A timeout, empty Delivery, progress checkpoint, or
 still-running worker is never permission to return a final response or rely on
 a later idle-pointer wake-up.
 
+Assignment of a parent issue gives its coordinator outcome ownership through
+the final PR, including every dependency required to unblock that issue.
+Ownership means a provably live coordinator/Dispatch now; old Runs, comments,
+attempts, branches, worktrees, partial artifacts, and completed or abandoned
+Dispatches are evidence to reconcile, not owners. When a required blocker is
+unowned—even when it belongs to another parent or is partly implemented—the
+assigned coordinator must claim/recover it, finish or repair it, independently
+review and integrate it, release the dependency, and immediately continue the
+newly unblocked work. Cross-parent placement, partial work, and historical
+ownership are never external-state stopping conditions.
+
 An explicit Orca worker Dispatch takes precedence over the parent-intake rule.
 Remain within the assigned child worktree and follow the role and completion
 contract supplied by that Dispatch.

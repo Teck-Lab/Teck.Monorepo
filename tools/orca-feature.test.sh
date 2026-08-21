@@ -24,6 +24,10 @@ for contract in \
   '#9228 tracks durable coordinator wake/resume' \
   '#15185 condition where ready work can fail to wake' \
   'dispatch every newly eligible Task' \
+  'external-state clause is subordinate to blocker-first progression' \
+  'Required blockers outside the current parent' \
+  'Partial work is a recovery input' \
+  'ownership resolution takes precedence over every generic external-wait' \
   'completed-but-unreconciled Dispatch' \
   'open actionable GitHub sub-issue' \
   'dispatch a fresh independent plan reviewer'; do
@@ -34,8 +38,35 @@ for contract in \
 done
 
 for contract in \
+  'canonical readable structure' \
+  'body-file input' \
+  'Never construct issue Markdown with literal `\\n` escapes' \
+  'malformed or unreadable issue is an unreconciled mutation' \
+  'First read its complete title, body, comments, relationships'; do
+  grep -Fq "$contract" "$workflow" || {
+    echo "Missing readable GitHub issue contract: $contract" >&2
+    exit 1
+  }
+done
+
+for contract in \
+  'Executable frontier and claims' \
+  'full title, body, labels, comments' \
+  'matching current live Dispatch is not a' \
+  'Immediately before accepting, integrating, or closing' \
+  'final response between frontier transitions.' \
+  'use `[Issue title](URL)`'; do
+  grep -Fq "$contract" "$workflow" || {
+    echo "Missing deterministic frontier/claim contract: $contract" >&2
+    exit 1
+  }
+done
+
+for contract in \
   'foreground rolling `check --wait` loop' \
-  'still-running worker is never permission to return a final response'; do
+  'still-running worker is never permission to return a final response' \
+  'Assignment of a parent issue gives its coordinator outcome ownership' \
+  'ownership are never external-state stopping conditions'; do
   grep -Fq "$contract" "$agent_instructions" || {
     echo "Missing parent coordinator startup contract: $contract" >&2
     exit 1
@@ -59,6 +90,18 @@ for contract in \
   'An open A does not block B' \
   'Blocker-first DAG progression' \
   'actionable blocker is executable work' \
+  'Parent assignment is outcome ownership' \
+  'ownership as a live lease' \
+  'first unproven gate' \
+  'partly done.*are forbidden' \
+  'parent coordinator remains active until accepted' \
+  'tracker frontier' \
+  'valid claim is two-sided durable evidence' \
+  'immediately before acceptance' \
+  'linked issue titles in human-facing maps' \
+  'exactly one canonical issue' \
+  'GitHub issue readability is part of durable convergence' \
+  'malformed sections as a failed half-mutation' \
   'Dispatch ready blocker Tasks before' \
   'Parent completion is a graph-wide condition' \
   'Ignored `.omx/` plans.*scratch space' \
