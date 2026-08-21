@@ -1,0 +1,86 @@
+#!/usr/bin/env bun
+
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+
+type Json = Record<string, unknown>;
+type GuardState = { repairDispatchRequired?: boolean; reason?: string };
+
+function strings(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(strings);
+  if (value && typeof value === "object") return Object.values(value).flatMap(strings);
+  return [];
+}
+
+function statePath(sessionId: string): string {
+  return join(tmpdir(), "teck-orca-stop-guard", `${sessionId.replace(/[^a-zA-Z0-9._-]/g, "_")}.json`);
+}
+
+function load(path: string): GuardState {
+  if (!existsSync(path)) return {};
+  try { return JSON.parse(readFileSync(path, "utf8")) as GuardState; } catch { return {}; }
+}
+
+function save(path: string, state: GuardState): void {
+  mkdirSync(join(path, ".."), { recursive: true });
+  const next = `${path}.tmp`;
+  writeFileSync(next, JSON.stringify(state), { mode: 0o600 });
+  renameSync(next, path);
+}
+
+function isDispatchedWorker(payload: Json): boolean {
+  const transcript = typeof payload.transcript_path === "string" ? payload.transcript_path : "";
+  if (!transcript || !existsSync(transcript)) return false;
+  try {
+    const tail = readFileSync(transcript, "utf8").slice(-200_000);
+    return tail.includes("You are working inside Orca, a multi-agent IDE. You are a dispatched worker.");
+  } catch { return false; }
+}
+
+const payload = JSON.parse(await Bun.stdin.text()) as Json;
+if (isDispatchedWorker(payload)) {
+  console.log("{}");
+  process.exit(0);
+}
+
+const sessionId = String(payload.session_id ?? "unknown");
+const path = statePath(sessionId);
+const state = load(path);
+
+if (payload.hook_event_name === "PostToolUse") {
+  const input = payload.tool_input as Json | undefined;
+  const command = typeof input?.command === "string" ? input.command : "";
+  const responseText = strings(payload.tool_response).join("\n");
+
+  if (/orca orchestration check\b/.test(command)
+      && /worker_done/i.test(responseText)
+      && /(reject|actionable defect|actionable finding|not clean|test-contract gap|repair (?:is )?required)/i.test(responseText)) {
+    state.repairDispatchRequired = true;
+    state.reason = "A review delivery contains actionable findings, but no replacement repair Dispatch has been started.";
+    save(path, state);
+  }
+
+  if (/orca orchestration worker-start\b/.test(command)
+      && !/(error:|"isError"\s*:\s*true)/i.test(responseText)) {
+    state.repairDispatchRequired = false;
+    delete state.reason;
+    save(path, state);
+  }
+
+  console.log("{}");
+  process.exit(0);
+}
+
+if (payload.hook_event_name === "Stop") {
+  const last = typeof payload.last_assistant_message === "string" ? payload.last_assistant_message : "";
+  const promisesRepair = /(repair|re-review|fresh review).{0,100}(required|must|will|next)/is.test(last)
+    || /(will|must).{0,100}(open|create|dispatch).{0,80}(repair|review)/is.test(last);
+  if (state.repairDispatchRequired || promisesRepair) {
+    const reason = state.reason ?? "You described a required repair/re-review transition but did not dispatch it. Create/reuse the bounded repair Task, start its Dispatch, and remain in the foreground rolling check --wait loop; do not return a progress-only final response.";
+    console.log(JSON.stringify({ decision: "block", reason }));
+  } else {
+    console.log("{}");
+  }
+}
