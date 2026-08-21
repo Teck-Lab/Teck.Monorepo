@@ -17,6 +17,12 @@ execution, code review, and final QA. Oh My Codex may supply role and skill
 guidance inside a Codex worker, but must not create a second worktree, tmux,
 team, or lifecycle system.
 
+After dispatching any supervised worker, the parent coordinator must keep its
+current turn alive in Orca's foreground rolling `check --wait` loop until every
+expected Dispatch settles. A timeout, empty Delivery, progress checkpoint, or
+still-running worker is never permission to return a final response or rely on
+a later idle-pointer wake-up.
+
 An explicit Orca worker Dispatch takes precedence over the parent-intake rule.
 Remain within the assigned child worktree and follow the role and completion
 contract supplied by that Dispatch.

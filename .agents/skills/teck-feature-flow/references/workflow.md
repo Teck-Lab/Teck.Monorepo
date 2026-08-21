@@ -25,7 +25,9 @@ this Codex coordinator:
 2. run `orca orchestration check --wait --types
    worker_done,escalation,question --timeout-ms 900000 --json` in the foreground;
 3. treat a timeout or `{count:0}` as a checkpoint and immediately continue a
-   rolling wait while any expected Dispatch remains active;
+   rolling wait while any expected Dispatch remains active; before re-arming,
+   run one ordinary `orca orchestration check --json` to recover mail that a
+   typed waiter may have missed, then re-read active Dispatches;
 4. process every message in the returned FIFO Delivery before acknowledging it;
 5. for an accepted worker result, choose terminal reuse with `worker-start
    --terminal` or release it with `worker-release` before acknowledging the
@@ -46,6 +48,11 @@ that Orca will re-engage the coordinator and then return a final response. Do
 not replace the foreground wait with terminal scraping, sleeps, a
 detached/background waiter, a hook, or a launcher.
 
+When Codex's command runner yields a still-running `check --wait` process or
+session identifier, continue that exact process with the command runner's wait
+mechanism. A yielded command is still active supervision; it is not a completed
+tool call and must never be followed by a final response.
+
 A valid `worker_done` for the active Task and Dispatch automatically marks that
 Orca Task and Dispatch completed. Do not call `task-update --status completed`
 after it. The message does not close a GitHub sub-issue, release a GitHub
@@ -57,6 +64,15 @@ processing it, dispatch newly-ready work before waiting again, then continue
 the rolling wait until all expected Dispatches settle. This prevents a
 completed worker or newly-ready dependent from being stranded by a coordinator
 final response.
+
+This explicit loop is required even on Orca versions with idle mail-pointer
+delivery. Upstream issue stablyai/orca#11787 documents Run-mailbox push gaps and
+their later partial repairs; #10663 reports typed waits missing queued mail;
+#9228 tracks durable coordinator wake/resume; and #15190 records the still-open
+#15185 condition where ready work can fail to wake an idle coordinator. The
+foreground wait plus timeout-time unfiltered check is the documented path with
+a bounded recovery for those known gaps; never make pointer delivery the sole
+owner of progress.
 
 The coordinator may report the workflow itself complete only when either:
 
