@@ -8,6 +8,11 @@
 #    staged index.
 set -euo pipefail
 
+# Fixture commits must not depend on a developer's global signing setup.
+export GIT_CONFIG_COUNT=1
+export GIT_CONFIG_KEY_0=commit.gpgsign
+export GIT_CONFIG_VALUE_0=false
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REAL_SCRIPT="$SCRIPT_DIR/security-scan.sh"
 export FIXTURE="$(mktemp -d)"
@@ -40,6 +45,11 @@ fi
 # Capture Gitleaks full command lines.
 if [[ "$*" == *gitleaks/gitleaks:* ]]; then
   echo "$*" >> "$TEST_LOG_DIR/gitleaks_calls.log"
+fi
+
+# Capture Trivy full command lines.
+if [[ "$*" == *aquasec/trivy:* ]]; then
+  echo "$*" >> "$TEST_LOG_DIR/trivy_calls.log"
 fi
 
 echo "PASS: stubbed docker"
@@ -478,6 +488,30 @@ test_pre_push_ignores_security_scan_base_override() {
   echo "PASS: pre-push ignores SECURITY_SCAN_BASE override"
 }
 
+test_trivy_uses_official_database_repository() {
+  local test_dir="$FIXTURE/trivy-db-repository"
+  mkdir -p "$test_dir"
+  cd "$test_dir"
+
+  git init --quiet
+  git config user.email "test@example.com"
+  git config user.name "Test"
+  printf 'base\n' > base.txt
+  git add base.txt
+  git commit --quiet -m "base"
+
+  install_fake_docker "$test_dir/bin" "$test_dir"
+  run_scanner "$test_dir" "--all"
+
+  [ -f "$test_dir/trivy_calls.log" ] || fail "Trivy was not invoked"
+  grep -qF -- "--db-repository ghcr.io/aquasecurity/trivy-db:2" \
+    "$test_dir/trivy_calls.log" \
+    || fail "Trivy did not use Aqua Security's official GHCR database"
+  grep -qF -- "mirror.gcr.io/aquasec/trivy-db" "$test_dir/trivy_calls.log" \
+    && fail "Trivy explicitly selected the Google pull-through mirror"
+  echo "PASS: Trivy uses the official GHCR database"
+}
+
 # --------------------------------------------------------------------- run ----
 test_changed_mode_excludes_symlinks
 test_staged_linked_worktree_mounts
@@ -494,5 +528,6 @@ test_pre_push_mixed_deletion_and_update
 test_pre_push_deletion_only_without_origin_main_or_docker
 test_pre_push_rejects_unterminated_malformed_record
 test_pre_push_ignores_security_scan_base_override
+test_trivy_uses_official_database_repository
 
 echo "ALL PASS"
