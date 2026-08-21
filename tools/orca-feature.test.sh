@@ -11,8 +11,9 @@ for contract in \
   'Starting a worker begins supervision' \
   'worker_done.*automatically marks that' \
   'task-update --status completed' \
-  'check --ack <delivery-id> --wait' \
-  'poll that same handle' \
+  'submits a mail pointer' \
+  'do not launch `check --wait` as a Codex background command' \
+  'check --ack <delivery-id> --json' \
   'dispatch every newly eligible Task' \
   'completed-but-unreconciled Dispatch' \
   'open actionable GitHub sub-issue' \
