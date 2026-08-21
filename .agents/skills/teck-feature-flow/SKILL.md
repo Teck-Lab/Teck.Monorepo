@@ -32,18 +32,21 @@ its convergence and exit audits as gates, not suggestions.
 - Planning, plan review, implementation, code review, and QA are separate
   Dispatches. A coordinator may reconcile their results but never substitutes
   for them.
-- After `worker-start` succeeds, remain in the supervision loop until that
-  Dispatch is authoritatively settled and its result is reconciled. A progress
-  summary is not a terminal condition.
+- After `worker-start` succeeds, supervision remains owned by this coordinator
+  Run until the Dispatch is settled and reconciled. Between lifecycle events,
+  let the native Orca mail-pointer mechanism re-engage the idle Codex
+  coordinator; ending one Codex turn is not feature completion.
 - A valid `worker_done` for the active Task and Dispatch automatically completes
   that Orca Task and Dispatch. Never follow it with
   `task-update --status completed`. It does not close a GitHub sub-issue,
   release a GitHub blocker, prove the artifact acceptable, or authorize the
   next wave before coordinator validation and reconciliation.
-- Use Orca's foreground rolling delivery loop. If the command runner returns a
-  process/session handle for `check --wait`, poll that same process until the
-  bounded wait finishes; never abandon it as a background task or return a
-  progress-only response while its Dispatch remains active.
+- Do not leave `check --wait` running as a Codex background command. Its waiter
+  reserves matching lifecycle messages and suppresses Orca's native idle mail
+  pointer. When Orca injects `You have ... orchestration messages`, run
+  `check`, consume and acknowledge the Delivery, reconcile it, and let the
+  coordinator idle again only when no immediately actionable Delivery or ready
+  Task remains.
 - Accept lifecycle messages only for the exact current Task and Dispatch IDs.
   A stale, duplicate, failed, or superseded attempt cannot advance state.
 - On start or resume, reconstruct state from GitHub, Orca, the feature ledger,

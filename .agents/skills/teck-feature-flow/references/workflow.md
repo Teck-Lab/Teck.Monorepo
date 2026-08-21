@@ -17,32 +17,35 @@ sub-issue.
 
 ## Coordinator supervision loop
 
-Starting a worker begins supervision; it is never the end of a coordinator
-turn. After every `worker-start`, repeatedly:
+Starting a worker begins supervision; it is never feature completion. Native
+Orca wakes an idle Codex coordinator by injecting and submitting a short
+`You have ... orchestration messages. Run orca orchestration check` pointer.
+Use that supported event-driven path for this Codex coordinator:
 
-1. run the version-matched guide's authoritative waiter in the foreground:
-   `orca orchestration check --wait --types worker_done,escalation,question --timeout-ms 900000 --json`;
-2. if the command runner yields a process/session handle, poll that same handle
-   until the bounded command exits; do not leave the waiter in the background;
-3. process every message in the returned Delivery before acknowledging it;
-4. for an accepted worker result, choose terminal reuse with `worker-start
+1. after `worker-start`, record the Run, Task, Dispatch, and terminal identities;
+2. do not launch `check --wait` as a Codex background command: an active
+   filtered waiter reserves matching mail, so Orca correctly does not inject a
+   duplicate pointer for it, while Codex may end the turn before consuming the
+   background command's result;
+3. when Orca submits a mail pointer, run `orca orchestration check --json`;
+4. process every message in the returned FIFO Delivery before acknowledging it;
+5. for an accepted worker result, choose terminal reuse with `worker-start
    --terminal` or release it with `worker-release` before acknowledging the
    Delivery;
-5. validate the reported artifact, worktree, commits, and evidence for that
+6. validate the reported artifact, worktree, commits, and evidence for that
    Task type;
-6. reconcile the corresponding GitHub sub-issue and blocker edges through MCP;
-7. re-read both durable graphs and dispatch every newly eligible Task whose
+7. reconcile the corresponding GitHub sub-issue and blocker edges through MCP;
+8. re-read both durable graphs and dispatch every newly eligible Task whose
    dependencies and resources permit execution; and
-8. atomically acknowledge and continue waiting with
-   `orca orchestration check --ack <delivery-id> --wait --types worker_done,escalation,question
-   --timeout-ms 900000 --json`, continuing until a terminal condition below is
-   actually true.
+9. acknowledge and immediately drain already-queued mail with
+   `orca orchestration check --ack <delivery-id> --json`; repeat until no
+   Delivery is returned, then let Codex idle so the next native pointer can
+   re-engage it.
 
-Use bounded waits, but a timeout or idle terminal is not completion. After a
-timeout, re-read the Run and Tasks and begin another bounded foreground wait.
-Do not replace the authoritative waiter with terminal scraping, sleeps, or a
-background shell job. Record the returned Dispatch ID and terminal handle in
-durable state so the dedicated worker can be located.
+A coordinator Codex turn may end between events while active workers remain;
+that is an event-loop checkpoint, not a workflow result. Do not describe the
+feature or planning gate as complete. Do not replace native pointers with
+terminal scraping, sleeps, a background waiter, a hook, or a launcher.
 
 A valid `worker_done` for the active Task and Dispatch automatically marks that
 Orca Task and Dispatch completed. Do not call `task-update --status completed`
@@ -54,16 +57,16 @@ Current Orca has a documented upstream quiescence gap when a consumed delivery
 makes another Task ready but the coordinator ends instead of dispatching or
 waiting again (stablyai/orca#15185). Do not invent a hook or launcher around
 it: prevent that state by dispatching newly-ready work before responding and
-using the atomic acknowledge-and-wait command above.
+draining already-queued Deliveries before the coordinator idles.
 
-The coordinator may yield a final response only when either:
+The coordinator may report the workflow itself complete only when either:
 
 - the parent PR is open after clean final QA and required CI; or
 - progress is impossible without one precisely named human decision, missing
   access grant, or external state change, and the coordinator has recorded the
   blocker durably.
 
-The coordinator must not yield a final response when any of these exist:
+The coordinator must not report workflow completion when any of these exist:
 
 - an unacknowledged lifecycle delivery;
 - an active or completed-but-unreconciled Dispatch;
