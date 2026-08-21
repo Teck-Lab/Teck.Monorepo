@@ -2,7 +2,7 @@ environmentRecipes:
   - id: local-devcontainer
     name: Local Dev Container
     checkoutMode: provisioned-root
-    create: ./scripts/orca-vm/local-create.cmd
-    suspend: ./scripts/orca-vm/local-suspend.cmd
-    resume: ./scripts/orca-vm/local-resume.cmd
-    destroy: ./scripts/orca-vm/local-destroy.cmd
+    create: '%ORCA_REPO_PATH%\scripts\orca-vm\local-create.cmd'
+    suspend: '%ORCA_REPO_PATH%\scripts\orca-vm\local-suspend.cmd'
+    resume: '%ORCA_REPO_PATH%\scripts\orca-vm\local-resume.cmd'
+    destroy: '%ORCA_REPO_PATH%\scripts\orca-vm\local-destroy.cmd'

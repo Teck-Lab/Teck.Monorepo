@@ -18,7 +18,7 @@ trap cleanup_on_error EXIT
 ensure_key
 identity_file="$(wslpath -w "$orca_key_file")"
 
-raw_name="orca-${ORCA_VM_RECIPE_ID:-local}-${ORCA_VM_INSTANCE_ID:-workspace}"
+raw_name="orca-${ORCA_RECIPE_ID:-${ORCA_VM_RECIPE_ID:-local}}-${ORCA_VM_INSTANCE_ID:-workspace}"
 name_prefix="$(printf '%s' "$raw_name" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9_-' '-' | cut -c1-52)"
 name="${name_prefix%-}"
 runtime_dir="$orca_runtime_state_root/$name"
@@ -88,7 +88,13 @@ container_id="$(jq -er '.containerId' <<<"$up_result")"
 # The environment checkout is the final Orca workspace. Infrastructure was
 # built from current main above; now bind the requested branch to its pinned
 # source commit so Orca does not create a second linked worktree/workspace.
-git -C "$workspace_dir" fetch origin "${ORCA_REPO_REF:-origin/main}" >&2
+requested_ref="${ORCA_REPO_REF:-origin/main}"
+case "$requested_ref" in
+  origin/*) fetch_ref="${requested_ref#origin/}" ;;
+  refs/remotes/origin/*) fetch_ref="refs/heads/${requested_ref#refs/remotes/origin/}" ;;
+  *) fetch_ref="$requested_ref" ;;
+esac
+git -C "$workspace_dir" fetch origin "$fetch_ref" >&2
 git -C "$workspace_dir" cat-file -e "${ORCA_REPO_REF_HEAD}^{commit}"
 git -C "$workspace_dir" checkout -B "$ORCA_REPO_BRANCH" "$ORCA_REPO_REF_HEAD" >&2
 

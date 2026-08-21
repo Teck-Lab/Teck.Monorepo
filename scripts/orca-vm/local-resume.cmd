@@ -1,6 +1,7 @@
 @echo off
 setlocal
-set WSLENV=ORCA_REPO_PATH/up
-wsl.exe --exec bash -lc $ORCA_REPO_PATH/scripts/orca-vm/local-resume.sh
+pushd "%SystemRoot%" >nul
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0local-resume.ps1"
 set "ORCA_EXIT=%ERRORLEVEL%"
+popd
 endlocal & exit /b %ORCA_EXIT%
