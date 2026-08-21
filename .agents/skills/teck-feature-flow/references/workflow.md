@@ -17,17 +17,15 @@ sub-issue.
 
 ## Coordinator supervision loop
 
-Starting a worker begins supervision; it is never feature completion. Native
-Orca wakes an idle Codex coordinator by injecting and submitting a short
-`You have ... orchestration messages. Run orca orchestration check` pointer.
-Use that supported event-driven path for this Codex coordinator:
+Starting a worker begins supervision; it is never feature completion. Current
+Orca's coordinator contract is an explicit foreground rolling wait. Use it for
+this Codex coordinator:
 
 1. after `worker-start`, record the Run, Task, Dispatch, and terminal identities;
-2. do not launch `check --wait` as a Codex background command: an active
-   filtered waiter reserves matching mail, so Orca correctly does not inject a
-   duplicate pointer for it, while Codex may end the turn before consuming the
-   background command's result;
-3. when Orca submits a mail pointer, run `orca orchestration check --json`;
+2. run `orca orchestration check --wait --types
+   worker_done,escalation,question --timeout-ms 900000 --json` in the foreground;
+3. treat a timeout or `{count:0}` as a checkpoint and immediately continue a
+   rolling wait while any expected Dispatch remains active;
 4. process every message in the returned FIFO Delivery before acknowledging it;
 5. for an accepted worker result, choose terminal reuse with `worker-start
    --terminal` or release it with `worker-release` before acknowledging the
@@ -37,15 +35,16 @@ Use that supported event-driven path for this Codex coordinator:
 7. reconcile the corresponding GitHub sub-issue and blocker edges through MCP;
 8. re-read both durable graphs and dispatch every newly eligible Task whose
    dependencies and resources permit execution; and
-9. acknowledge and immediately drain already-queued mail with
-   `orca orchestration check --ack <delivery-id> --json`; repeat until no
-   Delivery is returned, then let Codex idle so the next native pointer can
-   re-engage it.
+9. acknowledge and atomically continue waiting with:
 
-A coordinator Codex turn may end between events while active workers remain;
-that is an event-loop checkpoint, not a workflow result. Do not describe the
-feature or planning gate as complete. Do not replace native pointers with
-terminal scraping, sleeps, a background waiter, a hook, or a launcher.
+   `orca orchestration check --ack <delivery-id> --wait --types worker_done,escalation,question --timeout-ms 900000 --json`
+
+   Repeat until every expected Dispatch settles.
+
+Do not end the coordinator Codex turn while active workers remain. Never claim
+that Orca will re-engage the coordinator and then return a final response. Do
+not replace the foreground wait with terminal scraping, sleeps, a
+detached/background waiter, a hook, or a launcher.
 
 A valid `worker_done` for the active Task and Dispatch automatically marks that
 Orca Task and Dispatch completed. Do not call `task-update --status completed`
@@ -53,11 +52,11 @@ after it. The message does not close a GitHub sub-issue, release a GitHub
 blocker, accept an artifact, close a worktree, or authorize downstream dispatch
 before coordinator validation and graph reconciliation.
 
-Current Orca has a documented upstream quiescence gap when a consumed delivery
-makes another Task ready but the coordinator ends instead of dispatching or
-waiting again (stablyai/orca#15185). Do not invent a hook or launcher around
-it: prevent that state by dispatching newly-ready work before responding and
-draining already-queued Deliveries before the coordinator idles.
+Orca returns one bounded Delivery rather than every future completion. After
+processing it, dispatch newly-ready work before waiting again, then continue
+the rolling wait until all expected Dispatches settle. This prevents a
+completed worker or newly-ready dependent from being stranded by a coordinator
+final response.
 
 The coordinator may report the workflow itself complete only when either:
 

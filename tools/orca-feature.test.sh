@@ -11,9 +11,11 @@ for contract in \
   'Starting a worker begins supervision' \
   'worker_done.*automatically marks that' \
   'task-update --status completed' \
-  'submits a mail pointer' \
-  'do not launch `check --wait` as a Codex background command' \
-  'check --ack <delivery-id> --json' \
+  'foreground rolling wait' \
+  'timeout or.*count:0.*checkpoint' \
+  'check --ack <delivery-id> --wait' \
+  'Do not end the coordinator Codex turn while active workers remain' \
+  'Orca will re-engage the coordinator' \
   'dispatch every newly eligible Task' \
   'completed-but-unreconciled Dispatch' \
   'open actionable GitHub sub-issue' \
@@ -22,6 +24,15 @@ for contract in \
     echo "Missing coordinator completion-loop contract: $contract" >&2
     exit 1
   }
+done
+
+for forbidden_contract in \
+  'A coordinator Codex turn may end between events while active workers remain' \
+  'let the native Orca mail-pointer mechanism re-engage'; do
+  if grep -Fq "$forbidden_contract" "$workflow" "$state_machine"; then
+    echo "Unsafe coordinator completion-loop contract remains: $forbidden_contract" >&2
+    exit 1
+  fi
 done
 
 for contract in \
