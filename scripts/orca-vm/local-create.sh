@@ -27,15 +27,28 @@ workspace_dir="$runtime_dir/workspace"
   echo 'local-devcontainer requires recipe result schema version 2.' >&2
   exit 1
 }
-[ -n "${ORCA_REPO_REF_HEAD:-}" ] || { echo 'ORCA_REPO_REF_HEAD is required.' >&2; exit 1; }
 [ -n "${ORCA_REPO_BRANCH:-}" ] || { echo 'ORCA_REPO_BRANCH is required.' >&2; exit 1; }
+requested_ref="${ORCA_REPO_REF:-origin/main}"
+case "$requested_ref" in
+  origin/*) fetch_ref="${requested_ref#origin/}" ;;
+  refs/remotes/origin/*) fetch_ref="refs/heads/${requested_ref#refs/remotes/origin/}" ;;
+  *) fetch_ref="$requested_ref" ;;
+esac
+requested_head="${ORCA_REPO_REF_HEAD:-}"
+if [ -z "$requested_head" ]; then
+  # Orca 1.4.185 can omit expectedRefHead on a real provisioned-root create.
+  # Resolve the requested ref once, before provisioning, and use that immutable
+  # commit for collision checks and the final checkout.
+  git -C "$orca_repo_root" fetch origin "$fetch_ref" >&2
+  requested_head="$(git -C "$orca_repo_root" rev-parse --verify 'FETCH_HEAD^{commit}')"
+fi
 
 if [ -d "$runtime_dir" ]; then
   validate_runtime_dir "$runtime_dir"
   existing_head="$(git -C "$workspace_dir" rev-parse HEAD)"
   existing_branch="$(git -C "$workspace_dir" branch --show-current)"
-  [ "$existing_head" = "$ORCA_REPO_REF_HEAD" ] && [ "$existing_branch" = "$ORCA_REPO_BRANCH" ] || {
-    echo "Runtime identity collision: $name owns $existing_branch@$existing_head, requested $ORCA_REPO_BRANCH@$ORCA_REPO_REF_HEAD" >&2
+  [ "$existing_head" = "$requested_head" ] && [ "$existing_branch" = "$ORCA_REPO_BRANCH" ] || {
+    echo "Runtime identity collision: $name owns $existing_branch@$existing_head, requested $ORCA_REPO_BRANCH@$requested_head" >&2
     exit 1
   }
   containers="$(docker ps -aq --filter "label=com.docker.compose.project=$name")"
@@ -88,15 +101,9 @@ container_id="$(jq -er '.containerId' <<<"$up_result")"
 # The environment checkout is the final Orca workspace. Infrastructure was
 # built from current main above; now bind the requested branch to its pinned
 # source commit so Orca does not create a second linked worktree/workspace.
-requested_ref="${ORCA_REPO_REF:-origin/main}"
-case "$requested_ref" in
-  origin/*) fetch_ref="${requested_ref#origin/}" ;;
-  refs/remotes/origin/*) fetch_ref="refs/heads/${requested_ref#refs/remotes/origin/}" ;;
-  *) fetch_ref="$requested_ref" ;;
-esac
 git -C "$workspace_dir" fetch origin "$fetch_ref" >&2
-git -C "$workspace_dir" cat-file -e "${ORCA_REPO_REF_HEAD}^{commit}"
-git -C "$workspace_dir" checkout -B "$ORCA_REPO_BRANCH" "$ORCA_REPO_REF_HEAD" >&2
+git -C "$workspace_dir" cat-file -e "${requested_head}^{commit}"
+git -C "$workspace_dir" checkout -B "$ORCA_REPO_BRANCH" "$requested_head" >&2
 
 emit_workspace_recipe_result "$name" "$runtime_dir" "$identity_file"
 trap - EXIT
