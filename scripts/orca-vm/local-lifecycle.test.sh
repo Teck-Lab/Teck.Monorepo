@@ -6,24 +6,26 @@ recipe="$repo_root/orca.yaml"
 create="$repo_root/scripts/orca-vm/local-create.sh"
 common="$repo_root/scripts/orca-vm/local-common.sh"
 
-grep -q 'checkoutMode: provisioned-root' "$recipe"
-grep -q 'issueCommand: bash ./scripts/orca-issue-coordinator.sh "{{artifact_url}}"' "$recipe"
+if grep -q 'checkoutMode:' "$recipe"; then
+  echo 'recipe must leave checkout ownership with Orca' >&2
+  exit 1
+fi
+if grep -q 'issueCommand:' "$recipe"; then
+  echo 'recipe must use the native startup draft instead of a second terminal' >&2
+  exit 1
+fi
 grep -q 'local-suspend.cmd' "$recipe"
 grep -q 'local-resume.cmd' "$recipe"
 grep -q "create: '%ORCA_REPO_PATH%" "$recipe"
-grep -q 'ORCA_RECIPE_RESULT_SCHEMA_VERSION.*2' "$create"
-grep -q 'ORCA_REPO_REF_HEAD' "$create"
-grep -q 'requested_head="${ORCA_REPO_REF_HEAD:-}"' "$create"
-grep -q "rev-parse --verify 'FETCH_HEAD^{commit}'" "$create"
-grep -q 'origin/\*) fetch_ref=' "$create"
-grep -q 'refs/remotes/origin/\*) fetch_ref=' "$create"
-grep -q 'ORCA_REPO_BRANCH' "$create"
-grep -q 'schemaVersion:2,checkoutMode:"provisioned-root"' "$common"
+grep -q 'schemaVersion:1,connection:' "$common"
+if grep -q 'provisioned-root\|schemaVersion:2' "$common" "$create"; then
+  echo 'schema-v2 provisioned-root behavior is still present' >&2
+  exit 1
+fi
 grep -q 'ORCA_VM_INSTANCE_ID:-workspace' "$create"
 grep -q 'ORCA_RECIPE_ID:-' "$create"
 grep -q 'created_this_attempt=0' "$create"
 grep -q 'created_this_attempt" = 1' "$create"
-grep -q 'Runtime identity collision' "$create"
 grep -q 'ORCA_REPO_URL' "$create"
 if grep -q 'attempt_suffix' "$create"; then
   echo 'create still uses an attempt timestamp instead of stable instance identity' >&2
@@ -33,8 +35,6 @@ fi
 for script in local-common.sh local-create.sh local-suspend.sh local-resume.sh local-destroy.sh; do
   bash -n "$repo_root/scripts/orca-vm/$script"
 done
-bash "$repo_root/scripts/orca-issue-coordinator.test.sh"
-
 for launcher in local-create.cmd local-suspend.cmd local-resume.cmd local-destroy.cmd; do
   grep -q 'pushd "%SystemRoot%"' "$repo_root/scripts/orca-vm/$launcher"
   grep -q 'powershell.exe -NoProfile -ExecutionPolicy Bypass' "$repo_root/scripts/orca-vm/$launcher"
@@ -83,7 +83,7 @@ export ORCA_WINDOWS_SSH_COMMAND="$fixture/bin/ssh-ok"
 export ORCA_TEST_DOCKER_LOG="$fixture/docker.log"
 
 resume_result="$(printf '%s' "$payload" | "$repo_root/scripts/orca-vm/local-resume.sh")"
-jq -e '.schemaVersion == 2 and .checkoutMode == "provisioned-root" and .connection.target.port == 44167 and .userData.resourceId == "orca-test"' <<<"$resume_result" >/dev/null
+jq -e '.schemaVersion == 1 and (has("checkoutMode") | not) and .connection.target.port == 44167 and .userData.resourceId == "orca-test"' <<<"$resume_result" >/dev/null
 legacy_payload="$(jq -cn --arg runtime "$runtime" '{recipeResult:{schemaVersion:1,userData:{resourceId:"orca-test",runtimeDir:$runtime}}}')"
 legacy_result="$(printf '%s' "$legacy_payload" | "$repo_root/scripts/orca-vm/local-resume.sh")"
 jq -e '.schemaVersion == 1 and (has("checkoutMode") | not) and .connection.target.port == 44167' <<<"$legacy_result" >/dev/null

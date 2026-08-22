@@ -23,34 +23,8 @@ name_prefix="$(printf '%s' "$raw_name" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-
 name="${name_prefix%-}"
 runtime_dir="$orca_runtime_state_root/$name"
 workspace_dir="$runtime_dir/workspace"
-[ "${ORCA_RECIPE_RESULT_SCHEMA_VERSION:-}" = 2 ] || {
-  echo 'local-devcontainer requires recipe result schema version 2.' >&2
-  exit 1
-}
-[ -n "${ORCA_REPO_BRANCH:-}" ] || { echo 'ORCA_REPO_BRANCH is required.' >&2; exit 1; }
-requested_ref="${ORCA_REPO_REF:-origin/main}"
-case "$requested_ref" in
-  origin/*) fetch_ref="${requested_ref#origin/}" ;;
-  refs/remotes/origin/*) fetch_ref="refs/heads/${requested_ref#refs/remotes/origin/}" ;;
-  *) fetch_ref="$requested_ref" ;;
-esac
-requested_head="${ORCA_REPO_REF_HEAD:-}"
-if [ -z "$requested_head" ]; then
-  # Orca 1.4.185 can omit expectedRefHead on a real provisioned-root create.
-  # Resolve the requested ref once, before provisioning, and use that immutable
-  # commit for collision checks and the final checkout.
-  git -C "$orca_repo_root" fetch origin "$fetch_ref" >&2
-  requested_head="$(git -C "$orca_repo_root" rev-parse --verify 'FETCH_HEAD^{commit}')"
-fi
-
 if [ -d "$runtime_dir" ]; then
   validate_runtime_dir "$runtime_dir"
-  existing_head="$(git -C "$workspace_dir" rev-parse HEAD)"
-  existing_branch="$(git -C "$workspace_dir" branch --show-current)"
-  [ "$existing_head" = "$requested_head" ] && [ "$existing_branch" = "$ORCA_REPO_BRANCH" ] || {
-    echo "Runtime identity collision: $name owns $existing_branch@$existing_head, requested $ORCA_REPO_BRANCH@$requested_head" >&2
-    exit 1
-  }
   containers="$(docker ps -aq --filter "label=com.docker.compose.project=$name")"
   [ -n "$containers" ] || { echo "Runtime state exists without containers: $runtime_dir" >&2; exit 1; }
   docker start $containers >/dev/null
@@ -97,13 +71,6 @@ export COMPOSE_PROJECT_NAME="$name"
 export TECK_MCP_ENV_FILE="$workspace_dir/.devcontainer/mcp/mcp.env"
 up_result="$(npx --yes @devcontainers/cli@0.88.0 up --workspace-folder "$workspace_dir" --config "$runtime_config")"
 container_id="$(jq -er '.containerId' <<<"$up_result")"
-
-# The environment checkout is the final Orca workspace. Infrastructure was
-# built from current main above; now bind the requested branch to its pinned
-# source commit so Orca does not create a second linked worktree/workspace.
-git -C "$workspace_dir" fetch origin "$fetch_ref" >&2
-git -C "$workspace_dir" cat-file -e "${requested_head}^{commit}"
-git -C "$workspace_dir" checkout -B "$ORCA_REPO_BRANCH" "$requested_head" >&2
 
 emit_workspace_recipe_result "$name" "$runtime_dir" "$identity_file"
 trap - EXIT

@@ -71,22 +71,16 @@ wait_for_workspace_ssh() {
 }
 
 emit_workspace_recipe_result() {
-  local resource_id="$1" runtime_dir="$2" identity_file="$3" schema_version="${4:-2}"
+  local resource_id="$1" runtime_dir="$2" identity_file="$3"
   local container_id port
   container_id="$(workspace_container_id "$resource_id")"
   [ -n "$container_id" ] || { echo "Workspace container missing for $resource_id" >&2; return 1; }
   port="$(docker port "$container_id" 22/tcp | sed -nE 's/.*:([0-9]+)$/\1/p' | head -1)"
   [ -n "$port" ] || { echo 'Could not resolve the published SSH port.' >&2; return 1; }
   wait_for_workspace_ssh "$container_id" "$port" "$identity_file"
-  if [ "$schema_version" = 1 ]; then
-    jq -cn --argjson port "$port" --arg key "$identity_file" --arg root "$orca_project_root" \
-      --arg name "$resource_id" --arg runtime "$runtime_dir" \
-      '{schemaVersion:1,connection:{type:"ssh",projectRoot:$root,target:{label:"Teck Dev Container",host:"127.0.0.1",port:$port,username:"vscode",identityFile:$key,identitiesOnly:true}},userData:{provider:"devcontainer-cli",resourceId:$name,runtimeDir:$runtime}}'
-  else
-    jq -cn --argjson port "$port" --arg key "$identity_file" --arg root "$orca_project_root" \
-      --arg name "$resource_id" --arg runtime "$runtime_dir" \
-      '{schemaVersion:2,checkoutMode:"provisioned-root",connection:{type:"ssh",projectRoot:$root,target:{label:"Teck Dev Container",host:"127.0.0.1",port:$port,username:"vscode",identityFile:$key,identitiesOnly:true}},userData:{provider:"devcontainer-cli",resourceId:$name,runtimeDir:$runtime}}'
-  fi
+  jq -cn --argjson port "$port" --arg key "$identity_file" --arg root "$orca_project_root" \
+    --arg name "$resource_id" --arg runtime "$runtime_dir" \
+    '{schemaVersion:1,connection:{type:"ssh",projectRoot:$root,target:{label:"Teck Dev Container",host:"127.0.0.1",port:$port,username:"vscode",identityFile:$key,identitiesOnly:true}},userData:{provider:"devcontainer-cli",resourceId:$name,runtimeDir:$runtime}}'
 }
 
 state_value() {
