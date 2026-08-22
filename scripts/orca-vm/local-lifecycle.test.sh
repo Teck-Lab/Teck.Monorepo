@@ -7,6 +7,7 @@ create="$repo_root/scripts/orca-vm/local-create.sh"
 common="$repo_root/scripts/orca-vm/local-common.sh"
 
 grep -q 'checkoutMode: provisioned-root' "$recipe"
+grep -q 'issueCommand: bash ./scripts/orca-issue-coordinator.sh "{{artifact_url}}"' "$recipe"
 grep -q 'local-suspend.cmd' "$recipe"
 grep -q 'local-resume.cmd' "$recipe"
 grep -q "create: '%ORCA_REPO_PATH%" "$recipe"
@@ -32,6 +33,7 @@ fi
 for script in local-common.sh local-create.sh local-suspend.sh local-resume.sh local-destroy.sh; do
   bash -n "$repo_root/scripts/orca-vm/$script"
 done
+bash "$repo_root/scripts/orca-issue-coordinator.test.sh"
 
 for launcher in local-create.cmd local-suspend.cmd local-resume.cmd local-destroy.cmd; do
   grep -q 'pushd "%SystemRoot%"' "$repo_root/scripts/orca-vm/$launcher"
