@@ -308,9 +308,8 @@ string httpClientName = "TenantApi")
         if (logger?.IsEnabled(LogLevel.Warning) == true)
         {
             logger.LogWarning(
-                "Delegate header strategy missing tenant header. HeaderName={HeaderName}; HeaderValue=<missing>; Path={Path}; TraceId={TraceId}",
+                "Delegate header strategy missing tenant header. HeaderName={HeaderName}; HeaderValue=<missing>; TraceId={TraceId}",
                 options.TenantIdHeaderName,
-                httpContext.Request.Path,
                 httpContext.TraceIdentifier);
         }
 
