@@ -59,7 +59,21 @@ cat >"$fixture/bin/docker" <<'EOF'
 case "$1" in
   ps) printf 'workspace-id\n' ;;
   port) printf '0.0.0.0:44167\n' ;;
-  start|stop) printf '%s\n' "$*" >>"$ORCA_TEST_DOCKER_LOG" ;;
+  start|stop|rm) printf '%s\n' "$*" >>"$ORCA_TEST_DOCKER_LOG" ;;
+  volume)
+    case "$2" in
+      ls) printf 'volume-id\n' ;;
+      rm) printf '%s\n' "$*" >>"$ORCA_TEST_DOCKER_LOG" ;;
+      *) exit 1 ;;
+    esac
+    ;;
+  network)
+    case "$2" in
+      ls) printf 'network-id\n' ;;
+      rm) printf '%s\n' "$*" >>"$ORCA_TEST_DOCKER_LOG" ;;
+      *) exit 1 ;;
+    esac
+    ;;
   logs) ;;
   *) exit 1 ;;
 esac
@@ -90,5 +104,11 @@ jq -e '.schemaVersion == 1 and (has("checkoutMode") | not) and .connection.targe
 printf '%s' "$payload" | "$repo_root/scripts/orca-vm/local-suspend.sh"
 grep -q '^start workspace-id$' "$fixture/docker.log"
 grep -q '^stop workspace-id$' "$fixture/docker.log"
+
+printf '%s' "$payload" | "$repo_root/scripts/orca-vm/local-destroy.sh"
+grep -q '^rm -f workspace-id$' "$fixture/docker.log"
+grep -q '^volume rm volume-id$' "$fixture/docker.log"
+grep -q '^network rm network-id$' "$fixture/docker.log"
+[ ! -e "$runtime" ]
 
 echo 'Orca local environment lifecycle contract passed.'

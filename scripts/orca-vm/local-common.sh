@@ -12,7 +12,10 @@ fi
 
 orca_vm_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 orca_repo_root="$(cd "$orca_vm_dir/../.." && pwd)"
-orca_windows_profile="${ORCA_WINDOWS_PROFILE:-$(/mnt/c/Windows/System32/cmd.exe /d /c 'echo %USERPROFILE%' 2>/dev/null | tr -d '\r')}"
+# Lifecycle commands receive their recipe payload on stdin. Windows processes
+# launched through WSL can otherwise inherit and consume that stream before the
+# caller reads it, leaving suspend/resume/destroy with an empty payload.
+orca_windows_profile="${ORCA_WINDOWS_PROFILE:-$(/mnt/c/Windows/System32/cmd.exe /d /c 'echo %USERPROFILE%' </dev/null 2>/dev/null | tr -d '\r')}"
 orca_key_file="${ORCA_SSH_KEY_FILE:-$(wslpath -u "$orca_windows_profile")/.ssh/orca-teck-local-ed25519}"
 orca_codex_auth_file="${ORCA_CODEX_AUTH_FILE:-$HOME/.codex/auth.json}"
 orca_project_root="/workspaces/Teck.Monorepo"
