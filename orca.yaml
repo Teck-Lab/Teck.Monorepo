@@ -6,3 +6,5 @@ environmentRecipes:
     suspend: '%ORCA_REPO_PATH%\scripts\orca-vm\local-suspend.cmd'
     resume: '%ORCA_REPO_PATH%\scripts\orca-vm\local-resume.cmd'
     destroy: '%ORCA_REPO_PATH%\scripts\orca-vm\local-destroy.cmd'
+
+issueCommand: bash ./scripts/orca-issue-coordinator.sh "{{artifact_url}}"
