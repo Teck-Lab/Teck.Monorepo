@@ -2,6 +2,26 @@
 
 Nx monorepo for the Teck platform — a fresh multi-tenant commerce platform. Contains .NET microservices (Domain + Application + Host) and Next.js frontend applications. Canonical rules live here and in `.github/instructions/`.
 
+## Product discovery routing
+
+When the user brings a loose product idea rather than an existing executable
+GitHub issue, keep discovery separate from engineering delivery. Use Matt
+Pocock's `grill-with-docs` as the normal codebase-aware discovery entry. Use
+`wayfinder` only when unresolved product decisions genuinely require more than
+one agent session; Wayfinder maps and children are decision records, never Orca
+implementation Tasks.
+
+After discovery, use `teck-feature-request` to draft the nontechnical feature
+brief. It may publish exactly one GitHub parent issue only after the human
+explicitly approves the exact title and body. It must not plan, decompose,
+dispatch, branch, code, or create a PR. Orca engineering begins only when that
+approved issue is subsequently assigned or the user explicitly requests
+delivery.
+
+Matt's `handoff` skill is limited to compressing an unfinished discovery
+conversation. Active Orca coordinator or worker ownership transfers use the
+durable `teck-feature-flow` handoff contract instead.
+
 ## Orca issue routing
 
 Prefer Claude Code `claude-opus-5`/high as the parent coordinator. Fall back to
