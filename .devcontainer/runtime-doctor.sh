@@ -38,10 +38,10 @@ fi
 [ -s "$HOME/.codex/auth.json" ] \
   && pass 'Codex authentication is mounted' \
   || fail 'Codex authentication is missing'
-if [ -n "$(find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
-  pass 'Claude configuration volume is populated'
+if [ -s "$HOME/.claude/.credentials.json" ] && [ -s "$HOME/.claude.json" ]; then
+  pass 'Claude authentication is mounted from WSL2'
 else
-  warn 'Claude is not authenticated; use the Codex Sol/high coordinator fallback until sign-in completes'
+  warn 'Claude authentication mounts are missing; use the Codex Sol/high coordinator fallback'
 fi
 if gh auth status >/dev/null 2>&1; then
   pass 'GitHub CLI authentication works'

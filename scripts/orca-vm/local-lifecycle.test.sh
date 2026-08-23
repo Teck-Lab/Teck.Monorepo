@@ -30,8 +30,10 @@ grep -q 'created_this_attempt" = 1' "$create"
 grep -q 'ORCA_REPO_URL' "$create"
 jq -e '
   .features["ghcr.io/anthropics/devcontainer-features/claude-code:1.0"] == {}
-  and .containerEnv.CLAUDE_CONFIG_DIR == "/home/vscode/.claude"
-  and any(.mounts[]; . == "source=claude-code-config,target=/home/vscode/.claude,type=volume")
+  and (.containerEnv | has("CLAUDE_CONFIG_DIR") | not)
+  and any(.mounts[]; . == "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume")
+  and any(.mounts[]; . == "source=${localEnv:HOME}/.claude/.credentials.json,target=/home/vscode/.claude/.credentials.json,type=bind")
+  and any(.mounts[]; . == "source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind")
 ' "$devcontainer" >/dev/null
 grep -q 'for command_name in .*claude codex' "$repo_root/.devcontainer/runtime-doctor.sh"
 if grep -q 'attempt_suffix' "$create"; then

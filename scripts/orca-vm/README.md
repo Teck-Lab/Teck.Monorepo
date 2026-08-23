@@ -31,10 +31,10 @@ Docker reuses unchanged build layers.
    workspace agent. Keep Codex authenticated as the documented
    `gpt-5.6-sol`/high fallback.
 2. Keep the gitignored MCP references in `.devcontainer/mcp/mcp.env`.
-3. Rebuild/open one devcontainer, run `claude`, and complete sign-in once. The
-   official Claude Code feature is installed in every workspace and the shared
-   `claude-code-config` Docker volume persists its authentication and settings.
-   Keep GitHub CLI and Codex signed in through their existing WSL mounts.
+3. Sign in to Claude Code, GitHub CLI, and Codex once in WSL2. Each workspace
+   bind-mounts WSL2's `~/.claude/.credentials.json`, `~/.claude.json`, Codex
+   auth, and GitHub CLI auth. Claude's non-auth settings and history remain in
+   an isolated per-devcontainer volume.
 4. Validate statically with
    `orca-ide vm recipe doctor local-devcontainer --repo-path . --json`.
 5. Add `--provision` for a live create/destroy validation.

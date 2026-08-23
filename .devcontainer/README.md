@@ -24,9 +24,10 @@ agent/GitHub authentication persistence.
 - Native Codex subagents may be used inside an executor's assigned worktree and
   remain bounded by that GitHub sub-issue.
 
-Claude Code uses its shared persistent Docker volume. Codex uses the OpenAI
-authentication mounted from WSL2. GitHub MCP and Git use the mounted GitHub CLI
-session. No OpenCode or provider-key bootstrap is required.
+Claude Code and Codex use authentication mounted from WSL2. Claude's mutable
+non-auth state remains isolated in a per-devcontainer volume. GitHub MCP and Git
+use the mounted GitHub CLI session. No OpenCode or provider-key bootstrap is
+required.
 
 Run `teck-runtime-doctor` inside a workspace to verify Claude Code, Codex, OMX,
 GitHub MCP, Git identity, research services, Docker, and the repository checkout

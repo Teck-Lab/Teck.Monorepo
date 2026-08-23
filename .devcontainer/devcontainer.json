@@ -26,12 +26,13 @@
     "DOTNET_NOLOGO": "1",
     "NUGET_XMLDOC_MODE": "skip",
     "NODE_OPTIONS": "--max-old-space-size=4096",
-    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
     "OMX_AUTO_UPDATE": "0",
     "OMX_LAUNCH_POLICY": "direct"
   },
   "mounts": [
-    "source=claude-code-config,target=/home/vscode/.claude,type=volume",
+    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
+    "source=${localEnv:HOME}/.claude/.credentials.json,target=/home/vscode/.claude/.credentials.json,type=bind",
+    "source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind",
     "source=codex-config-${devcontainerId},target=/home/vscode/.codex,type=volume",
     "source=${localEnv:HOME}/.codex/auth.json,target=/home/vscode/.codex/auth.json,type=bind",
     "source=${localEnv:HOME}/.config/gh,target=/home/vscode/.config/gh,type=bind"
