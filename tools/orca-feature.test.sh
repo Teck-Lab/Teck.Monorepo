@@ -17,6 +17,39 @@ grep -Fq 'compatibility: Requires Node.js 18+ (for npx)' .agents/skills/agentski
 grep -Fq '  - references/**' .agents/skills/agentskill-sh-learn/SKILL.md
 grep -Fq '  - references/**' .agents/skills/agentskill-sh-review-skill/SKILL.md
 
+# Matt Pocock discovery packages remain complete upstream copies. Teck owns a
+# thin publication boundary rather than modifying their behavior in place.
+for skill in grill-with-docs grilling domain-modeling wayfinder research prototype handoff; do
+  test -f ".agents/skills/$skill/SKILL.md"
+  test -f ".agents/skills/$skill/agents/openai.yaml"
+done
+test -f .agents/skills/domain-modeling/CONTEXT-FORMAT.md
+test -f .agents/skills/domain-modeling/ADR-FORMAT.md
+test -f .agents/skills/prototype/LOGIC.md
+test -f .agents/skills/prototype/UI.md
+
+discovery_skill=.agents/skills/teck-feature-request/SKILL.md
+discovery_format=.agents/skills/teck-feature-request/references/feature-request-format.md
+for contract in \
+  'only after explicit human approval of the exact draft' \
+  'create exactly one GitHub parent issue' \
+  'never use it to transfer an active Orca coordinator or worker'; do
+  grep -Fq "$contract" "$discovery_skill"
+done
+for contract in \
+  '## Outcome' \
+  '## Scope' \
+  '## Out of scope' \
+  '## Acceptance criteria' \
+  '## Ready for Orca' \
+  'never copied into the executable issue DAG'; do
+  grep -Fq "$contract" "$discovery_format"
+done
+grep -Fq 'Wayfinder maps and children are decision records' AGENTS.md
+grep -Fq 'never Orca' AGENTS.md
+grep -Fq 'must not plan, decompose,' AGENTS.md
+grep -Fq 'dispatch, branch, code, or create a PR.' AGENTS.md
+
 tool="$(cd "$(dirname "$0")" && pwd)/orca-feature"
 workflow="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/workflow.md"
 state_machine="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/state-machine.md"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Teck Feature Request"
+  short_description: "Turn discovery into an approved feature brief"
+  default_prompt: "Use $teck-feature-request to turn this product idea into an approved, nontechnical feature request."
