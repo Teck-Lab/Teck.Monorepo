@@ -3,6 +3,7 @@ using FastEndpoints;
 using JasperFx;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -132,6 +133,29 @@ public static class TeckServiceExtensions
     {
         ArgumentNullException.ThrowIfNull(app);
         return app.RunJasperFxCommands(args);
+    }
+
+    /// <summary>
+    /// Runs the host through the JasperFx command-line pipeline or applies pending EF Core migrations.
+    /// </summary>
+    /// <typeparam name="TDbContext">The write DbContext type that owns the host schema.</typeparam>
+    /// <param name="app">The web application to run.</param>
+    /// <param name="args">The process command-line arguments.</param>
+    /// <returns>The process exit code; <c>0</c> after migrations complete or for a normal host shutdown.</returns>
+    public static async Task<int> RunTeckServiceAsync<TDbContext>(this WebApplication app, string[] args)
+        where TDbContext : DbContext
+    {
+        ArgumentNullException.ThrowIfNull(app);
+
+        if (args is ["--migrate"])
+        {
+            await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
+            TDbContext dbContext = scope.ServiceProvider.GetRequiredService<TDbContext>();
+            await dbContext.Database.MigrateAsync();
+            return 0;
+        }
+
+        return await app.RunJasperFxCommands(args);
     }
 
     /// <summary>
