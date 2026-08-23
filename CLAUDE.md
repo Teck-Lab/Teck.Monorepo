@@ -1,6 +1,11 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+@AGENTS.md
+
+This file adds only Claude Code-specific context. `AGENTS.md`, its nearest
+nested counterpart, and `.agents/skills/` are the canonical cross-agent rules.
+Claude discovers the complete committed mirror under `.claude/skills/`; update
+that mirror only through `tools/sync-agent-skills --write`.
 
 ## What this is
 
@@ -8,7 +13,7 @@ Nx monorepo for the **Teck platform** — a multi-tenant commerce platform combi
 
 **Current state:** early scaffolding. Only the `order` service (+ the four SharedKernel projects) exists as real `.csproj` files; the other service directories under `src/services/` are placeholders documenting the intended structure. When adding a new service, mirror `order` and the conventions in `src/services/AGENTS.md`.
 
-## The AGENTS.md tree is canonical
+## Canonical instruction tree
 
 Detailed, authoritative conventions live in a hierarchy of `AGENTS.md` files — **read the one nearest to the code you're touching before editing.** They are the source of truth, not this file. Key ones:
 

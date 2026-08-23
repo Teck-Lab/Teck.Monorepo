@@ -4,16 +4,22 @@ Nx monorepo for the Teck platform — a fresh multi-tenant commerce platform. Co
 
 ## Orca issue routing
 
-Use native Codex as the primary agent for a parent GitHub issue workspace.
-When Orca starts that Codex session with a GitHub issue URL matching
+Prefer Claude Code `claude-opus-5`/high as the parent coordinator. Fall back to
+Codex `gpt-5.6-sol`/high only when Claude/model availability,
+authentication/capacity, effective-model verification, or startup fails.
+Orca's default-agent setting owns the initial launch; this repository owns the
+acceptance and fallback contract. Never allow both coordinators to remain live.
+
+When Orca starts either coordinator with a GitHub issue URL matching
 `https://github.com/Teck-Lab/Teck.Monorepo/issues/<number>`, treat it as parent
 feature intake. Load and follow the `teck-feature-flow` skill and its referenced
 workflow, then load the version-matched Orca orchestration guide before running
 orchestration commands. Act as the coordinator; do not implement, plan, or
 review the feature directly in the parent worktree and do not replace Orca
 Dispatches with untracked subagents. Orca owns durable coordination and
-worktrees. Dedicated native Codex workers own planning, plan review, leaf
-execution, code review, and final QA. Oh My Codex may supply role and skill
+worktrees. Dedicated native workers own planning, plan review, leaf
+execution, coherent review-unit review, and whole-feature QA. Supporting Tasks
+do not receive standalone review. Oh My Codex may supply role and skill
 guidance inside a Codex worker, but must not create a second worktree, tmux,
 team, or lifecycle system.
 
@@ -37,6 +43,15 @@ ownership are never external-state stopping conditions.
 An explicit Orca worker Dispatch takes precedence over the parent-intake rule.
 Remain within the assigned child worktree and follow the role and completion
 contract supplied by that Dispatch.
+
+## Shared agent skills
+
+`.agents/skills/` is the canonical cross-agent skill source. Claude Code uses
+the committed native mirror in `.claude/skills/`. Never edit the mirror by
+hand; after changing or installing a canonical skill, run
+`tools/sync-agent-skills --write`, then `tools/sync-agent-skills --check`.
+The mirror includes complete skill directories, including references, scripts,
+assets, and upstream metadata.
 
 ## Repository Layout
 

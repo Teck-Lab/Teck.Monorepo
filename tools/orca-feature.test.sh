@@ -7,10 +7,23 @@ test -x tools/orca-coordinator-hook.test.sh
 jq -e '.hooks.Stop and .hooks.PostToolUse' .codex/hooks.json >/dev/null
 tools/orca-coordinator-hook.test.sh
 
+grep -Fxq '@AGENTS.md' CLAUDE.md
+test -x tools/sync-agent-skills
+tools/sync-agent-skills --check
+
+# agentskill.sh packages retain their upstream package metadata. Codex's
+# narrower quick validator is applied only to Teck-authored skills.
+grep -Fq 'compatibility: Requires Node.js 18+ (for npx)' .agents/skills/agentskill-sh-learn/SKILL.md
+grep -Fq '  - references/**' .agents/skills/agentskill-sh-learn/SKILL.md
+grep -Fq '  - references/**' .agents/skills/agentskill-sh-review-skill/SKILL.md
+
 tool="$(cd "$(dirname "$0")" && pwd)/orca-feature"
 workflow="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/workflow.md"
 state_machine="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/state-machine.md"
 agent_instructions="$(cd "$(dirname "$0")/.." && pwd)/AGENTS.md"
+planner_instructions="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-planner/SKILL.md"
+executor_instructions="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-executor/SKILL.md"
+convergence="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/review-convergence.md"
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
 
@@ -22,7 +35,7 @@ for contract in \
   'timeout or.*count:0.*checkpoint' \
   'ordinary `orca orchestration check --json` to recover mail' \
   'check --ack <delivery-id> --wait' \
-  'Do not end the coordinator Codex turn while active workers remain' \
+  'Do not end the coordinator turn while active workers remain' \
   'Orca will re-engage the coordinator' \
   'still-running `check --wait` process' \
   'stablyai/orca#11787' \
@@ -42,6 +55,29 @@ for contract in \
     exit 1
   }
 done
+
+for contract in \
+  'claude-opus-5`/high as the parent coordinator' \
+  'gpt-5.6-sol`/high only when Claude' \
+  'Never allow both coordinators to remain live'; do
+  grep -Fq "$contract" "$agent_instructions" || {
+    echo "Missing coordinator model fallback contract: $contract" >&2
+    exit 1
+  }
+done
+
+for contract in \
+  'Luna/xhigh' \
+  'Terra/high' \
+  'Sol/high' \
+  'parallel child-worktree Task'; do
+  grep -Fq "$contract" "$planner_instructions" || {
+    echo "Missing planner execution hierarchy contract: $contract" >&2
+    exit 1
+  }
+done
+grep -Fq 'A Terra consolidator inspects every member commit' "$executor_instructions"
+grep -Fq 'Never create a separate code-review or QA gate per child' "$convergence"
 
 for contract in \
   'canonical readable structure' \

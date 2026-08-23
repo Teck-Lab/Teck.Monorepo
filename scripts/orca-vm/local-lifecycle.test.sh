@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
 recipe="$repo_root/orca.yaml"
 create="$repo_root/scripts/orca-vm/local-create.sh"
 common="$repo_root/scripts/orca-vm/local-common.sh"
+devcontainer="$repo_root/.devcontainer/devcontainer.json"
 
 if grep -q 'checkoutMode:' "$recipe"; then
   echo 'recipe must leave checkout ownership with Orca' >&2
@@ -27,6 +28,14 @@ grep -q 'ORCA_RECIPE_ID:-' "$create"
 grep -q 'created_this_attempt=0' "$create"
 grep -q 'created_this_attempt" = 1' "$create"
 grep -q 'ORCA_REPO_URL' "$create"
+jq -e '
+  .features["ghcr.io/anthropics/devcontainer-features/claude-code:1.0"] == {}
+  and (.containerEnv | has("CLAUDE_CONFIG_DIR") | not)
+  and any(.mounts[]; . == "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume")
+  and any(.mounts[]; . == "source=${localEnv:HOME}/.claude/.credentials.json,target=/home/vscode/.claude/.credentials.json,type=bind")
+  and any(.mounts[]; . == "source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind")
+' "$devcontainer" >/dev/null
+grep -q 'for command_name in .*claude codex' "$repo_root/.devcontainer/runtime-doctor.sh"
 if grep -q 'attempt_suffix' "$create"; then
   echo 'create still uses an attempt timestamp instead of stable instance identity' >&2
   exit 1

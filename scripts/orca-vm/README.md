@@ -25,12 +25,19 @@ Docker reuses unchanged build layers.
 
 ## One-time setup
 
-1. Keep the gitignored MCP references in `.devcontainer/mcp/mcp.env`.
-2. Sign in to GitHub CLI and Codex once in WSL so their auth files can be
-   mounted read-only into each workspace.
-3. Validate statically with
+1. In Orca Settings → Agents, select Claude Code as the default agent for new
+   workspaces and set its launch arguments to `--model claude-opus-5 --effort
+   high`. This is an Orca user setting; `orca.yaml` cannot select the initial
+   workspace agent. Keep Codex authenticated as the documented
+   `gpt-5.6-sol`/high fallback.
+2. Keep the gitignored MCP references in `.devcontainer/mcp/mcp.env`.
+3. Sign in to Claude Code, GitHub CLI, and Codex once in WSL2. Each workspace
+   bind-mounts WSL2's `~/.claude/.credentials.json`, `~/.claude.json`, Codex
+   auth, and GitHub CLI auth. Claude's non-auth settings and history remain in
+   an isolated per-devcontainer volume.
+4. Validate statically with
    `orca-ide vm recipe doctor local-devcontainer --repo-path . --json`.
-4. Add `--provision` for a live create/destroy validation.
+5. Add `--provision` for a live create/destroy validation.
 
 No Proton Pass, OpenCode, DeepSeek, OpenRouter, or provider-key bootstrap is
 required by this recipe.

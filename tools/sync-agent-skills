@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+canonical_root="$repo_root/.agents/skills"
+claude_root="$repo_root/.claude/skills"
+mode="${1:---check}"
+
+case "$mode" in
+  --check|--write) ;;
+  *) echo 'usage: tools/sync-agent-skills [--check|--write]' >&2; exit 2 ;;
+esac
+
+staging="$(mktemp -d)"
+trap 'rm -rf "$staging"' EXIT
+
+for source_dir in "$canonical_root"/*; do
+  [ -f "$source_dir/SKILL.md" ] || continue
+  skill_name="$(awk '/^name: / {print $2; exit}' "$source_dir/SKILL.md")"
+  [ -n "$skill_name" ] || {
+    echo "missing skill name: $source_dir/SKILL.md" >&2
+    exit 1
+  }
+  [ ! -e "$staging/$skill_name" ] || {
+    echo "duplicate skill name: $skill_name" >&2
+    exit 1
+  }
+  cp -a "$source_dir" "$staging/$skill_name"
+done
+
+if [ "$mode" = "--write" ]; then
+  rm -rf -- "$claude_root"
+  mkdir -p "$(dirname "$claude_root")"
+  mv "$staging" "$claude_root"
+  trap - EXIT
+  echo 'Synchronized .claude/skills from .agents/skills.'
+  exit 0
+fi
+
+if ! diff -qr --no-dereference "$staging" "$claude_root" >/dev/null; then
+  echo 'Claude skill mirror is stale. Run: tools/sync-agent-skills --write' >&2
+  diff -qr --no-dereference "$staging" "$claude_root" >&2 || true
+  exit 1
+fi
+
+echo 'Claude skill mirror matches .agents/skills.'
