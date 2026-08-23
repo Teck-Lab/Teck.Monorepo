@@ -13,7 +13,8 @@ orchestration commands. Act as the coordinator; do not implement, plan, or
 review the feature directly in the parent worktree and do not replace Orca
 Dispatches with untracked subagents. Orca owns durable coordination and
 worktrees. Dedicated native Codex workers own planning, plan review, leaf
-execution, code review, and final QA. Oh My Codex may supply role and skill
+execution, coherent review-unit review, and whole-feature QA. Supporting Tasks
+do not receive standalone review. Oh My Codex may supply role and skill
 guidance inside a Codex worker, but must not create a second worktree, tmux,
 team, or lifecycle system.
 

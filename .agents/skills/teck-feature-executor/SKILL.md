@@ -8,7 +8,8 @@ description: Implement one approved Teck GitHub sub-issue in its assigned Orca c
 Load the OMX `executor` role and two to five relevant repository skills. Work
 only on the injected GitHub sub-issue in the assigned child worktree. Confirm
 acceptance criteria, dependencies, scope, worktree ID, branch, and base SHA
-before editing.
+before editing. Read the feature-flow delegation contract and emit
+`implementation-result-v1` in the report artifact.
 
 Implement the smallest complete change, run targeted validation and required Nx
 affected gates, inspect the final diff, and create one or more meaningful
@@ -29,3 +30,9 @@ is ending.
 
 Ask the coordinator through Orca when scope, architecture, dependencies,
 security policy, or acceptance criteria require a decision.
+
+At meaningful phase transitions, read the existing Orca worktree comment and
+update it without clobbering valid user context. Use concise checkpoints for
+investigating, implementing, validating, ready for review, and blocked. A
+worker never marks the card completed; acceptance and integration own that
+transition.

@@ -80,6 +80,12 @@ artifact/SHA, file or component, and normalized finding. Reuse or reopen it
 until independent review accepts the repair. Do not create a fresh issue for
 each retry, and do not accept an externally closed issue without evidence.
 
+Apply `review-convergence.md` before treating a reviewer statement as a
+blocker. Track repair attempts by `finding-key` and findings-present verdicts
+by review stage. After two repair cycles for one key or three findings-present
+verdicts at one stage, prohibit automatic repair until a convergence audit and
+native Orca decision gate records the selected path.
+
 GitHub issue readability is part of durable convergence. Every coordinator
 issue body uses real Markdown line breaks and exactly one ordered `## Scope`,
 `## Acceptance criteria`, `## Validation`, and `## Constraints` section with
@@ -166,6 +172,7 @@ reuse a review merely because its issue or Task previously said clean.
 Reject an implementation result unless all are true:
 
 - Task/Dispatch identity and assigned GitHub issue match;
+- the role-specific result artifact passes `tools/teck-agent-contract`;
 - worktree ID, path, branch, base, and reported tip match live state;
 - the worktree is clean and all intended changes are committed;
 - commits are reachable from the reported tip and not already integrated;
@@ -186,6 +193,20 @@ and cleanup contracts for exclusive resources. Workers may run concurrently
 only when both dependency graphs permit it and all writes/resources are
 disjoint. Conflicting generated outputs or a shared fixed resource makes Tasks
 sequential even if their graph labels claim independence.
+
+## Worktree checkpoints and worker cleanup
+
+At meaningful investigation, implementation, validation, review, repair, and
+blocker transitions, read the current Orca worktree comment before updating it.
+Preserve valid user context. Card status is a human projection: `todo` before
+dispatch, `in-progress` during work, `in-review` during review or QA, and
+`completed` only after accepted integration. It never substitutes for GitHub
+or Orca lifecycle state.
+
+After an accepted and reconciled Dispatch, use Orca worker release and inspect
+archived output through worker-read. Retain a settled worker only when the user
+explicitly requests it. A retry always receives a new Dispatch and explicit
+placement; never assume retry-of inherits a worktree or host.
 
 ## Integration, CI, security, and cleanup
 

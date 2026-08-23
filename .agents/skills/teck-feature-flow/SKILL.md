@@ -23,15 +23,23 @@ The workflow requires the coordinator to read and apply
 [references/state-machine.md](references/state-machine.md) completely. Treat
 its convergence and exit audits as gates, not suggestions.
 
+Read [references/delegation-contracts.md](references/delegation-contracts.md)
+when creating or accepting a Task, and
+[references/review-convergence.md](references/review-convergence.md) before
+planning, review, QA, or repair. Read
+[references/handoff-contract.md](references/handoff-contract.md) only when
+transferring unfinished ownership to a fresh session.
+
 ## Non-negotiable boundaries
 
 - Start every durable worker with Orca `worker-start --agent codex`.
 - Never create a terminal and inject a reconstructed prompt manually.
 - Never use OMX worktrees, `$team`, tmux workers, `$autopilot`, `$ralph`, or an
   OMX goal ledger. OMX is role/skill guidance inside native Codex only.
-- Planning, plan review, implementation, code review, and QA are separate
-  Dispatches. A coordinator may reconcile their results but never substitutes
-  for them.
+- Planning, plan review, implementation, review-unit code review, and
+  whole-feature QA are separate Dispatches. Supporting Tasks do not receive
+  standalone review. A coordinator may reconcile results but never substitutes
+  for an applicable role.
 - After `worker-start` succeeds, supervision remains owned by this coordinator
   Run until the Dispatch is settled and reconciled. Keep the coordinator turn
   alive with Orca's foreground rolling `check --wait` loop until every expected
@@ -51,12 +59,15 @@ its convergence and exit audits as gates, not suggestions.
   and native worktrees before creating or dispatching anything.
 - Bind plans, reviews, validation, and QA to immutable artifact digests and Git
   SHAs. Any changed artifact or branch tip invalidates the earlier approval.
-- Each executable implementation leaf maps to one GitHub sub-issue, one Orca
-  Task, and one native Orca child worktree.
+- Each executable leaf maps to one GitHub sub-issue and Orca Task. Each review
+  unit owns one native Orca child worktree/branch; its member Tasks run there
+  sequentially. Independent resource-safe review units may run concurrently.
+  Read-only supporting Tasks may use an explicitly selected existing worktree.
 - Ephemeral native Codex subagents may exist only inside an executor Dispatch.
   They inherit that leaf's scope and never own GitHub, Git, Orca, or lifecycle.
-- Every actionable review finding becomes a GitHub sub-issue and native blocker.
-  Informational observations remain evidence on the reviewed issue.
+- Only findings actionable under the convergence contract become blockers.
+  Reuse one GitHub sub-issue and Orca Task per stable finding key. Scope
+  expansions and observations are non-blocking follow-ups.
 - Every coordinator-created or rewritten GitHub issue body must use readable
   Markdown with real line breaks and the ordered sections `## Scope`,
   `## Acceptance criteria`, `## Validation`, and `## Constraints`. Write bodies
@@ -94,8 +105,9 @@ its convergence and exit audits as gates, not suggestions.
   overlapping issue alone never reverses that edge or blocks B; create and
   verify the missing directed edge, then continue B unless live execution or
   another explicit dependency proves a real collision.
-- Reviewers and QA never repair findings. Dispatch a finding to an executor and
-  re-run the affected review after integration.
+- Reviewers and QA never repair findings. Dispatch a bounded finding to an
+  executor and re-run the affected review unit or whole-feature QA. Enforce the
+  repair limits and use a native decision gate at the convergence threshold.
 - Only the coordinator integrates child commits, publishes the parent branch,
   creates the final PR, and updates parent lifecycle labels.
 - Never yield a final response while an unacknowledged lifecycle delivery, an

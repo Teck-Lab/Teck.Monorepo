@@ -22,6 +22,18 @@ test "$(stop_payload 'Processed the review delivery.' | jq -r .decision)" = bloc
 post_payload 'orca orchestration worker-start --task task_repair --json' '{"id":"dispatch_repair"}' >/dev/null
 test "$(stop_payload 'Repair Dispatch is active; continuing the foreground wait.' | jq -r '.decision // "allow"')" = allow
 
+post_payload 'orca orchestration check --json' 'type worker_done: FINDINGS_PRESENT blocking-defect' >/dev/null
+post_payload 'orca orchestration worker-start --task task_repair_2 --json' '{"id":"dispatch_repair_2"}' >/dev/null
+post_payload 'orca orchestration check --json' 'type worker_done: FINDINGS_PRESENT bounded-omission' >/dev/null
+test "$(stop_payload 'Processed third rejected review.' | jq -r .decision)" = block
+test "$(stop_payload 'Processed third rejected review.' | jq -r .reason)" = 'This review stage reached three findings-present verdicts. Create a convergence audit and native Orca decision gate; do not start another automatic repair.'
+
+post_payload 'orca orchestration worker-start --task forbidden_fourth_repair --json' '{"id":"dispatch_forbidden"}' >/dev/null
+test "$(stop_payload 'Fourth repair started.' | jq -r .decision)" = block
+
+post_payload 'orca orchestration gate-resolve --id gate_convergence --resolution narrow-repair --json' '{"id":"gate_convergence","status":"resolved"}' >/dev/null
+test "$(stop_payload 'Convergence decision recorded.' | jq -r '.decision // "allow"')" = allow
+
 test "$(stop_payload 'The repair must be dispatched next.' | jq -r .decision)" = block
 
 printf '%s\n' 'You are working inside Orca, a multi-agent IDE. You are a dispatched worker.' >"$transcript"

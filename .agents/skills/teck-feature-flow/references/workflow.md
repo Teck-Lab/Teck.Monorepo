@@ -4,6 +4,11 @@ Read [state-machine.md](state-machine.md) completely before running commands.
 Its identity, recovery, convergence, review-freshness, and exit audits apply to
 every section below.
 
+Resolve the CLI for the current runtime and load `orca skills get orchestration
+--full` immediately before orchestration mutations. Prefer JSON receipts and
+the live guide's flags; repository examples never override the installed Orca
+version.
+
 ## 1. Intake and initialize
 
 Read the GitHub parent, sub-issues, dependencies, labels, and comments through
@@ -32,8 +37,8 @@ this Codex coordinator:
 5. for an accepted worker result, choose terminal reuse with `worker-start
    --terminal` or release it with `worker-release` before acknowledging the
    Delivery;
-6. validate the reported artifact, worktree, commits, and evidence for that
-   Task type;
+6. validate the reported artifact with `tools/teck-agent-contract`, then
+   validate the worktree, commits, and evidence for that Task type;
 7. reconcile the corresponding GitHub sub-issue and blocker edges through MCP;
 8. re-read both durable graphs and dispatch every newly eligible Task whose
    dependencies and resources permit execution; and
@@ -106,6 +111,11 @@ The coordinator must not report workflow completion when any of these exist:
 
 ## 2. Dedicated planning and plan review
 
+Apply `delegation-contracts.md` and `review-convergence.md` throughout this
+workflow. The approved plan freezes the acceptance contract. Classify the
+feature and every Task, group implementation into coherent review units, and
+use proportional evidence for its feature class.
+
 Create a read-only planning Task whose spec contains:
 
 - `ROLE: feature planner`
@@ -132,10 +142,12 @@ artifacts, not durable handoff state. Before settling planning, persist the
 approved plan (or a stable link plus digest and full acceptance contract) in
 the GitHub parent and Orca Task graph as required by the state-machine guide.
 
-For every actionable plan finding, create a GitHub sub-issue, attach it to the
-parent, add a native blocker edge to the affected leaf or parent, and mirror
-that dependency in Orca. Dispatch findings to an executor and repeat plan
-review until clean.
+Only a `blocking-defect` or `bounded-omission` satisfying the convergence
+contract is actionable. Create or reuse its stable-key GitHub sub-issue,
+attach it to the parent, add a native blocker edge to the affected leaf or
+parent, and mirror that dependency in Orca. Scope expansions and observations
+become non-blocking follow-ups. Repeat repair and review only within the cycle
+limits.
 
 Before dispatching that executor, ensure the finding sub-issue and Task cite an
 approved executable plan with scope, acceptance criteria, dependencies,
@@ -147,8 +159,9 @@ When a plan-defect executor sends `worker_done`, validate the repaired artifact
 and dispatch a fresh independent plan reviewer. Only a clean review permits the
 coordinator to record evidence, close that GitHub defect sub-issue, settle its
 Orca Task, and release its blocker edges. If review still fails, keep the defect
-open and continue the repair/review loop. Never report the defect complete just
-because its repair worker exited successfully.
+open and apply the cycle limits. At the limit create a convergence audit and
+native decision gate; do not automatically dispatch another repair. Never
+report the defect complete just because its repair worker exited successfully.
 
 Immediately after releasing accepted blocker edges, re-read GitHub and Orca,
 compute the newly-ready wave, and dispatch every resource-safe eligible Task.
@@ -262,9 +275,12 @@ In narration and durable summaries, use `[Issue title](URL)` so humans can scan
 the workflow. Bare numbers remain machine identity fields, never the primary
 human-readable description.
 
-Start only Tasks reported ready by Orca and unblocked in GitHub. Create the
-native Orca child worktree from the current verified parent feature head, then
-register that existing checkout with `tools/orca-feature register`.
+Start only Tasks reported ready by Orca and unblocked in GitHub. Create one
+native Orca child worktree from the current verified parent feature head for
+each review unit, then register that existing checkout with
+`tools/orca-feature register`. Run member Tasks sequentially in that worktree;
+never give concurrent workers the same review-unit branch. Resource-safe review
+units may use separate child worktrees concurrently.
 
 Before treating overlap as a dispatch blocker, distinguish ordering from active
 contention. Apply the approved direction exactly: `A waits for B` blocks A on B,
@@ -274,7 +290,7 @@ resource reservation, and dispatch B. Escalate only if A already has live
 execution, the directed edge would cycle or contradict another approved plan,
 or the required relationship cannot be written and verified.
 
-Each Task spec contains:
+Each Task spec uses `<task-contract version="1">` and contains:
 
 - `ROLE: feature executor`
 - `REQUIRED TECK SKILL: teck-feature-executor`
@@ -300,24 +316,28 @@ generated outputs, databases, ports, indexes, or mutable services.
 
 ## 4. Review and finding repair
 
-After executor `worker_done`, require a clean worktree, local commit, and
-validation evidence. Create a separate review Task against the same leaf issue
-and worktree using `teck-code-reviewer`, OMX `code-reviewer`, and Sol/high.
-Record the exact reviewed branch-tip SHA. Any later commit invalidates that
-review and requires a fresh independent review.
+After executor `worker_done`, validate `implementation-result-v1`, require a
+clean worktree, local commit, and validation evidence, and update the worktree
+checkpoint. Supporting Tasks are accepted by their consuming review unit and
+do not receive standalone code review.
 
-Every actionable finding becomes a new GitHub sub-issue under the parent and a
-native blocker of the affected implementation issue. Create a corresponding
-Orca Task dependency. Reuse the affected leaf worktree sequentially for its
-finding executor so the unintegrated leaf state remains available; never run
-the reviewer and repair executor concurrently. Repeat review until clean.
+When every member of a coherent review unit is complete, create one separate
+review Task using `teck-code-reviewer`, OMX `code-reviewer`, and Sol/high.
+Review the combined unit worktree against its exact tip SHA and plan digest. Any later
+commit invalidates that review and requires fresh independent review.
+
+Only findings actionable under `review-convergence.md` block integration.
+Reuse one GitHub sub-issue and Orca Task per `finding-key`. Repair the affected
+unit sequentially; never run its reviewer and repair executor concurrently.
+Re-review the unit's new SHA within the cycle limits, then require a convergence
+audit and native decision gate.
 
 ## 5. Integrate and synchronize
 
-Only the coordinator integrates a reviewed leaf with
-`tools/orca-feature integrate`. Run targeted checks, comment on the GitHub leaf
-with the integrated SHA and evidence, close it, and re-read GitHub dependencies
-before releasing blocked work.
+Only the coordinator integrates a CLEAN review unit with
+`tools/orca-feature integrate`. Run targeted checks, comment on every member
+issue with the integrated SHA and evidence, close accepted members, and re-read
+GitHub dependencies before releasing blocked work.
 
 Release the settled Dispatch, remove the native child through Orca, then call
 `tools/orca-feature remove`. Never substitute raw `git worktree remove` or
@@ -332,9 +352,12 @@ approved plan, repository rules, and required validation.
 Record the exact parent SHA reviewed by QA. Any later integration, repair,
 rebase, or publication change invalidates QA and requires a fresh run.
 
-Every actionable QA finding becomes a GitHub sub-issue blocking the parent and
-an Orca Task dependency. Repair it in a new native child worktree through an
-executor, integrate it, then run final QA again.
+Only QA findings actionable under `review-convergence.md` become blockers. QA
+cannot expand the frozen parent contract or reopen an implementation preference
+without new reproducible evidence. Reuse finding state by stable key, repair in
+a native child worktree, review the affected repair unit when applicable,
+integrate it, and rerun whole-feature QA within the cycle limits. At the limit,
+use a convergence audit and native decision gate.
 
 When QA is clean, run proportional feature gates, normally
 `nx affected -t build test lint typecheck`. Require `tools/orca-feature pr-info`

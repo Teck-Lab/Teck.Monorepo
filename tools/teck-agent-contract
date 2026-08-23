@@ -1,0 +1,77 @@
+#!/usr/bin/env bun
+
+import { readFileSync } from "node:fs";
+
+const path = process.argv[2];
+if (!path) {
+  console.error("usage: tools/teck-agent-contract <artifact.xml>");
+  process.exit(2);
+}
+
+const xml = readFileSync(path, "utf8");
+const errors: string[] = [];
+
+function hasTag(name: string, source = xml): boolean {
+  return new RegExp(`<${name}(?:\\s[^>]*)?>[\\s\\S]*?</${name}>`, "i").test(source);
+}
+
+function value(name: string, source = xml): string {
+  return source.match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, "i"))?.[1].trim() ?? "";
+}
+
+function requireTags(names: string[], source = xml): void {
+  for (const name of names) if (!hasTag(name, source)) errors.push(`missing <${name}>`);
+}
+
+const root = xml.match(/^\s*<([a-z-]+)\s+version="1">/i)?.[1];
+if (!root) errors.push("missing supported version=\"1\" root envelope");
+
+if (root === "task-contract") {
+  requireTags(["role", "objective", "sources", "scope", "acceptance", "validation", "constraints", "permissions", "result-contract"]);
+  if (!/<parent-issue\s+href="https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+"\s*\/>/i.test(xml)) errors.push("missing canonical GitHub parent-issue href");
+  if (/<(?:task-id|dispatch-id)>/i.test(xml)) errors.push("task contract duplicates Orca lifecycle identity");
+} else if (root === "plan-result") {
+  requireTags(["feature-class", "plan-digest", "review-units", "dependency-waves", "validation-strategy", "decisions"]);
+  if (!/^(product-code|build-config|agent-workflow|docs-research)$/.test(value("feature-class"))) errors.push("invalid feature-class");
+} else if (root === "implementation-result") {
+  requireTags(["outcome", "base-sha", "tip-sha", "files-modified", "validation-evidence", "remaining-risks"]);
+  if (!/^(succeeded|failed)$/.test(value("outcome"))) errors.push("invalid implementation outcome");
+} else if (root === "review-result" || root === "qa-result") {
+  requireTags(root === "review-result"
+    ? ["verdict", "reviewed-sha", "plan-digest", "findings", "follow-ups"]
+    : ["verdict", "integrated-sha", "plan-digest", "acceptance-evidence", "findings", "follow-ups"]);
+
+  const verdict = value("verdict");
+  if (!/^(CLEAN|FINDINGS_PRESENT)$/.test(verdict)) errors.push("invalid verdict");
+  const findingBodies = [...xml.matchAll(/<finding>([\s\S]*?)<\/finding>/gi)].map((match) => match[1]);
+  const keys = new Set<string>();
+  let actionable = 0;
+  for (const finding of findingBodies) {
+    requireTags(["finding-key", "classification", "severity", "violated-contract", "evidence", "minimal-repair", "scope-effect"], finding);
+    const key = value("finding-key", finding);
+    if (keys.has(key)) errors.push(`duplicate finding-key: ${key}`);
+    keys.add(key);
+    const classification = value("classification", finding);
+    if (!/^(blocking-defect|bounded-omission|scope-expansion|observation)$/.test(classification)) errors.push(`invalid classification: ${classification}`);
+    if (/^(blocking-defect|bounded-omission)$/.test(classification)) {
+      actionable++;
+      if (!value("violated-contract", finding) || value("violated-contract", finding) === "none") errors.push(`actionable finding ${key} lacks violated contract`);
+      if (!value("evidence", finding)) errors.push(`actionable finding ${key} lacks evidence`);
+      if (!value("minimal-repair", finding)) errors.push(`actionable finding ${key} lacks minimal repair`);
+      if (value("scope-effect", finding) !== "within-scope") errors.push(`actionable finding ${key} expands scope`);
+    }
+  }
+  if (verdict === "CLEAN" && actionable > 0) errors.push("CLEAN contradicts actionable findings");
+  if (verdict === "FINDINGS_PRESENT" && actionable === 0) errors.push("FINDINGS_PRESENT requires an actionable finding");
+} else if (root === "handoff") {
+  requireTags(["purpose", "anchor", "verified-facts", "unverified-assumptions", "active-orca-state", "durable-references", "next-action", "suggested-skills"]);
+} else if (root) {
+  errors.push(`unsupported contract root: ${root}`);
+}
+
+if (errors.length) {
+  console.error(JSON.stringify({ valid: false, errors }, null, 2));
+  process.exit(1);
+}
+
+console.log(JSON.stringify({ valid: true, type: root, path }));

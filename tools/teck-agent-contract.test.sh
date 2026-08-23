@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+validator=tools/teck-agent-contract
+fixture_dir="$(mktemp -d)"
+trap 'rm -rf "$fixture_dir"' EXIT
+
+cat >"$fixture_dir/clean-review.xml" <<'XML'
+<review-result version="1">
+  <verdict>CLEAN</verdict><reviewed-sha>abc</reviewed-sha><plan-digest>sha256:def</plan-digest>
+  <findings><finding><finding-key>review:482:workflow:optional-metric</finding-key><classification>scope-expansion</classification><severity>low</severity><violated-contract>none</violated-contract><evidence>Optional improvement.</evidence><minimal-repair>follow-up</minimal-repair><scope-effect>expands-scope</scope-effect></finding></findings>
+  <follow-ups>Consider measuring later.</follow-ups>
+</review-result>
+XML
+"$validator" "$fixture_dir/clean-review.xml" >/dev/null
+
+cat >"$fixture_dir/contradictory.xml" <<'XML'
+<review-result version="1">
+  <verdict>CLEAN</verdict><reviewed-sha>abc</reviewed-sha><plan-digest>sha256:def</plan-digest>
+  <findings><finding><finding-key>review:482:workflow:broken</finding-key><classification>blocking-defect</classification><severity>high</severity><violated-contract>criterion 2</violated-contract><evidence>reproduction</evidence><minimal-repair>bounded fix</minimal-repair><scope-effect>within-scope</scope-effect></finding></findings>
+  <follow-ups>none</follow-ups>
+</review-result>
+XML
+if "$validator" "$fixture_dir/contradictory.xml" >/dev/null 2>&1; then
+  echo "expected contradictory CLEAN result to fail" >&2
+  exit 1
+fi
+
+cat >"$fixture_dir/expansion-only.xml" <<'XML'
+<review-result version="1">
+  <verdict>FINDINGS_PRESENT</verdict><reviewed-sha>abc</reviewed-sha><plan-digest>sha256:def</plan-digest>
+  <findings><finding><finding-key>review:482:workflow:benchmark</finding-key><classification>scope-expansion</classification><severity>medium</severity><violated-contract>none</violated-contract><evidence>Would improve measurement.</evidence><minimal-repair>follow-up</minimal-repair><scope-effect>expands-scope</scope-effect></finding></findings>
+  <follow-ups>benchmark</follow-ups>
+</review-result>
+XML
+if "$validator" "$fixture_dir/expansion-only.xml" >/dev/null 2>&1; then
+  echo "expected expansion-only FINDINGS_PRESENT result to fail" >&2
+  exit 1
+fi
+
+cat >"$fixture_dir/duplicate-findings.xml" <<'XML'
+<review-result version="1">
+  <verdict>FINDINGS_PRESENT</verdict><reviewed-sha>abc</reviewed-sha><plan-digest>sha256:def</plan-digest>
+  <findings>
+    <finding><finding-key>review:482:workflow:loop</finding-key><classification>blocking-defect</classification><severity>high</severity><violated-contract>criterion 1</violated-contract><evidence>first</evidence><minimal-repair>bounded fix</minimal-repair><scope-effect>within-scope</scope-effect></finding>
+    <finding><finding-key>review:482:workflow:loop</finding-key><classification>blocking-defect</classification><severity>high</severity><violated-contract>criterion 1</violated-contract><evidence>rephrased</evidence><minimal-repair>same fix</minimal-repair><scope-effect>within-scope</scope-effect></finding>
+  </findings>
+  <follow-ups>none</follow-ups>
+</review-result>
+XML
+if "$validator" "$fixture_dir/duplicate-findings.xml" >/dev/null 2>&1; then
+  echo "expected duplicate finding keys to fail" >&2
+  exit 1
+fi
+
+cat >"$fixture_dir/task.xml" <<'XML'
+<task-contract version="1">
+  <role>executor</role><objective>Implement bounded change.</objective>
+  <sources><parent-issue href="https://github.com/Teck-Lab/Teck.Monorepo/issues/482" /></sources>
+  <scope>one unit</scope><acceptance>criterion</acceptance><validation>test</validation>
+  <constraints>bounded</constraints><permissions>worktree edits</permissions>
+  <result-contract>implementation-result-v1</result-contract>
+</task-contract>
+XML
+"$validator" "$fixture_dir/task.xml" >/dev/null
+
+sed 's#<role>executor</role>#<role>executor</role><task-id>task_stale</task-id>#' "$fixture_dir/task.xml" >"$fixture_dir/duplicated-lifecycle.xml"
+if "$validator" "$fixture_dir/duplicated-lifecycle.xml" >/dev/null 2>&1; then
+  echo "expected duplicated Orca lifecycle identity to fail" >&2
+  exit 1
+fi
+
+echo "teck agent contract tests passed"

@@ -5,7 +5,12 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 type Json = Record<string, unknown>;
-type GuardState = { repairDispatchRequired?: boolean; reason?: string };
+type GuardState = {
+  repairDispatchRequired?: boolean;
+  reviewFindingsCount?: number;
+  convergenceDecisionRequired?: boolean;
+  reason?: string;
+};
 
 function strings(value: unknown): string[] {
   if (typeof value === "string") return [value];
@@ -56,14 +61,41 @@ if (payload.hook_event_name === "PostToolUse") {
 
   if (/orca orchestration check\b/.test(command)
       && /worker_done/i.test(responseText)
-      && /(reject|actionable defect|actionable finding|not clean|test-contract gap|repair (?:is )?required)/i.test(responseText)) {
+      && /(FINDINGS_PRESENT|reject|blocking-defect|bounded-omission|actionable defect|test-contract gap|repair (?:is )?required)/i.test(responseText)) {
+    state.reviewFindingsCount = (state.reviewFindingsCount ?? 0) + 1;
     state.repairDispatchRequired = true;
     state.reason = "A review delivery contains actionable findings, but no replacement repair Dispatch has been started.";
+    if (state.reviewFindingsCount >= 3) {
+      state.convergenceDecisionRequired = true;
+      state.reason = "This review stage reached three findings-present verdicts. Create a convergence audit and native Orca decision gate; do not start another automatic repair.";
+    }
+    save(path, state);
+  }
+
+  if (/orca orchestration check\b/.test(command)
+      && /worker_done/i.test(responseText)
+      && /\bCLEAN\b/i.test(responseText)
+      && !/FINDINGS_PRESENT/i.test(responseText)) {
+    state.reviewFindingsCount = 0;
+    state.convergenceDecisionRequired = false;
+    state.repairDispatchRequired = false;
+    delete state.reason;
     save(path, state);
   }
 
   if (/orca orchestration worker-start\b/.test(command)
       && !/(error:|"isError"\s*:\s*true)/i.test(responseText)) {
+    if (!state.convergenceDecisionRequired) {
+      state.repairDispatchRequired = false;
+      delete state.reason;
+    }
+    save(path, state);
+  }
+
+  if (/orca orchestration gate-resolve\b/.test(command)
+      && !/(error:|"isError"\s*:\s*true)/i.test(responseText)) {
+    state.reviewFindingsCount = 0;
+    state.convergenceDecisionRequired = false;
     state.repairDispatchRequired = false;
     delete state.reason;
     save(path, state);
@@ -77,7 +109,7 @@ if (payload.hook_event_name === "Stop") {
   const last = typeof payload.last_assistant_message === "string" ? payload.last_assistant_message : "";
   const promisesRepair = /(repair|re-review|fresh review).{0,100}(required|must|will|next)/is.test(last)
     || /(will|must).{0,100}(open|create|dispatch).{0,80}(repair|review)/is.test(last);
-  if (state.repairDispatchRequired || promisesRepair) {
+  if (state.repairDispatchRequired || state.convergenceDecisionRequired || promisesRepair) {
     const reason = state.reason ?? "You described a required repair/re-review transition but did not dispatch it. Create/reuse the bounded repair Task, start its Dispatch, and remain in the foreground rolling check --wait loop; do not return a progress-only final response.";
     console.log(JSON.stringify({ decision: "block", reason }));
   } else {
