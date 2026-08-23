@@ -120,11 +120,11 @@ Start it natively:
 
 ```bash
 orca orchestration worker-start --task <planning-task-id> \
-  --worktree active --agent codex --model gpt-5.6-sol --effort xhigh --json
+  --worktree active --agent codex --model gpt-5.6-sol --effort high --json
 ```
 
 Wait for authoritative `worker_done`. Then create a separate plan-review Task
-using `teck-plan-reviewer`, the OMX `critic` role, Sol/xhigh, and the planner's
+using `teck-plan-reviewer`, the OMX `critic` role, Sol/high, and the planner's
 artifact. The coordinator does not review the plan itself.
 
 Planner files under ignored runtime directories such as `.omx/` are scratch
@@ -302,7 +302,7 @@ generated outputs, databases, ports, indexes, or mutable services.
 
 After executor `worker_done`, require a clean worktree, local commit, and
 validation evidence. Create a separate review Task against the same leaf issue
-and worktree using `teck-code-reviewer`, OMX `code-reviewer`, and Sol/xhigh.
+and worktree using `teck-code-reviewer`, OMX `code-reviewer`, and Sol/high.
 Record the exact reviewed branch-tip SHA. Any later commit invalidates that
 review and requires a fresh independent review.
 
@@ -326,7 +326,7 @@ terminal closure for Orca-owned cleanup.
 ## 6. Final QA and PR
 
 After all leaves are integrated, create a final QA Task in the parent worktree
-using `teck-feature-qa`, OMX `qa-tester` plus `verifier`, and Sol/xhigh. QA is
+using `teck-feature-qa`, OMX `qa-tester` plus `verifier`, and Sol/high. QA is
 read-only and reviews the entire integrated feature against the parent issue,
 approved plan, repository rules, and required validation.
 Record the exact parent SHA reviewed by QA. Any later integration, repair,
