@@ -29,7 +29,7 @@ function validateRouting(source = xml): void {
   const stage = value("workflow-stage", source);
   const route = value("route", source);
   if (!/^(bug-fix|feature|security-fix|maintenance|build-config|agent-workflow|docs|research)$/.test(workKind)) errors.push(`invalid work-kind: ${workKind}`);
-  if (!/^(intake|planning|plan-review|execution|code-review|integration|qa|coordination)$/.test(stage)) errors.push(`invalid workflow-stage: ${stage}`);
+  if (!/^(intake|discovery|planning|plan-review|execution|code-review|integration|qa|coordination)$/.test(stage)) errors.push(`invalid workflow-stage: ${stage}`);
   if (route !== `${workKind}:${stage}`) errors.push(`route mismatch: expected ${workKind}:${stage}`);
 }
 
@@ -40,8 +40,17 @@ if (root === "task-contract") {
   validateRouting();
   requireTags(["role", "objective", "sources", "scope", "acceptance", "validation", "constraints", "execution-mode", "model-route", "permissions", "result-contract"]);
   if (!/^(ephemeral-helper|shared-durable|parallel-child|consolidation)$/.test(value("execution-mode"))) errors.push("invalid execution-mode");
-  if (!/<parent-issue\s+href="https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+"\s*\/>/i.test(xml)) errors.push("missing canonical GitHub parent-issue href");
+  if (value("workflow-stage") === "discovery") {
+    if (!hasTag("discovery-anchor")) errors.push("discovery task lacks discovery-anchor");
+    if (!/^(discovery-researcher|discovery-prototyper)$/.test(value("role"))) errors.push("invalid discovery role");
+    if (value("result-contract") !== "discovery-result-v1") errors.push("discovery task requires discovery-result-v1");
+  } else if (!/<parent-issue\s+href="https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+"\s*\/>/i.test(xml)) errors.push("missing canonical GitHub parent-issue href");
   if (/<(?:task-id|dispatch-id)>/i.test(xml)) errors.push("task contract duplicates Orca lifecycle identity");
+} else if (root === "discovery-result") {
+  validateRouting();
+  requireTags(["outcome", "question", "method", "findings", "evidence", "artifacts", "product-implications", "unresolved-decisions"]);
+  if (!/^(succeeded|failed)$/.test(value("outcome"))) errors.push("invalid discovery outcome");
+  if (value("workflow-stage") !== "discovery") errors.push("discovery-result workflow-stage must be discovery");
 } else if (root === "plan-result") {
   validateRouting();
   requireTags(["validation-profile", "plan-digest", "review-units", "dependency-waves", "validation-strategy", "decisions"]);

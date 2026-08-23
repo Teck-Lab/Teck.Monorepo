@@ -11,6 +11,8 @@ Keep the brief readable by a CEO, product manager, domain expert, and engineer.
 
 Read [references/feature-request-format.md](references/feature-request-format.md)
 before drafting or publishing.
+Read [references/orca-discovery.md](references/orca-discovery.md) completely
+before delegating research, codebase investigation, or prototype work.
 
 ## Workflow
 
@@ -25,6 +27,8 @@ before drafting or publishing.
      skill instructions. Do not select Wayfinder merely because implementation
      will be large.
    - If product intent is already settled, skip further interviewing.
+   - When facts or a prototype require delegation, use the native Orca discovery
+     Run and worker flow. Never use a hidden provider-native subagent.
 3. When the discovery frontier is empty, say so and draft exactly one feature
    brief without requiring a second command or a skill name. Use the reference
    template. Describe the desired outcome and observable behavior, not an
@@ -45,8 +49,9 @@ before drafting or publishing.
 During this skill, never:
 
 - write an engineering plan, implementation task breakdown, or test plan;
-- create executable sub-issues, blocker edges, Orca Runs, Tasks, or Dispatches;
-- create a branch, worktree, commit, pull request, or product-code change;
+- create executable sub-issues, blocker edges, or engineering Orca Tasks;
+- create a Git branch, commit, pull request, or product-code change, or create
+  any worktree other than the one disposable Orca prototype exception below;
 - turn Wayfinder decision tickets into implementation tickets;
 - infer approval from enthusiasm, silence, or approval of an earlier draft; or
 - publish into another repository.
@@ -59,3 +64,7 @@ Domain glossary and rare ADR updates made by `domain-modeling`, research notes,
 and explicitly requested throwaway prototypes are discovery artifacts, not
 implementation. Matt's `handoff` may compress an unfinished discovery session
 only; never use it to transfer an active Orca coordinator or worker.
+
+The only permitted branch/worktree exception is an Orca-managed disposable
+prototype worktree governed by the discovery reference. Never integrate it into
+a product branch or publish a PR from it.

@@ -13,6 +13,7 @@ engineering planner or orchestrator.
 ordinary idea
   -> natural-language teck-feature-request router
   -> grilling + domain-modeling
+  -> optional visible Orca research/investigation/prototype workers
   -> teck-feature-request draft
   -> explicit human publication approval
   -> one agent:ready GitHub parent issue
@@ -22,6 +23,7 @@ ordinary idea
 huge, decision-fogged idea
   -> natural-language teck-feature-request router
   -> wayfinder decision map
+  -> visible Orca workers for bounded AFK discovery questions
   -> teck-feature-request draft linking the completed map
   -> the same approval and Orca boundary
 ```
@@ -34,6 +36,15 @@ providers that honor `disable-model-invocation`. Wayfinder is selected by
 decision uncertainty and session size, not implementation size. Its map and
 child tickets record product decisions; they never become executable Orca
 sub-issues or Tasks.
+
+Delegated discovery is nevertheless durable and visible. The current Claude or
+Codex session coordinates one discovery Run; bounded research, read-only
+codebase investigation, and explicitly requested prototypes become native Orca
+Tasks and Dispatches. Workers return validated `discovery-result-v1` artifacts
+through `worker_done`, and the coordinator remains in the foreground wait loop
+until all results are reconciled. Provider-native hidden subagents are
+forbidden. The discovery Run closes after the approved parent issue is created;
+the later engineering assignment creates a separate Run.
 
 ## Skill packages
 

@@ -19,11 +19,18 @@ Wayfinder maps and children are decision records, never Orca implementation
 Tasks. When discovery is complete, the router drafts the brief automatically;
 never tell the user to issue another command or choose an internal skill.
 
+When discovery needs delegated research, codebase investigation, or a
+prototype, use one native Orca discovery Run and visible Orca Tasks/Dispatches
+as defined by `teck-feature-request`. Do not use hidden Claude/Codex subagents.
+Keep human decisions and synthesis in the discovery coordinator, supervise
+every worker in the foreground until reconciled, and close that Run after the
+approved parent issue is created. Engineering uses a later, separate Run.
+
 The router may publish exactly one GitHub parent issue only after the human
-explicitly approves the exact title and body. It must not plan, decompose,
-dispatch, branch, code, or create a PR. Orca engineering begins only when the
-approved issue is subsequently assigned or the user explicitly requests
-delivery.
+explicitly approves the exact title and body. It must not create an engineering
+plan, executable decomposition, engineering Dispatch, product branch or code,
+or PR. Orca engineering begins only when the approved issue is subsequently
+assigned or the user explicitly requests delivery.
 
 Matt's `handoff` skill is limited to compressing an unfinished discovery
 conversation. Active Orca coordinator or worker ownership transfers use the
