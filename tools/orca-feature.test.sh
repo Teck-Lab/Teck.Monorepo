@@ -8,18 +8,8 @@ jq -e '.hooks.Stop and .hooks.PostToolUse' .codex/hooks.json >/dev/null
 tools/orca-coordinator-hook.test.sh
 
 grep -Fxq '@AGENTS.md' CLAUDE.md
-for shared_skill in .agents/skills/*; do
-  [ -f "$shared_skill/SKILL.md" ] || continue
-  skill_name="$(awk '/^name: / {print $2; exit}' "$shared_skill/SKILL.md")"
-  claude_skill=".claude/skills/$skill_name"
-  [ -L "$claude_skill" ] && [ -f "$claude_skill/SKILL.md" ] || {
-    echo "Claude cannot discover shared skill: $shared_skill" >&2
-    exit 1
-  }
-  case "$(readlink "$claude_skill")" in
-    /*) echo "Claude skill link must be workspace-relative: $claude_skill" >&2; exit 1 ;;
-  esac
-done
+test -x tools/sync-agent-skills
+tools/sync-agent-skills --check
 
 # agentskill.sh packages retain their upstream package metadata. Codex's
 # narrower quick validator is applied only to Teck-authored skills.

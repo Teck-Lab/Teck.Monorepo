@@ -44,6 +44,15 @@ An explicit Orca worker Dispatch takes precedence over the parent-intake rule.
 Remain within the assigned child worktree and follow the role and completion
 contract supplied by that Dispatch.
 
+## Shared agent skills
+
+`.agents/skills/` is the canonical cross-agent skill source. Claude Code uses
+the committed native mirror in `.claude/skills/`. Never edit the mirror by
+hand; after changing or installing a canonical skill, run
+`tools/sync-agent-skills --write`, then `tools/sync-agent-skills --check`.
+The mirror includes complete skill directories, including references, scripts,
+assets, and upstream metadata.
+
 ## Repository Layout
 
 ```

@@ -4,6 +4,8 @@
 
 This file adds only Claude Code-specific context. `AGENTS.md`, its nearest
 nested counterpart, and `.agents/skills/` are the canonical cross-agent rules.
+Claude discovers the complete committed mirror under `.claude/skills/`; update
+that mirror only through `tools/sync-agent-skills --write`.
 
 ## What this is
 
