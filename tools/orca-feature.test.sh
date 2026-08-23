@@ -33,7 +33,11 @@ discovery_format=.agents/skills/teck-feature-request/references/feature-request-
 for contract in \
   'only after explicit human approval of the exact draft' \
   'create exactly one GitHub parent issue' \
-  'never use it to transfer an active Orca coordinator or worker'; do
+  'never use it to transfer an active Orca coordinator or worker' \
+  'even when they do not know or mention any skill name' \
+  'do not ask the user which workflow or skill to use' \
+  'without requiring a second command or a skill name' \
+  'Never respond with a menu of internal skill names'; do
   grep -Fq "$contract" "$discovery_skill"
 done
 for contract in \
@@ -49,6 +53,13 @@ grep -Fq 'Wayfinder maps and children are decision records' AGENTS.md
 grep -Fq 'never Orca' AGENTS.md
 grep -Fq 'must not plan, decompose,' AGENTS.md
 grep -Fq 'dispatch, branch, code, or create a PR.' AGENTS.md
+for contract in \
+  'asks to brainstorm, shape,' \
+  '`teck-feature-request` immediately' \
+  'Do not require the user to know, select, or' \
+  'never tell the user to issue another command'; do
+  grep -Fq "$contract" AGENTS.md
+done
 
 tool="$(cd "$(dirname "$0")" && pwd)/orca-feature"
 workflow="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/workflow.md"

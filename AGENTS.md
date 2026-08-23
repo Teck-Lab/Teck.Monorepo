@@ -4,17 +4,24 @@ Nx monorepo for the Teck platform — a fresh multi-tenant commerce platform. Co
 
 ## Product discovery routing
 
-When the user brings a loose product idea rather than an existing executable
-GitHub issue, keep discovery separate from engineering delivery. Use Matt
-Pocock's `grill-with-docs` as the normal codebase-aware discovery entry. Use
-`wayfinder` only when unresolved product decisions genuinely require more than
-one agent session; Wayfinder maps and children are decision records, never Orca
-implementation Tasks.
+When the user naturally says they have an idea, asks to brainstorm, shape,
+refine, explore, define, or scope a feature, asks what Teck should build, or
+wants a product request turned into a feature request, ticket, or issue, load
+`teck-feature-request` immediately. Do not require the user to know, select, or
+invoke a skill by name. This route does not apply to an already-created GitHub
+issue assigned for engineering delivery or a direct request to implement or fix
+known scope.
 
-After discovery, use `teck-feature-request` to draft the nontechnical feature
-brief. It may publish exactly one GitHub parent issue only after the human
+The router applies Matt Pocock's `grilling` and `domain-modeling` together for
+ordinary codebase-aware discovery. It loads `wayfinder` itself only when
+unresolved product decisions genuinely require more than one agent session;
+Wayfinder maps and children are decision records, never Orca implementation
+Tasks. When discovery is complete, the router drafts the brief automatically;
+never tell the user to issue another command or choose an internal skill.
+
+The router may publish exactly one GitHub parent issue only after the human
 explicitly approves the exact title and body. It must not plan, decompose,
-dispatch, branch, code, or create a PR. Orca engineering begins only when that
+dispatch, branch, code, or create a PR. Orca engineering begins only when the
 approved issue is subsequently assigned or the user explicitly requests
 delivery.
 

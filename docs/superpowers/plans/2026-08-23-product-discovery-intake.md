@@ -3,14 +3,16 @@
 ## Goal
 
 Give a nontechnical stakeholder a conversational path from a loose product idea
-to one readable, approved GitHub parent issue, without allowing product
-discovery to become a second engineering planner or orchestrator.
+to one readable, approved GitHub parent issue without requiring knowledge of
+internal skill names, and without allowing product discovery to become a second
+engineering planner or orchestrator.
 
 ## Flow
 
 ```text
 ordinary idea
-  -> grill-with-docs
+  -> natural-language teck-feature-request router
+  -> grilling + domain-modeling
   -> teck-feature-request draft
   -> explicit human publication approval
   -> one agent:ready GitHub parent issue
@@ -18,12 +20,17 @@ ordinary idea
   -> teck-feature-flow / Orca planning and delivery
 
 huge, decision-fogged idea
+  -> natural-language teck-feature-request router
   -> wayfinder decision map
   -> teck-feature-request draft linking the completed map
   -> the same approval and Orca boundary
 ```
 
-`grill-with-docs` is the normal codebase-aware entry. Wayfinder is selected by
+`teck-feature-request` is the only entry users need. For ordinary discovery it
+applies the same `grilling` plus `domain-modeling` composition as
+`grill-with-docs`. This wrapper is necessary because the upstream
+`grill-with-docs` and Wayfinder packages declare themselves user-invoked on
+providers that honor `disable-model-invocation`. Wayfinder is selected by
 decision uncertainty and session size, not implementation size. Its map and
 child tickets record product decisions; they never become executable Orca
 sub-issues or Tasks.
