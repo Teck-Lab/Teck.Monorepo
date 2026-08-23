@@ -70,6 +70,43 @@ cat >"$fixture_dir/task.xml" <<'XML'
 XML
 "$validator" "$fixture_dir/task.xml" >/dev/null
 
+cat >"$fixture_dir/discovery-task.xml" <<'XML'
+<task-contract version="1">
+  <routing><work-kind>research</work-kind><workflow-stage>discovery</workflow-stage><route>research:discovery</route></routing>
+  <role>discovery-researcher</role><objective>Resolve one product question.</objective>
+  <sources><discovery-anchor>Recurring orders discovery conversation</discovery-anchor></sources>
+  <scope>official sources</scope><acceptance>cited answer</acceptance><validation>source read-back</validation>
+  <constraints>no decisions</constraints><execution-mode>shared-durable</execution-mode>
+  <model-route>codex/gpt-5.6-terra/high</model-route><permissions>read-only</permissions>
+  <result-contract>discovery-result-v1</result-contract>
+</task-contract>
+XML
+"$validator" "$fixture_dir/discovery-task.xml" >/dev/null
+
+cat >"$fixture_dir/discovery-result.xml" <<'XML'
+<discovery-result version="1">
+  <routing><work-kind>research</work-kind><workflow-stage>discovery</workflow-stage><route>research:discovery</route></routing>
+  <outcome>succeeded</outcome><question>Can the provider schedule retries?</question>
+  <method>official documentation review</method><findings>Retries are supported.</findings>
+  <evidence>Provider API reference.</evidence><artifacts>none</artifacts>
+  <product-implications>Scheduling can remain provider-backed.</product-implications>
+  <unresolved-decisions>Retry policy.</unresolved-decisions>
+</discovery-result>
+XML
+"$validator" "$fixture_dir/discovery-result.xml" >/dev/null
+
+sed 's#<discovery-anchor>.*</discovery-anchor>##' "$fixture_dir/discovery-task.xml" >"$fixture_dir/discovery-without-anchor.xml"
+if "$validator" "$fixture_dir/discovery-without-anchor.xml" >/dev/null 2>&1; then
+  echo "expected discovery task without an anchor to fail" >&2
+  exit 1
+fi
+
+sed 's#discovery-result-v1#implementation-result-v1#' "$fixture_dir/discovery-task.xml" >"$fixture_dir/discovery-wrong-result.xml"
+if "$validator" "$fixture_dir/discovery-wrong-result.xml" >/dev/null 2>&1; then
+  echo "expected discovery task with engineering result contract to fail" >&2
+  exit 1
+fi
+
 sed 's#agent-workflow:execution#feature:plan-review#' "$fixture_dir/task.xml" >"$fixture_dir/mismatched-route.xml"
 if "$validator" "$fixture_dir/mismatched-route.xml" >/dev/null 2>&1; then
   echo "expected a route that disagrees with its axes to fail" >&2

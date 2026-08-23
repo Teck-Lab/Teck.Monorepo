@@ -10,10 +10,10 @@ Orca's injected preamble exclusively owns Task/Dispatch identity, heartbeat,
 <task-contract version="1">
   <routing>
     <work-kind>bug-fix|feature|security-fix|maintenance|build-config|agent-workflow|docs|research</work-kind>
-    <workflow-stage>intake|planning|plan-review|execution|code-review|integration|qa|coordination</workflow-stage>
+    <workflow-stage>intake|discovery|planning|plan-review|execution|code-review|integration|qa|coordination</workflow-stage>
     <route>WORK_KIND:WORKFLOW_STAGE</route>
   </routing>
-  <role>planner|plan-reviewer|executor|code-reviewer|qa</role>
+  <role>discovery-researcher|discovery-prototyper|planner|plan-reviewer|executor|code-reviewer|qa</role>
   <objective>One bounded outcome.</objective>
   <sources>
     <parent-issue href="https://github.com/OWNER/REPO/issues/NUMBER" />
@@ -27,7 +27,7 @@ Orca's injected preamble exclusively owns Task/Dispatch identity, heartbeat,
   <execution-mode>ephemeral-helper|shared-durable|parallel-child|consolidation</execution-mode>
   <model-route>Requested agent/model/effort and permitted fallback.</model-route>
   <permissions>Explicit allowed mutations; everything else remains prohibited.</permissions>
-  <result-contract>plan-result-v1|implementation-result-v1|review-result-v1|qa-result-v1</result-contract>
+  <result-contract>discovery-result-v1|plan-result-v1|implementation-result-v1|review-result-v1|qa-result-v1</result-contract>
 </task-contract>
 ```
 
@@ -40,6 +40,28 @@ Omit `task-issue` only for parent-level planning or QA. Omit `approved-plan`
 only when the planner is creating the first version. Long criteria stay on the
 canonical GitHub issue or plan; the contract points to them and states only the
 worker-specific boundary.
+
+For pre-issue product discovery, workflow-stage is `discovery`, sources contain
+`<discovery-anchor>` instead of `parent-issue`, roles are
+`discovery-researcher` or `discovery-prototyper`, and the result contract is
+`discovery-result-v1`. Apply the complete discovery lifecycle in
+`teck-feature-request/references/orca-discovery.md`.
+
+## Discovery result
+
+```xml
+<discovery-result version="1">
+  <routing>Same routing block; workflow-stage is discovery.</routing>
+  <outcome>succeeded|failed</outcome>
+  <question>The bounded discovery question.</question>
+  <method>Research, investigation, or prototype method.</method>
+  <findings>Factual answer and uncertainty.</findings>
+  <evidence>Primary-source citations and reproducible observations.</evidence>
+  <artifacts>Paths or links, or none.</artifacts>
+  <product-implications>Options and tradeoffs without making the decision.</product-implications>
+  <unresolved-decisions>Human decisions still open, or none.</unresolved-decisions>
+</discovery-result>
+```
 
 ## Plan result
 

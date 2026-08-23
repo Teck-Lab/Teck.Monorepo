@@ -1,0 +1,4 @@
+interface:
+  display_name: "Teck Discovery Worker"
+  short_description: "Research or prototype one product question"
+  default_prompt: "Use $teck-discovery-worker to resolve this bounded product-discovery question."

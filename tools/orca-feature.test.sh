@@ -27,6 +27,7 @@ test -f .agents/skills/domain-modeling/CONTEXT-FORMAT.md
 test -f .agents/skills/domain-modeling/ADR-FORMAT.md
 test -f .agents/skills/prototype/LOGIC.md
 test -f .agents/skills/prototype/UI.md
+test -f .agents/skills/teck-discovery-worker/SKILL.md
 
 discovery_skill=.agents/skills/teck-feature-request/SKILL.md
 discovery_format=.agents/skills/teck-feature-request/references/feature-request-format.md
@@ -41,6 +42,26 @@ for contract in \
   grep -Fq "$contract" "$discovery_skill"
 done
 for contract in \
+  'native Orca discovery' \
+  'Never use a hidden provider-native subagent' \
+  'disposable Orca prototype exception' \
+  'references/orca-discovery.md'; do
+  grep -Fq "$contract" "$discovery_skill"
+done
+discovery_orchestration=.agents/skills/teck-feature-request/references/orca-discovery.md
+for contract in \
+  'exactly one Orca Run for the discovery effort' \
+  'one Task per independently answerable question' \
+  'teck-discovery-worker' \
+  'Codex Terra/high' \
+  'discovery-result version="1"' \
+  'foreground rolling `check --wait` loop' \
+  'Never tell the user Orca will wake the coordinator later' \
+  'until the human has evaluated the artifact' \
+  '`teck-feature-flow` engineering Run'; do
+  grep -Fq "$contract" "$discovery_orchestration"
+done
+for contract in \
   '## Outcome' \
   '## Scope' \
   '## Out of scope' \
@@ -51,8 +72,9 @@ for contract in \
 done
 grep -Fq 'Wayfinder maps and children are decision records' AGENTS.md
 grep -Fq 'never Orca' AGENTS.md
-grep -Fq 'must not plan, decompose,' AGENTS.md
-grep -Fq 'dispatch, branch, code, or create a PR.' AGENTS.md
+grep -Fq 'must not create an engineering' AGENTS.md
+grep -Fq 'executable decomposition, engineering Dispatch, product branch or code,' AGENTS.md
+grep -Fq 'one native Orca discovery Run and visible Orca Tasks/Dispatches' AGENTS.md
 for contract in \
   'asks to brainstorm, shape,' \
   '`teck-feature-request` immediately' \
