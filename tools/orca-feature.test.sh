@@ -21,6 +21,12 @@ for shared_skill in .agents/skills/*; do
   esac
 done
 
+# agentskill.sh packages retain their upstream package metadata. Codex's
+# narrower quick validator is applied only to Teck-authored skills.
+grep -Fq 'compatibility: Requires Node.js 18+ (for npx)' .agents/skills/agentskill-sh-learn/SKILL.md
+grep -Fq '  - references/**' .agents/skills/agentskill-sh-learn/SKILL.md
+grep -Fq '  - references/**' .agents/skills/agentskill-sh-review-skill/SKILL.md
+
 tool="$(cd "$(dirname "$0")" && pwd)/orca-feature"
 workflow="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/workflow.md"
 state_machine="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/state-machine.md"

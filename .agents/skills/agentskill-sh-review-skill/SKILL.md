@@ -10,6 +10,8 @@ description: >
 metadata:
   author: agentskill-sh
   version: "1.0"
+includes:
+  - references/**
 ---
 # --- agentskill.sh ---
 # slug: agentskill-sh/review-skill
