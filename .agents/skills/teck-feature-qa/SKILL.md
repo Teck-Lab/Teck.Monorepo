@@ -1,11 +1,12 @@
 ---
 name: teck-feature-qa
-description: Perform final read-only QA of an integrated Teck parent feature through a dedicated Orca Codex Dispatch. Use after all reviewed leaves are integrated and before the parent PR is marked ready for human review.
+description: Perform final read-only QA of an integrated Teck parent feature through a dedicated Orca Dispatch. Use after all reviewed leaves are integrated and before the parent PR is marked ready for human review.
 ---
 
 # Feature QA
 
-Load the OMX `qa-tester` and `verifier` roles plus relevant repository skills.
+When running in Codex, load the OMX `qa-tester` and `verifier` roles. In every
+provider, load relevant repository skills.
 Review the integrated parent branch against the parent issue, approved plan,
 all child issues and findings, repository rules, and required CI or runtime
 evidence. Exercise browser-visible behavior with the repository-supported

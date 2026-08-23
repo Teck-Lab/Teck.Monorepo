@@ -1,4 +1,4 @@
 interface:
   display_name: "teck-feature-planner"
-  short_description: "Native Orca Codex role contract"
+  short_description: "Native Orca worker role contract"
   default_prompt: "Use this role contract for the assigned Orca Dispatch."

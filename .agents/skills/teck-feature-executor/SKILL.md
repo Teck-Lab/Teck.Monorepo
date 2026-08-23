@@ -1,11 +1,12 @@
 ---
 name: teck-feature-executor
-description: Implement one approved Teck GitHub sub-issue in its assigned Orca child worktree. Use for native Codex executor Dispatches that must make bounded changes, validate them, create a conventional local checkpoint commit, and report through worker_done without owning integration or publication.
+description: Implement one approved Teck GitHub sub-issue in its assigned Orca child worktree. Use for native Orca executor Dispatches that must make bounded changes, validate them, create a conventional local checkpoint commit, and report through worker_done without owning integration or publication.
 ---
 
 # Feature executor
 
-Load the OMX `executor` role and two to five relevant repository skills. Work
+When running in Codex, load the OMX `executor` role. In every provider, load two
+to five relevant repository skills. Work
 only on the injected GitHub sub-issue in the assigned child worktree. Confirm
 acceptance criteria, dependencies, scope, worktree ID, branch, and base SHA
 before editing. Read the feature-flow delegation contract and emit
@@ -16,14 +17,14 @@ affected gates, inspect the final diff, and create one or more meaningful
 unsigned conventional local commits. Never push, merge, create or remove
 worktrees, mutate GitHub, change Orca Tasks, bypass hooks, or create tags.
 
-You may spawn bounded native Codex subagents for independent exploration,
+You may spawn bounded provider-native subagents for independent exploration,
 testing, or implementation. Give each a disjoint scope. They may edit only this
 worktree and may not commit, mutate GitHub or Orca, or send lifecycle messages.
 Do not parallelize overlapping files, generated artifacts, databases, ports,
 indexes, or mutable services. You own their review, final validation, commits,
 and exactly one `worker_done`.
 
-Ephemeral subagents are not durable issue owners and cannot launch Claude.
+Ephemeral subagents are not durable issue owners and cannot cross providers.
 When work needs a GitHub sub-issue, independent lifecycle, provider selection,
 or a child worktree, ask the parent coordinator to create and dispatch the Orca
 Task. A Terra consolidator inspects every member commit, repairs integration

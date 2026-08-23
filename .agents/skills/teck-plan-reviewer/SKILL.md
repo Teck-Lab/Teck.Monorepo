@@ -5,8 +5,8 @@ description: Independently review a Teck feature plan assigned through Orca befo
 
 # Plan reviewer
 
-Load the OMX `critic` role. Independently compare the planner artifact with the
-parent issue, existing GitHub graph, repository rules, code boundaries, and
+When running in Codex, load the OMX `critic` role. Independently compare the
+planner artifact with the parent issue, existing GitHub graph, repository rules, code boundaries, and
 relevant ADRs. Record the exact plan digest/version reviewed. Do not rely on the
 coordinator's opinion or approve a changed/unversioned artifact.
 

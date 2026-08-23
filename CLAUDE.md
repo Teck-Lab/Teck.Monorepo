@@ -1,6 +1,9 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+@AGENTS.md
+
+This file adds only Claude Code-specific context. `AGENTS.md`, its nearest
+nested counterpart, and `.agents/skills/` are the canonical cross-agent rules.
 
 ## What this is
 
@@ -8,7 +11,7 @@ Nx monorepo for the **Teck platform** — a multi-tenant commerce platform combi
 
 **Current state:** early scaffolding. Only the `order` service (+ the four SharedKernel projects) exists as real `.csproj` files; the other service directories under `src/services/` are placeholders documenting the intended structure. When adding a new service, mirror `order` and the conventions in `src/services/AGENTS.md`.
 
-## The AGENTS.md tree is canonical
+## Canonical instruction tree
 
 Detailed, authoritative conventions live in a hierarchy of `AGENTS.md` files — **read the one nearest to the code you're touching before editing.** They are the source of truth, not this file. Key ones:
 
@@ -16,20 +19,6 @@ Detailed, authoritative conventions live in a hierarchy of `AGENTS.md` files —
 - `src/AGENTS.md`, `src/shared/AGENTS.md`, `src/apps/AGENTS.md`, `src/packages/AGENTS.md` — layer rules.
 - `src/services/commerce/AGENTS.md` (+ per-service like `order/AGENTS.md`), `operations/`, `content/`, `gateway/`.
 - `deploy/AGENTS.md`, `tests/AGENTS.md`, `tools/AGENTS.md`, `specs/AGENTS.md`.
-
-## Orca parent-issue coordination
-
-When Orca starts this session with a Teck.Monorepo GitHub issue URL, read the
-root `AGENTS.md` Orca routing section and load `teck-feature-flow` plus Orca's
-version-matched full orchestration guide. Act as the parent coordinator; do not
-implement, plan, review, or QA in the parent worktree.
-
-The preferred coordinator is Claude Code on `claude-opus-5` with high effort.
-Confirm the effective model rather than trusting the requested label. If that
-model cannot launch because the CLI/model is unavailable, authentication or
-capacity is exhausted, the effective model differs, or startup fails, record a
-handoff and relaunch the same parent coordination with Codex
-`gpt-5.6-sol`/high. Never run two live parent coordinators for the same issue.
 
 ## Commands
 

@@ -5,8 +5,9 @@ description: Produce a read-only, executable decomposition for a Teck parent Git
 
 # Feature planner
 
-Act only as the planner for the injected Orca Task. Load the OMX `planner` role
-and two to five relevant repository skills. Read the parent issue, existing
+Act only as the planner for the injected Orca Task. When running in Codex, load
+the OMX `planner` role. In every provider, load two to five relevant repository
+skills. Read the parent issue, existing
 sub-issues and blockers, root and nearest `AGENTS.md`, relevant context or ADRs,
 the actual code boundaries, and the feature-flow delegation and convergence
 references.
@@ -36,8 +37,8 @@ Emit `plan-result-v1` from the shared delegation contract.
 Route narrow explicit mechanical work to Luna/xhigh, coherent implementation
 and consolidation to Terra/high, and planning/review/QA to Sol/high. Use a
 native Orca Claude Task when cross-provider Sonnet work is approved. Do not
-create durable Tasks for five-minute exploration that an ephemeral Codex
-subagent can safely perform.
+create durable Tasks for five-minute exploration that an ephemeral
+provider-native subagent can safely perform.
 
 Do not edit files, create issues, mutate Git or GitHub, create worktrees, start
 implementation, or delegate. Send `worker_done` exactly once using the injected

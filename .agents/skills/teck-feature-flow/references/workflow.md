@@ -1,4 +1,4 @@
-# Native Orca and Codex feature workflow
+# Native Orca multi-agent feature workflow
 
 Read [state-machine.md](state-machine.md) completely before running commands.
 Its identity, recovery, convergence, review-freshness, and exit audits apply to
@@ -33,7 +33,7 @@ sub-issue.
 
 Starting a worker begins supervision; it is never feature completion. Current
 Orca's coordinator contract is an explicit foreground rolling wait. Use it for
-this Codex coordinator:
+this parent coordinator:
 
 1. after `worker-start`, record the Run, Task, Dispatch, and terminal identities;
 2. run `orca orchestration check --wait --types
@@ -57,12 +57,12 @@ this Codex coordinator:
 
    Repeat until every expected Dispatch settles.
 
-Do not end the coordinator Codex turn while active workers remain. Never claim
+Do not end the coordinator turn while active workers remain. Never claim
 that Orca will re-engage the coordinator and then return a final response. Do
 not replace the foreground wait with terminal scraping, sleeps, a
 detached/background waiter, a hook, or a launcher.
 
-When Codex's command runner yields a still-running `check --wait` process or
+When the active agent's command runner yields a still-running `check --wait` process or
 session identifier, continue that exact process with the command runner's wait
 mechanism. A yielded command is still active supervision; it is not a completed
 tool call and must never be followed by a final response.
@@ -79,10 +79,11 @@ the rolling wait until all expected Dispatches settle. This prevents a
 completed worker or newly-ready dependent from being stranded by a coordinator
 final response.
 
-The repository Codex hooks provide a deterministic backstop for the commonly
+Repository Codex hooks provide a deterministic backstop for Codex's commonly
 missed review-to-repair edge. `PostToolUse` records a rejected/actionable
 review delivery, and `Stop` continues the coordinator turn until a successful
-repair `worker-start` occurs. Do not bypass or satisfy this guard with prose:
+repair `worker-start` occurs. Claude coordinators enforce the same transition
+directly from this contract. Do not bypass or satisfy this guard with prose:
 perform the missing graph transition and resume the foreground rolling wait.
 Dispatched worker sessions are excluded because `worker_done` is their required
 terminal transition.

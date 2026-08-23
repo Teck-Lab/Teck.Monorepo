@@ -254,3 +254,5 @@ edge: an actionable review delivery sets a session-local
 worker-start` clears it. A `Stop` attempt while latched returns `decision:
 block`, turning the missing repair dispatch into the next model turn instead of
 allowing a progress-only response to strand the Run.
+Claude coordinators follow the same transition contract directly; they do not
+depend on Codex hooks.

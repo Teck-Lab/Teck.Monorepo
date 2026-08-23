@@ -1,6 +1,6 @@
 ---
 name: teck-direct-worktree-flow
-description: Complete and publish work performed directly by native Codex in an ordinary Orca worktree without an orchestration Run. Use for a manually assigned branch, issue, Dependabot PR, CI repair, or one-off change that must be validated, committed, pushed through the authenticated GitHub CLI, or attached to an existing PR. Do not use for sub-issues dispatched through the orchestrated teck-feature-flow.
+description: Complete and publish work performed directly by a native coding agent in an ordinary Orca worktree without an orchestration Run. Use for a manually assigned branch, issue, Dependabot PR, CI repair, or one-off change that must be validated, committed, pushed through the authenticated GitHub CLI, or attached to an existing PR. Do not use for sub-issues dispatched through the orchestrated teck-feature-flow.
 ---
 
 # Teck direct worktree flow
