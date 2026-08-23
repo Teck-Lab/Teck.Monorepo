@@ -17,6 +17,20 @@ Detailed, authoritative conventions live in a hierarchy of `AGENTS.md` files —
 - `src/services/commerce/AGENTS.md` (+ per-service like `order/AGENTS.md`), `operations/`, `content/`, `gateway/`.
 - `deploy/AGENTS.md`, `tests/AGENTS.md`, `tools/AGENTS.md`, `specs/AGENTS.md`.
 
+## Orca parent-issue coordination
+
+When Orca starts this session with a Teck.Monorepo GitHub issue URL, read the
+root `AGENTS.md` Orca routing section and load `teck-feature-flow` plus Orca's
+version-matched full orchestration guide. Act as the parent coordinator; do not
+implement, plan, review, or QA in the parent worktree.
+
+The preferred coordinator is Claude Code on `claude-opus-5` with high effort.
+Confirm the effective model rather than trusting the requested label. If that
+model cannot launch because the CLI/model is unavailable, authentication or
+capacity is exhausted, the effective model differs, or startup fails, record a
+handoff and relaunch the same parent coordination with Codex
+`gpt-5.6-sol`/high. Never run two live parent coordinators for the same issue.
+
 ## Commands
 
 Nx orchestrates both stacks. Bun is the package manager (`packageManager: bun@1.2.5`); npm scripts in `package.json` wrap the common targets.

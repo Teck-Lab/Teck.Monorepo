@@ -23,6 +23,12 @@ Do not parallelize overlapping files, generated artifacts, databases, ports,
 indexes, or mutable services. You own their review, final validation, commits,
 and exactly one `worker_done`.
 
+Ephemeral subagents are not durable issue owners and cannot launch Claude.
+When work needs a GitHub sub-issue, independent lifecycle, provider selection,
+or a child worktree, ask the parent coordinator to create and dispatch the Orca
+Task. A Terra consolidator inspects every member commit, repairs integration
+gaps, runs full unit validation, and prepares the single combined review tip.
+
 Report the exact Task/Dispatch IDs, base and tip SHAs, commits, files, validation
 evidence, and remaining risks. A failed or incomplete attempt must report a
 failed outcome or escalation; never describe it as success because the process

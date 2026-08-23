@@ -63,7 +63,8 @@ cat >"$fixture_dir/task.xml" <<'XML'
   <role>executor</role><objective>Implement bounded change.</objective>
   <sources><parent-issue href="https://github.com/Teck-Lab/Teck.Monorepo/issues/482" /></sources>
   <scope>one unit</scope><acceptance>criterion</acceptance><validation>test</validation>
-  <constraints>bounded</constraints><permissions>worktree edits</permissions>
+  <constraints>bounded</constraints><execution-mode>shared-durable</execution-mode>
+  <model-route>codex/gpt-5.6-terra/high</model-route><permissions>worktree edits</permissions>
   <result-contract>implementation-result-v1</result-contract>
 </task-contract>
 XML

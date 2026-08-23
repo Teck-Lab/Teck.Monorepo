@@ -8,7 +8,8 @@ after every message or mutation, after interruption, and before yielding.
 
 For every Dispatch record the parent issue, child issue, Orca Run and Task,
 Dispatch ID, terminal handle, attempt number, role, worktree ID/path, branch,
-base SHA, expected branch-tip SHA, artifact path and digest, and reservations.
+requested/effective agent-model-effort, base SHA, expected branch-tip SHA,
+artifact path and digest, and reservations.
 Persist durable identities in the GitHub issue evidence and Orca Task/Dispatch;
 local runtime files are caches only.
 

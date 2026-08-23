@@ -38,7 +38,8 @@ if (!root) errors.push("missing supported version=\"1\" root envelope");
 
 if (root === "task-contract") {
   validateRouting();
-  requireTags(["role", "objective", "sources", "scope", "acceptance", "validation", "constraints", "permissions", "result-contract"]);
+  requireTags(["role", "objective", "sources", "scope", "acceptance", "validation", "constraints", "execution-mode", "model-route", "permissions", "result-contract"]);
+  if (!/^(ephemeral-helper|shared-durable|parallel-child|consolidation)$/.test(value("execution-mode"))) errors.push("invalid execution-mode");
   if (!/<parent-issue\s+href="https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+"\s*\/>/i.test(xml)) errors.push("missing canonical GitHub parent-issue href");
   if (/<(?:task-id|dispatch-id)>/i.test(xml)) errors.push("task contract duplicates Orca lifecycle identity");
 } else if (root === "plan-result") {

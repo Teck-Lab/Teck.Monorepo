@@ -17,7 +17,7 @@ for env_file in /run/secrets/teck-mcp/mcp.env; do
   fi
 done
 
-for command_name in git jq curl codex omx orca bun dotnet python3 make g++ docker; do
+for command_name in git jq curl claude codex omx orca bun dotnet python3 make g++ docker; do
   command -v "$command_name" >/dev/null 2>&1 \
     && pass "$command_name is installed" \
     || fail "$command_name is missing"
@@ -38,6 +38,11 @@ fi
 [ -s "$HOME/.codex/auth.json" ] \
   && pass 'Codex authentication is mounted' \
   || fail 'Codex authentication is missing'
+if [ -n "$(find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
+  pass 'Claude configuration volume is populated'
+else
+  warn 'Claude is not authenticated; use the Codex Sol/high coordinator fallback until sign-in completes'
+fi
 if gh auth status >/dev/null 2>&1; then
   pass 'GitHub CLI authentication works'
 else

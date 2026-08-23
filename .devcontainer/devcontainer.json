@@ -15,6 +15,7 @@
     "ghcr.io/devcontainers/features/node:1": {
       "version": "lts"
     },
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
     "./features/oh-my-codex": {},
     "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/dirien/devcontainer-feature-codex/codex:0": {}
@@ -25,10 +26,12 @@
     "DOTNET_NOLOGO": "1",
     "NUGET_XMLDOC_MODE": "skip",
     "NODE_OPTIONS": "--max-old-space-size=4096",
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
     "OMX_AUTO_UPDATE": "0",
     "OMX_LAUNCH_POLICY": "direct"
   },
   "mounts": [
+    "source=claude-code-config,target=/home/vscode/.claude,type=volume",
     "source=codex-config-${devcontainerId},target=/home/vscode/.codex,type=volume",
     "source=${localEnv:HOME}/.codex/auth.json,target=/home/vscode/.codex/auth.json,type=bind",
     "source=${localEnv:HOME}/.config/gh,target=/home/vscode/.config/gh,type=bind"

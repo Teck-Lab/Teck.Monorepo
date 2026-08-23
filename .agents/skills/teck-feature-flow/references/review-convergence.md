@@ -62,6 +62,12 @@ sequentially and accumulate scoped commits there. Separate resource-safe units
 may execute concurrently. The coordinator integrates the unit only after its
 combined tip receives CLEAN review.
 
+Optional parallel children add at most one worktree level beneath the unit.
+Use them only for substantial disjoint work whose integration cost is lower
+than the parallelism gained. Integrate their commits into the unit, remove the
+children after reconciliation, run Terra/high consolidation, and review only
+the combined unit tip. Never recursively create child worktrees. Never create a separate code-review or QA gate per child; code review gates the combined unit and QA gates the integrated whole feature.
+
 - `implementation`: contributes code to a review unit.
 - `supporting`: research, fixtures, inventories, or generated inputs validated
   by its consuming unit; no standalone code review.

@@ -18,6 +18,10 @@ Return an executable plan containing:
 - validation profile: product-code, build-config, agent-workflow, or docs-research
 - Task class: implementation, supporting, repair, or integration
 - coherent review units and which Tasks require no standalone review
+- execution mode per member: ephemeral helper, shared-worktree durable Task, or
+  parallel child-worktree Task
+- model route per member and the required Terra/high consolidation Task when a
+  unit delegates durable member work
 - acceptance criteria and validation per leaf
 - file, generated-artifact, database, port, and mutable-service overlap risks
 - missing decisions or plan defects
@@ -28,6 +32,12 @@ Default to seven or fewer executable leaves and dependency depth four. Exceed
 either only with explicit complexity justification. Do not invent benchmark,
 replay, digest, or proof infrastructure unless the parent contract requires it.
 Emit `plan-result-v1` from the shared delegation contract.
+
+Route narrow explicit mechanical work to Luna/xhigh, coherent implementation
+and consolidation to Terra/high, and planning/review/QA to Sol/high. Use a
+native Orca Claude Task when cross-provider Sonnet work is approved. Do not
+create durable Tasks for five-minute exploration that an ephemeral Codex
+subagent can safely perform.
 
 Do not edit files, create issues, mutate Git or GitHub, create worktrees, start
 implementation, or delegate. Send `worker_done` exactly once using the injected

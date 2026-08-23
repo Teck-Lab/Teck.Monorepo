@@ -24,6 +24,8 @@ Orca's injected preamble exclusively owns Task/Dispatch identity, heartbeat,
   <acceptance>Observable completion criteria.</acceptance>
   <validation>Required commands or evidence.</validation>
   <constraints>Boundaries, dependencies, and resource ownership.</constraints>
+  <execution-mode>ephemeral-helper|shared-durable|parallel-child|consolidation</execution-mode>
+  <model-route>Requested agent/model/effort and permitted fallback.</model-route>
   <permissions>Explicit allowed mutations; everything else remains prohibited.</permissions>
   <result-contract>plan-result-v1|implementation-result-v1|review-result-v1|qa-result-v1</result-contract>
 </task-contract>

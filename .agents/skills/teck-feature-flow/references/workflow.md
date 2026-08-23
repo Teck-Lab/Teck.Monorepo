@@ -11,6 +11,15 @@ version.
 
 ## 1. Intake and initialize
 
+The preferred parent coordinator is Claude Code `claude-opus-5`/high. Verify
+the effective model from the live session/launch evidence. If Claude Code, the
+model, authentication, capacity, or startup is unavailable, persist an Orca
+handoff when a Claude session exists; otherwise let the Orca launcher/operator
+record the failed launch. Settle that attempt and relaunch the same parent with
+Codex `gpt-5.6-sol`/high. Reconcile the existing Run before continuing and prove
+that only one parent coordinator is live. Model quality preference alone is
+not a fallback trigger.
+
 Read the GitHub parent, sub-issues, dependencies, labels, and comments through
 GitHub MCP. Add `agent:claimed` while retaining `agent:ready`, then re-read after
 the lifecycle workflow runs. Continue only when `agent:claimed` is the sole
@@ -282,6 +291,24 @@ each review unit, then register that existing checkout with
 never give concurrent workers the same review-unit branch. Resource-safe review
 units may use separate child worktrees concurrently.
 
+The planner selects one execution mode for each member:
+
+- ephemeral helper: an executor-owned Codex subagent with no durable lifecycle;
+- shared durable Task: a coordinator-dispatched Orca Task in the review-unit
+  worktree, executed sequentially; or
+- parallel child Task: a substantial, independently integratable Orca Task in
+  one child worktree beneath the review unit.
+
+Use Luna/xhigh for explicit mechanical durable members, Terra/high for coherent
+implementation and required consolidation, and a native Orca Claude/Sonnet
+worker only when the plan justifies cross-provider work. The parent coordinator
+owns all durable dispatches; an executor never becomes a nested orchestrator.
+Allow at most one child-worktree layer beneath a review unit. Parallel child
+Tasks require disjoint files, generated outputs, databases, ports, and mutable
+services. The coordinator integrates their accepted commits into the review-unit
+worktree, then dispatches Terra/high consolidation and one combined Sol/high
+review. Nested members do not receive independent planning, review, or QA loops.
+
 Before treating overlap as a dispatch blocker, distinguish ordering from active
 contention. Apply the approved direction exactly: `A waits for B` blocks A on B,
 not B on A. An open but inactive A is not a reason to stop B. Create and verify
@@ -308,9 +335,9 @@ orca orchestration worker-start --task <leaf-task-id> \
   --model gpt-5.6-terra --effort high --json
 ```
 
-An executor may spawn bounded native Codex subagents for independent work.
-Mechanical or exploration helpers default to Luna/xhigh; implementation or
-debugging helpers use Terra/high. They edit only the leaf worktree and cannot
+An executor may spawn bounded native Codex subagents for ephemeral independent
+work. Mechanical or exploration helpers default to Luna/xhigh; implementation
+or debugging helpers use Terra/high. They edit only the leaf worktree and cannot
 commit or send lifecycle messages. Never parallelize overlapping files,
 generated outputs, databases, ports, indexes, or mutable services.
 

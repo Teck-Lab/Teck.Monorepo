@@ -1,6 +1,6 @@
 ---
 name: teck-feature-flow
-description: Coordinate a Teck parent GitHub issue through native Orca Tasks, GitHub sub-issues and blockers, isolated Orca child worktrees, dedicated Codex planner/reviewer/executor/QA workers, local integration, and one final PR. Use for parent issue intake, Task-DAG reconciliation, worker supervision, integration, and final PR preparation.
+description: Coordinate a Teck parent GitHub issue through native Orca Tasks, GitHub sub-issues and blockers, isolated Orca child worktrees, model-routed planner/reviewer/executor/QA workers, local integration, and one final PR. Use for parent issue intake, Task-DAG reconciliation, worker supervision, integration, and final PR preparation.
 ---
 
 # Teck feature coordinator
@@ -32,7 +32,12 @@ transferring unfinished ownership to a fresh session.
 
 ## Non-negotiable boundaries
 
-- Start every durable worker with Orca `worker-start --agent codex`.
+- Prefer a verified Claude Code `claude-opus-5`/high parent coordinator; accept
+  Codex `gpt-5.6-sol`/high only as the recorded availability fallback. Never
+  keep both live for one parent.
+- Start every durable worker with Orca `worker-start` using the approved agent,
+  model, effort, and effective-launch receipt. Durable cross-provider work is
+  an Orca Task, never an executor-owned hidden process.
 - Never create a terminal and inject a reconstructed prompt manually.
 - Never use OMX worktrees, `$team`, tmux workers, `$autopilot`, `$ralph`, or an
   OMX goal ledger. OMX is role/skill guidance inside native Codex only.
@@ -65,6 +70,9 @@ transferring unfinished ownership to a fresh session.
   Read-only supporting Tasks may use an explicitly selected existing worktree.
 - Ephemeral native Codex subagents may exist only inside an executor Dispatch.
   They inherit that leaf's scope and never own GitHub, Git, Orca, or lifecycle.
+- The parent coordinator dispatches durable review-unit members. Member Tasks
+  normally run sequentially in the unit worktree; optional child worktrees are
+  limited to one extra level and require proven file/resource independence.
 - Only findings actionable under the convergence contract become blockers.
   Reuse one GitHub sub-issue and Orca Task per stable finding key. Scope
   expansions and observations are non-blocking follow-ups.
