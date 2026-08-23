@@ -23,20 +23,36 @@ function requireTags(names: string[], source = xml): void {
   for (const name of names) if (!hasTag(name, source)) errors.push(`missing <${name}>`);
 }
 
+function validateRouting(source = xml): void {
+  requireTags(["routing", "work-kind", "workflow-stage", "route"], source);
+  const workKind = value("work-kind", source);
+  const stage = value("workflow-stage", source);
+  const route = value("route", source);
+  if (!/^(bug-fix|feature|security-fix|maintenance|build-config|agent-workflow|docs|research)$/.test(workKind)) errors.push(`invalid work-kind: ${workKind}`);
+  if (!/^(intake|planning|plan-review|execution|code-review|integration|qa|coordination)$/.test(stage)) errors.push(`invalid workflow-stage: ${stage}`);
+  if (route !== `${workKind}:${stage}`) errors.push(`route mismatch: expected ${workKind}:${stage}`);
+}
+
 const root = xml.match(/^\s*<([a-z-]+)\s+version="1">/i)?.[1];
 if (!root) errors.push("missing supported version=\"1\" root envelope");
 
 if (root === "task-contract") {
+  validateRouting();
   requireTags(["role", "objective", "sources", "scope", "acceptance", "validation", "constraints", "permissions", "result-contract"]);
   if (!/<parent-issue\s+href="https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+"\s*\/>/i.test(xml)) errors.push("missing canonical GitHub parent-issue href");
   if (/<(?:task-id|dispatch-id)>/i.test(xml)) errors.push("task contract duplicates Orca lifecycle identity");
 } else if (root === "plan-result") {
-  requireTags(["feature-class", "plan-digest", "review-units", "dependency-waves", "validation-strategy", "decisions"]);
-  if (!/^(product-code|build-config|agent-workflow|docs-research)$/.test(value("feature-class"))) errors.push("invalid feature-class");
+  validateRouting();
+  requireTags(["validation-profile", "plan-digest", "review-units", "dependency-waves", "validation-strategy", "decisions"]);
+  if (!/^(product-code|build-config|agent-workflow|docs-research)$/.test(value("validation-profile"))) errors.push("invalid validation-profile");
+  if (value("workflow-stage") !== "planning") errors.push("plan-result workflow-stage must be planning");
 } else if (root === "implementation-result") {
+  validateRouting();
   requireTags(["outcome", "base-sha", "tip-sha", "files-modified", "validation-evidence", "remaining-risks"]);
   if (!/^(succeeded|failed)$/.test(value("outcome"))) errors.push("invalid implementation outcome");
+  if (value("workflow-stage") !== "execution") errors.push("implementation-result workflow-stage must be execution");
 } else if (root === "review-result" || root === "qa-result") {
+  validateRouting();
   requireTags(root === "review-result"
     ? ["verdict", "reviewed-sha", "plan-digest", "findings", "follow-ups"]
     : ["verdict", "integrated-sha", "plan-digest", "acceptance-evidence", "findings", "follow-ups"]);
@@ -63,7 +79,10 @@ if (root === "task-contract") {
   }
   if (verdict === "CLEAN" && actionable > 0) errors.push("CLEAN contradicts actionable findings");
   if (verdict === "FINDINGS_PRESENT" && actionable === 0) errors.push("FINDINGS_PRESENT requires an actionable finding");
+  if (root === "review-result" && !/^(plan-review|code-review)$/.test(value("workflow-stage"))) errors.push("review-result workflow-stage must be plan-review or code-review");
+  if (root === "qa-result" && value("workflow-stage") !== "qa") errors.push("qa-result workflow-stage must be qa");
 } else if (root === "handoff") {
+  validateRouting();
   requireTags(["purpose", "anchor", "verified-facts", "unverified-assumptions", "active-orca-state", "durable-references", "next-action", "suggested-skills"]);
 } else if (root) {
   errors.push(`unsupported contract root: ${root}`);

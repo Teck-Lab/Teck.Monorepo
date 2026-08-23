@@ -14,7 +14,8 @@ references.
 Return an executable plan containing:
 
 - minimal independent leaves and explicit dependency waves
-- feature class: product-code, build-config, agent-workflow, or docs-research
+- work kind and derived `work-kind:planning` route
+- validation profile: product-code, build-config, agent-workflow, or docs-research
 - Task class: implementation, supporting, repair, or integration
 - coherent review units and which Tasks require no standalone review
 - acceptance criteria and validation per leaf

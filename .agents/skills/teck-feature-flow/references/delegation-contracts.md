@@ -8,6 +8,11 @@ Orca's injected preamble exclusively owns Task/Dispatch identity, heartbeat,
 
 ```xml
 <task-contract version="1">
+  <routing>
+    <work-kind>bug-fix|feature|security-fix|maintenance|build-config|agent-workflow|docs|research</work-kind>
+    <workflow-stage>intake|planning|plan-review|execution|code-review|integration|qa|coordination</workflow-stage>
+    <route>WORK_KIND:WORKFLOW_STAGE</route>
+  </routing>
   <role>planner|plan-reviewer|executor|code-reviewer|qa</role>
   <objective>One bounded outcome.</objective>
   <sources>
@@ -24,6 +29,11 @@ Orca's injected preamble exclusively owns Task/Dispatch identity, heartbeat,
 </task-contract>
 ```
 
+`work-kind` and `workflow-stage` are authoritative orthogonal axes. `route` is
+their derived lowercase value and must match exactly, for example
+`bug-fix:code-review`. Use Task class (`implementation`, `supporting`, `repair`,
+or `integration`) in the referenced plan; it describes scheduling, not routing.
+
 Omit `task-issue` only for parent-level planning or QA. Omit `approved-plan`
 only when the planner is creating the first version. Long criteria stay on the
 canonical GitHub issue or plan; the contract points to them and states only the
@@ -33,11 +43,12 @@ worker-specific boundary.
 
 ```xml
 <plan-result version="1">
-  <feature-class>product-code|build-config|agent-workflow|docs-research</feature-class>
+  <routing>Same routing block; workflow-stage is planning.</routing>
+  <validation-profile>product-code|build-config|agent-workflow|docs-research</validation-profile>
   <plan-digest>sha256:HEX</plan-digest>
   <review-units>Named units and their member Tasks.</review-units>
   <dependency-waves>Shallow executable waves.</dependency-waves>
-  <validation-strategy>Evidence proportional to the feature class.</validation-strategy>
+  <validation-strategy>Evidence proportional to the validation profile.</validation-strategy>
   <decisions>Unresolved owner decisions, or none.</decisions>
 </plan-result>
 ```
@@ -46,6 +57,7 @@ worker-specific boundary.
 
 ```xml
 <implementation-result version="1">
+  <routing>Same routing block; workflow-stage is execution.</routing>
   <outcome>succeeded|failed</outcome>
   <base-sha>HEX</base-sha>
   <tip-sha>HEX</tip-sha>
@@ -59,6 +71,7 @@ worker-specific boundary.
 
 ```xml
 <review-result version="1">
+  <routing>Same routing block; workflow-stage is plan-review or code-review.</routing>
   <verdict>CLEAN|FINDINGS_PRESENT</verdict>
   <reviewed-sha>HEX</reviewed-sha>
   <plan-digest>sha256:HEX</plan-digest>
@@ -85,6 +98,7 @@ finding with a violated contract, evidence, and within-scope minimal repair.
 
 ```xml
 <qa-result version="1">
+  <routing>Same routing block; workflow-stage is qa.</routing>
   <verdict>CLEAN|FINDINGS_PRESENT</verdict>
   <integrated-sha>HEX</integrated-sha>
   <plan-digest>sha256:HEX</plan-digest>

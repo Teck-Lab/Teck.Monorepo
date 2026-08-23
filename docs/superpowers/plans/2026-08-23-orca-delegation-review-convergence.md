@@ -26,7 +26,8 @@ Issue #482 is regression evidence, not implementation scope.
 
 Add progressively disclosed references for:
 
-- a versioned task contract containing role, objective, canonical sources,
+- a versioned task contract containing two-axis work-kind/workflow-stage
+  routing, role, objective, canonical sources,
   scope, acceptance, validation, constraints, permissions, and result type;
 - role-specific plan, implementation, review, and QA result contracts;
 - a handoff contract that separates verified facts from assumptions and points

@@ -113,8 +113,8 @@ The coordinator must not report workflow completion when any of these exist:
 
 Apply `delegation-contracts.md` and `review-convergence.md` throughout this
 workflow. The approved plan freezes the acceptance contract. Classify the
-feature and every Task, group implementation into coherent review units, and
-use proportional evidence for its feature class.
+work kind and every Task, group implementation into coherent review units, and
+use proportional evidence for its validation profile.
 
 Create a read-only planning Task whose spec contains:
 

@@ -4,8 +4,8 @@ Apply this contract to plan review, review units, final QA, and every repair.
 
 ## Frozen acceptance contract
 
-Clean plan review freezes parent scope, acceptance, constraints, validation,
-feature class, review units, and plan digest. Later reviewers verify that
+Clean plan review freezes parent scope, acceptance, constraints, work kind,
+validation profile, review units, and plan digest. Later reviewers verify that
 contract; they cannot amend it. A new capability, threat model, benchmark,
 evidence format, platform, or quality target is scope expansion.
 
@@ -79,6 +79,6 @@ evidence. Code review checks an exact review-unit SHA against its contract. QA
 checks the entire integrated parent SHA against observable parent acceptance.
 QA does not reopen implementation preferences without new reproducible evidence.
 
-For `agent-workflow`, normal evidence is static contract tests plus one
+For the `agent-workflow` validation profile, normal evidence is static contract tests plus one
 representative dry run. Do not require a new empirical measurement platform
 unless the parent explicitly asks for one.
