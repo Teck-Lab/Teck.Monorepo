@@ -1,12 +1,13 @@
 ---
 name: teck-feature-request
-description: Turn completed product discovery into a concise, nontechnical Teck feature brief and, only after explicit human approval of the exact draft, publish exactly one GitHub parent issue for Orca planning. Use when a user has described, brainstormed, grilled, prototyped, researched, or wayfound a product idea and wants it captured as a feature request without creating an engineering plan or starting implementation.
+description: Guide a Teck product idea from natural-language discovery to a concise, nontechnical feature brief and, only after explicit human approval of the exact draft, publish exactly one GitHub parent issue for Orca planning. Automatically use when a user says they have an idea, asks to brainstorm, shape, refine, explore, define, or scope a feature, asks what Teck should build, or wants a product request turned into a feature request, ticket, or issue—even when they do not know or mention any skill name. Also use to finish discovery from an existing conversation, prototype, research note, or Wayfinder map. Do not use for an already-created GitHub issue assigned for engineering delivery or a direct request to implement/fix known scope.
 ---
 
 # Teck feature request
 
-Convert settled product intent into the parent issue Orca will later plan. Keep
-the brief readable by a CEO, product manager, domain expert, and engineer.
+Own the natural-language product-discovery entry point through the approved
+parent issue. Never require the user to know, choose, or invoke another skill.
+Keep the brief readable by a CEO, product manager, domain expert, and engineer.
 
 Read [references/feature-request-format.md](references/feature-request-format.md)
 before drafting or publishing.
@@ -15,12 +16,19 @@ before drafting or publishing.
 
 1. Read the conversation and approved discovery artifacts. Follow links on
    demand; do not duplicate a Wayfinder map, ADR, prototype, or research note.
-2. Resolve only missing product decisions. For an ordinary codebase idea, call
-   `grill-with-docs`. For a genuinely multi-session effort whose destination is
-   still obscured by unresolved decisions, call `wayfinder` first. Do not use
-   Wayfinder merely because implementation will be large.
-3. Draft exactly one feature brief using the reference template. Describe the
-   desired outcome and observable behavior, not an implementation design.
+2. Route automatically; do not ask the user which workflow or skill to use:
+   - For an ordinary idea, apply `grilling` and `domain-modeling` together. This
+     is the behavior composed by `grill-with-docs`, whose upstream package is
+     user-invoked on providers that honor `disable-model-invocation`.
+   - For a genuinely multi-session effort whose destination is obscured by
+     unresolved product decisions, load and follow the committed `wayfinder`
+     skill instructions. Do not select Wayfinder merely because implementation
+     will be large.
+   - If product intent is already settled, skip further interviewing.
+3. When the discovery frontier is empty, say so and draft exactly one feature
+   brief without requiring a second command or a skill name. Use the reference
+   template. Describe the desired outcome and observable behavior, not an
+   implementation design.
 4. Show the complete title and body to the human. Ask for explicit approval to
    publish that exact draft. Editing approval is not publishing approval.
 5. Only after approval, create exactly one GitHub parent issue in
@@ -42,6 +50,10 @@ During this skill, never:
 - turn Wayfinder decision tickets into implementation tickets;
 - infer approval from enthusiasm, silence, or approval of an earlier draft; or
 - publish into another repository.
+
+Never respond with a menu of internal skill names or tell the user to invoke a
+skill as the next step. Describe choices in product language, such as a short
+discovery conversation versus a multi-session decision map.
 
 Domain glossary and rare ADR updates made by `domain-modeling`, research notes,
 and explicitly requested throwaway prototypes are discovery artifacts, not
