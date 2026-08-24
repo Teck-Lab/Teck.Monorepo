@@ -13,16 +13,16 @@ public sealed class AddItemHandlerTests
     [Fact]
     public async Task Handle_AddsItemAndCommits()
     {
-        var customerId = Guid.NewGuid();
-        var basket = Basket.CreateForCustomer(customerId, "tenant-1");
+        const string subject = "shopper-subject";
+        var basket = Basket.CreateForSubject(subject, "tenant-1");
         var repository = Substitute.For<IGenericWriteRepository<Basket, Guid>>();
         repository.FirstOrDefaultAsync(Arg.Any<ISpecification<Basket>>(), true, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Basket?>(basket));
         var identity = Substitute.For<IBasketIdentityAccessor>();
-        identity.CustomerId.Returns(customerId);
+        identity.Subject.Returns(subject);
         var unitOfWork = Substitute.For<IUnitOfWork>();
 
-        var command = new AddItemCommand(basket.Id, Guid.NewGuid(), "Widget", 10m, 2);
+        var command = new AddItemCommand(basket.Id, Guid.NewGuid(), "Widget", 2);
         var dto = await AddItemHandler.Handle(command, repository, identity, unitOfWork, CancellationToken.None);
 
         Assert.Single(dto.Items);
@@ -32,15 +32,15 @@ public sealed class AddItemHandlerTests
     [Fact]
     public async Task Handle_WhenBasketBelongsToAnotherCustomer_ThrowsAndDoesNotCommit()
     {
-        var basket = Basket.CreateForCustomer(Guid.NewGuid(), "tenant-1");
+        var basket = Basket.CreateForSubject("owner-subject", "tenant-1");
         var repository = Substitute.For<IGenericWriteRepository<Basket, Guid>>();
         repository.FirstOrDefaultAsync(Arg.Any<ISpecification<Basket>>(), true, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Basket?>(basket));
         var identity = Substitute.For<IBasketIdentityAccessor>();
-        identity.CustomerId.Returns(Guid.NewGuid()); // a different customer
+        identity.Subject.Returns("different-subject");
 
         var unitOfWork = Substitute.For<IUnitOfWork>();
-        var command = new AddItemCommand(basket.Id, Guid.NewGuid(), "Widget", 10m, 2);
+        var command = new AddItemCommand(basket.Id, Guid.NewGuid(), "Widget", 2);
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
             AddItemHandler.Handle(command, repository, identity, unitOfWork, CancellationToken.None));

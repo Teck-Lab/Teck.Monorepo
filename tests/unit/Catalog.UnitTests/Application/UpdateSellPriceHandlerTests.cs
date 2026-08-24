@@ -1,9 +1,9 @@
 using Catalog.Application.Products.Features.UpdateSellPrice.V1;
-using Catalog.Application.Products.IntegrationEvents;
 using Catalog.Domain.Entities;
 using Catalog.Domain.ValueObjects;
 using Catalog.UnitTests.TestContext;
 using NSubstitute;
+using SharedKernel.Events;
 using Wolverine;
 using Xunit;
 
@@ -35,10 +35,9 @@ public sealed class UpdateSellPriceHandlerTests
 
         Assert.False(result.IsError);
         Assert.Equal(14.00m, result.Value.SellPriceAmount);
-        await bus.Received(1).PublishAsync(Arg.Is<ProductPriceChangedIntegrationEvent>(e =>
+        await bus.Received(1).PublishAsync(Arg.Is<CatalogPriceChangedIntegrationEvent>(e =>
             e.VariantId == product.Variants[0].Id &&
-            e.OldAmount == 9.99m &&
-            e.NewAmount == 14.00m &&
+            e.Amount == 14.00m &&
             e.Currency == "USD"));
     }
 
@@ -55,7 +54,7 @@ public sealed class UpdateSellPriceHandlerTests
         var result = await UpdateSellPriceHandler.Handle(command, repository, unitOfWork, bus, CancellationToken.None);
 
         Assert.False(result.IsError);
-        await bus.DidNotReceive().PublishAsync(Arg.Any<ProductPriceChangedIntegrationEvent>());
+        await bus.DidNotReceive().PublishAsync(Arg.Any<CatalogPriceChangedIntegrationEvent>());
     }
 
     [Fact]

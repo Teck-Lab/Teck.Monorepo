@@ -15,7 +15,7 @@ public sealed class AddItemEndpoint(IMessageBus bus) : AuthenticatedEndpoint<Add
     /// <inheritdoc/>
     public override async Task HandleAsync(AddItemRequest request, CancellationToken ct)
     {
-        var command = new AddItemCommand(request.BasketId, request.ProductId, request.ProductName, request.UnitPrice, request.Quantity);
+        var command = new AddItemCommand(request.BasketId, request.ProductId, request.ProductName, request.Quantity);
         var result = await bus.InvokeAsync<BasketDto>(command, ct);
         await Send.OkAsync(result, ct);
     }

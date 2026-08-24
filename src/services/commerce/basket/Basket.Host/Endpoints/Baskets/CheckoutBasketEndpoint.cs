@@ -15,9 +15,9 @@ public sealed class CheckoutBasketEndpoint(IMessageBus bus) : AuthenticatedEndpo
     /// <inheritdoc/>
     public override async Task HandleAsync(CheckoutBasketRequest request, CancellationToken ct)
     {
-        var result = await bus.InvokeAsync<BasketDto>(new CheckoutCommand(request.BasketId), ct);
+        var result = await bus.InvokeAsync<BasketDto>(new CheckoutCommand(request.BasketId, request.AuthorizedAmount, request.Currency, request.PaymentReference), ct);
         HttpContext.Response.Headers.Location = $"/baskets/{result.Id}";
-        await Send.ResponseAsync(result, StatusCodes.Status201Created, ct);
+        await Send.ResponseAsync(result, StatusCodes.Status202Accepted, ct);
     }
 
     /// <inheritdoc/>

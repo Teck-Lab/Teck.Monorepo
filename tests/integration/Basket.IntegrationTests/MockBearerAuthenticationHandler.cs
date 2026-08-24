@@ -33,8 +33,8 @@ internal sealed class MockBearerAuthenticationHandler : AuthenticationHandler<Au
     /// <summary>Fixed tenant id injected into every authenticated request.</summary>
     internal const string TestTenantId = "00000000-0000-0000-0000-000000000001";
 
-    /// <summary>Fixed customer id injected into every authenticated request.</summary>
-    internal const string TestCustomerId = "00000000-0000-0000-0000-000000000002";
+    /// <summary>Fixed standard subject injected into every authenticated request.</summary>
+    internal const string TestSubject = "test-shopper-subject";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MockBearerAuthenticationHandler"/> class.
@@ -53,13 +53,15 @@ internal sealed class MockBearerAuthenticationHandler : AuthenticationHandler<Au
     /// <inheritdoc/>
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        if (Request.Headers.ContainsKey("X-Test-Anonymous"))
+        {
+            return Task.FromResult(AuthenticateResult.NoResult());
+        }
+
         var claims = new[]
         {
             new Claim("tenant_id", TestTenantId),
-            // BasketIdentityAccessor.CustomerId reads the "customer_id" claim via
-            // HttpContext.User.FindFirstValue("customer_id") — this must match exactly for
-            // GetOrCreateBasketHandler and CheckoutHandler to resolve an authenticated customer.
-            new Claim("customer_id", TestCustomerId),
+            new Claim("sub", TestSubject),
             new Claim(ClaimTypes.NameIdentifier, "test-user"),
             new Claim(ClaimTypes.Name, "Test User"),
         };

@@ -3,6 +3,7 @@ using System;
 using Baskets.Application.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -13,6 +14,7 @@ namespace Baskets.Host.Database.Migrations
     [DbContext(typeof(BasketDbContext))]
     partial class BasketDbContextModelSnapshot : ModelSnapshot
     {
+        /// <inheritdoc />
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
@@ -31,14 +33,26 @@ namespace Baskets.Host.Database.Migrations
                     b.Property<Guid?>("AnonymousToken")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal>("AuthorizedAmount")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("CheckoutFailure")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("CheckoutRequestId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
 
-                    b.Property<Guid?>("CustomerId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("Currency")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
 
                     b.Property<string>("DeletedBy")
                         .HasColumnType("text");
@@ -49,8 +63,16 @@ namespace Baskets.Host.Database.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("PaymentReference")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Subject")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<decimal>("Subtotal")
                         .HasColumnType("numeric");
@@ -70,7 +92,7 @@ namespace Baskets.Host.Database.Migrations
 
                     b.HasIndex("TenantId", "AnonymousToken", "Status");
 
-                    b.HasIndex("TenantId", "CustomerId", "Status");
+                    b.HasIndex("TenantId", "Subject", "Status");
 
                     b.ToTable("Baskets", (string)null);
                 });

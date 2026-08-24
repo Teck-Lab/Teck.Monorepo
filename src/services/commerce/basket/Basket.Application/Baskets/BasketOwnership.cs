@@ -7,11 +7,11 @@ namespace Baskets.Application.Baskets;
 /// for mutation. Prevents an IDOR where a leaked <c>BasketId</c> lets a third party mutate or check
 /// out another owner's basket.
 /// </summary>
-internal static class BasketOwnership
+public static class BasketOwnership
 {
     /// <summary>
     /// Throws if <paramref name="basket"/> is not owned by the caller resolved from
-    /// <paramref name="identity"/> — a customer basket must match the caller's customer id, and a
+    /// <paramref name="identity"/> — a subject-owned basket must match the caller's subject, and a
     /// guest basket must match the caller's anonymous token.
     /// </summary>
     /// <param name="basket">The basket loaded by id.</param>
@@ -19,8 +19,8 @@ internal static class BasketOwnership
     /// <exception cref="UnauthorizedAccessException">The basket belongs to a different customer or guest.</exception>
     public static void EnsureOwnedBy(Basket basket, IBasketIdentityAccessor identity)
     {
-        bool owned = basket.CustomerId is Guid customerId
-            ? identity.CustomerId == customerId
+        bool owned = !string.IsNullOrWhiteSpace(basket.Subject)
+            ? string.Equals(identity.Subject, basket.Subject, StringComparison.Ordinal)
             : basket.AnonymousToken is Guid token && identity.AnonymousToken == token;
 
         if (!owned)

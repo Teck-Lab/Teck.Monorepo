@@ -1,8 +1,8 @@
 using Catalog.Application.Products.Features.CreateProduct.V1;
-using Catalog.Application.Products.IntegrationEvents;
 using Catalog.UnitTests.TestContext;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
+using SharedKernel.Events;
 using Wolverine;
 using Xunit;
 
@@ -11,7 +11,7 @@ namespace Catalog.UnitTests.Application;
 public sealed class CreateProductHandlerTests
 {
     [Fact]
-    public async Task Handle_WithValidCommand_PersistsDefaultVariantAndPublishesEvent()
+    public async Task Handle_WithValidCommand_PersistsDefaultVariantAndPublishesCatalogPrice()
     {
         using var db = CatalogTestContext.CreateInMemory();
         var repository = CatalogTestContext.WriteRepo<Catalog.Domain.Entities.Product>(db);
@@ -27,9 +27,9 @@ public sealed class CreateProductHandlerTests
         Assert.True(variant.IsDefault);
         Assert.Equal(9.99m, variant.SellPriceAmount);
         Assert.Equal(1, await db.Products.CountAsync());
-        await bus.Received(1).PublishAsync(Arg.Is<ProductCreatedIntegrationEvent>(e =>
+        await bus.Received(1).PublishAsync(Arg.Is<CatalogPriceChangedIntegrationEvent>(e =>
             e.ProductId == dto.Id &&
-            e.Name == "Widget" &&
-            e.VariantIds.Count == 1));
+            e.Amount == 9.99m &&
+            e.Currency == "USD"));
     }
 }

@@ -13,52 +13,50 @@ namespace Baskets.UnitTests;
 public sealed class CheckoutHandlerTests
 {
     [Fact]
-    public async Task Handle_ChecksOutBasketCommitsAndPublishesIntegrationEvent()
+    public async Task Handle_BeginsPricingCommitsAndPublishesCheckoutPricingRequest()
     {
-        var customerId = Guid.NewGuid();
+        const string subject = "shopper-subject";
         var productId = Guid.NewGuid();
-        var basket = Basket.CreateForCustomer(customerId, "tenant-1");
-        basket.AddItem(productId, "Widget", 10m, 2);
+        var basket = Basket.CreateForSubject(subject, "tenant-1");
+        basket.AddItem(productId, "Widget", 2);
         var repository = Substitute.For<IGenericWriteRepository<Basket, Guid>>();
         repository.FirstOrDefaultAsync(Arg.Any<ISpecification<Basket>>(), true, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Basket?>(basket));
         var identity = Substitute.For<IBasketIdentityAccessor>();
-        identity.CustomerId.Returns(customerId);
+        identity.Subject.Returns(subject);
         var unitOfWork = Substitute.For<IUnitOfWork>();
         var bus = Substitute.For<IMessageBus>();
 
-        var dto = await CheckoutHandler.Handle(new CheckoutCommand(basket.Id), repository, identity, unitOfWork, bus, CancellationToken.None);
+        var dto = await CheckoutHandler.Handle(new CheckoutCommand(basket.Id, 25m, "USD", "tok_test_123"), repository, identity, unitOfWork, bus, CancellationToken.None);
 
-        Assert.Equal("CheckedOut", dto.Status);
+        Assert.Equal("PricingPending", dto.Status);
         await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
 
-        // The checkout->order loop depends on this event actually being published; assert its shape,
-        // including the per-line field mapping that must not swap Quantity/UnitPrice.
-        await bus.Received(1).PublishAsync(Arg.Is<BasketCheckedOutIntegrationEvent>(evt =>
+        await bus.Received(1).PublishAsync(Arg.Is<BasketCheckoutRequestedIntegrationEvent>(evt =>
             evt.BasketId == basket.Id
-            && evt.CustomerId == customerId
-            && evt.Items.Count == 1
-            && evt.Items[0].ProductId == productId
-            && evt.Items[0].Quantity == 2
-            && evt.Items[0].UnitPrice == 10m));
+            && evt.AuthorizedAmount == 25m
+            && evt.Currency == "USD"
+            && evt.Lines.Count == 1
+            && evt.Lines[0].ProductId == productId
+            && evt.Lines[0].Quantity == 2));
     }
 
     [Fact]
     public async Task Handle_WhenBasketBelongsToAnotherCustomer_ThrowsAndDoesNotCommitOrPublish()
     {
-        var basket = Basket.CreateForCustomer(Guid.NewGuid(), "tenant-1");
-        basket.AddItem(Guid.NewGuid(), "Widget", 10m, 1);
+        var basket = Basket.CreateForSubject("owner-subject", "tenant-1");
+        basket.AddItem(Guid.NewGuid(), "Widget", 1);
         var repository = Substitute.For<IGenericWriteRepository<Basket, Guid>>();
         repository.FirstOrDefaultAsync(Arg.Any<ISpecification<Basket>>(), true, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Basket?>(basket));
         var identity = Substitute.For<IBasketIdentityAccessor>();
-        identity.CustomerId.Returns(Guid.NewGuid()); // a different customer
+        identity.Subject.Returns("different-subject");
         var unitOfWork = Substitute.For<IUnitOfWork>();
         var bus = Substitute.For<IMessageBus>();
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-            CheckoutHandler.Handle(new CheckoutCommand(basket.Id), repository, identity, unitOfWork, bus, CancellationToken.None));
+            CheckoutHandler.Handle(new CheckoutCommand(basket.Id, 25m, "USD", "tok_test_123"), repository, identity, unitOfWork, bus, CancellationToken.None));
         await unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
-        await bus.DidNotReceive().PublishAsync(Arg.Any<BasketCheckedOutIntegrationEvent>());
+        await bus.DidNotReceive().PublishAsync(Arg.Any<BasketCheckoutRequestedIntegrationEvent>());
     }
 }

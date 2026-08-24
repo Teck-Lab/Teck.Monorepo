@@ -10,5 +10,8 @@ public sealed class CheckoutBasketRequestValidator : Validator<CheckoutBasketReq
     public CheckoutBasketRequestValidator()
     {
         RuleFor(request => request.BasketId).NotEmpty();
+        RuleFor(request => request.AuthorizedAmount).GreaterThan(0);
+        RuleFor(request => request.Currency).Length(3);
+        RuleFor(request => request.PaymentReference).NotEmpty().MaximumLength(256);
     }
 }

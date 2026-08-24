@@ -25,6 +25,23 @@ public static class ResolvePriceHandler
         IGenericReadRepository<ExchangeRate, Guid> rates,
         IOptions<PricingOptions> options,
         CancellationToken ct)
+        => await ResolveAsync(query, prices, rates, catalogPrices: null, options, ct).ConfigureAwait(false);
+
+    /// <summary>Resolves a price list first, then the tenant-scoped catalog fallback projection.</summary>
+    /// <param name="query">The requested price context.</param>
+    /// <param name="prices">The active price-list repository.</param>
+    /// <param name="rates">The exchange-rate repository.</param>
+    /// <param name="catalogPrices">The optional catalog fallback projection repository.</param>
+    /// <param name="options">The pricing options.</param>
+    /// <param name="ct">The cancellation token.</param>
+    /// <returns>The authoritative resolved price, or a structured error.</returns>
+    public static async Task<ErrorOr<ResolvedPriceDto>> ResolveAsync(
+        ResolvePriceQuery query,
+        IGenericReadRepository<Price, Guid> prices,
+        IGenericReadRepository<ExchangeRate, Guid> rates,
+        IGenericReadRepository<CatalogPrice, Guid>? catalogPrices,
+        IOptions<PricingOptions> options,
+        CancellationToken ct)
     {
         DateTimeOffset at = query.At ?? DateTimeOffset.UtcNow;
         var context = new PriceResolutionContext(query.Currency, query.Quantity, query.Country, query.CustomerGroupId, query.ChannelId, at);
@@ -34,6 +51,22 @@ public static class ResolvePriceHandler
         ResolvedSelection? selection = PriceResolutionService.SelectBest(candidates, context);
         if (selection is null)
         {
+            if (catalogPrices is not null)
+            {
+                CatalogPrice? fallback = await catalogPrices
+                    .FirstOrDefaultAsync(new CatalogPriceByProductSpec(query.ProductId), ct)
+                    .ConfigureAwait(false);
+                if (fallback is not null)
+                {
+                    if (!string.Equals(fallback.Currency, query.Currency, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return Error.Failure(description: $"Catalog fallback currency '{fallback.Currency}' does not match '{query.Currency}'.");
+                    }
+
+                    return new ResolvedPriceDto(query.ProductId, fallback.Amount, fallback.Currency, Guid.Empty, Converted: false, RateApplied: null);
+                }
+            }
+
             return Error.NotFound(description: $"No applicable price for product '{query.ProductId}' in '{query.Currency}'.");
         }
 

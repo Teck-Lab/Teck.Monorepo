@@ -13,6 +13,12 @@ public sealed class BasketStatus : SmartEnum<BasketStatus>
     /// <summary>The basket has been checked out and converted to an order.</summary>
     public static readonly BasketStatus CheckedOut = new(nameof(CheckedOut), 2);
 
+    /// <summary>The basket has requested authoritative asynchronous pricing.</summary>
+    public static readonly BasketStatus PricingPending = new(nameof(PricingPending), 5);
+
+    /// <summary>The basket checkout failed before an order could be created.</summary>
+    public static readonly BasketStatus CheckoutFailed = new(nameof(CheckoutFailed), 6);
+
     /// <summary>The basket was abandoned without checkout.</summary>
     public static readonly BasketStatus Abandoned = new(nameof(Abandoned), 3);
 

@@ -126,6 +126,12 @@ public abstract class PricingIntegrationTestBase : IDisposable
     /// <summary>Gets the HTTP client for the in-memory Pricing.Host.</summary>
     protected HttpClient Client { get; }
 
+    /// <summary>Gets the PostgreSQL connection string shared by this test project.</summary>
+    protected string DatabaseConnectionString => databaseConnectionString;
+
+    /// <summary>Gets the running pricing host service provider.</summary>
+    protected IServiceProvider Services => factory.Services;
+
     /// <inheritdoc/>
     public void Dispose()
     {

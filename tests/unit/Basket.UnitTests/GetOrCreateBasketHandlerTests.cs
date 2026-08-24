@@ -12,14 +12,14 @@ namespace Baskets.UnitTests;
 public sealed class GetOrCreateBasketHandlerTests
 {
     [Fact]
-    public async Task Handle_CustomerWithNoBasket_CreatesAndCommits()
+    public async Task Handle_SubjectWithNoBasket_CreatesAndCommits()
     {
         var repository = Substitute.For<IGenericWriteRepository<Basket, Guid>>();
         repository.FirstOrDefaultAsync(Arg.Any<ISpecification<Basket>>(), true, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Basket?>(null));
         var unitOfWork = Substitute.For<IUnitOfWork>();
         var identity = Substitute.For<IBasketIdentityAccessor>();
-        identity.CustomerId.Returns(Guid.NewGuid());
+        identity.Subject.Returns("shopper-subject");
         var tenant = Substitute.For<ITenantInfo>();
         tenant.Id.Returns("tenant-1");
 

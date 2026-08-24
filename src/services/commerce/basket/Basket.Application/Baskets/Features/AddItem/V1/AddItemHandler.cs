@@ -28,7 +28,7 @@ public static class AddItemHandler
 
         BasketOwnership.EnsureOwnedBy(basket, identity);
 
-        basket.AddItem(command.ProductId, command.ProductName, command.UnitPrice, command.Quantity);
+        basket.AddItem(command.ProductId, command.ProductName, command.Quantity);
         await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);
         return BasketMapper.ToDto(basket);
     }

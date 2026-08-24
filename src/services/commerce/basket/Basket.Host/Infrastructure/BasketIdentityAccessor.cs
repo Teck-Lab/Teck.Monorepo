@@ -4,7 +4,7 @@ using Baskets.Application.Baskets;
 namespace Baskets.Host.Infrastructure;
 
 /// <summary>
-/// Resolves basket identity from the HTTP context: the authenticated <c>customer_id</c> claim, or
+/// Resolves basket identity from the HTTP context: the authenticated standard <c>sub</c> claim, or
 /// the <c>X-Basket-Token</c> header for guests.
 /// </summary>
 /// <param name="httpContextAccessor">The HTTP context accessor.</param>
@@ -16,12 +16,12 @@ public sealed class BasketIdentityAccessor(IHttpContextAccessor httpContextAcces
     private Guid? _minted;
 
     /// <inheritdoc/>
-    public Guid? CustomerId
+    public string? Subject
     {
         get
         {
-            var value = httpContextAccessor.HttpContext?.User?.FindFirstValue("customer_id");
-            return Guid.TryParse(value, out var id) ? id : null;
+            var user = httpContextAccessor.HttpContext?.User;
+            return user?.FindFirstValue("sub") ?? user?.FindFirstValue(ClaimTypes.NameIdentifier);
         }
     }
 
