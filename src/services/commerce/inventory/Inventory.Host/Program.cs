@@ -13,6 +13,7 @@ builder.Services.AddTeckService(typeof(Program).Assembly, builder.Configuration)
 builder.AddInventoryPersistence();
 builder.Services.Configure<InventoryOptions>(builder.Configuration.GetSection("Inventory"));
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddInventoryFeatureFlags(builder.Configuration);
 builder.Services.AddHostedService<ReservationExpirySweepService>();
 builder.Services.AddKeycloak(builder.Configuration, builder.Environment,
     builder.Configuration.GetSection("Keycloak").Get<KeycloakAuthenticationOptions>()!);

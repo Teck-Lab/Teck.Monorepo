@@ -11,4 +11,7 @@ public sealed class InventoryOptions
 
     /// <summary>Gets the interval at which expired holds are swept.</summary>
     public TimeSpan SweepInterval { get; init; } = TimeSpan.FromMinutes(1);
+
+    /// <summary>Gets the maximum time an order may wait for backordered stock.</summary>
+    public TimeSpan BackorderWait { get; init; } = TimeSpan.FromDays(7);
 }

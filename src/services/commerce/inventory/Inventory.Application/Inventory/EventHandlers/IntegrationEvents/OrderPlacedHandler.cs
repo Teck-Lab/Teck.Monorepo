@@ -25,6 +25,7 @@ public static class OrderPlacedHandler
     /// <param name="options">The inventory options, providing the reserve retry budget.</param>
     /// <param name="bus">The message bus used to publish integration events after commit.</param>
     /// <param name="ct">A cancellation token.</param>
+    /// <param name="timeProvider">The clock used to calculate the bounded backorder deadline.</param>
     /// <returns>A task representing the operation.</returns>
     public static async Task Handle(
         OrderPlacedIntegrationEvent evt,
@@ -35,9 +36,11 @@ public static class OrderPlacedHandler
         IServiceScopeFactory scopeFactory,
         IOptions<InventoryOptions> options,
         IMessageBus bus,
-        CancellationToken ct)
+        CancellationToken ct,
+        TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(evt);
+        timeProvider ??= TimeProvider.System;
 
         var request = new ReservationCommitRequest(
             ReservationSource.Order,
@@ -53,6 +56,7 @@ public static class OrderPlacedHandler
             scopeFactory,
             options.Value.MaxReserveRetries,
             request,
+            timeProvider.GetUtcNow() + options.Value.BackorderWait,
             ct).ConfigureAwait(false);
 
         switch (result.Outcome)

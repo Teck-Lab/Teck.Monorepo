@@ -11,7 +11,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Inventories.Host.Database.Migrations
 {
     [DbContext(typeof(InventoryDbContext))]
-    partial class InventoryDbContextModelSnapshot : ModelSnapshot
+    partial class InventoryDbContextPostgreSQLModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
@@ -85,11 +85,31 @@ namespace Inventories.Host.Database.Migrations
                     b.Property<DateTimeOffset?>("DeletedOn")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTimeOffset?>("BackorderExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("BackorderExpiredOutcomeKey")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("BackorderReadyOutcomeKey")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid?>("BasketId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset?>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.Property<Guid>("SourceId")
                         .HasColumnType("uuid");
@@ -99,6 +119,11 @@ namespace Inventories.Host.Database.Migrations
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
+
+                    b.Property<string>("SourceCorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
 
                     b.Property<string>("TenantId")
                         .IsRequired()
@@ -114,6 +139,10 @@ namespace Inventories.Host.Database.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Status", "ExpiresAt");
+
+                    b.HasIndex("Status", "BackorderExpiresAt");
+
+                    b.HasIndex("TenantId", "SourceCorrelationId");
 
                     b.HasIndex("TenantId", "SourceType", "SourceId")
                         .IsUnique();
@@ -206,6 +235,12 @@ namespace Inventories.Host.Database.Migrations
 
                             b1.Property<int>("RequestedQuantity")
                                 .HasColumnType("integer");
+
+                            b1.Property<uint>("RowVersion")
+                                .IsConcurrencyToken()
+                                .ValueGeneratedOnAddOrUpdate()
+                                .HasColumnType("xid")
+                                .HasColumnName("xmin");
 
                             b1.HasKey("ReservationId", "ProductId");
 

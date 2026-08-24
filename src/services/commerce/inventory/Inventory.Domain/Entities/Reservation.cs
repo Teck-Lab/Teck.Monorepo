@@ -28,6 +28,30 @@ public sealed class Reservation : BaseEntity, IAggregateRoot, ITenantScoped
     /// <summary>Gets the point in time at which a <see cref="ReservationStatus.Held"/> reservation expires, or null if it does not expire.</summary>
     public DateTimeOffset? ExpiresAt { get; private set; }
 
+    /// <summary>Gets the deadline for completing an order backorder, or null when no order line is backordered.</summary>
+    public DateTimeOffset? BackorderExpiresAt { get; private set; }
+
+    /// <summary>Gets the basket correlated to an order reservation, when the lifecycle supplied one.</summary>
+    public Guid? BasketId { get; private set; }
+
+    /// <summary>Gets the stable lifecycle correlation supplied by the producing service.</summary>
+    public string SourceCorrelationId { get; private set; } = string.Empty;
+
+    /// <summary>Gets the stable key for the ready outcome emitted when this backorder becomes fully allocated.</summary>
+    public string? BackorderReadyOutcomeKey { get; private set; }
+
+    /// <summary>Gets the stable key for the expired outcome emitted when this backorder times out.</summary>
+    public string? BackorderExpiredOutcomeKey { get; private set; }
+
+    /// <summary>Gets the PostgreSQL row version used to serialize reservation mutations.</summary>
+    public uint RowVersion { get; private set; }
+
+    /// <summary>Gets a value indicating whether any line still requires future stock.</summary>
+    public bool HasOutstandingBackorder => _lines.Any(line => line.BackorderedQuantity > 0);
+
+    /// <summary>Gets whether this reservation was created by the version-two lifecycle contract.</summary>
+    public bool IsLifecycleV2 => !string.IsNullOrWhiteSpace(SourceCorrelationId);
+
     /// <inheritdoc/>
     public string TenantId { get; set; } = string.Empty;
 
@@ -39,12 +63,18 @@ public sealed class Reservation : BaseEntity, IAggregateRoot, ITenantScoped
     /// <param name="sourceId">The identifier of the originating source aggregate.</param>
     /// <param name="tenantId">The owning tenant identifier.</param>
     /// <param name="lines">The product lines and their allocations covered by the reservation.</param>
+    /// <param name="backorderExpiresAt">The deadline for an outstanding order backorder.</param>
+    /// <param name="basketId">The basket correlated to this order reservation.</param>
+    /// <param name="sourceCorrelationId">The stable lifecycle correlation identifier.</param>
     /// <returns>The new, already-committed reservation.</returns>
     public static Reservation CreateCommitted(
         ReservationSource source,
         Guid sourceId,
         string tenantId,
-        IReadOnlyList<ReservationLine> lines)
+        IReadOnlyList<ReservationLine> lines,
+        DateTimeOffset? backorderExpiresAt = null,
+        Guid? basketId = null,
+        string? sourceCorrelationId = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(lines);
@@ -56,6 +86,9 @@ public sealed class Reservation : BaseEntity, IAggregateRoot, ITenantScoped
             TenantId = tenantId,
             Status = ReservationStatus.Committed,
             ExpiresAt = null,
+            BackorderExpiresAt = backorderExpiresAt,
+            BasketId = basketId,
+            SourceCorrelationId = sourceCorrelationId ?? string.Empty,
         };
         reservation._lines.AddRange(lines);
 
@@ -92,6 +125,36 @@ public sealed class Reservation : BaseEntity, IAggregateRoot, ITenantScoped
         return reservation;
     }
 
+    /// <summary>
+    /// Associates a legacy order reservation with the version-two checkout lifecycle after the
+    /// legacy delivery won the idempotency race. The reservation itself is not recreated: doing
+    /// so would reserve stock twice for the same order.
+    /// </summary>
+    /// <param name="basketId">The basket supplied by the version-two lifecycle event.</param>
+    /// <param name="sourceCorrelationId">The non-empty lifecycle correlation identifier.</param>
+    public void AdoptLifecycleV2(Guid basketId, string sourceCorrelationId)
+    {
+        if (SourceType != ReservationSource.Order)
+        {
+            throw new InvalidOperationException("Only order reservations can adopt the checkout lifecycle.");
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceCorrelationId);
+
+        if (IsLifecycleV2)
+        {
+            if (BasketId != basketId || !string.Equals(SourceCorrelationId, sourceCorrelationId, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("The reservation is already associated with a different checkout lifecycle.");
+            }
+
+            return;
+        }
+
+        BasketId = basketId;
+        SourceCorrelationId = sourceCorrelationId;
+    }
+
     /// <summary>Releases the reservation, returning its stock to availability.</summary>
     public void Release()
     {
@@ -102,6 +165,7 @@ public sealed class Reservation : BaseEntity, IAggregateRoot, ITenantScoped
 
         Status = ReservationStatus.Released;
         ExpiresAt = null;
+        BackorderExpiresAt = null;
     }
 
     /// <summary>Marks a committed reservation as fulfilled once its stock has left inventory.</summary>
@@ -127,6 +191,21 @@ public sealed class Reservation : BaseEntity, IAggregateRoot, ITenantScoped
         ExpiresAt = null;
     }
 
+    /// <summary>Expires an unfilled order backorder and returns its already allocated stock to availability.</summary>
+    /// <returns>The stable expired-outcome key.</returns>
+    public string ExpireBackorder()
+    {
+        if (SourceType != ReservationSource.Order || Status != ReservationStatus.Committed || BackorderExpiresAt is null || !HasOutstandingBackorder)
+        {
+            throw new InvalidOperationException("Only an active order backorder can expire.");
+        }
+
+        Status = ReservationStatus.Expired;
+        BackorderExpiresAt = null;
+        BackorderExpiredOutcomeKey ??= $"backorder-expired:{Id:N}";
+        return BackorderExpiredOutcomeKey;
+    }
+
     /// <summary>
     /// Converts previously backordered quantity for a product into a real allocation now that
     /// replenished stock covers it: reduces the matching line's
@@ -139,7 +218,8 @@ public sealed class Reservation : BaseEntity, IAggregateRoot, ITenantScoped
     /// The quantity of backorder to convert into a real allocation. Must be positive and no more
     /// than the line's current <see cref="ReservationLine.BackorderedQuantity"/>.
     /// </param>
-    public void FillBackorder(Guid productId, Guid locationId, int quantity)
+    /// <returns><see langword="true"/> when this fill transitions the reservation to fully allocated.</returns>
+    public bool FillBackorder(Guid productId, Guid locationId, int quantity)
     {
         if (quantity <= 0)
         {
@@ -180,5 +260,14 @@ public sealed class Reservation : BaseEntity, IAggregateRoot, ITenantScoped
             BackorderedQuantity = line.BackorderedQuantity - quantity,
             Allocations = allocations,
         };
+
+        if (!HasOutstandingBackorder)
+        {
+            BackorderExpiresAt = null;
+            BackorderReadyOutcomeKey ??= $"backorder-ready:{Id:N}";
+            return true;
+        }
+
+        return false;
     }
 }

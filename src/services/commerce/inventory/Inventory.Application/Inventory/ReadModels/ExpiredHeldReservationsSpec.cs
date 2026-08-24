@@ -5,9 +5,7 @@ using Inventories.Domain.ValueObjects;
 namespace Inventories.Application.Inventory.ReadModels;
 
 /// <summary>
-/// Selects <see cref="ReservationStatus.Held"/> reservations whose hold has lapsed as of
-/// <c>asOf</c> — the candidates the expiry sweep (Task 18) transitions to
-/// <see cref="ReservationStatus.Expired"/> and releases.
+/// Selects lapsed basket holds and due order backorders as of <c>asOf</c>.
 /// </summary>
 /// <remarks>
 /// The sweep runs on a background timer, outside any HTTP request / ambient tenant context, and is
@@ -25,7 +23,12 @@ public sealed class ExpiredHeldReservationsSpec : Specification<Reservation>
     public ExpiredHeldReservationsSpec(DateTimeOffset asOf)
     {
         Query
-            .Where(reservation => reservation.Status == ReservationStatus.Held && reservation.ExpiresAt <= asOf)
+            .Where(reservation =>
+                (reservation.Status == ReservationStatus.Held && reservation.ExpiresAt <= asOf) ||
+                (reservation.SourceType == ReservationSource.Order &&
+                 reservation.Status == ReservationStatus.Committed &&
+                 reservation.BackorderExpiresAt <= asOf &&
+                 reservation.Lines.Any(line => line.BackorderedQuantity > 0)))
             .IgnoreQueryFilters();
     }
 }

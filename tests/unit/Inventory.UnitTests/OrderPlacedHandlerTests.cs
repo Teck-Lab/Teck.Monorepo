@@ -28,7 +28,7 @@ public sealed class OrderPlacedHandlerTests
     private static IGenericWriteRepository<Reservation, Guid> ReservationRepo(Reservation? existing = null)
     {
         var repository = Substitute.For<IGenericWriteRepository<Reservation, Guid>>();
-        repository.FirstOrDefaultAsync(Arg.Any<ISpecification<Reservation>>(), Arg.Any<CancellationToken>())
+        repository.FirstOrDefaultAsync(Arg.Any<ISpecification<Reservation>>(), true, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(existing));
         return repository;
     }
@@ -83,6 +83,7 @@ public sealed class OrderPlacedHandlerTests
                 r.Status == ReservationStatus.Committed
                 && r.SourceType == ReservationSource.Order
                 && r.SourceId == orderId
+                && !r.IsLifecycleV2
                 && r.Lines.Count == 1),
             Arg.Any<CancellationToken>());
         await bus.Received(1).PublishAsync(Arg.Is<StockReservedIntegrationEvent>(evt =>
@@ -91,6 +92,7 @@ public sealed class OrderPlacedHandlerTests
             && evt.TenantId == Tenant
             && evt.Lines.Count == 1));
         await bus.DidNotReceive().PublishAsync(Arg.Any<StockReservationRejectedIntegrationEvent>());
+        await bus.DidNotReceive().PublishAsync(Arg.Any<StockReservedV2IntegrationEvent>());
     }
 
     [Fact]
@@ -195,5 +197,37 @@ public sealed class OrderPlacedHandlerTests
             Arg.Any<CancellationToken>());
         await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await bus.Received(1).PublishAsync(Arg.Any<StockReservedIntegrationEvent>());
+    }
+
+    [Fact]
+    public async Task Handle_BackorderedOrder_PersistsConfiguredDeadline()
+    {
+        var productId = Guid.NewGuid();
+        var now = new DateTimeOffset(2026, 8, 24, 12, 0, 0, TimeSpan.Zero);
+        var stock = StockItem.Create(productId, Guid.NewGuid(), Tenant, 1, true, -100);
+        var reservations = ReservationRepo();
+        var priorities = Substitute.For<IGenericReadRepository<LocationPriority, Guid>>();
+        var unitOfWork = Substitute.For<IUnitOfWork>();
+
+        await OrderPlacedHandler.Handle(
+            OrderFor(Guid.NewGuid(), productId, 2),
+            StockRepoReturning(stock),
+            reservations,
+            priorities,
+            unitOfWork,
+            Substitute.For<IServiceScopeFactory>(),
+            Options.Create(new InventoryOptions { BackorderWait = TimeSpan.FromHours(2) }),
+            Substitute.For<IMessageBus>(),
+            CancellationToken.None,
+            new FixedTimeProvider(now));
+
+        await reservations.Received(1).AddAsync(
+            Arg.Is<Reservation>(reservation => reservation.BackorderExpiresAt == now.AddHours(2)),
+            Arg.Any<CancellationToken>());
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
     }
 }
