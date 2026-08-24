@@ -19,6 +19,10 @@ public static partial class OrderMapper
     /// <param name="entity">The order entity to map.</param>
     /// <returns>The mapped order response.</returns>
     [MapProperty("Status.Name", nameof(OrderDto.Status))]
+    [MapProperty("PaymentState.Name", nameof(OrderDto.PaymentStatus))]
+    [MapProperty("StockState.Name", nameof(OrderDto.StockStatus))]
+    [MapProperty("FailureReason.Name", nameof(OrderDto.FailureReason))]
+    [MapProperty(nameof(Order.ActionText), nameof(OrderDto.ActionText))]
     public static partial OrderDto ToDto(this Order entity);
 
     /// <summary>
@@ -36,11 +40,9 @@ public static partial class OrderMapper
     /// <returns>The mapped order summaries.</returns>
     public static partial IReadOnlyList<OrderSummaryDto> ToDtoList(this IEnumerable<Order> entities);
 
-    /// <summary>
-    /// Maps a <see cref="CreateOrderCommand"/> to the primitive values required to construct an order.
-    /// </summary>
-    /// <param name="command">The command to map.</param>
-    /// <returns>The customer identifier, tenant identifier, and order lines.</returns>
+    /// <summary>Maps authoritative checkout lines to domain value objects.</summary>
+    /// <param name="command">The command carrying platform-priced checkout lines.</param>
+    /// <returns>The legacy tuple shape containing mapped immutable order lines.</returns>
     public static (Guid CustomerId, string TenantId, List<OrderLine> Lines) ToEntity(this CreateOrderCommand command)
     {
         var lines = command.Lines
@@ -51,6 +53,6 @@ public static partial class OrderMapper
                 line.UnitPrice))
             .ToList();
 
-        return (command.CustomerId, string.Empty, lines);
+        return (command.CustomerId ?? Guid.Empty, command.TenantId, lines);
     }
 }

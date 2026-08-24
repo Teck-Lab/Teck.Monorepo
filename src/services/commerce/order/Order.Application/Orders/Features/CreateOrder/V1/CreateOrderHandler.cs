@@ -1,4 +1,5 @@
 using Orders.Application.Orders.Mapping;
+using Orders.Application.Orders.ReadModels;
 using Orders.Application.Orders.Responses;
 using Orders.Domain.Entities;
 using SharedKernel.Core.Database;
@@ -7,20 +8,16 @@ using Wolverine;
 
 namespace Orders.Application.Orders.Features.CreateOrder.V1;
 
-/// <summary>
-/// Handles the <see cref="CreateOrderCommand"/> by persisting a new order and publishing its placed event.
-/// </summary>
+/// <summary>Persists an idempotent order from an authoritative checkout and publishes V2 placement.</summary>
 public static class CreateOrderHandler
 {
-    /// <summary>
-    /// Creates and persists an order, then publishes an <see cref="OrderPlacedIntegrationEvent"/>.
-    /// </summary>
-    /// <param name="command">The command describing the order to create.</param>
-    /// <param name="repository">The write repository used to persist the order.</param>
-    /// <param name="unitOfWork">The unit of work used to commit changes.</param>
-    /// <param name="bus">The message bus used to publish the integration event.</param>
-    /// <param name="ct">A token used to cancel the operation.</param>
-    /// <returns>The created order represented as an <see cref="OrderDto"/>.</returns>
+    /// <summary>Creates the order once for a stable checkout correlation.</summary>
+    /// <param name="command">The authoritative checkout command.</param>
+    /// <param name="repository">The tracked order repository.</param>
+    /// <param name="unitOfWork">The single commit boundary.</param>
+    /// <param name="bus">The Wolverine message bus.</param>
+    /// <param name="ct">The cancellation token.</param>
+    /// <returns>The created or previously persisted order.</returns>
     public static async Task<OrderDto> Handle(
         CreateOrderCommand command,
         IGenericWriteRepository<Order, Guid> repository,
@@ -28,25 +25,40 @@ public static class CreateOrderHandler
         IMessageBus bus,
         CancellationToken ct)
     {
-        var (customerId, tenantId, lines) = OrderMapper.ToEntity(command);
-        var order = Order.Create(customerId, tenantId, lines);
+        var existing = await repository.FirstOrDefaultAsync(new OrderByCheckoutCorrelationSpec(command.SourceCorrelationId, command.TenantId), enableTracking: true, ct).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            return existing.ToDto();
+        }
 
+        var order = Order.Create(
+            command.CustomerId,
+            command.KeycloakSubjectId,
+            command.BasketId,
+            command.TenantId,
+            command.ToEntity().Lines,
+            command.AuthorizedAmount,
+            command.Currency,
+            command.SourceCorrelationId);
         await repository.AddAsync(order, ct).ConfigureAwait(false);
         await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        await bus.PublishAsync(new OrderPlacedIntegrationEvent
+        await bus.PublishAsync(new OrderPlacedV2IntegrationEvent
         {
             OrderId = order.Id,
+            BasketId = order.BasketId,
             CustomerId = order.CustomerId,
+            KeycloakSubjectId = order.KeycloakSubjectId,
             TenantId = order.TenantId,
-            Status = order.Status.Name,
-            Total = order.Total,
+            Amount = order.Total,
+            AuthorizedAmount = order.AuthorizedAmount,
+            Currency = order.Currency,
+            PaymentMethodToken = command.PaymentMethodToken,
+            RequestId = command.SourceCorrelationId,
+            SourceCorrelationId = command.SourceCorrelationId,
             CreatedAt = order.CreatedAt,
-            Lines = order.Lines
-                .Select(line => new OrderPlacedLine(line.ProductId, line.ProductName, line.Quantity, line.UnitPrice, line.Total))
-                .ToList(),
+            Lines = order.Lines.Select(line => new OrderPlacedLine(line.ProductId, line.ProductName, line.Quantity, line.UnitPrice, line.Total)).ToList(),
         }).ConfigureAwait(false);
-
-        return OrderMapper.ToDto(order);
+        return order.ToDto();
     }
 }
