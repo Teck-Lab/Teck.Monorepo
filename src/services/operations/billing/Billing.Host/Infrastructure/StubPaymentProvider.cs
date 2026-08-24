@@ -16,10 +16,23 @@ public sealed class StubPaymentProvider(IOptions<PaymentProviderOptions> options
     /// <inheritdoc/>
     public Task<PaymentProviderResult> CaptureAsync(Guid orderId, decimal amount, string currency, CancellationToken ct)
     {
-        PaymentProviderResult result = options.Value.SimulateSuccess
-            ? new PaymentProviderResult(true, $"stub-{orderId:N}", null)
-            : new PaymentProviderResult(false, null, "Payment declined by stub provider");
+        PaymentProviderResult result = CreateResult(orderId, options.Value.StubOutcome, options.Value.StubDeclineCode, options.Value.SimulateSuccess);
 
         return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
+    public Task<PaymentProviderResult> AttemptAsync(PaymentProviderRequest request, CancellationToken ct) =>
+        Task.FromResult(CreateResult(request.OrderId, options.Value.StubOutcome, options.Value.StubDeclineCode, options.Value.SimulateSuccess));
+
+    private static PaymentProviderResult CreateResult(Guid orderId, string configuredOutcome, string configuredCode, bool simulateSuccess)
+    {
+        var outcome = string.IsNullOrWhiteSpace(configuredOutcome) ? (simulateSuccess ? "succeeded" : "failed") : configuredOutcome;
+        var success = string.Equals(outcome, "succeeded", StringComparison.OrdinalIgnoreCase);
+        return new PaymentProviderResult(success, success ? $"stub-{orderId:N}" : null, success ? null : "declined")
+        {
+            Outcome = outcome,
+            ProviderCode = success ? null : configuredCode,
+        };
     }
 }

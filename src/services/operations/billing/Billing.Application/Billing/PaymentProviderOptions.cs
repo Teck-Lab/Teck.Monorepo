@@ -21,4 +21,16 @@ public sealed class PaymentProviderOptions
     /// contract is extended.
     /// </summary>
     public string DefaultCurrency { get; init; } = "USD";
+
+    /// <summary>Gets the maximum number of automatic transient retries after the initial attempt.</summary>
+    public int MaxTransientRetries { get; init; } = 2;
+
+    /// <summary>Gets deterministic stub outcome selected for this environment.</summary>
+    public string StubOutcome { get; init; } = "succeeded";
+
+    /// <summary>Gets the provider decline code returned by the deterministic stub.</summary>
+    public string StubDeclineCode { get; init; } = "generic_decline";
+
+    /// <summary>Gets reloadable environment mappings from provider codes to shopper-safe categories.</summary>
+    public Dictionary<string, string> DeclineMappings { get; init; } = new(StringComparer.OrdinalIgnoreCase);
 }

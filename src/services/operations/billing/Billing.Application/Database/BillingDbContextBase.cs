@@ -18,6 +18,9 @@ public abstract class BillingDbContextBase(DbContextOptions options, IMultiTenan
     /// <summary>Gets the set of tracked payments.</summary>
     public DbSet<Payment> Payments => Set<Payment>();
 
+    /// <summary>Gets the set of provider payment attempts.</summary>
+    public DbSet<PaymentAttempt> PaymentAttempts => Set<PaymentAttempt>();
+
     /// <summary>Gets the set of tracked invoices.</summary>
     public DbSet<Invoice> Invoices => Set<Invoice>();
 

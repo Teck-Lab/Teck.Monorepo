@@ -2,10 +2,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Billings.Host.Database.Migrations;
+namespace Billings.Host.Database.Migrations.PostgreSQL;
 
 /// <inheritdoc />
-public partial class InitialBilling : Migration
+public partial class PostgreSQLInitialBilling : Migration
 {
     /// <inheritdoc />
     protected override void Up(MigrationBuilder migrationBuilder)
