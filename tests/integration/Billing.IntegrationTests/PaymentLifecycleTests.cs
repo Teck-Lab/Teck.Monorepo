@@ -2,6 +2,7 @@
 // Copyright (c) TeckLab. All rights reserved.
 // </copyright>
 
+using System.Net.Http.Json;
 using Billings.Application.Billing;
 using Billings.Application.Billing.Payments.Features.CapturePayment.V1;
 using Billings.Application.Billing.Payments.Features.ProcessPaymentOutcome.V1;
@@ -221,17 +222,38 @@ public sealed class PaymentLifecycleTests : BillingIntegrationTestBase
     [InlineData("requires_action")]
     [InlineData("requires_payment_method")]
     [InlineData("failed")]
+    [InlineData("issuer-contact-required")]
     public async Task NonTransientOutcome_DoesNotScheduleAutomaticProviderRetry(string outcome)
     {
         var orderId = Guid.NewGuid();
-        Provider.QueueAttemptResults(RecordingPaymentProvider.Outcome(outcome, "generic_decline"));
+        if (outcome == "issuer-contact-required")
+        {
+            const string providerCode = "issuer_contact_required";
+            SetPaymentProviderSetting($"DeclineMappings:{providerCode}", outcome);
+            var options = Services.GetRequiredService<IOptionsMonitor<PaymentProviderOptions>>();
+            await WaitForAsync(
+                () => Task.FromResult(options.CurrentValue.DeclineMappings.TryGetValue(providerCode, out var value) ? value : null),
+                value => value == outcome);
+            Provider.QueueAttemptResults(RecordingPaymentProvider.Outcome("failed", providerCode));
+        }
+        else
+        {
+            Provider.QueueAttemptResults(RecordingPaymentProvider.Outcome(outcome, "generic_decline"));
+        }
 
         await DeliverOrderAsync(CreateOrder(orderId, NewRequestId()));
         var payment = await WaitForAsync(() => GetPaymentAsync(orderId), candidate => candidate?.Status == "Failed");
+        var persisted = await GetPersistedPaymentAsync(orderId);
 
         Assert.NotNull(payment);
         await Task.Delay(TimeSpan.FromMilliseconds(250));
         Assert.Equal(1, Provider.AttemptCalls);
+        Assert.Single(persisted.Attempts);
+
+        if (outcome == "issuer-contact-required")
+        {
+            Assert.Equal(DeclineCategory.IssuerContactRequired, persisted.DeclineCategory);
+        }
     }
 
     [Theory]
@@ -290,6 +312,24 @@ public sealed class PaymentLifecycleTests : BillingIntegrationTestBase
         Assert.Equal(2, Provider.AttemptCalls);
         Assert.Equal(["tenant-a", "tenant-b"], payments.Select(payment => payment.TenantId).Order());
         Assert.All(payments, payment => Assert.Single(payment.Attempts, attempt => attempt.RequestId == requestId));
+    }
+
+    [Fact]
+    public async Task PaymentCreatedForForeignTenant_IsNotFoundAndExcludedFromList()
+    {
+        var orderId = Guid.NewGuid();
+        Provider.QueueAttemptResults(RecordingPaymentProvider.Outcome("succeeded"));
+
+        await DeliverForTenantAsync("tenant-b", CreateOrder(orderId, NewRequestId()));
+        var foreignPayment = (await GetPersistedPaymentsAsync(orderId, Guid.NewGuid())).Single();
+
+        var getResponse = await Client.GetAsync(new Uri($"/payments/{foreignPayment.Id}", UriKind.Relative));
+        var listResponse = await Client.GetAsync(new Uri("/payments", UriKind.Relative));
+        var payments = await listResponse.Content.ReadFromJsonAsync<IReadOnlyList<PaymentDto>>();
+
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, getResponse.StatusCode);
+        listResponse.EnsureSuccessStatusCode();
+        Assert.DoesNotContain(payments ?? [], payment => payment.Id == foreignPayment.Id);
     }
 
     [Theory]
