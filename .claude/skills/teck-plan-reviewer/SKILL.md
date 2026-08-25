@@ -1,16 +1,17 @@
 ---
 name: teck-plan-reviewer
-description: Independently review a Teck feature plan assigned through Orca before implementation dispatch. Use to challenge scope, dependencies, acceptance criteria, validation, concurrency safety, and repository alignment without implementing or rewriting the plan silently.
+description: Independently review a Teck delivery manifest assigned through Orca before the coordinator materializes executable GitHub sub-issues or implementation Tasks. Use to challenge scope, expected code boundaries, dependencies, acceptance criteria, validation, model routing, concurrency safety, and repository alignment without implementing or rewriting the manifest silently.
 ---
 
 # Plan reviewer
 
 When running in Codex, load the OMX `critic` role. Independently compare the
-planner artifact with the parent issue, existing GitHub graph, repository rules, code boundaries, and
+delivery architect artifact with the parent issue, existing GitHub graph, repository rules, code boundaries, and
 relevant ADRs. Record the exact plan digest/version reviewed. Do not rely on the
 coordinator's opinion or approve a changed/unversioned artifact.
 
 Read and apply the feature-flow delegation and review-convergence contracts.
+Require `delivery-manifest-result-v1` and bind review to its manifest digest.
 The parent defines acceptance; review cannot add criteria.
 
 Report findings using `review-result-v1`: stable key, classification, severity,
@@ -20,7 +21,11 @@ review units, plan budgets, dependency direction, true parallel safety,
 generated outputs, databases, ports, migrations, security boundaries, and the
 completeness of acceptance and validation criteria.
 
-Do not edit code, Git, issues, Tasks, worktrees, or the planner artifact. Return
+Verify that sub-issue drafts are coherent review units, member Tasks are the
+small execution slices, Luna/Terra routes match complexity, expected-file
+boundaries permit only narrow escalation, and durable state is still absent.
+
+Do not edit code, Git, issues, Tasks, worktrees, or the architect artifact. Return
 CLEAN when no blocking defect or bounded omission remains, even when follow-ups
 exist. The coordinator reuses actionable finding state by stable key. Send one
 authoritative `worker_done`.

@@ -45,6 +45,7 @@ if (root === "task-contract") {
     if (!/^(discovery-researcher|discovery-prototyper)$/.test(value("role"))) errors.push("invalid discovery role");
     if (value("result-contract") !== "discovery-result-v1") errors.push("discovery task requires discovery-result-v1");
   } else if (!/<parent-issue\s+href="https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+"\s*\/>/i.test(xml)) errors.push("missing canonical GitHub parent-issue href");
+  if (value("role") === "delivery-architect" && value("result-contract") !== "delivery-manifest-result-v1") errors.push("delivery architect requires delivery-manifest-result-v1");
   if (/<(?:task-id|dispatch-id)>/i.test(xml)) errors.push("task contract duplicates Orca lifecycle identity");
 } else if (root === "discovery-result") {
   validateRouting();
@@ -56,6 +57,11 @@ if (root === "task-contract") {
   requireTags(["validation-profile", "plan-digest", "review-units", "dependency-waves", "validation-strategy", "decisions"]);
   if (!/^(product-code|build-config|agent-workflow|docs-research)$/.test(value("validation-profile"))) errors.push("invalid validation-profile");
   if (value("workflow-stage") !== "planning") errors.push("plan-result workflow-stage must be planning");
+} else if (root === "delivery-manifest-result") {
+  validateRouting();
+  requireTags(["validation-profile", "manifest-digest", "technical-approach", "sub-issue-drafts", "member-tasks", "expected-change-boundaries", "dependency-waves", "review-units", "model-routes", "validation-strategy", "materialization-order", "decisions"]);
+  if (!/^(product-code|build-config|agent-workflow|docs-research)$/.test(value("validation-profile"))) errors.push("invalid validation-profile");
+  if (value("workflow-stage") !== "planning") errors.push("delivery-manifest-result workflow-stage must be planning");
 } else if (root === "implementation-result") {
   validateRouting();
   requireTags(["outcome", "base-sha", "tip-sha", "files-modified", "validation-evidence", "remaining-risks"]);

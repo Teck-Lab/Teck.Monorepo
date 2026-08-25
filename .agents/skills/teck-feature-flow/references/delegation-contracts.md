@@ -13,7 +13,7 @@ Orca's injected preamble exclusively owns Task/Dispatch identity, heartbeat,
     <workflow-stage>intake|discovery|planning|plan-review|execution|code-review|integration|qa|coordination</workflow-stage>
     <route>WORK_KIND:WORKFLOW_STAGE</route>
   </routing>
-  <role>discovery-researcher|discovery-prototyper|planner|plan-reviewer|executor|code-reviewer|qa</role>
+  <role>discovery-researcher|discovery-prototyper|delivery-architect|plan-reviewer|executor|code-reviewer|qa</role>
   <objective>One bounded outcome.</objective>
   <sources>
     <parent-issue href="https://github.com/OWNER/REPO/issues/NUMBER" />
@@ -27,7 +27,7 @@ Orca's injected preamble exclusively owns Task/Dispatch identity, heartbeat,
   <execution-mode>ephemeral-helper|shared-durable|parallel-child|consolidation</execution-mode>
   <model-route>Requested agent/model/effort and permitted fallback.</model-route>
   <permissions>Explicit allowed mutations; everything else remains prohibited.</permissions>
-  <result-contract>discovery-result-v1|plan-result-v1|implementation-result-v1|review-result-v1|qa-result-v1</result-contract>
+  <result-contract>discovery-result-v1|delivery-manifest-result-v1|plan-result-v1|implementation-result-v1|review-result-v1|qa-result-v1</result-contract>
 </task-contract>
 ```
 
@@ -36,8 +36,8 @@ their derived lowercase value and must match exactly, for example
 `bug-fix:code-review`. Use Task class (`implementation`, `supporting`, `repair`,
 or `integration`) in the referenced plan; it describes scheduling, not routing.
 
-Omit `task-issue` only for parent-level planning or QA. Omit `approved-plan`
-only when the planner is creating the first version. Long criteria stay on the
+Omit `task-issue` only for parent-level architecture, planning, or QA. Omit
+`approved-plan` only when the delivery architect is creating the first version. Long criteria stay on the
 canonical GitHub issue or plan; the contract points to them and states only the
 worker-specific boundary.
 
@@ -65,6 +65,9 @@ For pre-issue product discovery, workflow-stage is `discovery`, sources contain
 
 ## Plan result
 
+`plan-result-v1` remains accepted only for legacy Dispatch recovery. New
+architecture Tasks emit `delivery-manifest-result-v1`.
+
 ```xml
 <plan-result version="1">
   <routing>Same routing block; workflow-stage is planning.</routing>
@@ -75,6 +78,26 @@ For pre-issue product discovery, workflow-stage is `discovery`, sources contain
   <validation-strategy>Evidence proportional to the validation profile.</validation-strategy>
   <decisions>Unresolved owner decisions, or none.</decisions>
 </plan-result>
+```
+
+## Delivery manifest result
+
+```xml
+<delivery-manifest-result version="1">
+  <routing>Same routing block; workflow-stage is planning.</routing>
+  <validation-profile>product-code|build-config|agent-workflow|docs-research</validation-profile>
+  <manifest-digest>sha256:HEX</manifest-digest>
+  <technical-approach>Architecture and repository constraints.</technical-approach>
+  <sub-issue-drafts>Readable coherent review-unit issue bodies.</sub-issue-drafts>
+  <member-tasks>Fine-grained Orca Task contracts.</member-tasks>
+  <expected-change-boundaries>Expected files and narrow expansion rules.</expected-change-boundaries>
+  <dependency-waves>Shallow executable waves.</dependency-waves>
+  <review-units>Named units and member Tasks.</review-units>
+  <model-routes>Luna/Terra route and escalation per member.</model-routes>
+  <validation-strategy>Proportional evidence.</validation-strategy>
+  <materialization-order>Deterministic coordinator mutation order.</materialization-order>
+  <decisions>Unresolved owner decisions, or none.</decisions>
+</delivery-manifest-result>
 ```
 
 ## Implementation result

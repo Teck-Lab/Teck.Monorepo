@@ -40,13 +40,15 @@ commands remain native and are not reproduced in templates.
 
 ### 2. Planning and review units
 
-The planner classifies work as product code, build/config, agent workflow, or
+The delivery architect (Claude Opus 5/high or Codex Sol/high) classifies work as product code, build/config, agent workflow, or
 docs/research. It distinguishes implementation, supporting, repair, and
 integration Tasks and groups implementation into coherent review units.
 
 Default plan budgets are seven executable leaves and dependency depth four.
 Exceeding either requires explicit justification and coordinator approval.
 
+- The reviewed manifest contains coherent GitHub sub-issue drafts and smaller
+  Orca member Tasks; only the coordinator materializes them after CLEAN review.
 - Small features normally have one combined code review.
 - Medium features have one review per coherent bundle.
 - Large or high-risk features independently review security-sensitive or

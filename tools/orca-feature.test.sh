@@ -87,7 +87,7 @@ tool="$(cd "$(dirname "$0")" && pwd)/orca-feature"
 workflow="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/workflow.md"
 state_machine="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/state-machine.md"
 agent_instructions="$(cd "$(dirname "$0")/.." && pwd)/AGENTS.md"
-planner_instructions="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-planner/SKILL.md"
+architect_instructions="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-delivery-architect/SKILL.md"
 executor_instructions="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-executor/SKILL.md"
 convergence="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/review-convergence.md"
 fixture="$(mktemp -d)"
@@ -135,10 +135,20 @@ done
 for contract in \
   'Luna/xhigh' \
   'Terra/high' \
-  'Sol/high' \
-  'parallel child-worktree Task'; do
-  grep -Fq "$contract" "$planner_instructions" || {
-    echo "Missing planner execution hierarchy contract: $contract" >&2
+  'GitHub sub-issue is a human-readable coherent subfeature/review unit' \
+  'fresh Terra/high Dispatch'; do
+  grep -Fq "$contract" "$architect_instructions" || {
+    echo "Missing delivery architect hierarchy contract: $contract" >&2
+    exit 1
+  }
+done
+for contract in \
+  'Claude Opus 5/high and Codex' \
+  'gpt-5.6-luna --effort xhigh' \
+  'same Task and issue' \
+  'Only after CLEAN review of the exact manifest digest'; do
+  grep -Fq "$contract" "$workflow" || {
+    echo "Missing delivery architecture routing contract: $contract" >&2
     exit 1
   }
 done
