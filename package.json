@@ -60,7 +60,7 @@
     "@rn-primitives/slot": "^1.5.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "expo": "~55.0.26",
+    "expo": "~57.0.15",
     "expo-splash-screen": "~57.0.6",
     "expo-status-bar": "~55.0.6",
     "expo-system-ui": "~57.0.2",
