@@ -7,6 +7,7 @@ using SharedKernel.Infrastructure.Database;
 using SharedKernel.Infrastructure.Messaging;
 using SharedKernel.Infrastructure.Messaging.DeadLetter;
 using Wolverine;
+using Wolverine.Transports;
 
 namespace SharedKernel.Infrastructure.Hosting;
 
@@ -30,11 +31,17 @@ public static class TeckMessagingExtensions
     /// The connection-string name used to resolve the write database connection via
     /// <see cref="CodegenConnectionString.ResolveRequired"/>.
     /// </param>
+    /// <param name="listenerNamingSource">
+    /// The naming convention for RabbitMQ listener queues. The default message-type naming keeps
+    /// existing service behavior; handler-type naming gives a service its own subscription when
+    /// several services consume the same integration event.
+    /// </param>
     /// <returns>The same builder so calls can be chained.</returns>
     public static WebApplicationBuilder AddTeckMessaging(
         this WebApplicationBuilder builder,
         Assembly handlerAssembly,
-        string writeConnectionName)
+        string writeConnectionName,
+        NamingSource listenerNamingSource = NamingSource.FromMessageType)
     {
         var write = CodegenConnectionString.ResolveRequired(builder.Configuration, writeConnectionName, "Default");
         var rabbit = builder.Configuration.GetConnectionString("rabbitmq");
@@ -50,7 +57,8 @@ public static class TeckMessagingExtensions
                     opts,
                     isDev,
                     write,
-                    WolverinePersistenceConfigurator.NormalizeRabbitConnectionString(rabbit!));
+                    WolverinePersistenceConfigurator.NormalizeRabbitConnectionString(rabbit!),
+                    listenerNamingSource: listenerNamingSource);
             }
             else
             {

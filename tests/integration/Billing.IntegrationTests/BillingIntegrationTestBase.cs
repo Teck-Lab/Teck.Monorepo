@@ -38,7 +38,8 @@ public abstract class BillingIntegrationTestBase : IDisposable
     /// Initializes a new instance of the <see cref="BillingIntegrationTestBase"/> class.
     /// </summary>
     /// <param name="fixture">The shared testcontainers fixture providing Postgres.</param>
-    protected BillingIntegrationTestBase(SharedTestcontainersFixture fixture)
+    /// <param name="useRabbitMq">Whether this test requires the production RabbitMQ transport.</param>
+    protected BillingIntegrationTestBase(SharedTestcontainersFixture fixture, bool useRabbitMq = false)
     {
         ArgumentNullException.ThrowIfNull(fixture);
         this.fixture = fixture;
@@ -51,7 +52,7 @@ public abstract class BillingIntegrationTestBase : IDisposable
             .GetAwaiter()
             .GetResult();
 
-        factory = new BillingWebApplicationFactory(fixture, databaseConnectionString);
+        factory = new BillingWebApplicationFactory(fixture, databaseConnectionString, useRabbitMq);
         Client = factory.CreateClient();
     }
 
@@ -69,6 +70,9 @@ public abstract class BillingIntegrationTestBase : IDisposable
 
     /// <summary>Gets the real Billing host for Wolverine's built-in tracked-session assertions.</summary>
     protected IHost WolverineHost => factory.WolverineHost;
+
+    /// <summary>Gets the shared RabbitMQ connection string for broker-backed regression tests.</summary>
+    protected string RabbitMqConnectionString => fixture.RabbitMqConnectionString;
 
     /// <summary>Updates a reloadable payment-provider setting in the running real host.</summary>
     /// <param name="key">The setting name relative to <c>PaymentProvider</c>.</param>
@@ -93,7 +97,8 @@ public abstract class BillingIntegrationTestBase : IDisposable
 
     private sealed class BillingWebApplicationFactory(
         SharedTestcontainersFixture fixture,
-        string databaseConnectionString) : WebApplicationFactory<Program>
+        string databaseConnectionString,
+        bool useRabbitMq) : WebApplicationFactory<Program>
     {
         private IHost? wolverineHost;
 
@@ -121,6 +126,10 @@ public abstract class BillingIntegrationTestBase : IDisposable
             builder.UseSetting("ConnectionStrings:BillingWrite", databaseConnectionString);
             builder.UseSetting("ConnectionStrings:BillingRead", databaseConnectionString);
             builder.UseSetting("ConnectionStrings:Default", databaseConnectionString);
+            if (useRabbitMq)
+            {
+                builder.UseSetting("ConnectionStrings:rabbitmq", fixture.RabbitMqConnectionString);
+            }
             // Minimal Keycloak stubs so the production binding of KeycloakAuthenticationOptions
             // does not throw at startup. Actual JWT validation is replaced by MockBearerAuthenticationHandler.
             builder.UseSetting("Keycloak:realm", "test");

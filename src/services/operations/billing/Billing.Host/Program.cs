@@ -7,6 +7,7 @@ using Keycloak.AuthServices.Authentication;
 using SharedKernel.Infrastructure.Auth;
 using SharedKernel.Infrastructure.Hosting;
 using Teck.ServiceDefaults;
+using Wolverine.Transports;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
@@ -17,7 +18,7 @@ builder.Services.AddScoped<DeclineCategoryResolver>();
 builder.Services.AddScoped<IPaymentProvider, StubPaymentProvider>();
 builder.Services.AddKeycloak(builder.Configuration, builder.Environment,
     builder.Configuration.GetSection("Keycloak").Get<KeycloakAuthenticationOptions>()!);
-builder.AddTeckMessaging(typeof(BillingDbContext).Assembly, "BillingWrite");
+builder.AddTeckMessaging(typeof(BillingDbContext).Assembly, "BillingWrite", NamingSource.FromHandlerType);
 var app = builder.Build();
 app.UseTeckService();
 app.MapDefaultEndpoints();
