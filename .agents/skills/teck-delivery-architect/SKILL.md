@@ -29,11 +29,48 @@ Produce one immutable `delivery-manifest-result-v1` containing:
   docs-research work; and
 - unresolved owner decisions, or none.
 
+Use only `shared-durable`, `parallel-child`, or `consolidation` execution modes.
+Never plan provider-native ephemeral helpers. Define the logical parent Task,
+readable Task/worker display name, and main-feature/review-unit worktree lineage
+for every planned Task so the coordinator can apply the agent-visibility gate.
+
+Read and apply the feature-flow test-driven-development contract. Assign every
+executor member `tdd` or `required-validation-only` and name its behavioral or
+validation boundary. Require TDD for behavior, defects, domain logic, APIs, and
+security contracts. Permit validation-only only when a meaningful red test
+cannot exist, with a concrete reason; convenience and time are invalid reasons.
+
 Route explicit, pattern-following, mechanically bounded members to Luna/xhigh.
 Route semantic, coupled, uncertain, debugging, security, tenancy, persistence,
 concurrency, or consolidation work to Terra/high. A Luna ambiguity or failed
 attempt escalates the same Orca Task through a fresh Terra/high Dispatch; it
 never creates a duplicate Task or GitHub issue.
+
+Size members by cognitive and semantic scope, never an arbitrary file-count
+cap. Every member owns one independently understandable, implementable, and
+verifiable outcome with one coherent reasoning context and focused validation.
+Repetitive edits across many files may remain Luna work when the pattern and
+result are explicit; a two-file change belongs on Terra when it changes
+architecture, security, tenancy, persistence, concurrency, or a public
+contract. Split a member when it contains unrelated acceptance criteria,
+independently failing behaviors, multiple separable boundaries, or validation
+that depends on most of the feature being complete.
+
+Expected files are planning evidence and overlap guards, not quotas. If
+execution discovers a new semantic boundary or a second separable outcome, the
+worker stops for coordinator rerouting: split the remaining outcome into a new
+approved member or retry the same inherently coupled Task on Terra/high. Never
+split mechanically repetitive work merely to satisfy a file number.
+
+Preserve real prerequisite order whenever scope is split. Within one GitHub
+sub-issue/review unit, express prerequisites as Orca member-Task dependencies.
+When the split produces separate coherent GitHub sub-issues, draft native
+GitHub blocker edges and the identical Orca Task dependencies. State direction
+semantically (`A waits for B` means A is blocked by B), reject cycles, and do
+not serialize independent work merely because it was discovered in sequence.
+Identify the initial executable frontier and every frontier transition so the
+coordinator can dispatch newly unblocked work immediately after accepting its
+blocker.
 
 Default to seven or fewer executable members and dependency depth four. A
 GitHub sub-issue is a human-readable coherent subfeature/review unit; an Orca

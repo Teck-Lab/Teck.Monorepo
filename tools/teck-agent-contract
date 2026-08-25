@@ -39,13 +39,17 @@ if (!root) errors.push("missing supported version=\"1\" root envelope");
 if (root === "task-contract") {
   validateRouting();
   requireTags(["role", "objective", "sources", "scope", "acceptance", "validation", "constraints", "execution-mode", "model-route", "permissions", "result-contract"]);
-  if (!/^(ephemeral-helper|shared-durable|parallel-child|consolidation)$/.test(value("execution-mode"))) errors.push("invalid execution-mode");
+  if (!/^(shared-durable|parallel-child|consolidation)$/.test(value("execution-mode"))) errors.push("invalid execution-mode");
   if (value("workflow-stage") === "discovery") {
     if (!hasTag("discovery-anchor")) errors.push("discovery task lacks discovery-anchor");
     if (!/^(discovery-researcher|discovery-prototyper)$/.test(value("role"))) errors.push("invalid discovery role");
     if (value("result-contract") !== "discovery-result-v1") errors.push("discovery task requires discovery-result-v1");
   } else if (!/<parent-issue\s+href="https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+"\s*\/>/i.test(xml)) errors.push("missing canonical GitHub parent-issue href");
   if (value("role") === "delivery-architect" && value("result-contract") !== "delivery-manifest-result-v1") errors.push("delivery architect requires delivery-manifest-result-v1");
+  if (value("role") === "executor") {
+    requireTags(["development-mode", "tdd-boundary"]);
+    if (!/^(tdd|required-validation-only)$/.test(value("development-mode"))) errors.push("invalid executor development-mode");
+  }
   if (/<(?:task-id|dispatch-id)>/i.test(xml)) errors.push("task contract duplicates Orca lifecycle identity");
 } else if (root === "discovery-result") {
   validateRouting();
@@ -64,9 +68,17 @@ if (root === "task-contract") {
   if (value("workflow-stage") !== "planning") errors.push("delivery-manifest-result workflow-stage must be planning");
 } else if (root === "implementation-result") {
   validateRouting();
-  requireTags(["outcome", "base-sha", "tip-sha", "files-modified", "validation-evidence", "remaining-risks"]);
+  requireTags(["outcome", "base-sha", "tip-sha", "files-modified", "development-mode", "tdd-boundary", "validation-evidence", "remaining-risks"]);
   if (!/^(succeeded|failed)$/.test(value("outcome"))) errors.push("invalid implementation outcome");
   if (value("workflow-stage") !== "execution") errors.push("implementation-result workflow-stage must be execution");
+  const developmentMode = value("development-mode");
+  if (developmentMode === "tdd") {
+    requireTags(["tdd-evidence", "red", "green", "refactor"]);
+    if (hasTag("validation-only-evidence")) errors.push("tdd result cannot contain validation-only-evidence");
+  } else if (developmentMode === "required-validation-only") {
+    requireTags(["validation-only-evidence", "exception-reason", "before", "after"]);
+    if (hasTag("tdd-evidence")) errors.push("validation-only result cannot contain tdd-evidence");
+  } else errors.push("invalid implementation development-mode");
 } else if (root === "review-result" || root === "qa-result") {
   validateRouting();
   requireTags(root === "review-result"

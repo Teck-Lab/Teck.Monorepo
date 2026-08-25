@@ -90,6 +90,9 @@ agent_instructions="$(cd "$(dirname "$0")/.." && pwd)/AGENTS.md"
 architect_instructions="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-delivery-architect/SKILL.md"
 executor_instructions="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-executor/SKILL.md"
 convergence="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/review-convergence.md"
+execution_discoveries="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/execution-discoveries.md"
+tdd_contract="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/test-driven-development.md"
+visibility_contract="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/agent-visibility.md"
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
 
@@ -136,7 +139,13 @@ for contract in \
   'Luna/xhigh' \
   'Terra/high' \
   'GitHub sub-issue is a human-readable coherent subfeature/review unit' \
-  'fresh Terra/high Dispatch'; do
+  'fresh Terra/high Dispatch' \
+  'cognitive and semantic scope, never an arbitrary file-count' \
+  'one independently understandable, implementable, and' \
+  'split mechanically repetitive work merely to satisfy a file number' \
+  'Within one GitHub' \
+  'identical Orca Task dependencies' \
+  'serialize independent work'; do
   grep -Fq "$contract" "$architect_instructions" || {
     echo "Missing delivery architect hierarchy contract: $contract" >&2
     exit 1
@@ -146,6 +155,8 @@ for contract in \
   'Claude Opus 5/high and Codex' \
   'gpt-5.6-luna --effort xhigh' \
   'same Task and issue' \
+  'For splits inside one sub-issue' \
+  'newly eligible Task after an accepted blocker' \
   'Only after CLEAN review of the exact manifest digest'; do
   grep -Fq "$contract" "$workflow" || {
     echo "Missing delivery architecture routing contract: $contract" >&2
@@ -153,6 +164,52 @@ for contract in \
   }
 done
 grep -Fq 'A Terra consolidator inspects every member commit' "$executor_instructions"
+for contract in \
+  'Executors report facts' \
+  'retry the same Task and' \
+  'Missing required outcome or changed dependency graph' \
+  'fresh independent reviewer' \
+  'Required blocker' \
+  'Product-scope expansion or unrelated improvement' \
+  'native Orca decision gate' \
+  'coordinator does not substitute its own'; do
+  grep -Fq "$contract" "$execution_discoveries"
+done
+grep -Fq 'Never create or revise a manifest, split your Task' "$executor_instructions"
+for contract in \
+  'Every later Task must have one' \
+  '`--task-title` and `--display-name`' \
+  'null parent on a later Task blocks dispatch'; do
+  grep -Fq "$contract" "$workflow"
+done
+for contract in \
+  'terminal list --include-visual-layouts' \
+  'parentWorktreeId' \
+  'Provider-native' \
+  'Agent Dashboard' \
+  'Show idle agents'; do
+  grep -Fq "$contract" "$visibility_contract"
+done
+grep -Fq 'Do not spawn provider-native subagents' "$executor_instructions"
+for contract in \
+  'Assign every' \
+  '`tdd` or `required-validation-only`' \
+  'convenience and time are invalid reasons'; do
+  grep -Fq "$contract" "$architect_instructions"
+done
+for contract in \
+  'observe and record' \
+  'unexpected pass must' \
+  'Never invent TDD history'; do
+  grep -Fq "$contract" "$executor_instructions"
+done
+for contract in \
+  'observable product behavior' \
+  'Never manufacture a red phase' \
+  'Missing, contradictory, fabricated, or unjustified evidence'; do
+  grep -Fq "$contract" "$tdd_contract"
+done
+grep -Fq 'Any missing required' "$workflow"
 grep -Fq 'Never create a separate code-review or QA gate per child' "$convergence"
 
 for contract in \

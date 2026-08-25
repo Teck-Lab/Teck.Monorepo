@@ -23,10 +23,14 @@ The workflow requires the coordinator to read and apply
 [references/state-machine.md](references/state-machine.md) completely. Treat
 its convergence and exit audits as gates, not suggestions.
 
-Read [references/delegation-contracts.md](references/delegation-contracts.md)
+Read [references/delegation-contracts.md](references/delegation-contracts.md),
+[references/test-driven-development.md](references/test-driven-development.md),
+and [references/agent-visibility.md](references/agent-visibility.md)
 when creating or accepting a Task, and
 [references/review-convergence.md](references/review-convergence.md) before
 planning, review, QA, or repair. Read
+[references/execution-discoveries.md](references/execution-discoveries.md)
+before classifying work discovered during implementation. Read
 [references/handoff-contract.md](references/handoff-contract.md) only when
 transferring unfinished ownership to a fresh session.
 
@@ -68,8 +72,10 @@ transferring unfinished ownership to a fresh session.
   unit owns one native Orca child worktree/branch; its member Tasks run there
   sequentially. Independent resource-safe review units may run concurrently.
   Read-only supporting Tasks may use an explicitly selected existing worktree.
-- Ephemeral native Codex subagents may exist only inside an executor Dispatch.
-  They inherit that leaf's scope and never own GitHub, Git, Orca, or lifecycle.
+- Every delegated agent, including research, testing, debugging, or independent
+  checking helpers, must be a visible Orca Task/Dispatch with its own verified
+  terminal and correct Task/worktree lineage. Provider-native Claude/Codex
+  subagents are prohibited.
 - The parent coordinator dispatches durable review-unit members. Member Tasks
   normally run sequentially in the unit worktree; optional child worktrees are
   limited to one extra level and require proven file/resource independence.

@@ -12,23 +12,31 @@ acceptance criteria, dependencies, scope, worktree ID, branch, and base SHA
 before editing. Read the feature-flow delegation contract and emit
 `implementation-result-v1` in the report artifact.
 
+Read and apply the feature-flow test-driven-development contract. Follow the
+architect-assigned development mode and boundary. For `tdd`, observe and record
+red before production edits, then green and refactor; an unexpected pass must
+be investigated, never relabeled as red. For `required-validation-only`, record
+the approved exception and exact before/after validation.
+Never invent TDD history when recovering partial implementation.
+
+Read `teck-feature-flow/references/execution-discoveries.md` before acting on
+unplanned work. Continue only for an approved narrow expansion of the same
+outcome. Otherwise stop editing, gather evidence, and ask or report to the
+parent coordinator. Never create or revise a manifest, split your Task, create
+issues or dependencies, or dispatch a durable worker.
+
 Implement the smallest complete change, run targeted validation and required Nx
 affected gates, inspect the final diff, and create one or more meaningful
 unsigned conventional local commits. Never push, merge, create or remove
 worktrees, mutate GitHub, change Orca Tasks, bypass hooks, or create tags.
 
-You may spawn bounded provider-native subagents for independent exploration,
-testing, or implementation. Give each a disjoint scope. They may edit only this
-worktree and may not commit, mutate GitHub or Orca, or send lifecycle messages.
-Do not parallelize overlapping files, generated artifacts, databases, ports,
-indexes, or mutable services. You own their review, final validation, commits,
-and exactly one `worker_done`.
-
-Ephemeral subagents are not durable issue owners and cannot cross providers.
-When work needs a GitHub sub-issue, independent lifecycle, provider selection,
-or a child worktree, ask the parent coordinator to create and dispatch the Orca
-Task. A Terra consolidator inspects every member commit, repairs integration
-gaps, runs full unit validation, and prepares the single combined review tip.
+Do not spawn provider-native subagents. When research, exploration, testing,
+debugging, implementation, or independent checking needs another agent, ask
+the parent coordinator to create and launch a bounded supporting Orca Task under
+the agent-visibility contract. Continue locally only with ordinary tools and
+non-agent subprocesses. A Terra consolidator inspects every member commit,
+repairs integration gaps, runs full unit validation, and prepares the single
+combined review tip.
 
 Report the exact Task/Dispatch IDs, base and tip SHAs, commits, files, validation
 evidence, and remaining risks. A failed or incomplete attempt must report a

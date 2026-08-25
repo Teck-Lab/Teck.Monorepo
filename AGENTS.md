@@ -57,6 +57,12 @@ do not receive standalone review. Oh My Codex may supply role and skill
 guidance inside a Codex worker, but must not create a second worktree, tmux,
 team, or lifecycle system.
 
+Every delegated agent must be launched through Orca orchestration with its own
+verified terminal/tab and correct Task/worktree lineage beneath the main
+feature. This includes research, testing, debugging, and independent checking
+helpers. Never use provider-native Claude/Codex subagents for engineering
+delivery; apply the feature-flow agent-visibility receipt and layout gate.
+
 After dispatching any supervised worker, the parent coordinator must keep its
 current turn alive in Orca's foreground rolling `check --wait` loop until every
 expected Dispatch settles. A timeout, empty Delivery, progress checkpoint, or

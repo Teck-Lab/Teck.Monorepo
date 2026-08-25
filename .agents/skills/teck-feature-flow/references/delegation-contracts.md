@@ -23,8 +23,10 @@ Orca's injected preamble exclusively owns Task/Dispatch identity, heartbeat,
   <scope>What this worker owns.</scope>
   <acceptance>Observable completion criteria.</acceptance>
   <validation>Required commands or evidence.</validation>
+  <development-mode>tdd|required-validation-only</development-mode>
+  <tdd-boundary>Behavioral test boundary, or validation boundary plus exception reason.</tdd-boundary>
   <constraints>Boundaries, dependencies, and resource ownership.</constraints>
-  <execution-mode>ephemeral-helper|shared-durable|parallel-child|consolidation</execution-mode>
+  <execution-mode>shared-durable|parallel-child|consolidation</execution-mode>
   <model-route>Requested agent/model/effort and permitted fallback.</model-route>
   <permissions>Explicit allowed mutations; everything else remains prohibited.</permissions>
   <result-contract>discovery-result-v1|delivery-manifest-result-v1|plan-result-v1|implementation-result-v1|review-result-v1|qa-result-v1</result-contract>
@@ -40,6 +42,11 @@ Omit `task-issue` only for parent-level architecture, planning, or QA. Omit
 `approved-plan` only when the delivery architect is creating the first version. Long criteria stay on the
 canonical GitHub issue or plan; the contract points to them and states only the
 worker-specific boundary.
+
+`development-mode` and `tdd-boundary` are required for executor Tasks and are
+omitted for non-execution roles. Apply `test-driven-development.md`; only the
+delivery architect may select `required-validation-only`, with a concrete
+reason why a meaningful red behavioral test cannot exist.
 
 For pre-issue product discovery, workflow-stage is `discovery`, sources contain
 `<discovery-anchor>` instead of `parent-issue`, roles are
@@ -109,10 +116,21 @@ architecture Tasks emit `delivery-manifest-result-v1`.
   <base-sha>HEX</base-sha>
   <tip-sha>HEX</tip-sha>
   <files-modified>Paths, or none.</files-modified>
+  <development-mode>tdd|required-validation-only</development-mode>
+  <tdd-boundary>The approved behavioral or validation boundary.</tdd-boundary>
+  <tdd-evidence>
+    <red>Failing command and expected failure.</red>
+    <green>Passing focused command after the minimal implementation.</green>
+    <refactor>Refactor performed, or none; passing rerun evidence.</refactor>
+  </tdd-evidence>
   <validation-evidence>Commands and outcomes.</validation-evidence>
   <remaining-risks>Risks, or none.</remaining-risks>
 </implementation-result>
 ```
+
+For `required-validation-only`, replace `tdd-evidence` with
+`<validation-only-evidence><exception-reason>...</exception-reason><before>...</before><after>...</after></validation-only-evidence>`.
+Never fabricate a red phase for recovered or pre-existing implementation.
 
 ## Review result
 

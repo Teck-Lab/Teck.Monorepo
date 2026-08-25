@@ -24,6 +24,10 @@ Nx gates. Report `qa-result-v1` findings with stable keys, classification,
 severity, violated contract, evidence, minimal repair, and scope effect. Keep
 scope expansions and observations non-blocking.
 
+Confirm reviewed units carry accepted development-mode evidence, but do not
+repeat their TDD loops. QA independently validates integrated acceptance and is
+never a substitute for member-level TDD or required validation.
+
 Do not edit, commit, fix findings, mutate GitHub or Orca, approve missing
 required evidence, or infer a PR. Return CLEAN when no blocking defect or
 bounded omission remains. The coordinator reuses finding state and applies the

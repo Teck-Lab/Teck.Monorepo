@@ -35,7 +35,9 @@ Starting a worker begins supervision; it is never feature completion. Current
 Orca's coordinator contract is an explicit foreground rolling wait. Use it for
 this parent coordinator:
 
-1. after `worker-start`, record the Run, Task, Dispatch, and terminal identities;
+1. after `worker-start`, pass the complete `agent-visibility.md` gate and record
+   the Run, Task parent, Dispatch, worktree lineage, terminal layout, readable
+   display name, and requested/effective model identities;
 2. run `orca orchestration check --wait --types
    worker_done,escalation,question --timeout-ms 900000 --json` in the foreground;
 3. treat a timeout or `{count:0}` as a checkpoint and immediately continue a
@@ -144,11 +146,13 @@ both architect Dispatches live for the same manifest version:
 
 ```bash
 orca orchestration worker-start --task <architecture-task-id> \
-  --worktree active --agent claude --model claude-opus-5 --effort high --json
+  --worktree active --agent claude --model claude-opus-5 --effort high \
+  --display-name "Architect: <parent issue title>" --json
 
 # Equally supported alternative
 orca orchestration worker-start --task <architecture-task-id> \
-  --worktree active --agent codex --model gpt-5.6-sol --effort high --json
+  --worktree active --agent codex --model gpt-5.6-sol --effort high \
+  --display-name "Architect: <parent issue title>" --json
 ```
 
 Wait for authoritative `worker_done`. Then create a separate plan-review Task
@@ -158,7 +162,17 @@ artifact. The coordinator does not review the manifest itself.
 Only after CLEAN review of the exact manifest digest may the coordinator
 materialize its GitHub sub-issues, blocker edges, Orca member Tasks, review
 units, and model routes. Read every mutation back and reject any drift from the
-approved manifest. The architect and reviewer never materialize durable state.
+approved manifest. For splits inside one sub-issue, materialize Orca Task
+dependencies; for splits across coherent sub-issues, create native GitHub
+blocker edges and mirror them exactly in Orca. Dispatch the initial frontier,
+then immediately dispatch every newly eligible Task after an accepted blocker
+releases its edges. The architect and reviewer never materialize durable state.
+
+Materialize every Task with explicit same-Run hierarchy and readable labels.
+Pass `--run`, the logical `--parent`, and human-readable `--task-title` and
+`--display-name` values to `task-create`, then verify all returned fields. The
+initial architecture Task has no parent. Every later Task must have one as
+defined in `agent-visibility.md`; a null parent on a later Task blocks dispatch.
 
 Architect files under ignored runtime directories such as `.omx/` are scratch
 artifacts, not durable handoff state. Before settling architecture, persist the
@@ -298,7 +312,8 @@ In narration and durable summaries, use `[Issue title](URL)` so humans can scan
 the workflow. Bare numbers remain machine identity fields, never the primary
 human-readable description.
 
-Start only Tasks reported ready by Orca and unblocked in GitHub. Create one
+Start only Tasks reported ready by Orca and unblocked in GitHub. Apply
+`agent-visibility.md` when creating every Task, worktree, and Dispatch. Create one
 native Orca child worktree from the current verified parent feature head for
 each review unit, then register that existing checkout with
 `tools/orca-feature register`. Run member Tasks sequentially in that worktree;
@@ -307,7 +322,6 @@ units may use separate child worktrees concurrently.
 
 The delivery architect selects one execution mode for each member:
 
-- ephemeral helper: an executor-owned Codex subagent with no durable lifecycle;
 - shared durable Task: a coordinator-dispatched Orca Task in the review-unit
   worktree, executed sequentially; or
 - parallel child Task: a substantial, independently integratable Orca Task in
@@ -337,9 +351,17 @@ Each Task spec uses `<task-contract version="1">` and contains:
 - `REQUIRED TECK SKILL: teck-feature-executor`
 - `REQUIRED OMX ROLE: executor`
 - exact GitHub sub-issue, worktree, scope, acceptance criteria, and validation
+- architect-selected `development-mode` and `tdd-boundary` per the
+  test-driven-development contract
 - conventional local checkpoint commit and exactly-one `worker_done` contract
 - prohibitions on push, merge, GitHub mutation, worktree creation, and Orca
   lifecycle mutation beyond injected completion and question commands
+
+Create it with `--run <run-id>`, the logical `--parent <task-id>`, and readable
+`--task-title` and `--display-name` values. Verify all four returned fields.
+Task parentage is UI/provenance hierarchy; continue using `--deps` for actual
+scheduling. Start the worker with the same readable `--display-name`, then pass
+the complete receipt/lineage/layout gate before waiting.
 
 Start each member with the exact approved model route. Luna/xhigh is the default
 for explicit, mechanically bounded members; Terra/high is required for semantic,
@@ -350,12 +372,14 @@ consolidation work:
 # Mechanical member
 orca orchestration worker-start --task <leaf-task-id> \
   --worktree id:<full-worktree-id> --agent codex \
-  --model gpt-5.6-luna --effort xhigh --json
+  --model gpt-5.6-luna --effort xhigh \
+  --display-name "Execute: <member title> (#<issue>)" --json
 
 # Coherent/semantic member
 orca orchestration worker-start --task <leaf-task-id> \
   --worktree id:<full-worktree-id> --agent codex \
-  --model gpt-5.6-terra --effort high --json
+  --model gpt-5.6-terra --effort high \
+  --display-name "Execute: <member title> (#<issue>)" --json
 ```
 
 If Luna reports ambiguity or failure, keep the same Task and issue, settle that
@@ -363,17 +387,26 @@ attempt, and launch a fresh Terra/high Dispatch. Never create a duplicate leaf
 merely to change model route. Use Terra consolidation only for multiple member
 commits or a manifest-declared semantic integration need.
 
-An executor may spawn bounded native Codex subagents for ephemeral independent
-work. Mechanical or exploration helpers default to Luna/xhigh; implementation
-or debugging helpers use Terra/high. They edit only the leaf worktree and cannot
-commit or send lifecycle messages. Never parallelize overlapping files,
-generated outputs, databases, ports, indexes, or mutable services.
+An executor never spawns a provider-native subagent. When another agent is
+needed, the coordinator creates a visible supporting Orca Task as a child of
+the requesting member Task, applies the approved Luna/Terra route, and verifies
+its independent terminal and feature lineage. Never parallelize overlapping
+files, generated outputs, databases, ports, indexes, or mutable services.
+
+Apply `execution-discoveries.md` whenever implementation reveals unplanned
+work. The executor reports evidence and never plans. The coordinator may retry
+the same Task on Terra or create a bounded repair without architecture only
+when the frozen manifest already covers the outcome. Any missing required
+outcome, changed dependency, acceptance change, new review unit, or graph/route
+change requires an Opus/high or Sol/high delivery architect, revised manifest
+digest, and fresh independent CLEAN review before materialization.
 
 ## 4. Review and finding repair
 
 After executor `worker_done`, validate `implementation-result-v1`, require a
 clean worktree, local commit, and validation evidence, and update the worktree
-checkpoint. Supporting Tasks are accepted by their consuming review unit and
+checkpoint. Require red/green/refactor evidence for TDD members or a justified
+validation-only exception with before/after evidence. Supporting Tasks are accepted by their consuming review unit and
 do not receive standalone code review.
 
 When every member of a coherent review unit is complete, create one separate

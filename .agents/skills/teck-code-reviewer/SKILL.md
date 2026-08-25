@@ -21,6 +21,12 @@ using `review-result-v1` with stable keys and contract evidence. Keep scope
 expansions and observations non-blocking. Confirm the worktree is clean,
 commits are scoped, tests cover behavior, and claimed validation is reproducible.
 
+Verify the approved development mode against the feature-flow
+test-driven-development contract. Reproduce red/green/refactor evidence when
+proportionate, or verify that a validation-only exception is concrete and
+legitimate. Missing, contradictory, fabricated, or unjustified evidence is a
+bounded omission.
+
 Do not edit, commit, suppress blocking defects, or mutate GitHub or Orca. Return
 CLEAN when no blocking defect or bounded omission remains. The coordinator
 reuses finding state by stable key. Send `worker_done` exactly once with an

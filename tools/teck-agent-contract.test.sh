@@ -63,12 +63,53 @@ cat >"$fixture_dir/task.xml" <<'XML'
   <role>executor</role><objective>Implement bounded change.</objective>
   <sources><parent-issue href="https://github.com/Teck-Lab/Teck.Monorepo/issues/482" /></sources>
   <scope>one unit</scope><acceptance>criterion</acceptance><validation>test</validation>
+  <development-mode>tdd</development-mode><tdd-boundary>focused behavior</tdd-boundary>
   <constraints>bounded</constraints><execution-mode>shared-durable</execution-mode>
   <model-route>codex/gpt-5.6-terra/high</model-route><permissions>worktree edits</permissions>
   <result-contract>implementation-result-v1</result-contract>
 </task-contract>
 XML
 "$validator" "$fixture_dir/task.xml" >/dev/null
+
+sed 's#shared-durable#ephemeral-helper#' "$fixture_dir/task.xml" >"$fixture_dir/hidden-helper.xml"
+if "$validator" "$fixture_dir/hidden-helper.xml" >/dev/null 2>&1; then
+  echo "expected hidden ephemeral helper mode to fail" >&2
+  exit 1
+fi
+
+sed '/<development-mode>/d' "$fixture_dir/task.xml" >"$fixture_dir/executor-without-mode.xml"
+if "$validator" "$fixture_dir/executor-without-mode.xml" >/dev/null 2>&1; then
+  echo "expected executor task without development mode to fail" >&2
+  exit 1
+fi
+
+cat >"$fixture_dir/tdd-implementation.xml" <<'XML'
+<implementation-result version="1">
+  <routing><work-kind>bug-fix</work-kind><workflow-stage>execution</workflow-stage><route>bug-fix:execution</route></routing>
+  <outcome>succeeded</outcome><base-sha>abc</base-sha><tip-sha>def</tip-sha><files-modified>src/a.cs</files-modified>
+  <development-mode>tdd</development-mode><tdd-boundary>hostile input is absent from logs</tdd-boundary>
+  <tdd-evidence><red>focused test failed</red><green>focused test passed</green><refactor>none; focused test passed</refactor></tdd-evidence>
+  <validation-evidence>affected tests passed</validation-evidence><remaining-risks>none</remaining-risks>
+</implementation-result>
+XML
+"$validator" "$fixture_dir/tdd-implementation.xml" >/dev/null
+
+sed 's#<red>focused test failed</red>##' "$fixture_dir/tdd-implementation.xml" >"$fixture_dir/tdd-without-red.xml"
+if "$validator" "$fixture_dir/tdd-without-red.xml" >/dev/null 2>&1; then
+  echo "expected TDD result without red evidence to fail" >&2
+  exit 1
+fi
+
+cat >"$fixture_dir/validation-only-implementation.xml" <<'XML'
+<implementation-result version="1">
+  <routing><work-kind>docs</work-kind><workflow-stage>execution</workflow-stage><route>docs:execution</route></routing>
+  <outcome>succeeded</outcome><base-sha>abc</base-sha><tip-sha>def</tip-sha><files-modified>docs/a.md</files-modified>
+  <development-mode>required-validation-only</development-mode><tdd-boundary>documentation link checker</tdd-boundary>
+  <validation-only-evidence><exception-reason>No executable behavior exists.</exception-reason><before>broken link observed</before><after>link checker passed</after></validation-only-evidence>
+  <validation-evidence>docs checks passed</validation-evidence><remaining-risks>none</remaining-risks>
+</implementation-result>
+XML
+"$validator" "$fixture_dir/validation-only-implementation.xml" >/dev/null
 
 cat >"$fixture_dir/architect-task.xml" <<'XML'
 <task-contract version="1">
