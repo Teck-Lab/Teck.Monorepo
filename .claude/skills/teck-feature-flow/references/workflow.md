@@ -341,6 +341,8 @@ Each Task spec uses `<task-contract version="1">` and contains:
 - `REQUIRED TECK SKILL: teck-feature-executor`
 - `REQUIRED OMX ROLE: executor`
 - exact GitHub sub-issue, worktree, scope, acceptance criteria, and validation
+- architect-selected `development-mode` and `tdd-boundary` per the
+  test-driven-development contract
 - conventional local checkpoint commit and exactly-one `worker_done` contract
 - prohibitions on push, merge, GitHub mutation, worktree creation, and Orca
   lifecycle mutation beyond injected completion and question commands
@@ -385,7 +387,8 @@ digest, and fresh independent CLEAN review before materialization.
 
 After executor `worker_done`, validate `implementation-result-v1`, require a
 clean worktree, local commit, and validation evidence, and update the worktree
-checkpoint. Supporting Tasks are accepted by their consuming review unit and
+checkpoint. Require red/green/refactor evidence for TDD members or a justified
+validation-only exception with before/after evidence. Supporting Tasks are accepted by their consuming review unit and
 do not receive standalone code review.
 
 When every member of a coherent review unit is complete, create one separate

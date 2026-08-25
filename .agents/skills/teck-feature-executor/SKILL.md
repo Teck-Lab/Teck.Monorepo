@@ -12,6 +12,13 @@ acceptance criteria, dependencies, scope, worktree ID, branch, and base SHA
 before editing. Read the feature-flow delegation contract and emit
 `implementation-result-v1` in the report artifact.
 
+Read and apply the feature-flow test-driven-development contract. Follow the
+architect-assigned development mode and boundary. For `tdd`, observe and record
+red before production edits, then green and refactor; an unexpected pass must
+be investigated, never relabeled as red. For `required-validation-only`, record
+the approved exception and exact before/after validation. Never invent TDD
+history when recovering partial implementation.
+
 Read `teck-feature-flow/references/execution-discoveries.md` before acting on
 unplanned work. Continue only for an approved narrow expansion of the same
 outcome. Otherwise stop editing, gather evidence, and ask or report to the

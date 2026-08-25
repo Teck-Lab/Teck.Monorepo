@@ -24,6 +24,7 @@ The workflow requires the coordinator to read and apply
 its convergence and exit audits as gates, not suggestions.
 
 Read [references/delegation-contracts.md](references/delegation-contracts.md)
+and [references/test-driven-development.md](references/test-driven-development.md)
 when creating or accepting a Task, and
 [references/review-convergence.md](references/review-convergence.md) before
 planning, review, QA, or repair. Read

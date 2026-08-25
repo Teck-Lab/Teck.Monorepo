@@ -91,6 +91,7 @@ architect_instructions="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-de
 executor_instructions="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-executor/SKILL.md"
 convergence="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/review-convergence.md"
 execution_discoveries="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/execution-discoveries.md"
+tdd_contract="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/test-driven-development.md"
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
 
@@ -174,6 +175,24 @@ for contract in \
   grep -Fq "$contract" "$execution_discoveries"
 done
 grep -Fq 'Never create or revise a manifest, split your Task' "$executor_instructions"
+for contract in \
+  'Assign every' \
+  '`tdd` or `required-validation-only`' \
+  'convenience and time are invalid reasons'; do
+  grep -Fq "$contract" "$architect_instructions"
+done
+for contract in \
+  'observe and record' \
+  'unexpected pass must' \
+  'Never invent TDD history'; do
+  grep -Fq "$contract" "$executor_instructions"
+done
+for contract in \
+  'observable product behavior' \
+  'Never manufacture a red phase' \
+  'Missing, contradictory, fabricated, or unjustified evidence'; do
+  grep -Fq "$contract" "$tdd_contract"
+done
 grep -Fq 'Any missing required' "$workflow"
 grep -Fq 'Never create a separate code-review or QA gate per child' "$convergence"
 

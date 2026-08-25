@@ -29,6 +29,12 @@ Produce one immutable `delivery-manifest-result-v1` containing:
   docs-research work; and
 - unresolved owner decisions, or none.
 
+Read and apply the feature-flow test-driven-development contract. Assign every
+executor member `tdd` or `required-validation-only` and name its behavioral or
+validation boundary. Require TDD for behavior, defects, domain logic, APIs, and
+security contracts. Permit validation-only only when a meaningful red test
+cannot exist, with a concrete reason; convenience and time are invalid reasons.
+
 Route explicit, pattern-following, mechanically bounded members to Luna/xhigh.
 Route semantic, coupled, uncertain, debugging, security, tenancy, persistence,
 concurrency, or consolidation work to Terra/high. A Luna ambiguity or failed
