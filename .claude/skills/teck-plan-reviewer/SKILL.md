@@ -23,7 +23,9 @@ completeness of acceptance and validation criteria.
 
 Verify that sub-issue drafts are coherent review units, member Tasks are the
 small execution slices, Luna/Terra routes match complexity, expected-file
-boundaries permit only narrow escalation, and durable state is still absent.
+boundaries permit only narrow escalation, sizing follows one independently
+understandable and verifiable outcome rather than a file-count quota, and
+durable state is still absent.
 
 Do not edit code, Git, issues, Tasks, worktrees, or the architect artifact. Return
 CLEAN when no blocking defect or bounded omission remains, even when follow-ups

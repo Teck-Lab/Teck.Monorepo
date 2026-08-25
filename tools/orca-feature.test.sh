@@ -136,7 +136,10 @@ for contract in \
   'Luna/xhigh' \
   'Terra/high' \
   'GitHub sub-issue is a human-readable coherent subfeature/review unit' \
-  'fresh Terra/high Dispatch'; do
+  'fresh Terra/high Dispatch' \
+  'cognitive and semantic scope, never an arbitrary file-count' \
+  'one independently understandable, implementable, and' \
+  'split mechanically repetitive work merely to satisfy a file number'; do
   grep -Fq "$contract" "$architect_instructions" || {
     echo "Missing delivery architect hierarchy contract: $contract" >&2
     exit 1

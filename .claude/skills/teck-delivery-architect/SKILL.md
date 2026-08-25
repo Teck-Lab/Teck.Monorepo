@@ -35,6 +35,22 @@ concurrency, or consolidation work to Terra/high. A Luna ambiguity or failed
 attempt escalates the same Orca Task through a fresh Terra/high Dispatch; it
 never creates a duplicate Task or GitHub issue.
 
+Size members by cognitive and semantic scope, never an arbitrary file-count
+cap. Every member owns one independently understandable, implementable, and
+verifiable outcome with one coherent reasoning context and focused validation.
+Repetitive edits across many files may remain Luna work when the pattern and
+result are explicit; a two-file change belongs on Terra when it changes
+architecture, security, tenancy, persistence, concurrency, or a public
+contract. Split a member when it contains unrelated acceptance criteria,
+independently failing behaviors, multiple separable boundaries, or validation
+that depends on most of the feature being complete.
+
+Expected files are planning evidence and overlap guards, not quotas. If
+execution discovers a new semantic boundary or a second separable outcome, the
+worker stops for coordinator rerouting: split the remaining outcome into a new
+approved member or retry the same inherently coupled Task on Terra/high. Never
+split mechanically repetitive work merely to satisfy a file number.
+
 Default to seven or fewer executable members and dependency depth four. A
 GitHub sub-issue is a human-readable coherent subfeature/review unit; an Orca
 member Task is the smaller execution slice. Exceed the budgets or create a
