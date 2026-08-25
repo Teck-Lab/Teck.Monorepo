@@ -71,6 +71,12 @@ cat >"$fixture_dir/task.xml" <<'XML'
 XML
 "$validator" "$fixture_dir/task.xml" >/dev/null
 
+sed 's#shared-durable#ephemeral-helper#' "$fixture_dir/task.xml" >"$fixture_dir/hidden-helper.xml"
+if "$validator" "$fixture_dir/hidden-helper.xml" >/dev/null 2>&1; then
+  echo "expected hidden ephemeral helper mode to fail" >&2
+  exit 1
+fi
+
 sed '/<development-mode>/d' "$fixture_dir/task.xml" >"$fixture_dir/executor-without-mode.xml"
 if "$validator" "$fixture_dir/executor-without-mode.xml" >/dev/null 2>&1; then
   echo "expected executor task without development mode to fail" >&2

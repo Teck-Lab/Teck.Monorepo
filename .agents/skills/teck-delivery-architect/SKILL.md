@@ -29,6 +29,11 @@ Produce one immutable `delivery-manifest-result-v1` containing:
   docs-research work; and
 - unresolved owner decisions, or none.
 
+Use only `shared-durable`, `parallel-child`, or `consolidation` execution modes.
+Never plan provider-native ephemeral helpers. Define the logical parent Task,
+readable Task/worker display name, and main-feature/review-unit worktree lineage
+for every planned Task so the coordinator can apply the agent-visibility gate.
+
 Read and apply the feature-flow test-driven-development contract. Assign every
 executor member `tdd` or `required-validation-only` and name its behavioral or
 validation boundary. Require TDD for behavior, defects, domain logic, APIs, and

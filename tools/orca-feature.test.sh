@@ -92,6 +92,7 @@ executor_instructions="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-fea
 convergence="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/review-convergence.md"
 execution_discoveries="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/execution-discoveries.md"
 tdd_contract="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/test-driven-development.md"
+visibility_contract="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/agent-visibility.md"
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
 
@@ -175,6 +176,21 @@ for contract in \
   grep -Fq "$contract" "$execution_discoveries"
 done
 grep -Fq 'Never create or revise a manifest, split your Task' "$executor_instructions"
+for contract in \
+  'Every later Task must have one' \
+  '`--task-title` and `--display-name`' \
+  'null parent on a later Task blocks dispatch'; do
+  grep -Fq "$contract" "$workflow"
+done
+for contract in \
+  'terminal list --include-visual-layouts' \
+  'parentWorktreeId' \
+  'Provider-native' \
+  'Agent Dashboard' \
+  'Show idle agents'; do
+  grep -Fq "$contract" "$visibility_contract"
+done
+grep -Fq 'Do not spawn provider-native subagents' "$executor_instructions"
 for contract in \
   'Assign every' \
   '`tdd` or `required-validation-only`' \

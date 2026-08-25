@@ -39,7 +39,7 @@ if (!root) errors.push("missing supported version=\"1\" root envelope");
 if (root === "task-contract") {
   validateRouting();
   requireTags(["role", "objective", "sources", "scope", "acceptance", "validation", "constraints", "execution-mode", "model-route", "permissions", "result-contract"]);
-  if (!/^(ephemeral-helper|shared-durable|parallel-child|consolidation)$/.test(value("execution-mode"))) errors.push("invalid execution-mode");
+  if (!/^(shared-durable|parallel-child|consolidation)$/.test(value("execution-mode"))) errors.push("invalid execution-mode");
   if (value("workflow-stage") === "discovery") {
     if (!hasTag("discovery-anchor")) errors.push("discovery task lacks discovery-anchor");
     if (!/^(discovery-researcher|discovery-prototyper)$/.test(value("role"))) errors.push("invalid discovery role");
