@@ -27,6 +27,8 @@ Read [references/delegation-contracts.md](references/delegation-contracts.md)
 when creating or accepting a Task, and
 [references/review-convergence.md](references/review-convergence.md) before
 planning, review, QA, or repair. Read
+[references/execution-discoveries.md](references/execution-discoveries.md)
+before classifying work discovered during implementation. Read
 [references/handoff-contract.md](references/handoff-contract.md) only when
 transferring unfinished ownership to a fresh session.
 

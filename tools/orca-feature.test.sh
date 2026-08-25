@@ -90,6 +90,7 @@ agent_instructions="$(cd "$(dirname "$0")/.." && pwd)/AGENTS.md"
 architect_instructions="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-delivery-architect/SKILL.md"
 executor_instructions="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-executor/SKILL.md"
 convergence="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/review-convergence.md"
+execution_discoveries="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/execution-discoveries.md"
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
 
@@ -161,6 +162,19 @@ for contract in \
   }
 done
 grep -Fq 'A Terra consolidator inspects every member commit' "$executor_instructions"
+for contract in \
+  'Executors report facts' \
+  'retry the same Task and' \
+  'Missing required outcome or changed dependency graph' \
+  'fresh independent reviewer' \
+  'Required blocker' \
+  'Product-scope expansion or unrelated improvement' \
+  'native Orca decision gate' \
+  'coordinator does not substitute its own'; do
+  grep -Fq "$contract" "$execution_discoveries"
+done
+grep -Fq 'Never create or revise a manifest, split your Task' "$executor_instructions"
+grep -Fq 'Any missing required' "$workflow"
 grep -Fq 'Never create a separate code-review or QA gate per child' "$convergence"
 
 for contract in \

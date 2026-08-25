@@ -373,6 +373,14 @@ or debugging helpers use Terra/high. They edit only the leaf worktree and cannot
 commit or send lifecycle messages. Never parallelize overlapping files,
 generated outputs, databases, ports, indexes, or mutable services.
 
+Apply `execution-discoveries.md` whenever implementation reveals unplanned
+work. The executor reports evidence and never plans. The coordinator may retry
+the same Task on Terra or create a bounded repair without architecture only
+when the frozen manifest already covers the outcome. Any missing required
+outcome, changed dependency, acceptance change, new review unit, or graph/route
+change requires an Opus/high or Sol/high delivery architect, revised manifest
+digest, and fresh independent CLEAN review before materialization.
+
 ## 4. Review and finding repair
 
 After executor `worker_done`, validate `implementation-result-v1`, require a

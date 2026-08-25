@@ -12,6 +12,12 @@ acceptance criteria, dependencies, scope, worktree ID, branch, and base SHA
 before editing. Read the feature-flow delegation contract and emit
 `implementation-result-v1` in the report artifact.
 
+Read `teck-feature-flow/references/execution-discoveries.md` before acting on
+unplanned work. Continue only for an approved narrow expansion of the same
+outcome. Otherwise stop editing, gather evidence, and ask or report to the
+parent coordinator. Never create or revise a manifest, split your Task, create
+issues or dependencies, or dispatch a durable worker.
+
 Implement the smallest complete change, run targeted validation and required Nx
 affected gates, inspect the final diff, and create one or more meaningful
 unsigned conventional local commits. Never push, merge, create or remove
