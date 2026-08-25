@@ -30,11 +30,12 @@ public static class QueueNotificationHandler
             return existing.Id;
         }
 
-        CustomerContact? contact = command.CustomerId is Guid customerId
-            ? await contacts.FirstOrDefaultAsync(new CustomerContactByCustomerSpec(customerId), ct).ConfigureAwait(false)
+        var customerId = CustomerIdOrNull(command.CustomerId);
+        CustomerContact? contact = customerId is Guid resolvedCustomerId
+            ? await contacts.FirstOrDefaultAsync(new CustomerContactByCustomerSpec(resolvedCustomerId), ct).ConfigureAwait(false)
             : await contacts.FirstOrDefaultAsync(new CustomerContactBySubjectSpec(command.KeycloakSubjectId), ct).ConfigureAwait(false);
-        var requestId = contact is null ? $"contact:{command.TenantId}:{command.CustomerId}:{command.KeycloakSubjectId}" : null;
-        var delivery = NotificationDelivery.Create(tenant.Id ?? command.TenantId, command.CustomerId, command.OrderId, command.KeycloakSubjectId, command.IdempotencyKey, command.SourceCorrelationId, command.Kind, command.Subject, command.Body, contact?.Email, requestId);
+        var requestId = contact is null ? $"contact:{command.TenantId}:{customerId}:{command.KeycloakSubjectId}" : null;
+        var delivery = NotificationDelivery.Create(tenant.Id ?? command.TenantId, customerId, command.OrderId, command.KeycloakSubjectId, command.IdempotencyKey, command.SourceCorrelationId, command.Kind, command.Subject, command.Body, contact?.Email, requestId);
         await deliveries.AddAsync(delivery, ct).ConfigureAwait(false);
         await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);
         await ResumeDispatchAsync(delivery, command, bus, ct).ConfigureAwait(false);
@@ -51,10 +52,13 @@ public static class QueueNotificationHandler
 
         if (string.IsNullOrWhiteSpace(delivery.Recipient))
         {
-            var requestId = delivery.ContactRequestId ?? $"contact:{command.TenantId}:{command.CustomerId}:{command.KeycloakSubjectId}";
-            return bus.PublishAsync(new CustomerContactReconciliationRequestedIntegrationEvent { CustomerId = command.CustomerId ?? Guid.Empty, KeycloakSubjectId = command.KeycloakSubjectId, TenantId = command.TenantId, RequestId = requestId, SourceCorrelationId = command.SourceCorrelationId }).AsTask();
+            var customerId = CustomerIdOrNull(delivery.CustomerId ?? command.CustomerId);
+            var requestId = delivery.ContactRequestId ?? $"contact:{command.TenantId}:{customerId}:{command.KeycloakSubjectId}";
+            return bus.PublishAsync(new CustomerContactReconciliationRequestedIntegrationEvent { CustomerId = customerId ?? Guid.Empty, KeycloakSubjectId = command.KeycloakSubjectId, TenantId = command.TenantId, RequestId = requestId, SourceCorrelationId = command.SourceCorrelationId }).AsTask();
         }
 
         return bus.InvokeAsync(new SendEmailCommand(delivery.Id), ct);
     }
+
+    private static Guid? CustomerIdOrNull(Guid? customerId) => customerId is { } value && value != Guid.Empty ? value : null;
 }

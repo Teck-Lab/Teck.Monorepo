@@ -23,6 +23,50 @@ namespace Notifications.IntegrationTests;
 [Collection("SharedTestcontainers")]
 public sealed class CustomerContactReconciliationTests(SharedTestcontainersFixture fixture)
 {
+    /// <summary>Uses the subject-keyed contact when an order confirmation carries an absent customer correlation.</summary>
+    [Fact]
+    public async Task OrderConfirmation_WithEmptyCustomerId_ResolvesTheSubjectKeyedContact()
+    {
+        const string tenantId = "tenant-subject-contact";
+        const string subjectId = "subject-contact";
+        const string email = "subject-contact@example.test";
+        var connectionString = await fixture.CreateSharedTestDatabaseAsync(typeof(NotificationDbContext), "Notification.Host");
+        await using (var seed = NotificationMigrationModelTests.CreateContext(connectionString))
+        {
+            seed.CustomerContacts.Add(CustomerContact.Create(tenantId, Guid.NewGuid(), subjectId, email));
+            await seed.SaveChangesAsync();
+        }
+
+        var orderBus = Substitute.For<IMessageBus>();
+        QueueNotificationCommand? queued = null;
+        orderBus.InvokeAsync(Arg.Do<QueueNotificationCommand>(command => queued = command), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        var orderEvent = new OrderConfirmedIntegrationEvent
+        {
+            CustomerId = Guid.Empty,
+            OrderId = Guid.NewGuid(),
+            KeycloakSubjectId = subjectId,
+            TenantId = tenantId,
+            Amount = 42.00m,
+            Currency = "USD",
+            IdempotencyKey = "order:subject-contact",
+            SourceCorrelationId = "order:subject-contact",
+        };
+
+        await OrderConfirmedHandler.Handle(orderEvent, orderBus, CancellationToken.None);
+
+        var tenant = Substitute.For<ITenantInfo>();
+        tenant.Id.Returns(tenantId);
+        var queueBus = Substitute.For<IMessageBus>();
+        var deliveryId = await QueueAsync(connectionString, Assert.IsType<QueueNotificationCommand>(queued), tenant, queueBus);
+
+        await using var verify = NotificationMigrationModelTests.CreateContext(connectionString);
+        var delivery = await verify.NotificationDeliveries.IgnoreQueryFilters().SingleAsync(item => item.Id == deliveryId);
+        Assert.Equal(email, delivery.Recipient);
+        Assert.Null(delivery.ContactRequestId);
+        await queueBus.DidNotReceive().PublishAsync(Arg.Any<CustomerContactReconciliationRequestedIntegrationEvent>());
+    }
+
     /// <summary>Stores a pending delivery, reconciles it once, and keeps redelivery idempotent.</summary>
     [Fact]
     public async Task MissingContact_ReconciledResponse_ResumesExactlyOnePersistedDelivery()
