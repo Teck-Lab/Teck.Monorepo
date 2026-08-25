@@ -1,11 +1,11 @@
 ---
 name: teck-feature-flow
-description: Coordinate a Teck parent GitHub issue through native Orca Tasks, GitHub sub-issues and blockers, isolated Orca child worktrees, model-routed planner/reviewer/executor/QA workers, local integration, and one final PR. Use for parent issue intake, Task-DAG reconciliation, worker supervision, integration, and final PR preparation.
+description: Coordinate a Teck parent GitHub issue through native Orca Tasks, GitHub sub-issues and blockers, isolated Orca child worktrees, model-routed delivery-architect/reviewer/executor/QA workers, local integration, and one final PR. Use for parent issue intake, Task-DAG reconciliation, worker supervision, integration, and final PR preparation.
 ---
 
 # Teck feature coordinator
 
-Coordinate only. Do not inspect implementation details to replace a planner,
+Coordinate only. Do not inspect implementation details to replace a delivery architect,
 edit product code, perform code review, or perform QA in the parent worktree.
 
 Use four state owners:

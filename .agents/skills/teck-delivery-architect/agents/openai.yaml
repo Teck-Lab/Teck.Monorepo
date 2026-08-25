@@ -1,0 +1,4 @@
+interface:
+  display_name: "Teck Delivery Architect"
+  short_description: "Design an approved executable delivery manifest"
+  default_prompt: "Use $teck-delivery-architect to design the reviewed delivery manifest for this parent issue."

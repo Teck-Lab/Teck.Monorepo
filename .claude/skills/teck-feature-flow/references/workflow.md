@@ -119,37 +119,50 @@ The coordinator must not report workflow completion when any of these exist:
 - a GitHub or Orca blocker edge awaiting reconciliation; or
 - a review or QA rerun required by a completed repair.
 
-## 2. Dedicated planning and plan review
+## 2. Dedicated delivery architecture and review
 
 Apply `delegation-contracts.md` and `review-convergence.md` throughout this
 workflow. The approved plan freezes the acceptance contract. Classify the
 work kind and every Task, group implementation into coherent review units, and
 use proportional evidence for its validation profile.
 
-Create a read-only planning Task whose spec contains:
+Create a read-only delivery-architecture Task whose spec contains:
 
-- `ROLE: feature planner`
-- `REQUIRED TECK SKILL: teck-feature-planner`
+- `ROLE: delivery architect`
+- `REQUIRED TECK SKILL: teck-delivery-architect`
 - `REQUIRED OMX ROLE: planner`
 - parent issue and repository identity
-- required leaves, dependencies, acceptance criteria, validation, overlap
-  risks, and plan-defect output
+- exact sub-issue drafts, member Tasks, expected code/file boundaries,
+  dependencies, acceptance, validation, review units, model routes, overlap
+  risks, and architecture-defect output
 - explicit prohibition on code, Git, GitHub writes, worktrees, and delegation
 
-Start it natively:
+Select either dedicated architect route per Task. Claude Opus 5/high and Codex
+Sol/high are both approved; record the chosen route and permitted fallback.
+Prefer the provider whose repository/tool context is healthy, and never leave
+both architect Dispatches live for the same manifest version:
 
 ```bash
-orca orchestration worker-start --task <planning-task-id> \
+orca orchestration worker-start --task <architecture-task-id> \
+  --worktree active --agent claude --model claude-opus-5 --effort high --json
+
+# Equally supported alternative
+orca orchestration worker-start --task <architecture-task-id> \
   --worktree active --agent codex --model gpt-5.6-sol --effort high --json
 ```
 
 Wait for authoritative `worker_done`. Then create a separate plan-review Task
-using `teck-plan-reviewer`, the OMX `critic` role, Sol/high, and the planner's
-artifact. The coordinator does not review the plan itself.
+using `teck-plan-reviewer`, the OMX `critic` role, Sol/high, and the architect's
+artifact. The coordinator does not review the manifest itself.
 
-Planner files under ignored runtime directories such as `.omx/` are scratch
-artifacts, not durable handoff state. Before settling planning, persist the
-approved plan (or a stable link plus digest and full acceptance contract) in
+Only after CLEAN review of the exact manifest digest may the coordinator
+materialize its GitHub sub-issues, blocker edges, Orca member Tasks, review
+units, and model routes. Read every mutation back and reject any drift from the
+approved manifest. The architect and reviewer never materialize durable state.
+
+Architect files under ignored runtime directories such as `.omx/` are scratch
+artifacts, not durable handoff state. Before settling architecture, persist the
+approved manifest (or a stable link plus digest and full acceptance contract) in
 the GitHub parent and Orca Task graph as required by the state-machine guide.
 
 Only a `blocking-defect` or `bounded-omission` satisfying the convergence
@@ -161,8 +174,8 @@ limits.
 
 Before dispatching that executor, ensure the finding sub-issue and Task cite an
 approved executable plan with scope, acceptance criteria, dependencies,
-validation, and resource ownership. If the finding changes the plan, run a
-dedicated planner and independent plan reviewer first. A blocker is the next
+validation, and resource ownership. If the finding changes the manifest, run a
+dedicated delivery architect and independent plan reviewer first. A blocker is the next
 work item in the DAG, not a terminal status update.
 
 When a plan-defect executor sends `worker_done`, validate the repaired artifact
@@ -292,7 +305,7 @@ each review unit, then register that existing checkout with
 never give concurrent workers the same review-unit branch. Resource-safe review
 units may use separate child worktrees concurrently.
 
-The planner selects one execution mode for each member:
+The delivery architect selects one execution mode for each member:
 
 - ephemeral helper: an executor-owned Codex subagent with no durable lifecycle;
 - shared durable Task: a coordinator-dispatched Orca Task in the review-unit
@@ -328,13 +341,27 @@ Each Task spec uses `<task-contract version="1">` and contains:
 - prohibitions on push, merge, GitHub mutation, worktree creation, and Orca
   lifecycle mutation beyond injected completion and question commands
 
-Start it natively with Terra/high:
+Start each member with the exact approved model route. Luna/xhigh is the default
+for explicit, mechanically bounded members; Terra/high is required for semantic,
+coupled, uncertain, debugging, security, tenancy, persistence, concurrency, or
+consolidation work:
 
 ```bash
+# Mechanical member
+orca orchestration worker-start --task <leaf-task-id> \
+  --worktree id:<full-worktree-id> --agent codex \
+  --model gpt-5.6-luna --effort xhigh --json
+
+# Coherent/semantic member
 orca orchestration worker-start --task <leaf-task-id> \
   --worktree id:<full-worktree-id> --agent codex \
   --model gpt-5.6-terra --effort high --json
 ```
+
+If Luna reports ambiguity or failure, keep the same Task and issue, settle that
+attempt, and launch a fresh Terra/high Dispatch. Never create a duplicate leaf
+merely to change model route. Use Terra consolidation only for multiple member
+commits or a manifest-declared semantic integration need.
 
 An executor may spawn bounded native Codex subagents for ephemeral independent
 work. Mechanical or exploration helpers default to Luna/xhigh; implementation

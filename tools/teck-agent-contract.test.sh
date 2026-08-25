@@ -70,6 +70,36 @@ cat >"$fixture_dir/task.xml" <<'XML'
 XML
 "$validator" "$fixture_dir/task.xml" >/dev/null
 
+cat >"$fixture_dir/architect-task.xml" <<'XML'
+<task-contract version="1">
+  <routing><work-kind>feature</work-kind><workflow-stage>planning</workflow-stage><route>feature:planning</route></routing>
+  <role>delivery-architect</role><objective>Design delivery.</objective>
+  <sources><parent-issue href="https://github.com/Teck-Lab/Teck.Monorepo/issues/500" /></sources>
+  <scope>manifest</scope><acceptance>complete</acceptance><validation>review</validation><constraints>read-only</constraints>
+  <execution-mode>shared-durable</execution-mode><model-route>opus-or-sol/high</model-route>
+  <permissions>read-only</permissions><result-contract>delivery-manifest-result-v1</result-contract>
+</task-contract>
+XML
+"$validator" "$fixture_dir/architect-task.xml" >/dev/null
+
+cat >"$fixture_dir/delivery-manifest.xml" <<'XML'
+<delivery-manifest-result version="1">
+  <routing><work-kind>feature</work-kind><workflow-stage>planning</workflow-stage><route>feature:planning</route></routing>
+  <validation-profile>product-code</validation-profile><manifest-digest>sha256:abc</manifest-digest>
+  <technical-approach>bounded</technical-approach><sub-issue-drafts>one</sub-issue-drafts><member-tasks>one</member-tasks>
+  <expected-change-boundaries>two files</expected-change-boundaries><dependency-waves>one</dependency-waves>
+  <review-units>one</review-units><model-routes>Luna/xhigh</model-routes><validation-strategy>tests</validation-strategy>
+  <materialization-order>issue then task</materialization-order><decisions>none</decisions>
+</delivery-manifest-result>
+XML
+"$validator" "$fixture_dir/delivery-manifest.xml" >/dev/null
+
+sed 's#delivery-manifest-result-v1#plan-result-v1#' "$fixture_dir/architect-task.xml" >"$fixture_dir/architect-wrong-result.xml"
+if "$validator" "$fixture_dir/architect-wrong-result.xml" >/dev/null 2>&1; then
+  echo "expected architect task with legacy result to fail" >&2
+  exit 1
+fi
+
 cat >"$fixture_dir/discovery-task.xml" <<'XML'
 <task-contract version="1">
   <routing><work-kind>research</work-kind><workflow-stage>discovery</workflow-stage><route>research:discovery</route></routing>
