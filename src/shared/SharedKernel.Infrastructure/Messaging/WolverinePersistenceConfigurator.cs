@@ -178,5 +178,6 @@ public static class WolverinePersistenceConfigurator
         options.UseEntityFrameworkCoreTransactions();
         options.Policies.UseDurableLocalQueues();
         options.Policies.AddMiddleware<TenantPropagationMiddleware>();
+        options.MetadataRules.Add(new AmbientTenantEnvelopeRule());
     }
 }

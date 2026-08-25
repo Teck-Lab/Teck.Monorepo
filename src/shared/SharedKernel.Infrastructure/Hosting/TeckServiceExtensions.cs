@@ -10,6 +10,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Serilog;
 using SharedKernel.Infrastructure.Middlewares;
+using SharedKernel.Infrastructure.MultiTenant;
 using SharedKernel.Infrastructure.Resilience;
 
 namespace SharedKernel.Infrastructure.Hosting;
@@ -35,6 +36,8 @@ public static class TeckServiceExtensions
 
         services.Configure<TeckServiceOptions>(configuration.GetSection(TeckServiceOptions.SectionName));
         services.Configure<TenantRateLimitOptions>(configuration.GetSection(TenantRateLimitOptions.SectionName));
+        services.Configure<TeckCloudMultiTenancyOptions>(configuration.GetSection("MultiTenancy"));
+        services.AddSingleton<ITenantTokenContextResolver, TenantTokenContextResolver>();
 
         // Services that act as handler-only hosts (e.g. Customer.Host with only gRPC remote
         // handlers) have no HTTP endpoint declarations. FastEndpoints throws in that case, so we
@@ -103,6 +106,7 @@ public static class TeckServiceExtensions
         app.UseMiddleware<TenantRateLimitMiddleware>();
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseMiddleware<TenantMessageBusMiddleware>();
 
         if (app.Services.GetService<NoHttpEndpointsMarker>() is null)
         {

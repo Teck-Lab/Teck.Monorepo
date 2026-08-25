@@ -5,6 +5,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Baskets.Application.Baskets.EventHandlers.IntegrationEvents;
+using Baskets.Application.Baskets.Features.Checkout.V1;
 using Baskets.Application.Database;
 using Baskets.Host.Database;
 using Baskets.Application.Baskets.Responses;
@@ -26,6 +27,7 @@ using SharedKernel.Infrastructure.FeatureFlags;
 using SharedKernel.Infrastructure.MultiTenant;
 using Teck.Platform.IntegrationTests.Shared;
 using Wolverine;
+using Wolverine.Tracking;
 using Xunit;
 
 namespace Baskets.IntegrationTests;
@@ -36,6 +38,61 @@ public sealed class BasketCheckoutTests : BasketIntegrationTestBase
     public BasketCheckoutTests(SharedTestcontainersFixture fixture)
         : base(fixture)
     {
+    }
+
+    [Fact]
+    public async Task Checkout_SignedTenantClaimsOverrideCallerHeader_OnCommandAndRoutedEventEnvelopes()
+    {
+        Services.WolverineStubs(stubs => stubs.Stub<BasketCheckoutRequestedIntegrationEvent>(
+            (_, _, _, _) => Task.CompletedTask));
+
+        BasketDto basket = await Client.GetFromJsonAsync<BasketDto>("/baskets/current")
+            ?? throw new InvalidOperationException("GET /baskets/current returned no basket.");
+
+        HttpResponseMessage add = await Client.PostAsJsonAsync(
+            "/baskets/items",
+            new
+            {
+                BasketId = basket.Id,
+                ProductId = Guid.NewGuid(),
+                ProductName = "Widget",
+                Quantity = 1,
+            });
+        add.EnsureSuccessStatusCode();
+
+        using var checkoutRequest = new HttpRequestMessage(HttpMethod.Post, "/baskets/checkout")
+        {
+            Content = JsonContent.Create(new
+            {
+                BasketId = basket.Id,
+                AuthorizedAmount = 20m,
+                Currency = "USD",
+                PaymentReference = "tok_tenant_envelope",
+            }),
+        };
+        checkoutRequest.Headers.Add("X-TenantId", "caller-controlled-tenant");
+
+        HttpResponseMessage? checkout = null;
+        Func<IMessageContext, Task> sendCheckout = async _ =>
+        {
+            checkout = await Client.SendAsync(checkoutRequest).ConfigureAwait(false);
+        };
+        ITrackedSession tracking = await Services.TrackActivity()
+            .Timeout(TimeSpan.FromSeconds(10))
+            .ExecuteAndWaitAsync(sendCheckout)
+            .ConfigureAwait(false);
+
+        Assert.NotNull(checkout);
+        Assert.Equal(HttpStatusCode.Accepted, checkout!.StatusCode);
+
+        Envelope command = tracking.Executed.SingleEnvelope<CheckoutCommand>();
+        Envelope integrationEvent = tracking.Sent.SingleEnvelope<BasketCheckoutRequestedIntegrationEvent>();
+
+        Assert.Equal(MockBearerAuthenticationHandler.TestTenantId, command.TenantId);
+        Assert.Equal(MockBearerAuthenticationHandler.TestTenantId, integrationEvent.TenantId);
+        Assert.Equal(
+            MockBearerAuthenticationHandler.TestTenantId,
+            integrationEvent.Headers["X-TenantId"]);
     }
 
     [Fact]
