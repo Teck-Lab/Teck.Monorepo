@@ -158,7 +158,11 @@ artifact. The coordinator does not review the manifest itself.
 Only after CLEAN review of the exact manifest digest may the coordinator
 materialize its GitHub sub-issues, blocker edges, Orca member Tasks, review
 units, and model routes. Read every mutation back and reject any drift from the
-approved manifest. The architect and reviewer never materialize durable state.
+approved manifest. For splits inside one sub-issue, materialize Orca Task
+dependencies; for splits across coherent sub-issues, create native GitHub
+blocker edges and mirror them exactly in Orca. Dispatch the initial frontier,
+then immediately dispatch every newly eligible Task after an accepted blocker
+releases its edges. The architect and reviewer never materialize durable state.
 
 Architect files under ignored runtime directories such as `.omx/` are scratch
 artifacts, not durable handoff state. Before settling architecture, persist the

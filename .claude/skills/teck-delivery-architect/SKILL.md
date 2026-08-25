@@ -51,6 +51,16 @@ worker stops for coordinator rerouting: split the remaining outcome into a new
 approved member or retry the same inherently coupled Task on Terra/high. Never
 split mechanically repetitive work merely to satisfy a file number.
 
+Preserve real prerequisite order whenever scope is split. Within one GitHub
+sub-issue/review unit, express prerequisites as Orca member-Task dependencies.
+When the split produces separate coherent GitHub sub-issues, draft native
+GitHub blocker edges and the identical Orca Task dependencies. State direction
+semantically (`A waits for B` means A is blocked by B), reject cycles, and do
+not serialize independent work merely because it was discovered in sequence.
+Identify the initial executable frontier and every frontier transition so the
+coordinator can dispatch newly unblocked work immediately after accepting its
+blocker.
+
 Default to seven or fewer executable members and dependency depth four. A
 GitHub sub-issue is a human-readable coherent subfeature/review unit; an Orca
 member Task is the smaller execution slice. Exceed the budgets or create a

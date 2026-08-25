@@ -139,7 +139,10 @@ for contract in \
   'fresh Terra/high Dispatch' \
   'cognitive and semantic scope, never an arbitrary file-count' \
   'one independently understandable, implementable, and' \
-  'split mechanically repetitive work merely to satisfy a file number'; do
+  'split mechanically repetitive work merely to satisfy a file number' \
+  'Within one GitHub' \
+  'identical Orca Task dependencies' \
+  'serialize independent work'; do
   grep -Fq "$contract" "$architect_instructions" || {
     echo "Missing delivery architect hierarchy contract: $contract" >&2
     exit 1
@@ -149,6 +152,8 @@ for contract in \
   'Claude Opus 5/high and Codex' \
   'gpt-5.6-luna --effort xhigh' \
   'same Task and issue' \
+  'For splits inside one sub-issue' \
+  'newly eligible Task after an accepted blocker' \
   'Only after CLEAN review of the exact manifest digest'; do
   grep -Fq "$contract" "$workflow" || {
     echo "Missing delivery architecture routing contract: $contract" >&2

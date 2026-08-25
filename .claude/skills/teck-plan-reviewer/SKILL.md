@@ -25,7 +25,9 @@ Verify that sub-issue drafts are coherent review units, member Tasks are the
 small execution slices, Luna/Terra routes match complexity, expected-file
 boundaries permit only narrow escalation, sizing follows one independently
 understandable and verifiable outcome rather than a file-count quota, and
-durable state is still absent.
+durable state is still absent. Verify every split preserves true prerequisite
+direction, mirrors cross-sub-issue blockers in GitHub and Orca, avoids cycles
+and artificial serialization, and defines each newly executable frontier.
 
 Do not edit code, Git, issues, Tasks, worktrees, or the architect artifact. Return
 CLEAN when no blocking defect or bounded omission remains, even when follow-ups
