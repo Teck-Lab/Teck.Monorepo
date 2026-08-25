@@ -60,6 +60,19 @@ public sealed class CreateOrderTests : OrderIntegrationTestBase
     }
 
     [Fact]
+    public async Task GetOrder_ForeignTenantClaimAndHeader_IsNotFound()
+    {
+        const string otherTenantId = "00000000-0000-0000-0000-000000000002";
+        var orderId = await DeliverV2CheckoutAsync(Guid.NewGuid(), Guid.NewGuid(), otherTenantId);
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/orders/{orderId}");
+        request.Headers.Add("X-TenantId", otherTenantId);
+
+        var response = await Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task RetryPaymentEndpoint_SameSubjectPublishesOnceAndPreservesCeiling()
     {
         var orderId = await DeliverV2CheckoutAsync(Guid.NewGuid(), Guid.NewGuid());

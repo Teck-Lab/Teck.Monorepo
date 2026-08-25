@@ -147,6 +147,59 @@ public sealed class CheckoutLifecycleTests(SharedTestcontainersFixture fixture)
         Assert.True(persisted.RequiresHumanDecision);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task BackorderedOverCeilingTransitions_PersistHumanDecisionForEitherTerminalDeliveryOrderAndRedelivery(bool paymentArrivesFirst)
+    {
+        var connectionString = await fixture.CreateSharedTestDatabaseAsync(typeof(Orders.Application.Database.OrderDbContext), "Order.Host");
+        var options = new DbContextOptionsBuilder<Orders.Application.Database.OrderDbContext>()
+            .UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly("Order.Host"))
+            .Options;
+        var order = CreateLifecycleOrder();
+        const string stockKey = "stock-backordered";
+        const string readyKey = "backorder-ready";
+        const string paymentKey = "payment-captured";
+        const string priceKey = "price-over-ceiling";
+
+        var write = new Orders.Application.Database.OrderDbContext(options, null!);
+        await using (write.ConfigureAwait(false))
+        {
+            write.Orders.Add(order);
+            await write.SaveChangesAsync();
+        }
+
+        await ApplyAndPersistAsync(options, order.Id, current => current.ApplyStockReserved(hasOutstandingBackorder: true, stockKey, current.CheckoutCorrelationId));
+        await ApplyAndPersistAsync(options, order.Id, current => current.ApplyBackorderReady(readyKey, current.CheckoutCorrelationId));
+
+        var paymentId = Guid.NewGuid();
+        Action<Order> capture = current => current.ApplyPaymentCaptured(paymentId, current.AuthorizedAmount, paymentKey, current.CheckoutCorrelationId);
+        Action<Order> price = current => current.ApplyBackorderPriceChecked(withinCeiling: false, priceKey, current.CheckoutCorrelationId);
+
+        if (paymentArrivesFirst)
+        {
+            await ApplyAndPersistAsync(options, order.Id, capture);
+            await ApplyAndPersistAsync(options, order.Id, price);
+        }
+        else
+        {
+            await ApplyAndPersistAsync(options, order.Id, price);
+            await ApplyAndPersistAsync(options, order.Id, capture);
+        }
+
+        await ApplyAndPersistAsync(options, order.Id, capture);
+        await ApplyAndPersistAsync(options, order.Id, price);
+
+        var read = new Orders.Application.Database.OrderDbContext(options, null!);
+        await using (read.ConfigureAwait(false))
+        {
+            var persisted = await read.Orders.SingleAsync(saved => saved.Id == order.Id);
+            Assert.Equal(OrderStatus.PaidUnfulfillable, persisted.Status);
+            Assert.Equal(OrderFailureReason.PriceExceededAuthorization, persisted.FailureReason);
+            Assert.True(persisted.RequiresHumanDecision);
+        }
+    }
+
     [Fact]
     public async Task BackorderedWaitTimeout_PersistsPaidUnfulfillableState()
     {
@@ -309,6 +362,20 @@ public sealed class CheckoutLifecycleTests(SharedTestcontainersFixture fixture)
         write.Attach(order);
         write.Entry(order).State = EntityState.Modified;
         await write.SaveChangesAsync();
+    }
+
+    private static async Task ApplyAndPersistAsync(
+        DbContextOptions<Orders.Application.Database.OrderDbContext> options,
+        Guid orderId,
+        Action<Order> apply)
+    {
+        var context = new Orders.Application.Database.OrderDbContext(options, null!);
+        await using (context.ConfigureAwait(false))
+        {
+            var order = await context.Orders.SingleAsync(current => current.Id == orderId).ConfigureAwait(false);
+            apply(order);
+            await context.SaveChangesAsync().ConfigureAwait(false);
+        }
     }
 
     private static Order CreateLifecycleOrder() => Order.Create(

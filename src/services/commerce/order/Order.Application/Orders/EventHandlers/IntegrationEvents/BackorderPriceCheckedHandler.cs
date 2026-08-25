@@ -1,3 +1,4 @@
+using Finbuckle.MultiTenant.Abstractions;
 using Orders.Domain.Entities;
 using SharedKernel.Core.Database;
 using SharedKernel.Events;
@@ -11,14 +12,17 @@ public static class BackorderPriceCheckedHandler
     /// <summary>Confirms stock within the ceiling or safely rejects and releases it.</summary>
     /// <param name="evt">The authoritative price-check result.</param>
     /// <param name="orders">The tracked order repository.</param>
+    /// <param name="tenant">The tenant established from the Wolverine envelope.</param>
     /// <param name="unitOfWork">The single commit boundary.</param>
     /// <param name="bus">The Wolverine message bus.</param>
     /// <param name="ct">The cancellation token.</param>
     /// <returns>A task that completes after the transition and any cleanup publication.</returns>
-    public static async Task Handle(BackorderPriceCheckedIntegrationEvent evt, IGenericWriteRepository<Order, Guid> orders, IUnitOfWork unitOfWork, IMessageBus bus, CancellationToken ct)
+    public static async Task Handle(BackorderPriceCheckedIntegrationEvent evt, IGenericWriteRepository<Order, Guid> orders, ITenantInfo tenant, IUnitOfWork unitOfWork, IMessageBus bus, CancellationToken ct)
     {
-        var order = await orders.FirstOrDefaultAsync(new ReadModels.OrderByIdSpec(evt.OrderId), enableTracking: true, ct).ConfigureAwait(false);
-        if (order is null || !string.Equals(order.TenantId, evt.TenantId, StringComparison.Ordinal))
+        OrderEventTenantGuard.EnsureMatchesEnvelope(evt.TenantId, tenant);
+
+        var order = await orders.FirstOrDefaultAsync(new ReadModels.OrderByIdSpec(evt.OrderId, tenant.Id), enableTracking: true, ct).ConfigureAwait(false);
+        if (order is null || !string.Equals(order.TenantId, tenant.Id, StringComparison.Ordinal))
         {
             return;
         }

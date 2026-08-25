@@ -27,7 +27,7 @@ public static class RetryPaymentHandler
             return Error.Validation("order.retry.invalid", "A request id and payment token are required.");
         }
 
-        var order = await orders.FirstOrDefaultAsync(new OrderByIdSpec(command.OrderId), enableTracking: true, ct).ConfigureAwait(false);
+        var order = await orders.FirstOrDefaultAsync(new OrderByIdSpec(command.OrderId, tenant.Id), enableTracking: true, ct).ConfigureAwait(false);
         if (order is null || !string.Equals(order.TenantId, tenant.Id, StringComparison.Ordinal))
         {
             return Error.NotFound("order.not_found", "The requested order was not found.");

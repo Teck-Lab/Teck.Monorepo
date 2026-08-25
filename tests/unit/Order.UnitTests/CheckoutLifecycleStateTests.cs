@@ -1,5 +1,6 @@
 using Ardalis.Specification;
 using Finbuckle.MultiTenant.Abstractions;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Orders.Application.Orders.EventHandlers.IntegrationEvents;
 using Orders.Application.Orders.Features.RetryPayment.V1;
@@ -9,6 +10,8 @@ using Orders.Domain.Entities;
 using Orders.Domain.ValueObjects;
 using SharedKernel.Core.Database;
 using SharedKernel.Events;
+using SharedKernel.Infrastructure.Messaging.MultiTenant;
+using SharedKernel.Infrastructure.MultiTenant;
 using Wolverine;
 using Xunit;
 
@@ -64,6 +67,7 @@ public sealed class CheckoutLifecycleStateTests
                 Lines = [new StockReservationLine(order.Lines[0].ProductId, order.Lines[0].Quantity, 1)],
             },
             orders,
+            Tenant(order.TenantId),
             unitOfWork,
             bus,
             CancellationToken.None);
@@ -118,10 +122,10 @@ public sealed class CheckoutLifecycleStateTests
         var reservationEvent = CreateBackorderedReservationEvent(reservationFirst, "reservation-first", "reservation-correlation");
         var readyEvent = CreateBackorderReadyEvent(reservationFirst, "ready-first", "ready-correlation");
 
-        await StockReservedV2Handler.Handle(reservationEvent, reservationFirstOrders, reservationFirstUnitOfWork, reservationFirstBus, CancellationToken.None);
-        await BackorderReadyHandler.Handle(readyEvent, reservationFirstOrders, reservationFirstUnitOfWork, reservationFirstBus, CancellationToken.None);
-        await StockReservedV2Handler.Handle(reservationEvent, reservationFirstOrders, reservationFirstUnitOfWork, reservationFirstBus, CancellationToken.None);
-        await BackorderReadyHandler.Handle(readyEvent, reservationFirstOrders, reservationFirstUnitOfWork, reservationFirstBus, CancellationToken.None);
+        await StockReservedV2Handler.Handle(reservationEvent, reservationFirstOrders, Tenant(reservationFirst.TenantId), reservationFirstUnitOfWork, reservationFirstBus, CancellationToken.None);
+        await BackorderReadyHandler.Handle(readyEvent, reservationFirstOrders, Tenant(reservationFirst.TenantId), reservationFirstUnitOfWork, reservationFirstBus, CancellationToken.None);
+        await StockReservedV2Handler.Handle(reservationEvent, reservationFirstOrders, Tenant(reservationFirst.TenantId), reservationFirstUnitOfWork, reservationFirstBus, CancellationToken.None);
+        await BackorderReadyHandler.Handle(readyEvent, reservationFirstOrders, Tenant(reservationFirst.TenantId), reservationFirstUnitOfWork, reservationFirstBus, CancellationToken.None);
 
         Assert.Equal(StockState.AwaitingPriceCheck, reservationFirst.StockState);
         await reservationFirstBus.Received(1).PublishAsync(Arg.Is<BackorderPriceCheckRequestedIntegrationEvent>(evt =>
@@ -134,10 +138,10 @@ public sealed class CheckoutLifecycleStateTests
         var readyFirstReservationEvent = CreateBackorderedReservationEvent(readyFirst, "reservation-later", "reservation-correlation");
         var readyFirstEvent = CreateBackorderReadyEvent(readyFirst, "ready-early", "ready-correlation");
 
-        await BackorderReadyHandler.Handle(readyFirstEvent, readyFirstOrders, readyFirstUnitOfWork, readyFirstBus, CancellationToken.None);
-        await StockReservedV2Handler.Handle(readyFirstReservationEvent, readyFirstOrders, readyFirstUnitOfWork, readyFirstBus, CancellationToken.None);
-        await BackorderReadyHandler.Handle(readyFirstEvent, readyFirstOrders, readyFirstUnitOfWork, readyFirstBus, CancellationToken.None);
-        await StockReservedV2Handler.Handle(readyFirstReservationEvent, readyFirstOrders, readyFirstUnitOfWork, readyFirstBus, CancellationToken.None);
+        await BackorderReadyHandler.Handle(readyFirstEvent, readyFirstOrders, Tenant(readyFirst.TenantId), readyFirstUnitOfWork, readyFirstBus, CancellationToken.None);
+        await StockReservedV2Handler.Handle(readyFirstReservationEvent, readyFirstOrders, Tenant(readyFirst.TenantId), readyFirstUnitOfWork, readyFirstBus, CancellationToken.None);
+        await BackorderReadyHandler.Handle(readyFirstEvent, readyFirstOrders, Tenant(readyFirst.TenantId), readyFirstUnitOfWork, readyFirstBus, CancellationToken.None);
+        await StockReservedV2Handler.Handle(readyFirstReservationEvent, readyFirstOrders, Tenant(readyFirst.TenantId), readyFirstUnitOfWork, readyFirstBus, CancellationToken.None);
 
         Assert.Equal(StockState.AwaitingPriceCheck, readyFirst.StockState);
         await readyFirstBus.Received(1).PublishAsync(Arg.Is<BackorderPriceCheckRequestedIntegrationEvent>(evt =>
@@ -168,6 +172,7 @@ public sealed class CheckoutLifecycleStateTests
                 Lines = [new StockReservationLine(order.Lines[0].ProductId, order.Lines[0].Quantity, 0)],
             },
             orders,
+            Tenant(order.TenantId),
             unitOfWork,
             bus,
             CancellationToken.None);
@@ -176,6 +181,60 @@ public sealed class CheckoutLifecycleStateTests
         Assert.Equal(StockState.Reserved, order.StockState);
         await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await bus.Received(1).PublishAsync(Arg.Is<OrderConfirmedIntegrationEvent>(evt => evt.OrderId == order.Id));
+    }
+
+    [Fact]
+    public async Task PaymentCapturedHandler_WolverineEnvelopeTenant_ProcessesMatchingPayloadAndRejectsMismatch()
+    {
+        var order = CreateOrder();
+        Assert.Null(order.ApplyStockReserved("stock-1", "checkout-1"));
+        var (orders, unitOfWork, bus) = CreateHandlerDependencies(order);
+        var accessor = Substitute.For<IMultiTenantContextAccessor<TenantDetails>>();
+        IMultiTenantContext currentTenantContext = new MultiTenantContext<TenantDetails>(new TenantDetails { Id = "previous", Identifier = "previous", Name = "previous", IsActive = true });
+        accessor.MultiTenantContext.Returns(_ => currentTenantContext);
+        var setter = Substitute.For<IMultiTenantContextSetter>();
+        setter.When(context => context.MultiTenantContext = Arg.Any<IMultiTenantContext>())
+            .Do(call => currentTenantContext = call.Arg<IMultiTenantContext>());
+        var middleware = new TenantPropagationMiddleware(
+            accessor,
+            setter,
+            Substitute.For<ILogger<TenantPropagationMiddleware>>());
+        var matching = CreatePaymentCapturedEvent(order, order.AuthorizedAmount, order.Currency, order.AuthorizedAmount, "envelope-matching");
+        var matchingContext = Substitute.For<IMessageContext>();
+        matchingContext.Envelope.Returns(new Envelope(matching) { TenantId = order.TenantId });
+
+        var matchingScope = middleware.Before(matchingContext);
+        try
+        {
+            await PaymentCapturedV2Handler.Handle(matching, orders, accessor.MultiTenantContext.TenantInfo!, unitOfWork, bus, CancellationToken.None);
+        }
+        finally
+        {
+            middleware.Finally(matchingScope);
+        }
+
+        Assert.Equal(PaymentState.Captured, order.PaymentState);
+        await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+
+        var mismatched = CreatePaymentCapturedEvent(order, order.AuthorizedAmount, order.Currency, order.AuthorizedAmount, "envelope-mismatch");
+        mismatched.TenantId = "foreign-tenant";
+        var mismatchedContext = Substitute.For<IMessageContext>();
+        mismatchedContext.Envelope.Returns(new Envelope(mismatched) { TenantId = order.TenantId });
+        var mismatchedScope = middleware.Before(mismatchedContext);
+        try
+        {
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                PaymentCapturedV2Handler.Handle(mismatched, orders, accessor.MultiTenantContext.TenantInfo!, unitOfWork, bus, CancellationToken.None));
+
+            Assert.Contains("does not match Wolverine envelope tenant", exception.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            middleware.Finally(mismatchedScope);
+        }
+
+        await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await orders.Received(1).FirstOrDefaultAsync(Arg.Any<ISpecification<Order>>(), true, Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -189,7 +248,7 @@ public sealed class CheckoutLifecycleStateTests
         var (orders, unitOfWork, bus) = CreateHandlerDependencies(order);
         var invalid = CreatePaymentCapturedEvent(order, amount, order.Currency, order.AuthorizedAmount, "capture-invalid");
 
-        await PaymentCapturedV2Handler.Handle(invalid, orders, unitOfWork, bus, CancellationToken.None);
+        await PaymentCapturedV2Handler.Handle(invalid, orders, Tenant(order.TenantId), unitOfWork, bus, CancellationToken.None);
 
         Assert.Equal(PaymentState.Pending, order.PaymentState);
         Assert.Equal(0m, order.CapturedAmount);
@@ -197,7 +256,7 @@ public sealed class CheckoutLifecycleStateTests
         await unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
         await bus.DidNotReceive().PublishAsync(Arg.Any<OrderConfirmedIntegrationEvent>());
 
-        await PaymentCapturedV2Handler.Handle(CreatePaymentCapturedEvent(order, 20m, order.Currency, order.AuthorizedAmount, invalid.RequestId), orders, unitOfWork, bus, CancellationToken.None);
+        await PaymentCapturedV2Handler.Handle(CreatePaymentCapturedEvent(order, 20m, order.Currency, order.AuthorizedAmount, invalid.RequestId), orders, Tenant(order.TenantId), unitOfWork, bus, CancellationToken.None);
 
         Assert.Equal(PaymentState.Captured, order.PaymentState);
         Assert.Equal(20m, order.CapturedAmount);
@@ -214,15 +273,15 @@ public sealed class CheckoutLifecycleStateTests
         var currencyMismatch = CreatePaymentCapturedEvent(order, 20m, "EUR", order.AuthorizedAmount, "capture-currency");
         var ceilingMismatch = CreatePaymentCapturedEvent(order, 20m, order.Currency, order.AuthorizedAmount - 1m, "capture-ceiling");
 
-        await PaymentCapturedV2Handler.Handle(currencyMismatch, orders, unitOfWork, bus, CancellationToken.None);
-        await PaymentCapturedV2Handler.Handle(ceilingMismatch, orders, unitOfWork, bus, CancellationToken.None);
+        await PaymentCapturedV2Handler.Handle(currencyMismatch, orders, Tenant(order.TenantId), unitOfWork, bus, CancellationToken.None);
+        await PaymentCapturedV2Handler.Handle(ceilingMismatch, orders, Tenant(order.TenantId), unitOfWork, bus, CancellationToken.None);
 
         Assert.Equal(PaymentState.Pending, order.PaymentState);
         Assert.DoesNotContain(currencyMismatch.RequestId, order.ProcessedTransitionKeys, StringComparison.Ordinal);
         Assert.DoesNotContain(ceilingMismatch.RequestId, order.ProcessedTransitionKeys, StringComparison.Ordinal);
         await unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
 
-        await PaymentCapturedV2Handler.Handle(CreatePaymentCapturedEvent(order, 20m, order.Currency, order.AuthorizedAmount, currencyMismatch.RequestId), orders, unitOfWork, bus, CancellationToken.None);
+        await PaymentCapturedV2Handler.Handle(CreatePaymentCapturedEvent(order, 20m, order.Currency, order.AuthorizedAmount, currencyMismatch.RequestId), orders, Tenant(order.TenantId), unitOfWork, bus, CancellationToken.None);
 
         Assert.Equal(PaymentState.Captured, order.PaymentState);
         await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
@@ -237,8 +296,8 @@ public sealed class CheckoutLifecycleStateTests
         var invalid = CreateBackorderPriceEvent(order, amount: 20m, currency: "EUR", authorizedAmount: order.AuthorizedAmount, requestId: "price-invalid");
         var ceilingMismatch = CreateBackorderPriceEvent(order, amount: 20m, currency: order.Currency, authorizedAmount: order.AuthorizedAmount - 1m, requestId: "price-ceiling");
 
-        await BackorderPriceCheckedHandler.Handle(invalid, orders, unitOfWork, bus, CancellationToken.None);
-        await BackorderPriceCheckedHandler.Handle(ceilingMismatch, orders, unitOfWork, bus, CancellationToken.None);
+        await BackorderPriceCheckedHandler.Handle(invalid, orders, Tenant(order.TenantId), unitOfWork, bus, CancellationToken.None);
+        await BackorderPriceCheckedHandler.Handle(ceilingMismatch, orders, Tenant(order.TenantId), unitOfWork, bus, CancellationToken.None);
 
         Assert.Equal(OrderStatus.Pending, order.Status);
         Assert.Equal(StockState.AwaitingPriceCheck, order.StockState);
@@ -247,7 +306,7 @@ public sealed class CheckoutLifecycleStateTests
         await unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
         await bus.DidNotReceive().PublishAsync(Arg.Any<OrderConfirmedIntegrationEvent>());
 
-        await BackorderPriceCheckedHandler.Handle(CreateBackorderPriceEvent(order, amount: 20m, currency: order.Currency, authorizedAmount: order.AuthorizedAmount, requestId: invalid.RequestId), orders, unitOfWork, bus, CancellationToken.None);
+        await BackorderPriceCheckedHandler.Handle(CreateBackorderPriceEvent(order, amount: 20m, currency: order.Currency, authorizedAmount: order.AuthorizedAmount, requestId: invalid.RequestId), orders, Tenant(order.TenantId), unitOfWork, bus, CancellationToken.None);
 
         Assert.Equal(OrderStatus.Confirmed, order.Status);
         Assert.Equal(StockState.Reserved, order.StockState);
@@ -264,7 +323,7 @@ public sealed class CheckoutLifecycleStateTests
         var (orders, unitOfWork, bus) = CreateHandlerDependencies(order);
         var invalid = CreateBackorderPriceEvent(order, amount, order.Currency, order.AuthorizedAmount, "price-invalid");
 
-        await BackorderPriceCheckedHandler.Handle(invalid, orders, unitOfWork, bus, CancellationToken.None);
+        await BackorderPriceCheckedHandler.Handle(invalid, orders, Tenant(order.TenantId), unitOfWork, bus, CancellationToken.None);
 
         Assert.Equal(StockState.AwaitingPriceCheck, order.StockState);
         Assert.DoesNotContain(invalid.RequestId, order.ProcessedTransitionKeys, StringComparison.Ordinal);
@@ -277,7 +336,7 @@ public sealed class CheckoutLifecycleStateTests
         var order = CreateBackorderAwaitingPriceCheck();
         var (orders, unitOfWork, bus) = CreateHandlerDependencies(order);
 
-        await BackorderPriceCheckedHandler.Handle(CreateBackorderPriceEvent(order, amount: order.AuthorizedAmount + 1m, currency: order.Currency, authorizedAmount: order.AuthorizedAmount, requestId: "price-over-ceiling", isWithinAuthorizedAmount: false), orders, unitOfWork, bus, CancellationToken.None);
+        await BackorderPriceCheckedHandler.Handle(CreateBackorderPriceEvent(order, amount: order.AuthorizedAmount + 1m, currency: order.Currency, authorizedAmount: order.AuthorizedAmount, requestId: "price-over-ceiling", isWithinAuthorizedAmount: false), orders, Tenant(order.TenantId), unitOfWork, bus, CancellationToken.None);
 
         Assert.Equal(OrderStatus.Rejected, order.Status);
         Assert.Equal(StockState.Rejected, order.StockState);
@@ -567,7 +626,7 @@ public sealed class CheckoutLifecycleStateTests
             evt.RequestId == "payment-cancel:stock-terminal"));
 
         bus.ClearReceivedCalls();
-        await PaymentFailedV2Handler.Handle(CreatePaymentFailureEvent(order, "payment-after-stock"), orders, unitOfWork, bus, CancellationToken.None);
+        await PaymentFailedV2Handler.Handle(CreatePaymentFailureEvent(order, "payment-after-stock"), orders, Tenant(order.TenantId), unitOfWork, bus, CancellationToken.None);
 
         Assert.Equal(expectedFailure, order.FailureReason.Name);
         Assert.Equal(PaymentState.Pending, order.PaymentState);
@@ -576,7 +635,7 @@ public sealed class CheckoutLifecycleStateTests
 
         var failureFirst = CreateOrder();
         var (failureFirstOrders, failureFirstUnitOfWork, failureFirstBus) = CreateHandlerDependencies(failureFirst);
-        await PaymentFailedV2Handler.Handle(CreatePaymentFailureEvent(failureFirst, "payment-before-stock"), failureFirstOrders, failureFirstUnitOfWork, failureFirstBus, CancellationToken.None);
+        await PaymentFailedV2Handler.Handle(CreatePaymentFailureEvent(failureFirst, "payment-before-stock"), failureFirstOrders, Tenant(failureFirst.TenantId), failureFirstUnitOfWork, failureFirstBus, CancellationToken.None);
         await ApplyTerminalStockHandlerAsync(terminalPath, failureFirst, failureFirstOrders, failureFirstUnitOfWork, failureFirstBus, "stock-after-payment");
 
         Assert.Equal(order.Status, failureFirst.Status);
@@ -666,6 +725,7 @@ public sealed class CheckoutLifecycleStateTests
                     SourceCorrelationId = "checkout-1",
                 },
                 orders,
+                Tenant(order.TenantId),
                 unitOfWork,
                 bus,
                 CancellationToken.None),
@@ -678,12 +738,14 @@ public sealed class CheckoutLifecycleStateTests
                     SourceCorrelationId = "checkout-1",
                 },
                 orders,
+                Tenant(order.TenantId),
                 unitOfWork,
                 bus,
                 CancellationToken.None),
             "over-ceiling" => BackorderPriceCheckedHandler.Handle(
                 CreateBackorderPriceEvent(order, order.AuthorizedAmount + 1m, order.Currency, order.AuthorizedAmount, key, isWithinAuthorizedAmount: false),
                 orders,
+                Tenant(order.TenantId),
                 unitOfWork,
                 bus,
                 CancellationToken.None),
@@ -698,6 +760,13 @@ public sealed class CheckoutLifecycleStateTests
         var unitOfWork = Substitute.For<IUnitOfWork>();
         unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(0));
         return (orders, unitOfWork, Substitute.For<IMessageBus>());
+    }
+
+    private static ITenantInfo Tenant(string tenantId)
+    {
+        var tenant = Substitute.For<ITenantInfo>();
+        tenant.Id.Returns(tenantId);
+        return tenant;
     }
 
     private static PaymentCapturedV2IntegrationEvent CreatePaymentCapturedEvent(Order order, decimal amount, string currency, decimal authorizedAmount, string requestId) =>
