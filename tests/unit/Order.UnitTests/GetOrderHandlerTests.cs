@@ -1,5 +1,6 @@
 using Ardalis.Specification;
 using ErrorOr;
+using Finbuckle.MultiTenant.Abstractions;
 using NSubstitute;
 using Orders.Application.Orders.Features.GetOrder.V1;
 using Orders.Application.Orders.Responses;
@@ -26,8 +27,10 @@ public sealed class GetOrderHandlerTests
             .Returns(Task.FromResult<Order?>(order));
 
         var query = new GetOrderQuery(orderId);
+        var tenant = Substitute.For<ITenantInfo>();
+        tenant.Id.Returns(order.TenantId);
 
-        ErrorOr<OrderDto> result = await GetOrderHandler.Handle(query, repository, CancellationToken.None);
+        ErrorOr<OrderDto> result = await GetOrderHandler.Handle(query, repository, tenant, CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(orderId, result.Value.Id);

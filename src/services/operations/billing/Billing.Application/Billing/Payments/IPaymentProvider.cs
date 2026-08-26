@@ -13,12 +13,11 @@ public interface IPaymentProvider
     /// <param name="ct">The cancellation token.</param>
     /// <returns>The outcome of the capture attempt.</returns>
     Task<PaymentProviderResult> CaptureAsync(Guid orderId, decimal amount, string currency, CancellationToken ct);
-}
 
-/// <summary>
-/// The outcome of a payment capture attempt against a payment provider.
-/// </summary>
-/// <param name="Success">Whether the capture succeeded.</param>
-/// <param name="ProviderReference">The provider's reference for the captured payment, when successful.</param>
-/// <param name="FailureReason">A human-readable reason for the failure, when unsuccessful.</param>
-public sealed record PaymentProviderResult(bool Success, string? ProviderReference, string? FailureReason);
+    /// <summary>Attempts a tokenized payment with an idempotency key.</summary>
+    /// <param name="request">The provider-neutral request.</param>
+    /// <param name="ct">The cancellation token.</param>
+    /// <returns>The normalized provider result.</returns>
+    Task<PaymentProviderResult> AttemptAsync(PaymentProviderRequest request, CancellationToken ct) =>
+        CaptureAsync(request.OrderId, request.Amount, request.Currency, ct);
+}

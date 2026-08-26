@@ -12,6 +12,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.RabbitMq" />
+    <PackageReference Include="NSubstitute" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
@@ -25,11 +26,37 @@
     <ProjectReference Include="..\..\..\src\services\commerce\order\Order.Host\Order.Host.csproj">
       <Aliases>OrderHost</Aliases>
     </ProjectReference>
+    <ProjectReference Include="..\..\..\src\services\commerce\basket\Basket.Host\Basket.Host.csproj">
+      <Aliases>BasketHost</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\src\services\commerce\catalog\Catalog.Host\Catalog.Host.csproj">
+      <Aliases>CatalogHost</Aliases>
+    </ProjectReference>
     <ProjectReference Include="..\..\..\src\services\commerce\inventory\Inventory.Host\Inventory.Host.csproj">
       <Aliases>InventoryHost</Aliases>
     </ProjectReference>
+    <ProjectReference Include="..\..\..\src\services\operations\billing\Billing.Host\Billing.Host.csproj">
+      <Aliases>BillingHost</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\src\services\operations\notification\Notification.Host\Notification.Host.csproj">
+      <Aliases>NotificationHost</Aliases>
+    </ProjectReference>
     <ProjectReference Include="..\..\..\src\services\commerce\order\Order.Application\Order.Application.csproj" />
     <ProjectReference Include="..\..\..\src\services\commerce\inventory\Inventory.Application\Inventory.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\services\commerce\pricing\Pricing.Application\Pricing.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\services\commerce\pricing\Pricing.Host\Pricing.Host.csproj">
+      <Aliases>global,PricingHost</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\src\services\commerce\customer\Customer.Application\Customer.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\services\commerce\customer\Customer.Host\Customer.Host.csproj">
+      <Aliases>global,CustomerHost</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\src\services\commerce\basket\Basket.Domain\Basket.Domain.csproj" />
+    <ProjectReference Include="..\..\..\src\services\operations\notification\Notification.Domain\Notification.Domain.csproj" />
+    <ProjectReference Include="..\..\..\src\services\commerce\basket\Basket.Application\Basket.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\services\commerce\catalog\Catalog.Application\Catalog.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\services\operations\billing\Billing.Application\Billing.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\services\operations\notification\Notification.Application\Notification.Application.csproj" />
     <ProjectReference Include="..\Teck.Platform.IntegrationTests.Shared\Teck.Platform.IntegrationTests.Shared.csproj" />
     <ProjectReference Include="..\..\..\src\shared\SharedKernel.Infrastructure\SharedKernel.Infrastructure.csproj" />
   </ItemGroup>

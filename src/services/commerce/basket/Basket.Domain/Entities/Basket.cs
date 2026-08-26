@@ -7,7 +7,7 @@ namespace Baskets.Domain.Entities;
 
 /// <summary>
 /// Represents a shopping basket aggregate root. A basket is owned either by an authenticated
-/// customer (<see cref="CustomerId"/>) or, for guests, by an opaque <see cref="AnonymousToken"/>.
+/// authenticated subject (<see cref="Subject"/>) or, for guests, by an opaque <see cref="AnonymousToken"/>.
 /// </summary>
 public sealed class Basket : BaseEntity, IAggregateRoot, ITenantScoped
 {
@@ -17,8 +17,8 @@ public sealed class Basket : BaseEntity, IAggregateRoot, ITenantScoped
     {
     }
 
-    /// <summary>Gets the identifier of the owning customer, or null for a guest basket.</summary>
-    public Guid? CustomerId { get; private set; }
+    /// <summary>Gets the immutable authenticated owner subject, or null for a guest basket.</summary>
+    public string? Subject { get; private set; }
 
     /// <summary>Gets the opaque token identifying a guest basket, or null once owned by a customer.</summary>
     public Guid? AnonymousToken { get; private set; }
@@ -35,16 +35,36 @@ public sealed class Basket : BaseEntity, IAggregateRoot, ITenantScoped
     /// <summary>Gets the basket subtotal (sum of line totals).</summary>
     public decimal Subtotal { get; private set; }
 
+    /// <summary>Gets the shopper-authorized checkout ceiling.</summary>
+    public decimal AuthorizedAmount { get; private set; }
+
+    /// <summary>Gets the checkout currency.</summary>
+    public string? Currency { get; private set; }
+
+    /// <summary>Gets the bounded opaque payment reference.</summary>
+    public string? PaymentReference { get; private set; }
+
+    /// <summary>Gets the stable checkout pricing request key.</summary>
+    public string? CheckoutRequestId { get; private set; }
+
+    /// <summary>Gets the shopper-safe pricing failure category, when checkout failed.</summary>
+    public string? CheckoutFailure { get; private set; }
+
     /// <summary>Creates a new active basket owned by a customer.</summary>
-    /// <param name="customerId">The owning customer identifier.</param>
+    /// <param name="subject">The owning authenticated subject.</param>
     /// <param name="tenantId">The owning tenant identifier.</param>
     /// <returns>The new basket.</returns>
-    public static Basket CreateForCustomer(Guid customerId, string tenantId) => new()
+    public static Basket CreateForSubject(string subject, string tenantId)
     {
-        CustomerId = customerId,
-        TenantId = tenantId,
-        Status = BasketStatus.Active,
-    };
+        ArgumentException.ThrowIfNullOrWhiteSpace(subject);
+        return new Basket { Subject = subject, TenantId = tenantId, Status = BasketStatus.Active };
+    }
+
+    /// <summary>Creates a subject-owned basket from a legacy GUID test identity.</summary>
+    /// <param name="customerId">The legacy test identity converted to the persisted subject string.</param>
+    /// <param name="tenantId">The owning tenant identifier.</param>
+    /// <returns>The new basket.</returns>
+    public static Basket CreateForCustomer(Guid customerId, string tenantId) => CreateForSubject(customerId.ToString(), tenantId);
 
     /// <summary>Creates a new active guest basket identified by an anonymous token.</summary>
     /// <param name="anonymousToken">The opaque guest token.</param>
@@ -83,6 +103,12 @@ public sealed class Basket : BaseEntity, IAggregateRoot, ITenantScoped
 
         Recalculate();
     }
+
+    /// <summary>Adds an unpriced item; only pricing events may later set its price.</summary>
+    /// <param name="productId">The product identifier.</param>
+    /// <param name="productName">The product name captured in the basket.</param>
+    /// <param name="quantity">The requested quantity.</param>
+    public void AddItem(Guid productId, string productName, int quantity) => AddItem(productId, productName, 0m, quantity);
 
     /// <summary>Sets the quantity for a product; a non-positive quantity removes the line.</summary>
     /// <param name="productId">The product identifier.</param>
@@ -125,8 +151,11 @@ public sealed class Basket : BaseEntity, IAggregateRoot, ITenantScoped
         Recalculate();
     }
 
-    /// <summary>Marks the basket as checked out and raises <see cref="BasketCheckedOut"/>.</summary>
-    public void Checkout()
+    /// <summary>Starts authoritative pricing after recording the shopper authorization ceiling.</summary>
+    /// <param name="authorizedAmount">The shopper-authorized maximum total.</param>
+    /// <param name="currency">The ISO authorization currency.</param>
+    /// <param name="paymentReference">The bounded opaque payment reference.</param>
+    public void BeginCheckout(decimal authorizedAmount, string currency, string paymentReference)
     {
         EnsureActive();
         if (_items.Count == 0)
@@ -134,14 +163,65 @@ public sealed class Basket : BaseEntity, IAggregateRoot, ITenantScoped
             throw new InvalidOperationException("Cannot check out an empty basket.");
         }
 
+        if (authorizedAmount <= 0 || currency.Length != 3 || string.IsNullOrWhiteSpace(paymentReference) || paymentReference.Length > 256)
+        {
+            throw new ArgumentException("Checkout authorization is invalid.");
+        }
+
+        AuthorizedAmount = authorizedAmount;
+        Currency = currency.ToUpperInvariant();
+        PaymentReference = paymentReference;
+        CheckoutRequestId = Guid.NewGuid().ToString("N");
+        CheckoutFailure = null;
+        Status = BasketStatus.PricingPending;
+        AddDomainEvent(new BasketCheckedOut(Id, Subject, TenantId, AuthorizedAmount, Currency, CheckoutRequestId, DateTimeOffset.UtcNow));
+    }
+
+    /// <summary>Applies the only accepted source of final prices and completes checkout.</summary>
+    /// <param name="pricedItems">The platform-priced basket lines.</param>
+    /// <param name="subtotal">The platform-resolved subtotal.</param>
+    /// <param name="currency">The authoritative ISO currency.</param>
+    public void ApplyAuthoritativePricing(IReadOnlyList<BasketItem> pricedItems, decimal subtotal, string currency)
+    {
+        if (Status != BasketStatus.PricingPending)
+        {
+            throw new InvalidOperationException("Basket is not awaiting pricing.");
+        }
+
+        if (!string.Equals(Currency, currency, StringComparison.OrdinalIgnoreCase) || subtotal > AuthorizedAmount)
+        {
+            throw new InvalidOperationException("Authoritative price is outside the shopper authorization.");
+        }
+
+        if (pricedItems.Count != _items.Count || pricedItems.Any(item => item.Quantity <= 0 || item.UnitPrice < 0))
+        {
+            throw new InvalidOperationException("Authoritative prices do not match basket lines.");
+        }
+
+        foreach (BasketItem priced in pricedItems)
+        {
+            int index = _items.FindIndex(item => item.ProductId == priced.ProductId && item.Quantity == priced.Quantity);
+            if (index < 0)
+            {
+                throw new InvalidOperationException("Authoritative prices contain an unknown basket line.");
+            }
+
+            _items[index] = _items[index] with { UnitPrice = priced.UnitPrice };
+        }
+
+        Subtotal = subtotal;
         Status = BasketStatus.CheckedOut;
-        AddDomainEvent(new BasketCheckedOut(
-            Id,
-            CustomerId,
-            TenantId,
-            Subtotal,
-            _items.ToList(),
-            DateTimeOffset.UtcNow));
+    }
+
+    /// <summary>Records a safe pricing failure without creating an order.</summary>
+    /// <param name="failureCategory">The shopper-safe failure category.</param>
+    public void FailCheckout(string failureCategory)
+    {
+        if (Status == BasketStatus.PricingPending)
+        {
+            CheckoutFailure = failureCategory;
+            Status = BasketStatus.CheckoutFailed;
+        }
     }
 
     /// <summary>Absorbs the items of another basket (merge by product, summing quantities) and marks it merged.</summary>
@@ -159,13 +239,18 @@ public sealed class Basket : BaseEntity, IAggregateRoot, ITenantScoped
         source.Status = BasketStatus.Merged;
     }
 
-    /// <summary>Transfers ownership of a guest basket to a customer.</summary>
-    /// <param name="customerId">The customer taking ownership.</param>
-    public void AssignToCustomer(Guid customerId)
+    /// <summary>Transfers ownership of a guest basket to an authenticated subject.</summary>
+    /// <param name="subject">The authenticated subject taking ownership.</param>
+    public void AssignToSubject(string subject)
     {
-        CustomerId = customerId;
+        ArgumentException.ThrowIfNullOrWhiteSpace(subject);
+        Subject = subject;
         AnonymousToken = null;
     }
+
+    /// <summary>Transfers ownership from a legacy GUID test identity.</summary>
+    /// <param name="customerId">The legacy test identity.</param>
+    public void AssignToCustomer(Guid customerId) => AssignToSubject(customerId.ToString());
 
     private void EnsureActive()
     {

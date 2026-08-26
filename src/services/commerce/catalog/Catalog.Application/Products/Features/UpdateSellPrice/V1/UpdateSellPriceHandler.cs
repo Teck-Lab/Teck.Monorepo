@@ -1,4 +1,3 @@
-using Catalog.Application.Products.IntegrationEvents;
 using Catalog.Application.Products.Mapping;
 using Catalog.Application.Products.ReadModels;
 using Catalog.Application.Products.Responses;
@@ -7,6 +6,7 @@ using Catalog.Domain.Entities;
 using Catalog.Domain.ValueObjects;
 using ErrorOr;
 using SharedKernel.Core.Database;
+using SharedKernel.Events;
 using Wolverine;
 
 namespace Catalog.Application.Products.Features.UpdateSellPrice.V1;
@@ -14,7 +14,7 @@ namespace Catalog.Application.Products.Features.UpdateSellPrice.V1;
 /// <summary>Handles <see cref="UpdateSellPriceCommand"/>.</summary>
 public static class UpdateSellPriceHandler
 {
-    /// <summary>Changes the sell price; publishes <see cref="ProductPriceChangedIntegrationEvent"/> only on a real change.</summary>
+    /// <summary>Changes the sell price and publishes a default-variant projection update on a real change.</summary>
     /// <param name="command">The command describing the variant and new sell price.</param>
     /// <param name="repository">The write repository for loading and tracking the product.</param>
     /// <param name="unitOfWork">The unit of work used to commit changes.</param>
@@ -47,9 +47,18 @@ public static class UpdateSellPriceHandler
         await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);
 
         var priceChange = product.DomainEvents.OfType<VariantSellPriceChanged>().LastOrDefault();
-        if (priceChange is not null)
+        if (priceChange is not null && variant.IsDefault)
         {
-            await bus.PublishAsync(new ProductPriceChangedIntegrationEvent(priceChange, product.TenantId)).ConfigureAwait(false);
+            await bus.PublishAsync(new CatalogPriceChangedIntegrationEvent
+            {
+                ProductId = priceChange.ProductId,
+                VariantId = priceChange.VariantId,
+                TenantId = product.TenantId,
+                Amount = priceChange.NewAmount,
+                Currency = priceChange.Currency,
+                IdempotencyKey = $"catalog-price:{priceChange.ProductId}:{priceChange.VariantId}:{product.UpdatedOn?.UtcTicks ?? product.CreatedAt.UtcTicks}",
+                ChangedAt = product.UpdatedOn ?? product.CreatedAt,
+            }).ConfigureAwait(false);
         }
 
         return variant.ToVariantDto();

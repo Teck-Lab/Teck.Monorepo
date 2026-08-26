@@ -1,14 +1,17 @@
 using System.Reflection;
 using FastEndpoints;
+using Finbuckle.MultiTenant.AspNetCore.Extensions;
 using JasperFx;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Serilog;
 using SharedKernel.Infrastructure.Middlewares;
+using SharedKernel.Infrastructure.MultiTenant;
 using SharedKernel.Infrastructure.Resilience;
 
 namespace SharedKernel.Infrastructure.Hosting;
@@ -34,6 +37,11 @@ public static class TeckServiceExtensions
 
         services.Configure<TeckServiceOptions>(configuration.GetSection(TeckServiceOptions.SectionName));
         services.Configure<TenantRateLimitOptions>(configuration.GetSection(TenantRateLimitOptions.SectionName));
+        services.Configure<TeckCloudMultiTenancyOptions>(configuration.GetSection("MultiTenancy"));
+        // Tenant authority is the authenticated principal's signed claims. A caller supplied
+        // header must never select or widen a tenant context in a service host.
+        services.AddTeckCloudMultiTenancy();
+        services.AddSingleton<ITenantTokenContextResolver, TenantTokenContextResolver>();
 
         // Services that act as handler-only hosts (e.g. Customer.Host with only gRPC remote
         // handlers) have no HTTP endpoint declarations. FastEndpoints throws in that case, so we
@@ -102,6 +110,8 @@ public static class TeckServiceExtensions
         app.UseMiddleware<TenantRateLimitMiddleware>();
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseMultiTenant();
+        app.UseMiddleware<TenantMessageBusMiddleware>();
 
         if (app.Services.GetService<NoHttpEndpointsMarker>() is null)
         {
@@ -132,6 +142,29 @@ public static class TeckServiceExtensions
     {
         ArgumentNullException.ThrowIfNull(app);
         return app.RunJasperFxCommands(args);
+    }
+
+    /// <summary>
+    /// Runs the host through the JasperFx command-line pipeline or applies pending EF Core migrations.
+    /// </summary>
+    /// <typeparam name="TDbContext">The write DbContext type that owns the host schema.</typeparam>
+    /// <param name="app">The web application to run.</param>
+    /// <param name="args">The process command-line arguments.</param>
+    /// <returns>The process exit code; <c>0</c> after migrations complete or for a normal host shutdown.</returns>
+    public static async Task<int> RunTeckServiceAsync<TDbContext>(this WebApplication app, string[] args)
+        where TDbContext : DbContext
+    {
+        ArgumentNullException.ThrowIfNull(app);
+
+        if (args is ["--migrate"])
+        {
+            await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
+            TDbContext dbContext = scope.ServiceProvider.GetRequiredService<TDbContext>();
+            await dbContext.Database.MigrateAsync();
+            return 0;
+        }
+
+        return await app.RunJasperFxCommands(args);
     }
 
     /// <summary>

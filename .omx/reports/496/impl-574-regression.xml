@@ -1,0 +1,59 @@
+<implementation-result version="1">
+  <routing>
+    <work-kind>security-fix</work-kind>
+    <workflow-stage>execution</workflow-stage>
+    <route>security-fix:execution</route>
+  </routing>
+  <outcome>succeeded</outcome>
+  <base-sha>0c00cb2f985e7a0b3f03a8dbea8ccb15fd5b2f33</base-sha>
+  <tip-sha>0c86b4bd170289d1f585576a52bf16ec967468f6</tip-sha>
+  <files-modified>tests/integration/Billing.IntegrationTests/PaymentLifecycleTests.cs; .omx/reports/496/impl-574-regression.xml</files-modified>
+  <validation-evidence><![CDATA[
+Regression: PaymentLifecycleTests.IncomingEnvelopeTenant_ResolvesLazilyInTheGeneratedHandlerPipeline. It inserts only the required pending Payment row with SQL, opens a fresh scope with both IMultiTenantContextAccessor.MultiTenantContext and IMessageBus.TenantId asserted null, then calls the production IMessageBus.InvokeForTenantAsync API. The production Wolverine envelope carries the tenant id into TenantPropagationMiddleware; no arrange step calls EstablishMessageTenant, accesses IMultiTenantContextSetter, or assigns IMessageBus.TenantId.
+
+Temporary mutation command (executed):
+git diff 6228d6a^ 6228d6a -- src/shared/SharedKernel.Infrastructure/Database/EFCore/BaseDbContext.cs | git apply -R --check && git diff 6228d6a^ 6228d6a -- src/shared/SharedKernel.Infrastructure/Database/EFCore/BaseDbContext.cs | git apply -R
+
+Reverted-probe command (executed):
+dotnet test tests/integration/Billing.IntegrationTests/Billing.IntegrationTests.csproj --no-build --no-restore --filter 'FullyQualifiedName~IncomingEnvelopeTenant_ResolvesLazilyInTheGeneratedHandlerPipeline' --logger 'console;verbosity=minimal'
+
+Reverted-probe output (verbatim):
+[xUnit.net 00:00:32.16]     Billing.IntegrationTests.PaymentLifecycleTests.IncomingEnvelopeTenant_ResolvesLazilyInTheGeneratedHandlerPipeline [FAIL]
+  Failed Billing.IntegrationTests.PaymentLifecycleTests.IncomingEnvelopeTenant_ResolvesLazilyInTheGeneratedHandlerPipeline [19 s]
+  Error Message:
+   System.NullReferenceException : Object reference not set to an instance of an object.
+  Stack Trace:
+     at lambda_method31(Closure, QueryContext)
+     at Microsoft.EntityFrameworkCore.Query.Internal.QueryCompiler.ExecuteCore[TResult](Expression query, Boolean async, CancellationToken cancellationToken)
+     at Microsoft.EntityFrameworkCore.Query.Internal.QueryCompiler.ExecuteAsync[TResult](Expression query, CancellationToken cancellationToken)
+     at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+     at SharedKernel.Infrastructure.Database.EFCore.GenericWriteRepository`3.FirstOrDefaultAsync(ISpecification`1 specification, Boolean enableTracking, CancellationToken cancellationToken) in /workspaces/Teck.Monorepo-496-multitenancy-wiring/src/shared/SharedKernel.Infrastructure/Database/EFCore/GenericWriteRepository.cs:line 264
+     at Billings.Application.Billing.Payments.Features.RetryPayment.V1.RetryPaymentHandler.Handle(RetryPaymentCommand command, IGenericWriteRepository`2 payments, IGenericWriteRepository`2 attempts, IUnitOfWork unitOfWork, IPaymentProvider provider, IMessageBus bus, CancellationToken ct) in /workspaces/Teck.Monorepo-496-multitenancy-wiring/src/services/operations/billing/Billing.Application/Billing/Payments/Features/RetryPayment/V1/RetryPaymentHandler.cs:line 36
+     at Internal.Generated.WolverineHandlers.RetryPaymentCommandHandler783995539.HandleAsync(MessageContext context, CancellationToken cancellation)
+     at Wolverine.Runtime.Handlers.Executor.InvokeInlineAsync(Envelope envelope, CancellationToken cancellation)
+     at Billing.IntegrationTests.PaymentLifecycleTests.IncomingEnvelopeTenant_ResolvesLazilyInTheGeneratedHandlerPipeline() in /workspaces/Teck.Monorepo-496-multitenancy-wiring/tests/integration/Billing.IntegrationTests/PaymentLifecycleTests.cs:line 59
+
+Failed!  - Failed:     1, Passed:     0, Skipped:     0, Total:     1, Duration: 19 s - Billing.IntegrationTests.dll (net10.0)
+
+Restore command (executed):
+git diff 6228d6a^ 6228d6a -- src/shared/SharedKernel.Infrastructure/Database/EFCore/BaseDbContext.cs | git apply --check && git diff 6228d6a^ 6228d6a -- src/shared/SharedKernel.Infrastructure/Database/EFCore/BaseDbContext.cs | git apply && git diff --exit-code -- src/shared/SharedKernel.Infrastructure/Database/EFCore/BaseDbContext.cs
+
+Restored-probe command (executed):
+dotnet test tests/integration/Billing.IntegrationTests/Billing.IntegrationTests.csproj --no-restore --filter 'FullyQualifiedName~IncomingEnvelopeTenant_ResolvesLazilyInTheGeneratedHandlerPipeline' --logger 'console;verbosity=minimal'
+
+Restored-probe output (verbatim result):
+Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 5 s - Billing.IntegrationTests.dll (net10.0)
+Exit code: 0.
+
+Complete-project command (executed):
+dotnet test tests/integration/Billing.IntegrationTests/Billing.IntegrationTests.csproj --no-restore --logger 'console;verbosity=minimal'
+
+Complete-project output (verbatim result):
+Skipped Billing.IntegrationTests.PaymentLifecycleTests.TenantCollidingOrderIds_ArePersistedAsIndependentPaymentsAndProviderCalls [1 ms]
+Passed!  - Failed:     0, Passed:    43, Skipped:     1, Total:    44, Duration: 57 s - Billing.IntegrationTests.dll (net10.0)
+Exit code: 0.
+
+Restoration and hygiene: git diff --exit-code -- src/shared/SharedKernel.Infrastructure/Database/EFCore/BaseDbContext.cs returned 0 immediately after restoration; git diff --check returned 0 before committing the regression. The regression commit is 0c86b4bd170289d1f585576a52bf16ec967468f6 (test(billing): cover unseeded envelope tenant resolution).
+]]></validation-evidence>
+  <remaining-risks>Existing Billing integration warnings remain: NU1903 for SSH.NET and pre-existing analyzer warnings. The suite retains its pre-existing deferred TenantCollidingOrderIds skip for issue #577; no production code or other existing test was modified.</remaining-risks>
+</implementation-result>

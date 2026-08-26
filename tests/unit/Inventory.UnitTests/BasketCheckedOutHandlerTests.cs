@@ -29,7 +29,7 @@ public sealed class BasketCheckedOutHandlerTests
     private static IGenericWriteRepository<Reservation, Guid> ReservationRepo(Reservation? existing = null)
     {
         var repository = Substitute.For<IGenericWriteRepository<Reservation, Guid>>();
-        repository.FirstOrDefaultAsync(Arg.Any<ISpecification<Reservation>>(), Arg.Any<CancellationToken>())
+        repository.FirstOrDefaultAsync(Arg.Any<ISpecification<Reservation>>(), true, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(existing));
         return repository;
     }

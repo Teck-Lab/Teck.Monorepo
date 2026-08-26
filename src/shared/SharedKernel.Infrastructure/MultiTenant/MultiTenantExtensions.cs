@@ -52,6 +52,11 @@ public static class MultiTenantExtensions
         // Create and configure options
         var options = new TeckCloudMultiTenancyOptions();
         configureOptions?.Invoke(options);
+        options.UseHeaderStrategy = false;
+
+        // Configuration may describe legacy headers, but it cannot enable them as a tenant
+        // authority in a Teck service. Resolution is intentionally claim-only.
+        services.PostConfigure<TeckCloudMultiTenancyOptions>(configured => configured.UseHeaderStrategy = false);
 
         var builder = services.AddMultiTenant<TenantDetails>();
 
@@ -59,11 +64,6 @@ public static class MultiTenantExtensions
         if (options.UseClaimStrategy)
         {
             builder.WithDelegateStrategy(ResolveClaimStrategy);
-        }
-
-        if (options.UseHeaderStrategy)
-        {
-            builder.WithDelegateStrategy(ResolveHeaderStrategy);
         }
 
         // Configure store

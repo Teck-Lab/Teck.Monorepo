@@ -4,7 +4,13 @@
 
 using System.Net;
 using System.Net.Http.Json;
+using Catalog.Application.Database;
 using Catalog.Application.Products.Responses;
+using Catalog.Domain.Entities;
+using Catalog.Domain.ValueObjects;
+using Finbuckle.MultiTenant.Extensions;
+using Microsoft.EntityFrameworkCore;
+using SharedKernel.Infrastructure.Database.EFCore;
 using Teck.Platform.IntegrationTests.Shared;
 using Xunit;
 
@@ -56,6 +62,34 @@ public sealed class ProductLifecycleTests : CatalogIntegrationTestBase
         var body = await fetched.Content.ReadFromJsonAsync<ProductDto>();
         Assert.Equal(product.Id, body!.Id);
         Assert.Equal("Gadget", body.Name);
+    }
+
+    [Fact]
+    public async Task GetProduct_ForeignTenantProduct_IsExcluded()
+    {
+        var foreignProduct = Product.Create(
+            "tenant-b",
+            "Foreign widget",
+            "Foreign tenant only",
+            null,
+            "FOREIGN-WIDGET",
+            new Money(9.99m, "USD"));
+
+        await using (var seed = new CatalogDbContext(
+            new DbContextOptionsBuilder<CatalogDbContext>()
+                .UseNpgsql(DatabaseConnectionString)
+                .UseTeckCloudTenant("tenant-b")
+                .Options,
+            null!))
+        {
+            seed.Products.Add(foreignProduct);
+            await seed.SaveChangesAsync();
+        }
+
+        HttpResponseMessage response = await Client.GetAsync($"/products/{foreignProduct.Id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty(await response.Content.ReadAsStringAsync());
     }
 
     [Fact]

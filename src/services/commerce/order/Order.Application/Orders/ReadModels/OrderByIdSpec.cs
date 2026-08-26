@@ -12,8 +12,9 @@ public sealed class OrderByIdSpec : Specification<Order>
     /// Initializes a new instance of the <see cref="OrderByIdSpec"/> class.
     /// </summary>
     /// <param name="orderId">The identifier of the order to match.</param>
-    public OrderByIdSpec(Guid orderId)
+    /// <param name="tenantId">The tenant authorized to read the order.</param>
+    public OrderByIdSpec(Guid orderId, string tenantId)
     {
-        Query.Where(order => order.Id == orderId);
+        Query.Where(order => order.Id == orderId && order.TenantId == tenantId);
     }
 }

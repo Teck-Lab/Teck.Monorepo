@@ -63,6 +63,29 @@ public sealed class ResolvePriceHandlerTests
     }
 
     [Fact]
+    public async Task Resolve_NoApplicablePriceList_UsesTenantCatalogFallback()
+    {
+        var (prices, rates) = Repos([]);
+        var catalogPrices = Substitute.For<IGenericReadRepository<CatalogPrice, Guid>>();
+        var fallback = CatalogPrice.Create(Product, Guid.NewGuid(), 7.50m, "USD", DateTimeOffset.UtcNow, "tenant-1");
+        catalogPrices
+            .FirstOrDefaultAsync(Arg.Any<Ardalis.Specification.ISpecification<CatalogPrice>>(), Arg.Any<CancellationToken>())
+            .Returns(fallback);
+
+        var result = await ResolvePriceHandler.ResolveAsync(
+            new ResolvePriceQuery(Product, "USD", 1, null, null, null, null),
+            prices,
+            rates,
+            catalogPrices,
+            Options(),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(7.50m, result.Value.UnitAmount);
+        Assert.Equal(Guid.Empty, result.Value.PriceListId);
+    }
+
+    [Fact]
     public async Task Resolve_ForeignWinner_NoRate_ReturnsFailure()
     {
         var price = ActivePrice(new PriceScope("EUR", null, null, null), 10m);

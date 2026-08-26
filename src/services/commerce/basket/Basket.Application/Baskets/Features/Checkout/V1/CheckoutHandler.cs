@@ -1,7 +1,6 @@
 using Baskets.Application.Baskets.Mapping;
 using Baskets.Application.Baskets.ReadModels;
 using Baskets.Application.Baskets.Responses;
-using Baskets.Domain.DomainEvents;
 using Baskets.Domain.Entities;
 using SharedKernel.Core.Database;
 using SharedKernel.Events;
@@ -13,8 +12,7 @@ namespace Baskets.Application.Baskets.Features.Checkout.V1;
 public static class CheckoutHandler
 {
     /// <summary>
-    /// Checks out the caller's basket, commits, then publishes the
-    /// <see cref="BasketCheckedOutIntegrationEvent"/> that the order service consumes.
+    /// Starts authoritative pricing for the caller's basket and publishes no caller-supplied price.
     /// </summary>
     /// <param name="command">The command.</param>
     /// <param name="repository">The write repository.</param>
@@ -34,25 +32,26 @@ public static class CheckoutHandler
         var basket = await repository.FirstOrDefaultAsync(new BasketByIdSpec(command.BasketId), enableTracking: true, ct).ConfigureAwait(false)
             ?? throw new InvalidOperationException($"Basket '{command.BasketId}' was not found.");
 
+        if (string.IsNullOrWhiteSpace(identity.Subject))
+        {
+            throw new UnauthorizedAccessException("Checkout requires an authenticated shopper subject.");
+        }
+
         BasketOwnership.EnsureOwnedBy(basket, identity);
 
-        basket.Checkout();
-
-        // Capture the domain event before commit; publish the integration event only after the
-        // commit succeeds. Publishing directly here (rather than via an EF -> Wolverine domain-event
-        // bridge, which is not wired platform-wide) mirrors the order service's working pattern.
-        var checkedOut = basket.DomainEvents.OfType<BasketCheckedOut>().Single();
+        basket.BeginCheckout(command.AuthorizedAmount, command.Currency, command.PaymentReference);
         await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        await bus.PublishAsync(new BasketCheckedOutIntegrationEvent
+        await bus.PublishAsync(new BasketCheckoutRequestedIntegrationEvent
         {
-            BasketId = checkedOut.BasketId,
-            CustomerId = checkedOut.CustomerId,
-            TenantId = checkedOut.TenantId,
-            Subtotal = checkedOut.Subtotal,
-            CheckedOutAt = checkedOut.CheckedOutAt,
-            Items = checkedOut.Items
-                .Select(item => new BasketCheckedOutLine(item.ProductId, item.ProductName, item.UnitPrice, item.Quantity, item.LineTotal))
+            BasketId = basket.Id,
+            TenantId = basket.TenantId,
+            AuthorizedAmount = basket.AuthorizedAmount,
+            Currency = basket.Currency!,
+            RequestId = basket.CheckoutRequestId!,
+            SourceCorrelationId = basket.Id.ToString("N"),
+            Lines = basket.Items
+                .Select(item => new BasketCheckoutRequestedLine { ProductId = item.ProductId, Quantity = item.Quantity })
                 .ToList(),
         }).ConfigureAwait(false);
 

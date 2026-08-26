@@ -1,9 +1,11 @@
 using FastEndpoints;
+using Finbuckle.MultiTenant.AspNetCore.Extensions;
 using Gateway.Public.Edge;
 using Keycloak.AuthServices.Authentication;
 using SharedKernel.Grpc.Contracts.Remote.V1.Tenants;
 using SharedKernel.Infrastructure.Auth;
 using SharedKernel.Infrastructure.Hosting;
+using SharedKernel.Infrastructure.MultiTenant;
 using Teck.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -29,6 +31,7 @@ builder.Services.AddKeycloak(builder.Configuration, builder.Environment, keycloa
 // AuthZ: "authenticated" is referenced by YARP route AuthorizationPolicy metadata.
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("authenticated", policy => policy.RequireAuthenticatedUser());
+builder.Services.AddTeckCloudMultiTenancy();
 
 // Edge pipeline: options, registry (fail-closed), FusionCache, token exchange,
 // tenant resolver, keyed circuit-breaker, DB-strategy resolver, ordered steps.
@@ -63,6 +66,7 @@ app.MapRemote(
 app.UseAuthentication();
 app.UseRouting();
 app.UseAuthorization();
+app.UseMultiTenant();
 app.MapReverseProxy(proxy => proxy.UseMiddleware<EdgeEnforcementMiddleware>());
 app.MapDefaultEndpoints();
 

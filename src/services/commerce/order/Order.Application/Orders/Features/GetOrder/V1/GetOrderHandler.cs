@@ -1,4 +1,5 @@
 using ErrorOr;
+using Finbuckle.MultiTenant.Abstractions;
 using Orders.Application.Orders.Mapping;
 using Orders.Application.Orders.ReadModels;
 using Orders.Application.Orders.Responses;
@@ -17,14 +18,16 @@ public static class GetOrderHandler
     /// </summary>
     /// <param name="query">The query identifying the order to load.</param>
     /// <param name="repository">The repository used to query orders.</param>
+    /// <param name="tenant">The authenticated tenant authorized to read the order.</param>
     /// <param name="ct">A token used to cancel the operation.</param>
     /// <returns>The matching <see cref="OrderDto"/> or a not-found error.</returns>
     public static async Task<ErrorOr<OrderDto>> Handle(
         GetOrderQuery query,
         IGenericReadRepository<Order, Guid> repository,
+        ITenantInfo tenant,
         CancellationToken ct)
     {
-        var spec = new OrderByIdSpec(query.OrderId);
+        var spec = new OrderByIdSpec(query.OrderId, tenant.Id);
         var order = await repository.FirstOrDefaultAsync(spec, ct).ConfigureAwait(false);
 
         return order is null

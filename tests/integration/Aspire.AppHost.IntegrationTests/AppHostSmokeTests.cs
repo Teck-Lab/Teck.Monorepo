@@ -19,6 +19,7 @@ namespace Aspire.AppHost.IntegrationTests;
 ///
 /// First run pulls Docker images and builds four services — allow up to 5 minutes end-to-end.
 /// </summary>
+[Collection("AppHost")]
 public sealed class AppHostSmokeTests
 {
     [Fact]
@@ -27,8 +28,7 @@ public sealed class AppHostSmokeTests
         // Build and start the entire distributed application.
         // DistributedApplicationTestingBuilder launches all resources defined in AppHost.cs
         // inside the test process using the Aspire orchestration layer.
-        var appHost = await DistributedApplicationTestingBuilder
-            .CreateAsync<Projects.Teck_AppHost>();
+        var appHost = await AppHostTestBuilder.CreateAsync();
 
         await using var app = await appHost.BuildAsync();
         await app.StartAsync();

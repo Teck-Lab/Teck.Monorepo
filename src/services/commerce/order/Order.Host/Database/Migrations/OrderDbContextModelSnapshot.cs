@@ -17,7 +17,7 @@ namespace Orders.Host.Database.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.7")
+                .HasAnnotation("ProductVersion", "10.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -28,11 +28,35 @@ namespace Orders.Host.Database.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ActionText")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<decimal>("AuthorizedAmount")
+                        .HasColumnType("numeric");
+
+                    b.Property<Guid>("BasketId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("CapturedAmount")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("CheckoutCorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
 
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uuid");
@@ -43,10 +67,39 @@ namespace Orders.Host.Database.Migrations
                     b.Property<DateTimeOffset?>("DeletedOn")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("FailureReason")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("KeycloakSubjectId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid?>("PaymentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("PaymentState")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ProcessedTransitionKeys")
+                        .IsRequired()
+                        .HasMaxLength(8192)
+                        .HasColumnType("character varying(8192)");
+
+                    b.Property<bool>("RequiresHumanDecision")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("RetryRequestId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StockState")
                         .HasColumnType("integer");
 
                     b.Property<string>("TenantId")
@@ -64,6 +117,11 @@ namespace Orders.Host.Database.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "CheckoutCorrelationId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "RetryRequestId");
 
                     b.ToTable("Orders", (string)null);
                 });

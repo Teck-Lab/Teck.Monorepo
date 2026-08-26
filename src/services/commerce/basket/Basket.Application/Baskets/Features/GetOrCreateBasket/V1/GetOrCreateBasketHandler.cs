@@ -26,14 +26,14 @@ public static class GetOrCreateBasketHandler
         ITenantInfo tenant,
         CancellationToken ct)
     {
-        Basket? basket = identity.CustomerId is Guid customerId
-            ? await repository.FirstOrDefaultAsync(new ActiveBasketByCustomerSpec(customerId), enableTracking: true, ct).ConfigureAwait(false)
+        Basket? basket = !string.IsNullOrWhiteSpace(identity.Subject)
+            ? await repository.FirstOrDefaultAsync(new ActiveBasketBySubjectSpec(identity.Subject), enableTracking: true, ct).ConfigureAwait(false)
             : await repository.FirstOrDefaultAsync(new ActiveBasketByTokenSpec(identity.EnsureAnonymousToken()), enableTracking: true, ct).ConfigureAwait(false);
 
         if (basket is null)
         {
-            basket = identity.CustomerId is Guid ownerId
-                ? Basket.CreateForCustomer(ownerId, tenant.Id ?? string.Empty)
+            basket = !string.IsNullOrWhiteSpace(identity.Subject)
+                ? Basket.CreateForSubject(identity.Subject, tenant.Id ?? string.Empty)
                 : Basket.CreateAnonymous(identity.EnsureAnonymousToken(), tenant.Id ?? string.Empty);
 
             await repository.AddAsync(basket, ct).ConfigureAwait(false);

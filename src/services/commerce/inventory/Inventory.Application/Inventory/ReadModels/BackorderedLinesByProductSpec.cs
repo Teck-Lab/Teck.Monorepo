@@ -25,13 +25,16 @@ namespace Inventories.Application.Inventory.ReadModels;
 public sealed class BackorderedLinesByProductSpec : Specification<Reservation>
 {
     /// <summary>Initializes a new instance of the <see cref="BackorderedLinesByProductSpec"/> class.</summary>
+    /// <param name="tenantId">The tenant whose reservations can be filled.</param>
     /// <param name="productId">The product identifier to match (against the reservation's lines).</param>
     /// <param name="asOf">The point in time used to decide whether a held reservation has expired.</param>
-    public BackorderedLinesByProductSpec(Guid productId, DateTimeOffset asOf) =>
+    public BackorderedLinesByProductSpec(string tenantId, Guid productId, DateTimeOffset asOf) =>
         Query
             .Where(reservation =>
+                reservation.TenantId == tenantId &&
                 reservation.Lines.Any(line => line.ProductId == productId && line.BackorderedQuantity > 0) &&
-                (reservation.Status == ReservationStatus.Committed ||
+                (reservation.Status == ReservationStatus.Committed &&
+                 (reservation.BackorderExpiresAt == null || reservation.BackorderExpiresAt > asOf) ||
                  (reservation.Status == ReservationStatus.Held && reservation.ExpiresAt > asOf)))
             .OrderBy(reservation => reservation.CreatedAt);
 }

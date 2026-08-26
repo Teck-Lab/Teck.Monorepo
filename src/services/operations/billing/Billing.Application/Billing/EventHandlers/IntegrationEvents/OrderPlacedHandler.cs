@@ -18,14 +18,14 @@ public static class OrderPlacedHandler
     /// existing payment instead of re-charging it).
     /// </summary>
     /// <param name="evt">The order-placed event.</param>
-    /// <param name="bus">The message bus used to invoke <see cref="CapturePaymentCommand"/>.</param>
+    /// <param name="bus">The message bus used to invoke the capture command.</param>
     /// <param name="options">
     /// The payment provider options, supplying the default currency. <see cref="OrderPlacedIntegrationEvent"/>
     /// carries no currency field, so billing applies <see cref="PaymentProviderOptions.DefaultCurrency"/>
     /// until the contract adds one.
     /// </param>
-    /// <param name="ct">A cancellation token.</param>
-    /// <returns>A task representing the operation.</returns>
+    /// <param name="ct">The cancellation token.</param>
+    /// <returns>A task that completes after the capture command is handled.</returns>
     public static async Task Handle(
         OrderPlacedIntegrationEvent evt,
         IMessageBus bus,

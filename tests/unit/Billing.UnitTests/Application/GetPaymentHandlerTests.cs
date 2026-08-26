@@ -2,6 +2,7 @@ using Ardalis.Specification;
 using Billings.Application.Billing.Payments.Features.GetPayment.V1;
 using Billings.Domain.Entities;
 using Billings.Domain.ValueObjects;
+using Finbuckle.MultiTenant.Abstractions;
 using NSubstitute;
 using SharedKernel.Core.Database;
 using Xunit;
@@ -18,7 +19,7 @@ public sealed class GetPaymentHandlerTests
         repository.FirstOrDefaultAsync(Arg.Any<ISpecification<Payment>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Payment?>(payment));
 
-        var result = await GetPaymentHandler.Handle(new GetPaymentQuery(payment.Id), repository, CancellationToken.None);
+        var result = await GetPaymentHandler.Handle(new GetPaymentQuery(payment.Id), repository, Tenant("tenant-1"), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(payment.Id, result.Value.Id);
@@ -32,9 +33,16 @@ public sealed class GetPaymentHandlerTests
         repository.FirstOrDefaultAsync(Arg.Any<ISpecification<Payment>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Payment?>(null));
 
-        var result = await GetPaymentHandler.Handle(new GetPaymentQuery(Guid.NewGuid()), repository, CancellationToken.None);
+        var result = await GetPaymentHandler.Handle(new GetPaymentQuery(Guid.NewGuid()), repository, Tenant("tenant-1"), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorOr.ErrorType.NotFound, result.FirstError.Type);
+    }
+
+    private static ITenantInfo Tenant(string tenantId)
+    {
+        var tenant = Substitute.For<ITenantInfo>();
+        tenant.Id.Returns(tenantId);
+        return tenant;
     }
 }

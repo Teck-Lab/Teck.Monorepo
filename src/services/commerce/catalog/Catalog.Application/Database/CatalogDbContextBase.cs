@@ -1,5 +1,6 @@
 using Catalog.Domain.Entities;
 using Finbuckle.MultiTenant.Abstractions;
+using Finbuckle.MultiTenant.EntityFrameworkCore.Extensions;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Infrastructure.Database.EFCore;
 using SharedKernel.Infrastructure.MultiTenant;
@@ -32,5 +33,8 @@ public abstract class CatalogDbContextBase(DbContextOptions options, IMultiTenan
         // SupplierPriceHistory as plain entity types before they are marked owned.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CatalogDbContextBase).Assembly);
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<Product>().IsMultiTenant();
+        modelBuilder.Entity<Category>().IsMultiTenant();
+        modelBuilder.Entity<Supplier>().IsMultiTenant();
     }
 }

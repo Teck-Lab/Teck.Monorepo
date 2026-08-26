@@ -1,9 +1,9 @@
-using Catalog.Application.Products.IntegrationEvents;
 using Catalog.Application.Products.Mapping;
 using Catalog.Application.Products.Responses;
 using Catalog.Domain.Entities;
 using Catalog.Domain.ValueObjects;
 using SharedKernel.Core.Database;
+using SharedKernel.Events;
 using Wolverine;
 
 namespace Catalog.Application.Products.Features.CreateProduct.V1;
@@ -11,7 +11,7 @@ namespace Catalog.Application.Products.Features.CreateProduct.V1;
 /// <summary>Handles <see cref="CreateProductCommand"/>.</summary>
 public static class CreateProductHandler
 {
-    /// <summary>Creates the product, persists it, and publishes <see cref="ProductCreatedIntegrationEvent"/>.</summary>
+    /// <summary>Creates the product and publishes its default sell price for the pricing projection.</summary>
     /// <param name="command">The command describing the product to create.</param>
     /// <param name="repository">The write repository for persisting the product.</param>
     /// <param name="unitOfWork">The unit of work used to commit changes.</param>
@@ -26,7 +26,7 @@ public static class CreateProductHandler
         CancellationToken ct)
     {
         var product = Product.Create(
-            string.Empty,
+            tenantId: null,
             command.Name,
             command.Description,
             command.CategoryId,
@@ -36,7 +36,17 @@ public static class CreateProductHandler
         await repository.AddAsync(product, ct).ConfigureAwait(false);
         await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        await bus.PublishAsync(new ProductCreatedIntegrationEvent(product)).ConfigureAwait(false);
+        var defaultVariant = product.Variants.Single(variant => variant.IsDefault);
+        await bus.PublishAsync(new CatalogPriceChangedIntegrationEvent
+        {
+            ProductId = product.Id,
+            VariantId = defaultVariant.Id,
+            TenantId = product.TenantId,
+            Amount = defaultVariant.SellPrice.Amount,
+            Currency = defaultVariant.SellPrice.Currency,
+            IdempotencyKey = $"catalog-price:{product.Id}:{defaultVariant.Id}:{product.CreatedAt.UtcTicks}",
+            ChangedAt = product.CreatedAt,
+        }).ConfigureAwait(false);
 
         return product.ToDto();
     }

@@ -1,5 +1,6 @@
 using Baskets.Domain.Entities;
 using Finbuckle.MultiTenant.Abstractions;
+using Finbuckle.MultiTenant.EntityFrameworkCore.Extensions;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Infrastructure.Database.EFCore;
 using SharedKernel.Infrastructure.MultiTenant;
@@ -25,5 +26,6 @@ public abstract class BasketDbContextBase(DbContextOptions options, IMultiTenant
         // discover Basket.Items (OwnsMany) as a plain entity before it is marked owned.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(BasketDbContextBase).Assembly);
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<Basket>().IsMultiTenant();
     }
 }

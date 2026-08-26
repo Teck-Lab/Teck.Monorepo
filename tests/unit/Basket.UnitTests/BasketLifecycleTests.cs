@@ -8,30 +8,30 @@ namespace Baskets.UnitTests;
 public sealed class BasketLifecycleTests
 {
     [Fact]
-    public void Checkout_WithItems_SetsStatusAndRaisesEvent()
+    public void BeginCheckout_WithItems_SetsPricingPendingAndRaisesEvent()
     {
-        var basket = Basket.CreateForCustomer(Guid.NewGuid(), "tenant-1");
-        basket.AddItem(Guid.NewGuid(), "Widget", 10m, 2);
+        var basket = Basket.CreateForSubject("shopper-subject", "tenant-1");
+        basket.AddItem(Guid.NewGuid(), "Widget", 2);
 
-        basket.Checkout();
+        basket.BeginCheckout(25m, "USD", "tok_test_123");
 
-        Assert.Equal(BasketStatus.CheckedOut, basket.Status);
+        Assert.Equal(BasketStatus.PricingPending, basket.Status);
         Assert.Contains(basket.DomainEvents, e => e is BasketCheckedOut);
     }
 
     [Fact]
     public void Checkout_EmptyBasket_Throws()
     {
-        var basket = Basket.CreateForCustomer(Guid.NewGuid(), "tenant-1");
+        var basket = Basket.CreateForSubject("shopper-subject", "tenant-1");
 
-        Assert.Throws<InvalidOperationException>(() => basket.Checkout());
+        Assert.Throws<InvalidOperationException>(() => basket.BeginCheckout(25m, "USD", "tok_test_123"));
     }
 
     [Fact]
     public void MergeFrom_CombinesItemsAndMarksSourceMerged()
     {
         var shared = Guid.NewGuid();
-        var target = Basket.CreateForCustomer(Guid.NewGuid(), "tenant-1");
+        var target = Basket.CreateForSubject("owner-subject", "tenant-1");
         target.AddItem(shared, "Widget", 10m, 1);
         var source = Basket.CreateAnonymous(Guid.NewGuid(), "tenant-1");
         source.AddItem(shared, "Widget", 10m, 2);
@@ -45,14 +45,14 @@ public sealed class BasketLifecycleTests
     }
 
     [Fact]
-    public void AssignToCustomer_TransfersOwnership()
+    public void AssignToSubject_TransfersOwnership()
     {
-        var customerId = Guid.NewGuid();
+        const string subject = "owner-subject";
         var basket = Basket.CreateAnonymous(Guid.NewGuid(), "tenant-1");
 
-        basket.AssignToCustomer(customerId);
+        basket.AssignToSubject(subject);
 
-        Assert.Equal(customerId, basket.CustomerId);
+        Assert.Equal(subject, basket.Subject);
         Assert.Null(basket.AnonymousToken);
     }
 }

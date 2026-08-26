@@ -5,6 +5,10 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.Testing" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio">
@@ -14,5 +18,17 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\aspire\Teck.AppHost\Teck.AppHost.csproj" />
+    <ProjectReference Include="..\..\..\src\services\gateway\public\Gateway.Public.csproj">
+      <Aliases>GatewayHost</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\src\services\commerce\order\Order.Host\Order.Host.csproj">
+      <Aliases>OrderHost</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\src\services\commerce\order\Order.Application\Order.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\services\commerce\customer\Customer.Application\Customer.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\services\commerce\customer\Customer.Domain\Customer.Domain.csproj" />
+    <ProjectReference Include="..\..\..\src\services\commerce\order\Order.Domain\Order.Domain.csproj" />
+    <ProjectReference Include="..\Teck.Platform.IntegrationTests.Shared\Teck.Platform.IntegrationTests.Shared.csproj" />
+    <ProjectReference Include="..\..\..\src\shared\SharedKernel.Infrastructure\SharedKernel.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

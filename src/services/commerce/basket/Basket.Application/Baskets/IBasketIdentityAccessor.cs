@@ -6,8 +6,8 @@ namespace Baskets.Application.Baskets;
 /// </summary>
 public interface IBasketIdentityAccessor
 {
-    /// <summary>Gets the authenticated customer identifier, or null for a guest.</summary>
-    Guid? CustomerId { get; }
+    /// <summary>Gets the authenticated standard subject claim, or null for a guest.</summary>
+    string? Subject { get; }
 
     /// <summary>Gets the guest basket token from the request, or null if absent.</summary>
     Guid? AnonymousToken { get; }

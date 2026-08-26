@@ -3,6 +3,9 @@
 // </copyright>
 
 using Billings.Application.Database;
+using Billings.Application.Billing.Payments;
+using System.Collections.Concurrent;
+using Finbuckle.MultiTenant.Abstractions;
 using Finbuckle.MultiTenant.Extensions;
 using JasperFx.CommandLine;
 using Keycloak.AuthServices.Authorization.Requirements;
@@ -12,8 +15,12 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using SharedKernel.Infrastructure.MultiTenant;
 using Teck.Platform.IntegrationTests.Shared;
+using Wolverine;
 
 namespace Billing.IntegrationTests;
 
@@ -27,13 +34,14 @@ public abstract class BillingIntegrationTestBase : IDisposable
 {
     private readonly SharedTestcontainersFixture fixture;
     private readonly string databaseConnectionString;
-    private readonly WebApplicationFactory<Program> factory;
+    private readonly BillingWebApplicationFactory factory;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BillingIntegrationTestBase"/> class.
     /// </summary>
     /// <param name="fixture">The shared testcontainers fixture providing Postgres.</param>
-    protected BillingIntegrationTestBase(SharedTestcontainersFixture fixture)
+    /// <param name="useRabbitMq">Whether this test requires the production RabbitMQ transport.</param>
+    protected BillingIntegrationTestBase(SharedTestcontainersFixture fixture, bool useRabbitMq = false)
     {
         ArgumentNullException.ThrowIfNull(fixture);
         this.fixture = fixture;
@@ -46,7 +54,7 @@ public abstract class BillingIntegrationTestBase : IDisposable
             .GetAwaiter()
             .GetResult();
 
-        factory = new BillingWebApplicationFactory(fixture, databaseConnectionString);
+        factory = new BillingWebApplicationFactory(fixture, databaseConnectionString, useRabbitMq);
         Client = factory.CreateClient();
     }
 
@@ -59,6 +67,42 @@ public abstract class BillingIntegrationTestBase : IDisposable
     /// </summary>
     protected IServiceProvider Services => factory.Services;
 
+    /// <summary>Gets the test provider used to observe provider calls made by the host.</summary>
+    protected RecordingPaymentProvider Provider => factory.Services.GetRequiredService<RecordingPaymentProvider>();
+
+    /// <summary>Gets the real Billing host for Wolverine's built-in tracked-session assertions.</summary>
+    protected IHost WolverineHost => factory.WolverineHost;
+
+    /// <summary>Gets the shared RabbitMQ connection string for broker-backed regression tests.</summary>
+    protected string RabbitMqConnectionString => fixture.RabbitMqConnectionString;
+
+    /// <summary>Establishes the tenant that production Wolverine middleware receives from an envelope.</summary>
+    protected static void EstablishMessageTenant(IServiceProvider services, string tenantId)
+    {
+        services.GetRequiredService<IMultiTenantContextSetter>().MultiTenantContext =
+            new MultiTenantContext<TenantDetails>(new TenantDetails
+            {
+                Id = tenantId,
+                Identifier = tenantId,
+                Name = tenantId,
+                IsActive = true,
+            });
+
+        services.GetRequiredService<IMessageBus>().TenantId = tenantId;
+    }
+
+    /// <summary>Updates a reloadable payment-provider setting in the running real host.</summary>
+    /// <param name="key">The setting name relative to <c>PaymentProvider</c>.</param>
+    /// <param name="value">The replacement setting value.</param>
+    protected void SetPaymentProviderSetting(string key, string value)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        ArgumentNullException.ThrowIfNull(value);
+
+        var configuration = factory.Services.GetRequiredService<IConfiguration>();
+        configuration[$"PaymentProvider:{key}"] = value;
+    }
+
     /// <inheritdoc/>
     public void Dispose()
     {
@@ -70,8 +114,13 @@ public abstract class BillingIntegrationTestBase : IDisposable
 
     private sealed class BillingWebApplicationFactory(
         SharedTestcontainersFixture fixture,
-        string databaseConnectionString) : WebApplicationFactory<Program>
+        string databaseConnectionString,
+        bool useRabbitMq) : WebApplicationFactory<Program>
     {
+        private IHost? wolverineHost;
+
+        public IHost WolverineHost => wolverineHost ?? throw new InvalidOperationException("The Billing test host has not started.");
+
         static BillingWebApplicationFactory()
         {
             // Billing.Host/Program.cs runs the host via RunTeckServiceAsync, which wraps JasperFx
@@ -85,11 +134,19 @@ public abstract class BillingIntegrationTestBase : IDisposable
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            // AddTeckMessaging requires dynamic Wolverine code generation in integration tests;
+            // production's static mode depends on generated code emitted during the container build.
+            builder.UseEnvironment("Development");
+
             // UseSetting applies at the highest configuration priority and overrides appsettings
             // connection strings that AddBillingPersistence reads during Program.cs setup.
             builder.UseSetting("ConnectionStrings:BillingWrite", databaseConnectionString);
             builder.UseSetting("ConnectionStrings:BillingRead", databaseConnectionString);
             builder.UseSetting("ConnectionStrings:Default", databaseConnectionString);
+            if (useRabbitMq)
+            {
+                builder.UseSetting("ConnectionStrings:rabbitmq", fixture.RabbitMqConnectionString);
+            }
             // Minimal Keycloak stubs so the production binding of KeycloakAuthenticationOptions
             // does not throw at startup. Actual JWT validation is replaced by MockBearerAuthenticationHandler.
             builder.UseSetting("Keycloak:realm", "test");
@@ -98,11 +155,6 @@ public abstract class BillingIntegrationTestBase : IDisposable
 
             builder.ConfigureTestServices(services =>
             {
-                // Register Finbuckle multi-tenant infrastructure so IMultiTenantContextAccessor<TenantDetails>
-                // is available. No strategy or store is configured, so MultiTenantContext will be null per
-                // request and the DbContext factories will fall back to the default connection string.
-                services.AddMultiTenant<TenantDetails>();
-
                 // Handler discovery for the Billing.Application assembly is configured in
                 // Billing.Host/Program.cs (opts.Discovery.IncludeAssembly), so it applies here too —
                 // the test boots the real host via WebApplicationFactory and needs no test-only
@@ -146,7 +198,17 @@ public abstract class BillingIntegrationTestBase : IDisposable
                 }
 
                 services.AddSingleton<IAuthorizationHandler, PermissiveProtectedResourceHandler>();
+
+                services.RemoveAll<IPaymentProvider>();
+                services.AddSingleton<RecordingPaymentProvider>();
+                services.AddSingleton<IPaymentProvider>(provider => provider.GetRequiredService<RecordingPaymentProvider>());
             });
+        }
+
+        protected override IHost CreateHost(IHostBuilder builder)
+        {
+            wolverineHost = base.CreateHost(builder);
+            return wolverineHost;
         }
     }
 
@@ -168,4 +230,73 @@ public abstract class BillingIntegrationTestBase : IDisposable
             return Task.CompletedTask;
         }
     }
+}
+
+/// <summary>Captures test-host provider activity while returning deterministic successful results.</summary>
+public sealed class RecordingPaymentProvider : IPaymentProvider
+{
+    private int attemptCalls;
+    private int captureCalls;
+    private int interruptAfterAcceptedAttempt;
+    private readonly ConcurrentQueue<PaymentProviderResult> configuredAttemptResults = new();
+    private readonly ConcurrentQueue<PaymentProviderRequest> attemptRequests = new();
+
+    /// <summary>Gets the number of V2 idempotent provider attempts.</summary>
+    public int AttemptCalls => Volatile.Read(ref attemptCalls);
+
+    /// <summary>Gets the number of retained V1 provider captures.</summary>
+    public int CaptureCalls => Volatile.Read(ref captureCalls);
+
+    /// <summary>Gets the idempotency-bearing requests observed by the V2 provider boundary.</summary>
+    public IReadOnlyList<PaymentProviderRequest> AttemptRequests => attemptRequests.ToArray();
+
+    /// <summary>Queues deterministic outcomes for subsequent V2 provider calls.</summary>
+    /// <param name="results">The results to return in provider-call order.</param>
+    public void QueueAttemptResults(params PaymentProviderResult[] results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        foreach (var result in results)
+        {
+            ArgumentNullException.ThrowIfNull(result);
+            configuredAttemptResults.Enqueue(result);
+        }
+    }
+
+    /// <summary>Interrupts the next provider-accepted call before Billing can persist its outcome.</summary>
+    public void InterruptAfterAcceptingNextAttempt() => Interlocked.Exchange(ref interruptAfterAcceptedAttempt, 1);
+
+    /// <summary>Creates a deterministic provider outcome without recording sensitive payload data.</summary>
+    /// <param name="outcome">The provider lifecycle outcome.</param>
+    /// <param name="providerCode">The provider-private decline code, if any.</param>
+    /// <returns>A deterministic result for <see cref="QueueAttemptResults"/>.</returns>
+    public static PaymentProviderResult Outcome(string outcome, string? providerCode = null) =>
+        new(string.Equals(outcome, "succeeded", StringComparison.OrdinalIgnoreCase), null, providerCode)
+        {
+            Outcome = outcome,
+            ProviderCode = providerCode,
+        };
+
+    /// <inheritdoc/>
+    public Task<PaymentProviderResult> AttemptAsync(PaymentProviderRequest request, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        Interlocked.Increment(ref attemptCalls);
+        attemptRequests.Enqueue(request);
+        var result = configuredAttemptResults.TryDequeue(out var configured) ? configured : Succeeded(request.OrderId);
+        if (Interlocked.Exchange(ref interruptAfterAcceptedAttempt, 0) == 1)
+        {
+            throw new InvalidOperationException("The provider accepted the stable request before Billing persisted the outcome.");
+        }
+
+        return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
+    public Task<PaymentProviderResult> CaptureAsync(Guid orderId, decimal amount, string currency, CancellationToken ct)
+    {
+        Interlocked.Increment(ref captureCalls);
+        return Task.FromResult(Succeeded(orderId));
+    }
+
+    private static PaymentProviderResult Succeeded(Guid orderId) => new(true, $"test-provider-{orderId:N}", null) { Outcome = "succeeded" };
 }

@@ -5,11 +5,8 @@ namespace Inventories.Application.Inventory.ReadModels;
 
 /// <summary>Selects the single stock record for a tenant's product at a specific location.</summary>
 /// <remarks>
-/// Tenant-scoped explicitly (rather than relying on an ambient Finbuckle tenant filter) so this
-/// spec is safe to use from contexts with no per-request tenant, such as the expiry sweep (Task
-/// 18), which loads the <see cref="StockItem"/> backing each reservation allocation directly by
-/// its owning tenant. <c>IgnoreQueryFilters()</c> is applied for the same reason — see
-/// <see cref="ExpiredHeldReservationsSpec"/> for the full rationale.
+/// Tenant-scoped explicitly as defence in depth. The expiry sweep establishes the owning tenant
+/// before this lookup, so Finbuckle's global tenant filter remains active for the read and commit.
 /// </remarks>
 public sealed class StockItemByProductLocationSpec : Specification<StockItem>
 {
@@ -20,7 +17,6 @@ public sealed class StockItemByProductLocationSpec : Specification<StockItem>
     public StockItemByProductLocationSpec(string tenantId, Guid productId, Guid locationId)
     {
         Query
-            .Where(item => item.TenantId == tenantId && item.ProductId == productId && item.LocationId == locationId)
-            .IgnoreQueryFilters();
+            .Where(item => item.TenantId == tenantId && item.ProductId == productId && item.LocationId == locationId);
     }
 }

@@ -17,6 +17,12 @@ public sealed class GetInvoiceEndpoint(IMessageBus bus)
     public override async Task HandleAsync(GetInvoiceRequest request, CancellationToken ct)
     {
         var result = await bus.InvokeAsync<InvoiceDto>(new GetInvoiceQuery(request.InvoiceId), ct);
+        if (result is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+
         await Send.OkAsync(result, ct);
     }
 

@@ -1,7 +1,14 @@
+using Finbuckle.MultiTenant.Abstractions;
 using Inventories.Application.Inventory.ReadModels;
 using Inventories.Domain.Entities;
 using Inventories.Domain.ValueObjects;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using SharedKernel.Core.Database;
+using SharedKernel.Events;
+using SharedKernel.Infrastructure.FeatureFlags;
+using SharedKernel.Infrastructure.MultiTenant;
+using Wolverine;
 
 namespace Inventories.Application.Inventory.Features.ExpireHeldReservations.V1;
 
@@ -24,6 +31,10 @@ public static class ExpireHeldReservationsHandler
     /// <param name="unitOfWork">The unit of work (single commit point for the whole sweep).</param>
     /// <param name="timeProvider">The clock used to decide whether a held reservation has expired.</param>
     /// <param name="ct">A cancellation token.</param>
+    /// <param name="bus">The message bus used for gated backorder expiry outcomes.</param>
+    /// <param name="featureProvider">The lifecycle feature flag provider.</param>
+    /// <param name="scopeFactory">The factory for a clean retry scope after a concurrency conflict.</param>
+    /// <param name="inventoryOptions">The configured concurrency retry budget.</param>
     /// <returns>The number of reservations expired by this sweep.</returns>
     public static async Task<int> Handle(
         ExpireHeldReservationsCommand command,
@@ -31,12 +42,62 @@ public static class ExpireHeldReservationsHandler
         IGenericWriteRepository<StockItem, Guid> stockItems,
         IUnitOfWork unitOfWork,
         TimeProvider timeProvider,
-        CancellationToken ct)
+        CancellationToken ct,
+        IMessageBus? bus = null,
+        IFeatureProvider? featureProvider = null,
+        IServiceScopeFactory? scopeFactory = null,
+        IOptions<InventoryOptions>? inventoryOptions = null)
+    {
+        try
+        {
+            return await AttemptAsync(command, reservations, stockItems, unitOfWork, timeProvider, ct, bus, featureProvider).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException) when (scopeFactory is not null)
+        {
+            // A failed save leaves the ambient graph stale; re-run the whole sweep from a fresh scope.
+        }
+
+        int maxRetries = inventoryOptions?.Value.MaxReserveRetries ?? 0;
+        for (int attempt = 0; attempt < maxRetries; attempt++)
+        {
+            using IServiceScope scope = scopeFactory!.CreateScope();
+            IServiceProvider services = scope.ServiceProvider;
+            try
+            {
+                SetTenantContext(services, command.TenantId);
+                return await AttemptAsync(
+                    command,
+                    services.GetRequiredService<IGenericWriteRepository<Reservation, Guid>>(),
+                    services.GetRequiredService<IGenericWriteRepository<StockItem, Guid>>(),
+                    services.GetRequiredService<IUnitOfWork>(),
+                    services.GetRequiredService<TimeProvider>(),
+                    ct,
+                    bus,
+                    featureProvider ?? services.GetService<IFeatureProvider>()).ConfigureAwait(false);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // Retry with a separate change tracker.
+            }
+        }
+
+        throw new DbUpdateConcurrencyException("Reservation expiry contention exhausted the configured retry budget.");
+    }
+
+    private static async Task<int> AttemptAsync(
+        ExpireHeldReservationsCommand command,
+        IGenericWriteRepository<Reservation, Guid> reservations,
+        IGenericWriteRepository<StockItem, Guid> stockItems,
+        IUnitOfWork unitOfWork,
+        TimeProvider timeProvider,
+        CancellationToken ct,
+        IMessageBus? bus,
+        IFeatureProvider? featureProvider)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
 
         DateTimeOffset now = timeProvider.GetUtcNow();
-        var spec = new ExpiredHeldReservationsSpec(now);
+        var spec = new ExpiredHeldReservationsSpec(command.TenantId, now);
         IReadOnlyList<Reservation> expired = await reservations.ListAsync(spec, enableTracking: true, ct).ConfigureAwait(false);
 
         if (expired.Count == 0)
@@ -44,9 +105,21 @@ public static class ExpireHeldReservationsHandler
             return 0;
         }
 
+        var expiredBackorders = new List<Reservation>();
         foreach (Reservation reservation in expired)
         {
-            reservation.Expire();
+            if (reservation.SourceType == ReservationSource.Order)
+            {
+                reservation.ExpireBackorder();
+                if (reservation.IsLifecycleV2)
+                {
+                    expiredBackorders.Add(reservation);
+                }
+            }
+            else
+            {
+                reservation.Expire();
+            }
 
             foreach (ReservationLine line in reservation.Lines)
             {
@@ -64,6 +137,34 @@ public static class ExpireHeldReservationsHandler
 
         await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);
 
+        if (bus is not null && featureProvider?.IsEnabled("CheckoutLifecycleV2") == true)
+        {
+            foreach (Reservation reservation in expiredBackorders)
+            {
+                await bus.PublishAsync(new BackorderExpiredIntegrationEvent
+                {
+                    OrderId = reservation.SourceId,
+                    BasketId = reservation.BasketId,
+                    TenantId = reservation.TenantId,
+                    SourceCorrelationId = reservation.SourceCorrelationId,
+                    IdempotencyKey = reservation.BackorderExpiredOutcomeKey!,
+                    ExpiredAt = now,
+                }).ConfigureAwait(false);
+            }
+        }
+
         return expired.Count;
+    }
+
+    private static void SetTenantContext(IServiceProvider services, string tenantId)
+    {
+        services.GetRequiredService<IMultiTenantContextSetter>().MultiTenantContext =
+            new MultiTenantContext<TenantDetails>(new TenantDetails
+            {
+                Id = tenantId,
+                Identifier = tenantId,
+                Name = tenantId,
+                IsActive = true,
+            });
     }
 }

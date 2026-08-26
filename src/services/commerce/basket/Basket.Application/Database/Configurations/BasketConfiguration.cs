@@ -23,7 +23,12 @@ public sealed class BasketConfiguration : IEntityTypeConfiguration<Basket>
             .HasConversion(status => status.Value, value => BasketStatus.FromValue(value));
 
         // Lookups used by get-or-create and merge.
-        builder.HasIndex(basket => new { basket.TenantId, basket.CustomerId, basket.Status });
+        builder.Property(basket => basket.Subject).HasMaxLength(256);
+        builder.Property(basket => basket.Currency).HasMaxLength(3);
+        builder.Property(basket => basket.PaymentReference).HasMaxLength(256);
+        builder.Property(basket => basket.CheckoutRequestId).HasMaxLength(64);
+        builder.Property(basket => basket.CheckoutFailure).HasMaxLength(64);
+        builder.HasIndex(basket => new { basket.TenantId, basket.Subject, basket.Status });
         builder.HasIndex(basket => new { basket.TenantId, basket.AnonymousToken, basket.Status });
 
         // Items is IReadOnlyList<BasketItem> backed by _items; tell EF where to find the field.

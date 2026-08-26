@@ -27,9 +27,7 @@ public sealed class PaymentStatus : SmartEnum<PaymentStatus>
     /// </summary>
     public static readonly PaymentStatus Failed = new(nameof(Failed), 4);
 
-    /// <summary>
-    /// The payment has been refunded.
-    /// </summary>
+    /// <summary>The payment has been refunded.</summary>
     public static readonly PaymentStatus Refunded = new(nameof(Refunded), 5);
 
     private PaymentStatus(string name, int value)

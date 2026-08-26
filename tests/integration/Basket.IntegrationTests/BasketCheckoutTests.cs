@@ -4,6 +4,10 @@
 
 using System.Net;
 using System.Net.Http.Json;
+using Baskets.Application.Baskets.EventHandlers.IntegrationEvents;
+using Baskets.Application.Baskets.Features.Checkout.V1;
+using Baskets.Application.Database;
+using Baskets.Host.Database;
 using Baskets.Application.Baskets.Responses;
 using Finbuckle.MultiTenant.Extensions;
 using JasperFx.CommandLine;
@@ -11,11 +15,19 @@ using Keycloak.AuthServices.Authorization.Requirements;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using SharedKernel.Core.Database;
+using SharedKernel.Events;
+using SharedKernel.Infrastructure.Database.EFCore;
+using SharedKernel.Infrastructure.FeatureFlags;
 using SharedKernel.Infrastructure.MultiTenant;
 using Teck.Platform.IntegrationTests.Shared;
+using Wolverine;
+using Wolverine.Tracking;
 using Xunit;
 
 namespace Baskets.IntegrationTests;
@@ -29,7 +41,62 @@ public sealed class BasketCheckoutTests : BasketIntegrationTestBase
     }
 
     [Fact]
-    public async Task Checkout_AfterAddingItem_ReturnsCreatedAndClearsActiveBasket()
+    public async Task Checkout_SignedTenantClaimsOverrideCallerHeader_OnCommandAndRoutedEventEnvelopes()
+    {
+        Services.WolverineStubs(stubs => stubs.Stub<BasketCheckoutRequestedIntegrationEvent>(
+            (_, _, _, _) => Task.CompletedTask));
+
+        BasketDto basket = await Client.GetFromJsonAsync<BasketDto>("/baskets/current")
+            ?? throw new InvalidOperationException("GET /baskets/current returned no basket.");
+
+        HttpResponseMessage add = await Client.PostAsJsonAsync(
+            "/baskets/items",
+            new
+            {
+                BasketId = basket.Id,
+                ProductId = Guid.NewGuid(),
+                ProductName = "Widget",
+                Quantity = 1,
+            });
+        add.EnsureSuccessStatusCode();
+
+        using var checkoutRequest = new HttpRequestMessage(HttpMethod.Post, "/baskets/checkout")
+        {
+            Content = JsonContent.Create(new
+            {
+                BasketId = basket.Id,
+                AuthorizedAmount = 20m,
+                Currency = "USD",
+                PaymentReference = "tok_tenant_envelope",
+            }),
+        };
+        checkoutRequest.Headers.Add("X-TenantId", "caller-controlled-tenant");
+
+        HttpResponseMessage? checkout = null;
+        Func<IMessageContext, Task> sendCheckout = async _ =>
+        {
+            checkout = await Client.SendAsync(checkoutRequest).ConfigureAwait(false);
+        };
+        ITrackedSession tracking = await Services.TrackActivity()
+            .Timeout(TimeSpan.FromSeconds(10))
+            .ExecuteAndWaitAsync(sendCheckout)
+            .ConfigureAwait(false);
+
+        Assert.NotNull(checkout);
+        Assert.Equal(HttpStatusCode.Accepted, checkout!.StatusCode);
+
+        Envelope command = tracking.Executed.SingleEnvelope<CheckoutCommand>();
+        Envelope integrationEvent = tracking.Sent.SingleEnvelope<BasketCheckoutRequestedIntegrationEvent>();
+
+        Assert.Equal(MockBearerAuthenticationHandler.TestTenantId, command.TenantId);
+        Assert.Equal(MockBearerAuthenticationHandler.TestTenantId, integrationEvent.TenantId);
+        Assert.Equal(
+            MockBearerAuthenticationHandler.TestTenantId,
+            integrationEvent.Headers["X-TenantId"]);
+    }
+
+    [Fact]
+    public async Task Checkout_AfterAddingItem_TransitionsToPricingPendingWithoutCallerPrice()
     {
         var productId = Guid.NewGuid();
 
@@ -48,7 +115,6 @@ public sealed class BasketCheckoutTests : BasketIntegrationTestBase
                 BasketId = current.Id,
                 ProductId = productId,
                 ProductName = "Widget",
-                UnitPrice = 10m,
                 Quantity = 2,
             });
 
@@ -65,23 +131,88 @@ public sealed class BasketCheckoutTests : BasketIntegrationTestBase
         Assert.Equal(productId, persistedItem.ProductId);
         Assert.Equal(2, persistedItem.Quantity);
 
-        var checkout = await Client.PostAsJsonAsync("/baskets/checkout", new { BasketId = current.Id });
+        var checkout = await Client.PostAsJsonAsync("/baskets/checkout", new
+        {
+            BasketId = current.Id,
+            AuthorizedAmount = 20m,
+            Currency = "USD",
+            PaymentReference = "tok_checkout_integration",
+        });
 
-        Assert.Equal(HttpStatusCode.Created, checkout.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, checkout.StatusCode);
 
-        var checkedOutBasket = await checkout.Content.ReadFromJsonAsync<BasketDto>();
+        var pricingPendingBasket = await checkout.Content.ReadFromJsonAsync<BasketDto>();
 
-        Assert.NotNull(checkedOutBasket);
-        Assert.Equal(current.Id, checkedOutBasket!.Id);
-        Assert.Equal("CheckedOut", checkedOutBasket.Status);
+        Assert.NotNull(pricingPendingBasket);
+        Assert.Equal(current.Id, pricingPendingBasket!.Id);
+        Assert.Equal("PricingPending", pricingPendingBasket.Status);
+        Assert.Equal(0m, pricingPendingBasket.Subtotal);
 
-        // The checked-out basket is no longer "Active", so GetOrCreateBasketHandler must mint a new,
-        // empty active basket for the same customer on the next call — proving checkout mutated
-        // persisted state rather than just returning 201.
+        // A pricing-pending basket is not an active basket, so a subsequent current-basket lookup
+        // mints a separate active aggregate for the same authenticated Keycloak subject.
         var newActiveBasket = await Client.GetFromJsonAsync<BasketDto>("/baskets/current");
         Assert.NotNull(newActiveBasket);
         Assert.NotEqual(current.Id, newActiveBasket!.Id);
         Assert.Empty(newActiveBasket.Items);
+
+        // Deliver the authoritative Pricing result after the real checkout request. The basket host
+        // is intentionally isolated from Pricing.Host in this suite, so this is the consumer-side
+        // delivery boundary rather than a fabricated pre-checkout state transition.
+        await using var write = new BasketDbContext(
+            new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<BasketDbContext>()
+                .UseNpgsql(DatabaseConnectionString)
+                .UseTeckCloudTenant(MockBearerAuthenticationHandler.TestTenantId)
+                .Options,
+            null!);
+        var pending = await write.Baskets.Include(basket => basket.Items).SingleAsync(basket => basket.Id == current.Id);
+        using var messageScope = Services.CreateScope();
+        using var unitOfWork = new UnitOfWork<BasketDbContext>(write);
+        await BasketPricedHandler.Handle(
+            new BasketPricedIntegrationEvent
+            {
+                BasketId = current.Id,
+                TenantId = pending.TenantId,
+                RequestId = pending.CheckoutRequestId!,
+                SourceCorrelationId = pending.CheckoutRequestId!,
+                Amount = 15m,
+                AuthorizedAmount = 20m,
+                Currency = "USD",
+                Lines = [new BasketPricedLine { ProductId = productId, UnitPrice = 7.50m, Quantity = 2, LineTotal = 15m }],
+            },
+            new BasketWriteRepository<Baskets.Domain.Entities.Basket, Guid>(write, new HttpContextAccessor()),
+            unitOfWork,
+            messageScope.ServiceProvider.GetRequiredService<IFeatureProvider>(),
+            messageScope.ServiceProvider.GetRequiredService<IMessageBus>(),
+            CancellationToken.None);
+
+        Assert.Equal("CheckedOut", pending.Status.ToString());
+        Assert.Equal(15m, pending.Subtotal);
+        Assert.Equal(7.50m, Assert.Single(pending.Items).UnitPrice);
+    }
+
+    [Fact]
+    public async Task GetCurrentBasket_DoesNotReturnForeignTenantsMatchingSubjectBasket()
+    {
+        const string foreignTenantId = "tenant-b";
+        var foreignBasket = Baskets.Domain.Entities.Basket.CreateForSubject(
+            MockBearerAuthenticationHandler.TestSubject,
+            foreignTenantId);
+
+        await using (var seed = new BasketDbContext(
+            new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<BasketDbContext>()
+                .UseNpgsql(DatabaseConnectionString)
+                .UseTeckCloudTenant(foreignTenantId)
+                .Options,
+            null!))
+        {
+            seed.Baskets.Add(foreignBasket);
+            await seed.SaveChangesAsync();
+        }
+
+        BasketDto current = await Client.GetFromJsonAsync<BasketDto>("/baskets/current")
+            ?? throw new InvalidOperationException("GET /baskets/current returned no basket.");
+
+        Assert.NotEqual(foreignBasket.Id, current.Id);
     }
 }
 
@@ -89,7 +220,7 @@ public sealed class BasketCheckoutTests : BasketIntegrationTestBase
 /// Shared fixture base for basket integration tests: boots Basket.Host in-memory
 /// via <see cref="WebApplicationFactory{TEntryPoint}"/> against a Testcontainers-backed Postgres
 /// database, and replaces Keycloak JWT auth with a mock handler that always authenticates the
-/// request as <see cref="MockBearerAuthenticationHandler.TestCustomerId"/>.
+/// request as <see cref="MockBearerAuthenticationHandler.TestSubject"/>.
 /// </summary>
 public abstract class BasketIntegrationTestBase : IDisposable
 {
@@ -114,6 +245,12 @@ public abstract class BasketIntegrationTestBase : IDisposable
     }
 
     protected HttpClient Client { get; }
+
+    /// <summary>Gets the PostgreSQL connection string shared by this test project.</summary>
+    protected string DatabaseConnectionString => databaseConnectionString;
+
+    /// <summary>Gets the running basket host service provider.</summary>
+    protected IServiceProvider Services => factory.Services;
 
     public void Dispose()
     {
@@ -158,11 +295,6 @@ public abstract class BasketIntegrationTestBase : IDisposable
 
             builder.ConfigureTestServices(services =>
             {
-                // Register Finbuckle multi-tenant infrastructure so IMultiTenantContextAccessor<TenantDetails>
-                // is available. No strategy or store is configured, so MultiTenantContext will be null per
-                // request and the DbContext factories will fall back to the default connection string.
-                services.AddMultiTenant<TenantDetails>();
-
                 // Handler discovery for the Basket.Application assembly is configured in
                 // Basket.Host/Program.cs (opts.Discovery.IncludeAssembly), so it applies here too —
                 // the test boots the real host via WebApplicationFactory and needs no test-only
@@ -171,7 +303,7 @@ public abstract class BasketIntegrationTestBase : IDisposable
                 // Replace the Keycloak JWT bearer handler with the test-only mock so that
                 // AuthSchemes(JwtBearerDefaults.AuthenticationScheme) in AuthenticatedEndpoint
                 // (used by CheckoutBasketEndpoint, which is not anonymous) resolves this handler
-                // instead of attempting real JWT validation. The mock always injects a customer_id
+                // instead of attempting real JWT validation. The mock always injects a standard sub
                 // claim, so GetOrCreateBasketHandler/CheckoutHandler resolve an authenticated
                 // customer-owned basket even on the "anonymous" endpoints (AllowAnonymous only
                 // skips authorization, not authentication — the middleware still runs and

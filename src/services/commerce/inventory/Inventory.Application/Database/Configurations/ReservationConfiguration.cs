@@ -30,6 +30,16 @@ public sealed class ReservationConfiguration : IEntityTypeConfiguration<Reservat
             .HasConversion(status => status.Value, value => ReservationStatus.FromValue(value));
 
         builder.Property(reservation => reservation.ExpiresAt);
+        builder.Property(reservation => reservation.BackorderExpiresAt);
+        builder.Property(reservation => reservation.BasketId);
+        builder.Property(reservation => reservation.SourceCorrelationId).HasMaxLength(128);
+        builder.Property(reservation => reservation.BackorderReadyOutcomeKey).HasMaxLength(160);
+        builder.Property(reservation => reservation.BackorderExpiredOutcomeKey).HasMaxLength(160);
+        builder.Property(reservation => reservation.RowVersion)
+            .HasColumnName("xmin")
+            .HasColumnType("xid")
+            .ValueGeneratedOnAddOrUpdate()
+            .IsConcurrencyToken();
 
         // Idempotency: at most one reservation per (tenant, source). This UNIQUE index is the
         // DB-level guard so a concurrent re-delivery of the same OrderPlaced/BasketCheckedOut
@@ -38,6 +48,8 @@ public sealed class ReservationConfiguration : IEntityTypeConfiguration<Reservat
 
         // Expiry sweeps key off status + expiry.
         builder.HasIndex(reservation => new { reservation.Status, reservation.ExpiresAt });
+        builder.HasIndex(reservation => new { reservation.Status, reservation.BackorderExpiresAt });
+        builder.HasIndex(reservation => new { reservation.TenantId, reservation.SourceCorrelationId });
 
         // Lines is IReadOnlyList<ReservationLine> backed by _lines; tell EF where to find the field.
         builder.Navigation(reservation => reservation.Lines).HasField("_lines");
@@ -50,6 +62,11 @@ public sealed class ReservationConfiguration : IEntityTypeConfiguration<Reservat
             // ReservationLine has no identity of its own; key it by owner + product
             // (a reservation cannot carry two lines for the same product).
             lines.HasKey("ReservationId", nameof(ReservationLine.ProductId));
+            lines.Property<uint>("RowVersion")
+                .HasColumnName("xmin")
+                .HasColumnType("xid")
+                .ValueGeneratedOnAddOrUpdate()
+                .IsConcurrencyToken();
 
             // ReservationLine is an immutable record materialized by EF via constructor
             // binding. EF's owned-type rules forbid binding a constructor parameter that is a

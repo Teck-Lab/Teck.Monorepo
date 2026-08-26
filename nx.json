@@ -123,6 +123,17 @@
       }
     },
     "groups": {
+      "operations": {
+        "projects": ["src/services/operations/*"],
+        "projectsRelationship": "fixed",
+        "releaseTag": {
+          "pattern": "operations@{version}"
+        },
+        "docker": {
+          "skipVersionActions": true,
+          "registryUrl": "ghcr.io/teck-lab/teck-cloud"
+        }
+      },
       "order": {
         "projects": ["src/services/commerce/order/*"],
         "projectsRelationship": "fixed",

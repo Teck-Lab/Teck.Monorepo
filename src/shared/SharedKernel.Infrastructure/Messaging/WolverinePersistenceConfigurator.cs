@@ -7,6 +7,7 @@ using Wolverine.EntityFrameworkCore;
 using Wolverine.MemoryPack;
 using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
+using Wolverine.Transports;
 
 namespace SharedKernel.Infrastructure.Messaging;
 
@@ -45,19 +46,21 @@ public static class WolverinePersistenceConfigurator
     /// <param name="writeConnectionString">The write database connection string.</param>
     /// <param name="rabbitConnectionString">The normalized RabbitMQ connection string.</param>
     /// <param name="tenantSource">Optional tenant source used for dynamic per-tenant connection resolution.</param>
+    /// <param name="listenerNamingSource">The convention used to name RabbitMQ listener queues.</param>
     public static void ConfigureStandardRuntime(
         WolverineOptions options,
         bool isDevelopment,
         string writeConnectionString,
         string rabbitConnectionString,
-        ITenantedSource<string>? tenantSource = null)
+        ITenantedSource<string>? tenantSource = null,
+        NamingSource listenerNamingSource = NamingSource.FromMessageType)
     {
         ConfigureCoreRuntime(options, isDevelopment, writeConnectionString, tenantSource);
 
         var rabbit = options.UseRabbitMq(new Uri(rabbitConnectionString, UriKind.Absolute));
         rabbit.AutoProvision();
         rabbit.EnableWolverineControlQueues();
-        rabbit.UseConventionalRouting();
+        rabbit.UseConventionalRouting(listenerNamingSource);
     }
 
     /// <summary>
@@ -175,5 +178,6 @@ public static class WolverinePersistenceConfigurator
         options.UseEntityFrameworkCoreTransactions();
         options.Policies.UseDurableLocalQueues();
         options.Policies.AddMiddleware<TenantPropagationMiddleware>();
+        options.MetadataRules.Add(new AmbientTenantEnvelopeRule());
     }
 }

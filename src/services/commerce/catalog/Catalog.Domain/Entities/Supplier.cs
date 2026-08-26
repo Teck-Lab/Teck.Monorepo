@@ -12,7 +12,7 @@ public sealed class Supplier : BaseEntity, IAggregateRoot, ITenantScoped
     }
 
     /// <inheritdoc/>
-    public string TenantId { get; set; } = string.Empty;
+    public string TenantId { get; set; } = null!;
 
     /// <summary>Gets the supplier name.</summary>
     public string Name { get; private set; } = string.Empty;
@@ -32,7 +32,7 @@ public sealed class Supplier : BaseEntity, IAggregateRoot, ITenantScoped
     /// <param name="contactEmail">The optional contact email.</param>
     /// <param name="contactPhone">The optional contact phone.</param>
     /// <returns>The newly created supplier.</returns>
-    public static Supplier Create(string tenantId, string name, string? contactEmail = null, string? contactPhone = null)
+    public static Supplier Create(string? tenantId, string name, string? contactEmail = null, string? contactPhone = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -41,7 +41,7 @@ public sealed class Supplier : BaseEntity, IAggregateRoot, ITenantScoped
 
         return new Supplier
         {
-            TenantId = tenantId,
+            TenantId = tenantId!,
             Name = name,
             ContactEmail = contactEmail,
             ContactPhone = contactPhone,

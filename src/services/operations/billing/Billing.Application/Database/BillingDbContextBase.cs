@@ -1,5 +1,6 @@
 using Billings.Domain.Entities;
 using Finbuckle.MultiTenant.Abstractions;
+using Finbuckle.MultiTenant.EntityFrameworkCore.Extensions;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Infrastructure.Database.EFCore;
 using SharedKernel.Infrastructure.MultiTenant;
@@ -18,6 +19,9 @@ public abstract class BillingDbContextBase(DbContextOptions options, IMultiTenan
     /// <summary>Gets the set of tracked payments.</summary>
     public DbSet<Payment> Payments => Set<Payment>();
 
+    /// <summary>Gets the set of provider payment attempts.</summary>
+    public DbSet<PaymentAttempt> PaymentAttempts => Set<PaymentAttempt>();
+
     /// <summary>Gets the set of tracked invoices.</summary>
     public DbSet<Invoice> Invoices => Set<Invoice>();
 
@@ -26,5 +30,8 @@ public abstract class BillingDbContextBase(DbContextOptions options, IMultiTenan
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(BillingDbContextBase).Assembly);
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<Payment>().IsMultiTenant();
+        modelBuilder.Entity<PaymentAttempt>().IsMultiTenant();
+        modelBuilder.Entity<Invoice>().IsMultiTenant();
     }
 }

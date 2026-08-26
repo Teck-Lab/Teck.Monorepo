@@ -1,0 +1,41 @@
+<implementation-result version="1">
+  <routing>
+    <work-kind>security-fix</work-kind>
+    <workflow-stage>execution</workflow-stage>
+    <route>security-fix:execution</route>
+  </routing>
+  <outcome>succeeded</outcome>
+  <base-sha>48d95b61692d8792acab9e9f2d5903caa66e90c6</base-sha>
+  <tip-sha>48d95b61692d8792acab9e9f2d5903caa66e90c6</tip-sha>
+  <files-modified>.omx/reports/496/impl-574-proof.xml</files-modified>
+  <validation-evidence><![CDATA[
+Scope: temporarily reverted only commit 6228d6a's lazy BaseDbContext tenant fallback, ran the Order HTTP foreign-tenant probe, restored the production source exactly, then reran the same probe. The mutation remained in place for the first test build and was absent for the second test build.
+
+Mutation applied (equivalent to reverting 6228d6a in src/shared/SharedKernel.Infrastructure/Database/EFCore/BaseDbContext.cs): removed _tenantDetails and _tenantAccessor, assigned TenantDetails in the constructor from tenantDetails/accessor/options, and changed TenantDetails back to an auto-property.
+Reverted-probe command (executed):
+dotnet test tests/integration/Order.IntegrationTests/Order.IntegrationTests.csproj --no-restore --filter 'FullyQualifiedName~GetOrder_ForeignTenantClaimAndHeader_IsNotFound'
+Reverted-probe output (verbatim test result; exit code 0):
+Test run for /workspaces/Teck.Monorepo-496-multitenancy-wiring/tests/integration/Order.IntegrationTests/bin/Debug/net10.0/Order.IntegrationTests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 5 s - Order.IntegrationTests.dll (net10.0)
+
+Restoration applied: reinstated _tenantDetails and _tenantAccessor, retained explicit construction-time values, and restored TenantDetails => _tenantDetails ?? _tenantAccessor?.MultiTenantContext?.TenantInfo.
+Restored-probe command (executed):
+dotnet test tests/integration/Order.IntegrationTests/Order.IntegrationTests.csproj --no-restore --filter 'FullyQualifiedName~GetOrder_ForeignTenantClaimAndHeader_IsNotFound'
+Restored-probe output (verbatim test result; exit code 0):
+Test run for /workspaces/Teck.Monorepo-496-multitenancy-wiring/tests/integration/Order.IntegrationTests/bin/Debug/net10.0/Order.IntegrationTests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 4 s - Order.IntegrationTests.dll (net10.0)
+
+Both runs also emitted existing package/analyzer warnings, including NU1903 for SSH.NET; neither run had an error. Restoration check: git diff --exit-code -- src/shared/SharedKernel.Infrastructure/Database/EFCore/BaseDbContext.cs returned 0; git diff --check returned 0.
+
+Finding — the Order probe is also insensitive to this mutation. DeliverV2CheckoutAsync creates the foreign order inside CreateTenantScope(otherTenantId), which directly assigns IMultiTenantContextSetter.MultiTenantContext and IMessageBus.TenantId before BasketCheckedOutV2Handler.Handle. The HTTP GET does traverse the Order host pipeline, but its authenticated client is not backed by a real signed claim: MockBearerAuthenticationHandler supplies the fixed tenant_id 00000000-0000-0000-0000-000000000001 to every request, while X-TenantId is an untrusted caller header. Therefore this test confirms the caller header does not override that fixture-supplied authentication tenant and that the foreign order is hidden, but it does not force a DbContext to be constructed before production message middleware resolves the envelope tenant.
+
+Finding — the Billing ForeignTenantInvoice_IsNotFound probe is fixture-seeded and cannot demonstrate production tenant resolution. BillingIntegrationTestBase.EstablishMessageTenant directly assigns both IMultiTenantContextSetter.MultiTenantContext and IMessageBus.TenantId, so it supplies the message tenant independently of the production-resolution chain.
+]]></validation-evidence>
+  <remaining-risks><![CDATA[
+The desired mutation sensitivity was not observed: this Order test cannot by itself prove that lazy BaseDbContext resolution is load-bearing for a production durable-message read. A future regression should arrange a genuine incoming message/request path whose scoped DbContext is resolved before TenantPropagationMiddleware executes, without CreateTenantScope or direct IMultiTenantContextSetter/IMessageBus seeding; its authenticated tenant should be produced by a controllable signed-claim-equivalent input rather than the fixed mock bearer handler. Existing warnings are out of scope.
+]]></remaining-risks>
+</implementation-result>

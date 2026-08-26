@@ -69,7 +69,7 @@ public sealed class ExpireHeldReservationsHandlerTests
         var unitOfWork = Substitute.For<IUnitOfWork>();
 
         int count = await ExpireHeldReservationsHandler.Handle(
-            new ExpireHeldReservationsCommand(),
+            new ExpireHeldReservationsCommand(Tenant),
             reservationRepo,
             stockRepo,
             unitOfWork,
@@ -103,7 +103,7 @@ public sealed class ExpireHeldReservationsHandlerTests
         var unitOfWork = Substitute.For<IUnitOfWork>();
 
         int count = await ExpireHeldReservationsHandler.Handle(
-            new ExpireHeldReservationsCommand(),
+            new ExpireHeldReservationsCommand(Tenant),
             reservationRepo,
             stockRepo,
             unitOfWork,

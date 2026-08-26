@@ -50,12 +50,17 @@ internal sealed class MockBearerAuthenticationHandler : AuthenticationHandler<Au
     /// <inheritdoc/>
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim("tenant_id", TestTenantId),
-            new Claim(ClaimTypes.NameIdentifier, "test-user"),
             new Claim(ClaimTypes.Name, "Test User"),
         };
+
+        if (!string.Equals(Request.Headers["X-Test-Omit-Subject"], "true", StringComparison.OrdinalIgnoreCase))
+        {
+            var subject = Request.Headers["X-Test-Subject"].FirstOrDefault() ?? "subject-test-user";
+            claims.Add(new Claim("sub", subject));
+        }
 
         var identity = new ClaimsIdentity(claims, SchemeName);
         var principal = new ClaimsPrincipal(identity);

@@ -2,6 +2,8 @@ using JasperFx;
 using JasperFx.CodeGeneration;
 using SharedKernel.Infrastructure.Messaging;
 using Wolverine;
+using Wolverine.RabbitMQ;
+using Wolverine.Transports;
 using Xunit;
 
 namespace SharedKernel.UnitTests.Messaging;
@@ -46,6 +48,35 @@ public sealed class WolverinePersistenceConfiguratorTests
         // environment (Dynamic in dev for runtime codegen, Static in prod for the pre-generated Docker build).
         Assert.Equal(TypeLoadMode.Dynamic, developmentOptions.CodeGeneration.TypeLoadMode);
         Assert.Equal(TypeLoadMode.Static, productionOptions.CodeGeneration.TypeLoadMode);
+    }
+
+    [Fact]
+    public void ConfigureStandardRuntime_PreservesMessageTypeListenerNamingByDefault()
+    {
+        var options = new WolverineOptions();
+
+        WolverinePersistenceConfigurator.ConfigureStandardRuntime(
+            options,
+            isDevelopment: true,
+            DummyWriteConnectionString,
+            "amqp://guest:guest@localhost:5672");
+
+        Assert.Equal(NamingSource.FromMessageType, ListenerNamingSource(options));
+    }
+
+    [Fact]
+    public void ConfigureStandardRuntime_CanUseHandlerTypeListenerNamingForIndependentConsumers()
+    {
+        var options = new WolverineOptions();
+
+        WolverinePersistenceConfigurator.ConfigureStandardRuntime(
+            options,
+            isDevelopment: true,
+            DummyWriteConnectionString,
+            "amqp://guest:guest@localhost:5672",
+            listenerNamingSource: NamingSource.FromHandlerType);
+
+        Assert.Equal(NamingSource.FromHandlerType, ListenerNamingSource(options));
     }
 
     [Fact]
@@ -94,5 +125,17 @@ public sealed class WolverinePersistenceConfiguratorTests
         string result = WolverinePersistenceConfigurator.NormalizeRabbitConnectionString("RabbitMQ://u:p@host:5672");
 
         Assert.Equal("amqp://u:p@host:5672", result);
+    }
+
+    private static NamingSource ListenerNamingSource(WolverineOptions options)
+    {
+        var property = typeof(WolverineOptions).GetProperty(
+            "RoutingConventions",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+        var conventions = Assert.IsAssignableFrom<System.Collections.IEnumerable>(property?.GetValue(options));
+        var convention = Assert.IsType<RabbitMqMessageRoutingConvention>(Assert.Single(conventions.Cast<object>()));
+        var field = convention.GetType().BaseType!.GetField("_namingSource", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+        return Assert.IsType<NamingSource>(field?.GetValue(convention));
     }
 }

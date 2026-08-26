@@ -1,5 +1,7 @@
 using Finbuckle.MultiTenant.Abstractions;
+using Finbuckle.MultiTenant.EntityFrameworkCore.Extensions;
 using Inventories.Domain.Entities;
+using Inventories.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Infrastructure.Database.EFCore;
 using SharedKernel.Infrastructure.MultiTenant;
@@ -24,10 +26,40 @@ public abstract class InventoryDbContextBase(DbContextOptions options, IMultiTen
     /// <summary>Gets the set of tracked location priority lists.</summary>
     public DbSet<LocationPriority> LocationPriorities => Set<LocationPriority>();
 
+    /// <summary>
+    /// Finds tenants that own a reservation requiring expiry processing at <paramref name="asOf"/>.
+    /// The named tenant-filter bypass is limited to discovery; the caller must establish each
+    /// returned tenant before issuing the mutating expiry command.
+    /// </summary>
+    /// <param name="asOf">The instant against which reservation expiry is evaluated.</param>
+    /// <param name="cancellationToken">Token used to cancel the database query.</param>
+    /// <returns>The distinct tenant identifiers requiring expiry processing.</returns>
+    public async Task<IReadOnlyList<string>> FindTenantsWithExpiredReservationsAsync(
+        DateTimeOffset asOf,
+        CancellationToken cancellationToken = default)
+    {
+        return await Reservations
+            .AsNoTracking()
+            .IgnoreQueryFilters([Constants.TenantToken])
+            .Where(reservation =>
+                (reservation.Status == ReservationStatus.Held && reservation.ExpiresAt <= asOf) ||
+                (reservation.SourceType == ReservationSource.Order &&
+                 reservation.Status == ReservationStatus.Committed &&
+                 reservation.BackorderExpiresAt <= asOf &&
+                 reservation.Lines.Any(line => line.BackorderedQuantity > 0)))
+            .Select(reservation => reservation.TenantId)
+            .Distinct()
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     /// <inheritdoc/>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(InventoryDbContextBase).Assembly);
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<StockItem>().IsMultiTenant();
+        modelBuilder.Entity<Reservation>().IsMultiTenant();
+        modelBuilder.Entity<LocationPriority>().IsMultiTenant();
     }
 }

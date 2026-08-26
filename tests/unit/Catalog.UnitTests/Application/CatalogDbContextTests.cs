@@ -3,6 +3,7 @@ using Catalog.Domain.ValueObjects;
 using Catalog.UnitTests.TestContext;
 using Finbuckle.MultiTenant.Abstractions;
 using Microsoft.EntityFrameworkCore;
+using NSubstitute;
 using SharedKernel.Infrastructure.MultiTenant;
 using Xunit;
 
@@ -50,7 +51,9 @@ public sealed class CatalogDbContextTests
     {
         var options = new DbContextOptionsBuilder<Catalog.Host.Database.CatalogReadDbContext>()
             .UseInMemoryDatabase($"read-{Guid.NewGuid()}").Options;
-        using var ctx = new Catalog.Host.Database.CatalogReadDbContext(options, NSubstitute.Substitute.For<IMultiTenantContextAccessor<TenantDetails>>());
+        var accessor = NSubstitute.Substitute.For<IMultiTenantContextAccessor<TenantDetails>>();
+        accessor.MultiTenantContext.Returns(new MultiTenantContext<TenantDetails>(new TenantDetails { Id = "tenant-1", Identifier = "tenant-1" }));
+        using var ctx = new Catalog.Host.Database.CatalogReadDbContext(options, accessor);
         Assert.Equal(QueryTrackingBehavior.NoTracking, ctx.ChangeTracker.QueryTrackingBehavior);
     }
 }

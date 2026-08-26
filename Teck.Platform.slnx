@@ -57,6 +57,11 @@
     <Project Path="src/services/operations/billing/Billing.Domain/Billing.Domain.csproj" />
     <Project Path="src/services/operations/billing/Billing.Host/Billing.Host.csproj" />
   </Folder>
+  <Folder Name="/src/services/operations/notification/">
+    <Project Path="src/services/operations/notification/Notification.Application/Notification.Application.csproj" />
+    <Project Path="src/services/operations/notification/Notification.Domain/Notification.Domain.csproj" />
+    <Project Path="src/services/operations/notification/Notification.Host/Notification.Host.csproj" />
+  </Folder>
   <Folder Name="/src/services/content/" />
   <Folder Name="/src/services/gateway/">
     <Project Path="src/services/gateway/public/Gateway.Public.csproj" />
@@ -76,6 +81,7 @@
     <Project Path="tests/architecture/Catalog.Architecture.UnitTests/Catalog.Architecture.UnitTests.csproj" />
     <Project Path="tests/architecture/Customer.Architecture.UnitTests/Customer.Architecture.UnitTests.csproj" />
     <Project Path="tests/architecture/Pricing.Architecture.UnitTests/Pricing.Architecture.UnitTests.csproj" />
+    <Project Path="tests/architecture/Notification.Architecture.UnitTests/Notification.Architecture.UnitTests.csproj" />
     <Project Path="tests/unit/SharedKernel.UnitTests/SharedKernel.UnitTests.csproj" />
     <Project Path="tests/unit/Basket.UnitTests/Basket.UnitTests.csproj" />
     <Project Path="tests/unit/Billing.UnitTests/Billing.UnitTests.csproj" />
@@ -84,6 +90,7 @@
     <Project Path="tests/unit/Gateway.Public.UnitTests/Gateway.Public.UnitTests.csproj" />
     <Project Path="tests/unit/Pricing.UnitTests/Pricing.UnitTests.csproj" />
     <Project Path="tests/unit/Teck.ServiceDefaults.UnitTests/Teck.ServiceDefaults.UnitTests.csproj" />
+    <Project Path="tests/unit/Notification.UnitTests/Notification.UnitTests.csproj" />
     <Project Path="tests/integration/Teck.Platform.IntegrationTests.Shared/Teck.Platform.IntegrationTests.Shared.csproj" />
     <Project Path="tests/integration/Basket.IntegrationTests/Basket.IntegrationTests.csproj" />
     <Project Path="tests/integration/CrossService.IntegrationTests/CrossService.IntegrationTests.csproj" />
@@ -93,6 +100,7 @@
     <Project Path="tests/integration/Customer.IntegrationTests/Customer.IntegrationTests.csproj" />
     <Project Path="tests/integration/Gateway.Public.IntegrationTests/Gateway.Public.IntegrationTests.csproj" />
     <Project Path="tests/integration/Aspire.AppHost.IntegrationTests/Aspire.AppHost.IntegrationTests.csproj" />
+    <Project Path="tests/integration/Notification.IntegrationTests/Notification.IntegrationTests.csproj" />
   </Folder>
   <Folder Name="/tests/integration/">
     <Project Path="tests/integration/Catalog.IntegrationTests/Catalog.IntegrationTests.csproj" />

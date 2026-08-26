@@ -26,15 +26,15 @@ public static class MergeBasketHandler
         ITenantInfo tenant,
         CancellationToken ct)
     {
-        if (identity.CustomerId is not Guid customerId)
+        if (string.IsNullOrWhiteSpace(identity.Subject))
         {
             throw new InvalidOperationException("Merge requires an authenticated customer.");
         }
 
-        var target = await repository.FirstOrDefaultAsync(new ActiveBasketByCustomerSpec(customerId), enableTracking: true, ct).ConfigureAwait(false);
+        var target = await repository.FirstOrDefaultAsync(new ActiveBasketBySubjectSpec(identity.Subject), enableTracking: true, ct).ConfigureAwait(false);
         if (target is null)
         {
-            target = Basket.CreateForCustomer(customerId, tenant.Id ?? string.Empty);
+            target = Basket.CreateForSubject(identity.Subject, tenant.Id ?? string.Empty);
             await repository.AddAsync(target, ct).ConfigureAwait(false);
         }
 

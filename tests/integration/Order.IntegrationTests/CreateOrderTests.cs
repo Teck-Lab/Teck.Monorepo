@@ -1,17 +1,29 @@
 using System.Net;
 using System.Net.Http.Json;
+using ErrorOr;
+using Finbuckle.MultiTenant.Abstractions;
 using Finbuckle.MultiTenant.Extensions;
 using JasperFx.CommandLine;
 using Keycloak.AuthServices.Authorization.Requirements;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Orders.Application.Orders.EventHandlers.IntegrationEvents;
+using Orders.Application.Orders.Features.RetryPayment.V1;
 using Orders.Application.Orders.Responses;
+using Orders.Domain.Entities;
+using Orders.Domain.ValueObjects;
+using Orders.Host.Infrastructure;
+using SharedKernel.Events;
 using SharedKernel.Infrastructure.MultiTenant;
 using Teck.Platform.IntegrationTests.Shared;
+using Wolverine;
+using Wolverine.Tracking;
 using Xunit;
 
 namespace Orders.IntegrationTests;
@@ -25,92 +37,330 @@ public sealed class CreateOrderTests : OrderIntegrationTestBase
     }
 
     [Fact]
-    public async Task PostOrders_WithValidBody_ReturnsCreatedOrder()
-    {
-        var response = await Client.PostAsJsonAsync(
-            "/orders",
-            new
-            {
-                customerId = Guid.NewGuid(),
-                lines = new[]
-                {
-                    new
-                    {
-                        productId = Guid.NewGuid(),
-                        productName = "Test Product",
-                        quantity = 2,
-                        unitPrice = 19.95m,
-                    },
-                },
-            });
-
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-        var order = await response.Content.ReadFromJsonAsync<OrderDto>();
-
-        Assert.NotNull(order);
-        Assert.NotEqual(Guid.Empty, order!.Id);
-        Assert.Equal(1, order.Lines.Count);
-        Assert.NotNull(response.Headers.Location);
-        Assert.Equal($"/orders/{order.Id}", response.Headers.Location!.OriginalString);
-    }
-
-    [Fact]
-    public async Task PostOrders_WithEmptyLines_ReturnsBadRequest()
-    {
-        var response = await Client.PostAsJsonAsync(
-            "/orders",
-            new
-            {
-                customerId = Guid.NewGuid(),
-                lines = Array.Empty<object>(),
-            });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task GetOrders_AfterCreation_ReturnsCreatedOrder()
+    public async Task GetOrders_AfterV2Checkout_ReturnsPlatformPricedOrder()
     {
         var customerId = Guid.NewGuid();
         var productId = Guid.NewGuid();
+        var orderId = await DeliverV2CheckoutAsync(customerId, productId);
 
-        var createResponse = await Client.PostAsJsonAsync(
-            "/orders",
-            new
-            {
-                customerId,
-                lines = new[]
-                {
-                    new
-                    {
-                        productId,
-                        productName = "Test Product",
-                        quantity = 3,
-                        unitPrice = 12.5m,
-                    },
-                },
-            });
-
-        createResponse.EnsureSuccessStatusCode();
-
-        var createdOrder = await createResponse.Content.ReadFromJsonAsync<OrderDto>();
-
-        Assert.NotNull(createdOrder);
-
-        var getResponse = await Client.GetAsync($"/orders/{createdOrder!.Id}");
+        var getResponse = await Client.GetAsync($"/orders/{orderId}");
 
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
-
         var order = await getResponse.Content.ReadFromJsonAsync<OrderDto>();
-
         Assert.NotNull(order);
-        Assert.Equal(createdOrder.Id, order!.Id);
-        Assert.Equal(createdOrder.CustomerId, order.CustomerId);
-        Assert.Equal(createdOrder.Total, order.Total);
+        Assert.Equal(orderId, order!.Id);
+        Assert.Equal(customerId, order.CustomerId);
+        Assert.Equal(37.5m, order.Total);
+        Assert.Equal(40m, order.AuthorizedAmount);
         Assert.Single(order.Lines);
         Assert.Equal(productId, order.Lines[0].ProductId);
+        Assert.Equal("Test Product", order.Lines[0].ProductName);
+        Assert.Equal(3, order.Lines[0].Quantity);
+        Assert.Equal(12.5m, order.Lines[0].UnitPrice);
     }
+
+    [Fact]
+    public async Task TenantBearingLifecycleEnvelopes_ResolveTenantAfterConsumerConstruction_AndConfirmOrder()
+    {
+        const string tenantId = "unseeded-envelope-tenant";
+        var checkout = new BasketCheckedOutV2IntegrationEvent
+        {
+            BasketId = Guid.NewGuid(),
+            CustomerId = Guid.NewGuid(),
+            KeycloakSubjectId = "subject-unseeded-envelope",
+            TenantId = tenantId,
+            Amount = 20m,
+            AuthorizedAmount = 20m,
+            Currency = "USD",
+            PaymentMethodToken = "pm_unseeded_envelope",
+            SourceCorrelationId = $"checkout-{Guid.NewGuid():N}",
+            CheckedOutAt = DateTimeOffset.UtcNow,
+            Items = [new BasketCheckedOutLineV2 { ProductId = Guid.NewGuid(), ProductName = "Tenant pipeline item", Quantity = 2, UnitPrice = 10m, LineTotal = 20m }],
+        };
+
+        Guid orderId;
+        using (var scope = Services.CreateScope())
+        {
+            var accessor = scope.ServiceProvider.GetRequiredService<IMultiTenantContextAccessor<TenantDetails>>();
+            var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+            Assert.Null(accessor.MultiTenantContext?.TenantInfo);
+            Assert.Null(bus.TenantId);
+
+            await bus.InvokeForTenantAsync(tenantId, checkout, CancellationToken.None);
+
+            await using var read = Services.CreateAsyncScope();
+            var context = read.ServiceProvider.GetRequiredService<Orders.Application.Database.OrderDbContext>();
+            orderId = await context.Orders.IgnoreQueryFilters([Constants.TenantToken])
+                .Where(order => order.CheckoutCorrelationId == checkout.SourceCorrelationId)
+                .Select(order => order.Id)
+                .SingleAsync();
+
+            await bus.InvokeForTenantAsync(
+                tenantId,
+                new StockReservedV2IntegrationEvent
+                {
+                    ReservationId = Guid.NewGuid(),
+                    OrderId = orderId,
+                    BasketId = checkout.BasketId,
+                    SourceType = "order",
+                    SourceId = orderId,
+                    SourceCorrelationId = checkout.SourceCorrelationId,
+                    TenantId = tenantId,
+                    IdempotencyKey = $"stock-{orderId:N}",
+                    Lines = [new StockReservationLine(checkout.Items[0].ProductId, 2, 0)],
+                },
+                CancellationToken.None);
+            await bus.InvokeForTenantAsync(
+                tenantId,
+                new PaymentCapturedV2IntegrationEvent
+                {
+                    PaymentId = Guid.NewGuid(),
+                    OrderId = orderId,
+                    TenantId = tenantId,
+                    Amount = checkout.Amount,
+                    AuthorizedAmount = checkout.AuthorizedAmount,
+                    Currency = checkout.Currency,
+                    RequestId = $"payment-{orderId:N}",
+                    SourceCorrelationId = checkout.SourceCorrelationId,
+                    CapturedAt = DateTimeOffset.UtcNow,
+                },
+                CancellationToken.None);
+        }
+
+        await using var assertionScope = Services.CreateAsyncScope();
+        var assertionContext = assertionScope.ServiceProvider.GetRequiredService<Orders.Application.Database.OrderDbContext>();
+        var order = await assertionContext.Orders.IgnoreQueryFilters([Constants.TenantToken]).SingleAsync(candidate => candidate.Id == orderId);
+
+        Assert.Equal(OrderStatus.Confirmed, order.Status);
+        Assert.Equal(StockState.Reserved, order.StockState);
+        Assert.Equal(PaymentState.Captured, order.PaymentState);
+    }
+
+    [Fact]
+    public async Task GetOrder_ForeignTenantClaimAndHeader_IsNotFound()
+    {
+        const string otherTenantId = "00000000-0000-0000-0000-000000000002";
+        var orderId = await DeliverV2CheckoutAsync(Guid.NewGuid(), Guid.NewGuid(), otherTenantId);
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/orders/{orderId}");
+        request.Headers.Add("X-TenantId", otherTenantId);
+
+        var response = await Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RetryPaymentEndpoint_SameSubjectPublishesOnceAndPreservesCeiling()
+    {
+        var orderId = await DeliverV2CheckoutAsync(Guid.NewGuid(), Guid.NewGuid());
+        await MarkPaymentActionRequiredAsync(orderId);
+
+        var first = await SendRetryAsync(orderId, "retry-owner");
+        var duplicate = await SendRetryAsync(orderId, "retry-owner");
+        var order = await ReadOrderAsync(orderId);
+
+        Assert.Equal(HttpStatusCode.Accepted, first.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, duplicate.StatusCode);
+        Assert.Equal(PaymentState.Pending, order.PaymentState);
+        Assert.Equal("retry-owner", order.RetryRequestId);
+        Assert.Equal(40m, order.AuthorizedAmount);
+        Assert.True(order.HasRecordedRetryRequest("retry-owner"));
+    }
+
+    [Fact]
+    public async Task RetryPaymentEndpoint_MissingOrCrossSubject_IsForbiddenWithoutRetry()
+    {
+        var missingSubjectOrderId = await DeliverV2CheckoutAsync(Guid.NewGuid(), Guid.NewGuid());
+        var crossSubjectOrderId = await DeliverV2CheckoutAsync(Guid.NewGuid(), Guid.NewGuid());
+        await MarkPaymentActionRequiredAsync(missingSubjectOrderId);
+        await MarkPaymentActionRequiredAsync(crossSubjectOrderId);
+
+        var missing = await SendRetryAsync(missingSubjectOrderId, "retry-missing", omitSubject: true);
+        var cross = await SendRetryAsync(crossSubjectOrderId, "retry-cross", subject: "subject-other");
+
+        Assert.Equal(HttpStatusCode.Forbidden, missing.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, cross.StatusCode);
+        Assert.Equal(PaymentState.ActionRequired, (await ReadOrderAsync(missingSubjectOrderId)).PaymentState);
+        Assert.Equal(PaymentState.ActionRequired, (await ReadOrderAsync(crossSubjectOrderId)).PaymentState);
+        Assert.False((await ReadOrderAsync(missingSubjectOrderId)).HasRecordedRetryRequest("retry-missing"));
+        Assert.False((await ReadOrderAsync(crossSubjectOrderId)).HasRecordedRetryRequest("retry-cross"));
+    }
+
+    [Fact]
+    public async Task RetryPaymentEndpoint_TenantFilteredOrder_IsNotFound()
+    {
+        const string otherTenantId = "00000000-0000-0000-0000-000000000002";
+        var orderId = await DeliverV2CheckoutAsync(Guid.NewGuid(), Guid.NewGuid(), otherTenantId);
+        await MarkPaymentActionRequiredAsync(orderId, otherTenantId);
+
+        var (response, tracking) = await SendRetryWithTrackingAsync(orderId, "retry-cross-tenant");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(PaymentState.ActionRequired, (await ReadOrderAsync(orderId)).PaymentState);
+        Assert.False((await ReadOrderAsync(orderId)).HasRecordedRetryRequest("retry-cross-tenant"));
+        Assert.Empty(tracking.Sent.MessagesOf<PaymentRetryRequestedIntegrationEvent>());
+    }
+
+    [Fact]
+    public async Task RetryPaymentEndpoint_InvalidOrIneligibleRequest_IsBadRequestWithoutRetry()
+    {
+        var invalidOrderId = await DeliverV2CheckoutAsync(Guid.NewGuid(), Guid.NewGuid());
+        var ineligibleOrderId = await DeliverV2CheckoutAsync(Guid.NewGuid(), Guid.NewGuid());
+        await MarkPaymentActionRequiredAsync(invalidOrderId);
+        await CancelForStockRejectionAsync(ineligibleOrderId);
+
+        var invalid = await SendRetryAsync(invalidOrderId, string.Empty);
+        var (ineligible, tracking) = await SendRetryWithTrackingAsync(ineligibleOrderId, "retry-ineligible");
+
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, ineligible.StatusCode);
+        Assert.False((await ReadOrderAsync(invalidOrderId)).HasRecordedRetryRequest(string.Empty));
+        Assert.False((await ReadOrderAsync(ineligibleOrderId)).HasRecordedRetryRequest("retry-ineligible"));
+        Assert.Empty(tracking.Sent.MessagesOf<PaymentRetryRequestedIntegrationEvent>());
+    }
+
+    [Fact]
+    public async Task RetryPaymentHandler_CrossTenantOrder_IsFilteredWithoutRetry()
+    {
+        const string otherTenantId = "00000000-0000-0000-0000-000000000002";
+        var orderId = await DeliverV2CheckoutAsync(Guid.NewGuid(), Guid.NewGuid(), tenantId: otherTenantId);
+        await MarkPaymentActionRequiredAsync(orderId, otherTenantId);
+
+        var result = await InvokeTenantScopedRetryAsync(orderId, "retry-cross-tenant", MockBearerAuthenticationHandler.TestTenantId);
+        var order = await ReadOrderAsync(orderId);
+
+        Assert.True(result.IsError);
+        Assert.Equal(otherTenantId, order.TenantId);
+        Assert.Equal(PaymentState.ActionRequired, order.PaymentState);
+        Assert.False(order.HasRecordedRetryRequest("retry-cross-tenant"));
+    }
+
+    private async Task<Guid> DeliverV2CheckoutAsync(Guid customerId, Guid productId, string tenantId = MockBearerAuthenticationHandler.TestTenantId)
+    {
+        var evt = new BasketCheckedOutV2IntegrationEvent
+        {
+            BasketId = Guid.NewGuid(),
+            CustomerId = customerId,
+            KeycloakSubjectId = "subject-test-user",
+            TenantId = tenantId,
+            Amount = 37.5m,
+            AuthorizedAmount = 40m,
+            Currency = "USD",
+            PaymentMethodToken = "pm_test_token",
+            SourceCorrelationId = Guid.NewGuid().ToString("N"),
+            CheckedOutAt = DateTimeOffset.UtcNow,
+            Items = [new BasketCheckedOutLineV2 { ProductId = productId, ProductName = "Test Product", Quantity = 3, UnitPrice = 12.5m, LineTotal = 37.5m }],
+        };
+        using var scope = CreateTenantScope(tenantId);
+        var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+        await BasketCheckedOutV2Handler.Handle(evt, bus, CancellationToken.None);
+
+        using var readScope = CreateTenantScope(tenantId);
+        var context = readScope.ServiceProvider.GetRequiredService<Orders.Application.Database.OrderDbContext>();
+        var order = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstAsync(context.Orders, order => order.CheckoutCorrelationId == evt.SourceCorrelationId);
+        return order.Id;
+    }
+
+    private async Task MarkPaymentActionRequiredAsync(Guid orderId, string tenantId = MockBearerAuthenticationHandler.TestTenantId)
+    {
+        using var scope = CreateTenantScope(tenantId);
+        var context = scope.ServiceProvider.GetRequiredService<Orders.Application.Database.OrderDbContext>();
+        var order = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(context.Orders.IgnoreQueryFilters([Constants.TenantToken]), candidate => candidate.Id == orderId);
+        Assert.IsType<Orders.Domain.DomainEvents.OrderPaymentActionRequired>(order.ApplyPaymentFailure("generic-decline", "Use another method.", $"payment-failed:{orderId:N}", order.CheckoutCorrelationId));
+        await context.SaveChangesAsync();
+    }
+
+    private async Task<Order> ReadOrderAsync(Guid orderId)
+    {
+        using var scope = CreateTenantScope();
+        var context = scope.ServiceProvider.GetRequiredService<Orders.Application.Database.OrderDbContext>();
+        return await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(context.Orders.IgnoreQueryFilters([Constants.TenantToken]), candidate => candidate.Id == orderId);
+    }
+
+    private async Task CancelForStockRejectionAsync(Guid orderId)
+    {
+        using var scope = CreateTenantScope();
+        var context = scope.ServiceProvider.GetRequiredService<Orders.Application.Database.OrderDbContext>();
+        var order = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(context.Orders.IgnoreQueryFilters([Constants.TenantToken]), candidate => candidate.Id == orderId);
+        Assert.NotNull(order.ApplyStockRejected($"stock-rejected:{orderId:N}", order.CheckoutCorrelationId, "The requested item is unavailable."));
+        await context.SaveChangesAsync();
+    }
+
+    private async Task<HttpResponseMessage> SendRetryAsync(Guid orderId, string requestId, string? subject = null, bool omitSubject = false)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/orders/{orderId}/payment-retry")
+        {
+            Content = JsonContent.Create(new { requestId, paymentMethodToken = "token-replacement" }),
+        };
+        if (omitSubject)
+        {
+            request.Headers.Add("X-Test-Omit-Subject", "true");
+        }
+        else if (subject is not null)
+        {
+            request.Headers.Add("X-Test-Subject", subject);
+        }
+
+        return await Client.SendAsync(request);
+    }
+
+    private async Task<(HttpResponseMessage Response, ITrackedSession Tracking)> SendRetryWithTrackingAsync(Guid orderId, string requestId, string? subject = null, bool omitSubject = false)
+    {
+        HttpResponseMessage? response = null;
+        Func<IMessageContext, Task> send = async _ =>
+        {
+            response = await SendRetryAsync(orderId, requestId, subject, omitSubject).ConfigureAwait(false);
+        };
+        var tracking = await Services.TrackActivity()
+            .Timeout(TimeSpan.FromSeconds(10))
+            .ExecuteAndWaitAsync(send)
+            .ConfigureAwait(false);
+
+        return (response!, tracking);
+    }
+
+    private async Task<ErrorOr<Success>> InvokeTenantScopedRetryAsync(Guid orderId, string requestId, string tenantId)
+    {
+        using var scope = Services.CreateScope();
+        var accessor = scope.ServiceProvider.GetRequiredService<IMultiTenantContextAccessor<TenantDetails>>();
+        var setter = scope.ServiceProvider.GetRequiredService<IMultiTenantContextSetter>();
+        var previous = accessor.MultiTenantContext;
+        setter.MultiTenantContext = new MultiTenantContext<TenantDetails>(new TenantDetails
+        {
+            Id = tenantId,
+            Identifier = tenantId,
+            Name = tenantId,
+            IsActive = true,
+        });
+
+        try
+        {
+            var context = scope.ServiceProvider.GetRequiredService<Orders.Application.Database.OrderDbContext>();
+            Assert.Equal(tenantId, context.TenantId);
+
+            var orders = scope.ServiceProvider.GetRequiredService<SharedKernel.Core.Database.IGenericWriteRepository<Order, Guid>>();
+            var unitOfWork = scope.ServiceProvider.GetRequiredService<SharedKernel.Core.Database.IUnitOfWork>();
+            var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+            var httpContext = new DefaultHttpContext();
+            httpContext.User = new System.Security.Claims.ClaimsPrincipal(
+                new System.Security.Claims.ClaimsIdentity([new System.Security.Claims.Claim("sub", "subject-test-user")], MockBearerAuthenticationHandler.SchemeName));
+            var identity = new OrderIdentityAccessor(new HttpContextAccessor { HttpContext = httpContext });
+
+            return await RetryPaymentHandler.Handle(
+                new RetryPaymentCommand(orderId, requestId, "token-replacement"),
+                orders,
+                identity,
+                context.TenantDetails!,
+                unitOfWork,
+                bus,
+                CancellationToken.None);
+        }
+        finally
+        {
+            setter.MultiTenantContext = previous;
+        }
+    }
+
 }
 
 public abstract class OrderIntegrationTestBase : IDisposable
@@ -122,8 +372,6 @@ public abstract class OrderIntegrationTestBase : IDisposable
     protected OrderIntegrationTestBase(SharedTestcontainersFixture fixture)
     {
         this.fixture = fixture;
-
-        // Migrations live in Order.Host (migrationsAssembly: typeof(Program).Assembly in AddOrderPersistence).
         databaseConnectionString = fixture
             .CreateSharedTestDatabaseAsync(
                 typeof(Orders.Application.Database.OrderDbContext),
@@ -137,6 +385,24 @@ public abstract class OrderIntegrationTestBase : IDisposable
 
     protected HttpClient Client { get; }
 
+    protected IServiceProvider Services => factory.Services;
+
+    /// <summary>Creates a scoped service provider with the same Finbuckle tenant context that the production request/message pipeline resolves.</summary>
+    protected IServiceScope CreateTenantScope(string tenantId = MockBearerAuthenticationHandler.TestTenantId)
+    {
+        var scope = Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<IMultiTenantContextSetter>().MultiTenantContext =
+            new MultiTenantContext<TenantDetails>(new TenantDetails
+            {
+                Id = tenantId,
+                Identifier = tenantId,
+                Name = tenantId,
+                IsActive = true,
+            });
+        scope.ServiceProvider.GetRequiredService<IMessageBus>().TenantId = tenantId;
+        return scope;
+    }
+
     public void Dispose()
     {
         Client.Dispose();
@@ -148,60 +414,23 @@ public abstract class OrderIntegrationTestBase : IDisposable
         SharedTestcontainersFixture fixture,
         string databaseConnectionString) : WebApplicationFactory<Program>
     {
-        static OrderWebApplicationFactory()
-        {
-            // Order.Host/Program.cs runs the host via RunJasperFxCommands so the `codegen write`
-            // command works in container builds. When WebApplicationFactory invokes that entry point
-            // with no command, the JasperFx command runner would return an exit code instead of
-            // starting the in-memory server. AutoStartHost tells JasperFx to start the host normally
-            // in that case, which is exactly what WebApplicationFactory needs.
-            JasperFxEnvironment.AutoStartHost = true;
-        }
+        static OrderWebApplicationFactory() => JasperFxEnvironment.AutoStartHost = true;
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
-            // Run as Development so AddTeckMessaging uses Wolverine's dynamic runtime codegen
-            // (Static mode would require pre-generated handler code, which tests do not produce)
-            // and creates the `wolverine` message-store schema on startup (no migrate init
-            // container runs in tests). See WolverinePersistenceConfigurator.ConfigureCoreRuntime.
             builder.UseEnvironment("Development");
-
-            // UseSetting applies at the highest configuration priority and overrides appsettings
-            // connection strings that AddOrderPersistence reads during Program.cs setup.
             builder.UseSetting("ConnectionStrings:OrderWrite", databaseConnectionString);
             builder.UseSetting("ConnectionStrings:OrderRead", databaseConnectionString);
             builder.UseSetting("ConnectionStrings:Default", databaseConnectionString);
-            // Minimal Keycloak stubs so the production binding of KeycloakAuthenticationOptions
-            // does not throw at startup. Actual JWT validation is replaced by MockBearerAuthenticationHandler.
             builder.UseSetting("Keycloak:realm", "test");
             builder.UseSetting("Keycloak:auth-server-url", "http://localhost:8080");
             builder.UseSetting("Keycloak:resource", "order-api");
-
             builder.ConfigureTestServices(services =>
             {
-                // Register Finbuckle multi-tenant infrastructure so IMultiTenantContextAccessor<TenantDetails>
-                // is available. No strategy or store is configured, so MultiTenantContext will be null per
-                // request and the DbContext factories will fall back to the default connection string.
-                services.AddMultiTenant<TenantDetails>();
-
-                // Handler discovery for the Order.Application assembly is configured in
-                // Order.Host/Program.cs (opts.Discovery.IncludeAssembly), so it applies here too —
-                // the test boots the real host via WebApplicationFactory and needs no test-only
-                // discovery wiring.
-
-                // Replace the Keycloak JWT bearer handler with the test-only mock so that
-                // AuthSchemes(JwtBearerDefaults.AuthenticationScheme) in AuthenticatedEndpoint
-                // resolves this handler instead of attempting real JWT validation.
-                //
-                // AddKeycloak in Order.Host/Program.cs already registers "Bearer" as JwtBearerHandler.
-                // Calling AddScheme("Bearer") again would throw "Scheme already exists: Bearer".
-                // Instead, use PostConfigure<AuthenticationOptions> to replace the HandlerType of
-                // the existing "Bearer" scheme builder and register our mock handler in DI.
                 services.AddTransient<MockBearerAuthenticationHandler>();
                 services.PostConfigure<AuthenticationOptions>(options =>
                 {
-                    var bearerScheme = options.Schemes
-                        .FirstOrDefault(s => s.Name == MockBearerAuthenticationHandler.SchemeName);
+                    var bearerScheme = options.Schemes.FirstOrDefault(scheme => scheme.Name == MockBearerAuthenticationHandler.SchemeName);
                     if (bearerScheme is not null)
                     {
                         bearerScheme.HandlerType = typeof(MockBearerAuthenticationHandler);
@@ -211,13 +440,7 @@ public abstract class OrderIntegrationTestBase : IDisposable
                     options.DefaultChallengeScheme = MockBearerAuthenticationHandler.SchemeName;
                     options.DefaultForbidScheme = MockBearerAuthenticationHandler.SchemeName;
                 });
-
-                // Keycloak.AuthServices registers ParameterizedProtectedResourceRequirementHandler which
-                // makes HTTP calls to the Keycloak authorization server (localhost:8080) to evaluate
-                // protected resource requirements. Remove it and replace with a permissive test handler
-                // that succeeds the requirement for any authenticated user without network calls.
-                var keycloakHandlerDescriptor = services.FirstOrDefault(
-                    d => d.ImplementationType?.Name == "ParameterizedProtectedResourceRequirementHandler");
+                var keycloakHandlerDescriptor = services.FirstOrDefault(descriptor => descriptor.ImplementationType?.Name == "ParameterizedProtectedResourceRequirementHandler");
                 if (keycloakHandlerDescriptor is not null)
                 {
                     services.Remove(keycloakHandlerDescriptor);
@@ -228,15 +451,10 @@ public abstract class OrderIntegrationTestBase : IDisposable
         }
     }
 
-    // Test-only authorization handler that bypasses Keycloak's ProtectedResourceRequirement
-    // for any authenticated user. Registered only via ConfigureTestServices — never in production.
-    private sealed class PermissiveProtectedResourceHandler
-        : AuthorizationHandler<ParameterizedProtectedResourceRequirement>
+    private sealed class PermissiveProtectedResourceHandler : AuthorizationHandler<ParameterizedProtectedResourceRequirement>
     {
         /// <inheritdoc/>
-        protected override Task HandleRequirementAsync(
-            AuthorizationHandlerContext context,
-            ParameterizedProtectedResourceRequirement requirement)
+        protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, ParameterizedProtectedResourceRequirement requirement)
         {
             if (context.User.Identity?.IsAuthenticated == true)
             {

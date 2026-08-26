@@ -153,6 +153,36 @@ public sealed class BackorderFillTests
     }
 
     [Fact]
+    public async Task Handle_PositiveAdjust_DoesNotFillAnotherTenantsMatchingProduct()
+    {
+        var productId = Guid.NewGuid();
+        var item = StockItem.Create(productId, Guid.NewGuid(), Tenant, 0, true, -10);
+        Reservation own = Reservation.CreateCommitted(
+            ReservationSource.Order,
+            Guid.NewGuid(),
+            Tenant,
+            [new ReservationLine(productId, 1, 1, [])]);
+        Reservation otherTenant = Reservation.CreateCommitted(
+            ReservationSource.Order,
+            Guid.NewGuid(),
+            "tenant-2",
+            [new ReservationLine(productId, 1, 1, [])]);
+
+        await AdjustStockHandler.Handle(
+            new AdjustStockCommand(item.Id, 1),
+            StockRepoReturning(item),
+            ReservationRepoOver(own, otherTenant),
+            Substitute.For<IUnitOfWork>(),
+            Substitute.For<IMessageBus>(),
+            new FixedTimeProvider(Now),
+            CancellationToken.None);
+
+        Assert.Equal(0, own.Lines[0].BackorderedQuantity);
+        Assert.Equal(1, otherTenant.Lines[0].BackorderedQuantity);
+        Assert.Equal(0, otherTenant.Lines[0].Allocations.Count);
+    }
+
+    [Fact]
     public void FillBackorder_QuantityExceedsBackorderedQuantity_Throws()
     {
         var productId = Guid.NewGuid();

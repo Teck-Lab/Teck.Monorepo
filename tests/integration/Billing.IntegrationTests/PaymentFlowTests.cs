@@ -2,26 +2,22 @@
 // Copyright (c) TeckLab. All rights reserved.
 // </copyright>
 
-using System.Net;
 using System.Net.Http.Json;
 using Billings.Application.Billing.Payments.Responses;
+using Microsoft.Extensions.DependencyInjection;
+using SharedKernel.Events;
 using Teck.Platform.IntegrationTests.Shared;
+using Wolverine;
 using Xunit;
 
 namespace Billing.IntegrationTests;
 
-/// <summary>
-/// End-to-end tests for the payment capture flow: boots Billing.Host over a Testcontainers
-/// Postgres database and exercises the real HTTP endpoints, proving the capture handler, the
-/// stub payment provider, EF persistence and the idempotency guard all work together.
-/// </summary>
+/// <summary>Exercises V2 lifecycle-created payments through the real Billing consumer.</summary>
 [Collection("SharedTestcontainers")]
 public sealed class PaymentFlowTests : BillingIntegrationTestBase
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="PaymentFlowTests"/> class.
-    /// </summary>
-    /// <param name="fixture">The shared testcontainers fixture providing Postgres.</param>
+    /// <summary>Initializes a new payment flow test.</summary>
+    /// <param name="fixture">The shared PostgreSQL fixture.</param>
     public PaymentFlowTests(SharedTestcontainersFixture fixture)
         : base(fixture)
     {
@@ -30,45 +26,23 @@ public sealed class PaymentFlowTests : BillingIntegrationTestBase
     [Fact]
     public async Task CapturePayment_ReturnsCreated_Captured()
     {
-        var response = await Client.PostAsJsonAsync(
-            "/payments",
-            new
-            {
-                OrderId = Guid.NewGuid(),
-                CustomerId = Guid.NewGuid(),
-                Amount = 42.50m,
-                Currency = "USD",
-            });
+        var payment = await DeliverOrderAsync(Guid.NewGuid());
 
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-        var payment = await response.Content.ReadFromJsonAsync<PaymentDto>();
-        Assert.NotNull(payment);
-        Assert.NotEqual(Guid.Empty, payment!.Id);
+        Assert.NotEqual(Guid.Empty, payment.Id);
         Assert.Equal("Captured", payment.Status);
         Assert.NotNull(payment.ProviderReference);
-        Assert.NotEmpty(payment.ProviderReference!);
     }
 
     [Fact]
     public async Task GetPayment_AfterCapture_ReturnsPayment()
     {
         var orderId = Guid.NewGuid();
-        var customerId = Guid.NewGuid();
+        var captured = await DeliverOrderAsync(orderId);
 
-        var captureResponse = await Client.PostAsJsonAsync(
-            "/payments",
-            new { OrderId = orderId, CustomerId = customerId, Amount = 15m, Currency = "USD" });
-        captureResponse.EnsureSuccessStatusCode();
-        var captured = await captureResponse.Content.ReadFromJsonAsync<PaymentDto>();
-        Assert.NotNull(captured);
+        var response = await Client.GetAsync($"/payments/{captured.Id}");
+        response.EnsureSuccessStatusCode();
+        var fetched = await response.Content.ReadFromJsonAsync<PaymentDto>();
 
-        var getResponse = await Client.GetAsync($"/payments/{captured!.Id}");
-        var getBody = await getResponse.Content.ReadAsStringAsync();
-        Assert.True(getResponse.IsSuccessStatusCode, $"GET /payments/{captured.Id} failed: {(int)getResponse.StatusCode} {getBody}");
-
-        var fetched = await getResponse.Content.ReadFromJsonAsync<PaymentDto>();
         Assert.NotNull(fetched);
         Assert.Equal(captured.Id, fetched!.Id);
         Assert.Equal(orderId, fetched.OrderId);
@@ -77,46 +51,117 @@ public sealed class PaymentFlowTests : BillingIntegrationTestBase
     [Fact]
     public async Task ListPayments_AfterCapture_IncludesPayment()
     {
-        var orderId = Guid.NewGuid();
-        var customerId = Guid.NewGuid();
+        var captured = await DeliverOrderAsync(Guid.NewGuid());
 
-        var captureResponse = await Client.PostAsJsonAsync(
-            "/payments",
-            new { OrderId = orderId, CustomerId = customerId, Amount = 7.25m, Currency = "USD" });
-        captureResponse.EnsureSuccessStatusCode();
-        var captured = await captureResponse.Content.ReadFromJsonAsync<PaymentDto>();
-        Assert.NotNull(captured);
+        var response = await Client.GetAsync("/payments");
+        response.EnsureSuccessStatusCode();
+        var payments = await response.Content.ReadFromJsonAsync<IReadOnlyList<PaymentDto>>();
 
-        var listResponse = await Client.GetAsync("/payments");
-        var listBody = await listResponse.Content.ReadAsStringAsync();
-        Assert.True(listResponse.IsSuccessStatusCode, $"GET /payments failed: {(int)listResponse.StatusCode} {listBody}");
-
-        var payments = await listResponse.Content.ReadFromJsonAsync<IReadOnlyList<PaymentDto>>();
         Assert.NotNull(payments);
-        Assert.Contains(payments!, payment => payment.Id == captured!.Id);
+        Assert.Contains(payments!, payment => payment.Id == captured.Id);
     }
 
     [Fact]
     public async Task CapturePayment_SameOrderTwice_IsIdempotent()
     {
         var orderId = Guid.NewGuid();
-        var customerId = Guid.NewGuid();
-        var request = new { OrderId = orderId, CustomerId = customerId, Amount = 99.99m, Currency = "USD" };
+        var requestId = $"request-{Guid.NewGuid():N}";
+        var first = await DeliverOrderAsync(orderId, requestId);
+        var second = await DeliverOrderAsync(orderId, requestId);
 
-        var firstResponse = await Client.PostAsJsonAsync("/payments", request);
-        Assert.Equal(HttpStatusCode.Created, firstResponse.StatusCode);
-        var first = await firstResponse.Content.ReadFromJsonAsync<PaymentDto>();
-        Assert.NotNull(first);
+        Assert.Equal(first.Id, second.Id);
+        Assert.Equal(1, Provider.AttemptCalls);
+    }
 
-        // Replaying the same order must never charge it twice — the handler's idempotency guard
-        // (PaymentByOrderSpec lookup before creating a new Payment) must return the existing
-        // payment rather than throwing on the unique OrderId index or minting a duplicate.
-        var secondResponse = await Client.PostAsJsonAsync("/payments", request);
-        var secondBody = await secondResponse.Content.ReadAsStringAsync();
-        Assert.True(secondResponse.IsSuccessStatusCode, $"Second POST /payments failed: {(int)secondResponse.StatusCode} {secondBody}");
+    [Theory]
+    [InlineData("missing-authorization")]
+    [InlineData("non-positive-authorization")]
+    [InlineData("blank-token")]
+    [InlineData("over-limit-token")]
+    [InlineData("blank-request")]
+    [InlineData("over-limit-request")]
+    [InlineData("invalid-currency")]
+    [InlineData("over-scale-amount")]
+    [InlineData("over-scale-authorization")]
+    [InlineData("over-ceiling")]
+    public async Task CapturePayment_InvalidV2Authority_DoesNotPersistPayment(string invalidInput)
+    {
+        var evt = CreateOrderPlacedEvent(Guid.NewGuid());
+        ApplyInvalidInput(evt, invalidInput);
 
-        var second = await secondResponse.Content.ReadFromJsonAsync<PaymentDto>();
-        Assert.NotNull(second);
-        Assert.Equal(first!.Id, second!.Id);
+        using var scope = Services.CreateScope();
+        EstablishMessageTenant(scope.ServiceProvider, evt.TenantId);
+        var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+        await bus.InvokeAsync(evt, CancellationToken.None);
+
+        Assert.Equal(0, Provider.AttemptCalls);
+        Assert.Equal(0, Provider.CaptureCalls);
+
+        var response = await Client.GetAsync("/payments");
+        response.EnsureSuccessStatusCode();
+        var payments = await response.Content.ReadFromJsonAsync<IReadOnlyList<PaymentDto>>();
+
+        Assert.Empty(payments ?? []);
+    }
+
+    private async Task<PaymentDto> DeliverOrderAsync(Guid orderId, string? requestId = null)
+    {
+        var evt = CreateOrderPlacedEvent(orderId, requestId);
+
+        using var scope = Services.CreateScope();
+        EstablishMessageTenant(scope.ServiceProvider, evt.TenantId);
+        var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+        await bus.InvokeAsync(evt, CancellationToken.None);
+
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            var response = await Client.GetAsync("/payments");
+            response.EnsureSuccessStatusCode();
+            var payments = await response.Content.ReadFromJsonAsync<IReadOnlyList<PaymentDto>>();
+            var payment = payments?.SingleOrDefault(candidate => candidate.OrderId == orderId);
+            if (payment is not null)
+            {
+                return payment;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(100));
+        }
+
+        throw new Xunit.Sdk.XunitException($"Payment for order {orderId} was not persisted after lifecycle delivery.");
+    }
+
+    private static OrderPlacedV2IntegrationEvent CreateOrderPlacedEvent(Guid orderId, string? requestId = null) =>
+        new()
+        {
+            OrderId = orderId,
+            BasketId = Guid.NewGuid(),
+            CustomerId = Guid.NewGuid(),
+            KeycloakSubjectId = "test-user",
+            TenantId = MockBearerAuthenticationHandler.TestTenantId,
+            Amount = 42.50m,
+            AuthorizedAmount = 50m,
+            Currency = "USD",
+            PaymentMethodToken = "pm_test_token",
+            RequestId = requestId ?? $"request-{Guid.NewGuid():N}",
+            SourceCorrelationId = $"correlation-{Guid.NewGuid():N}",
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+
+    private static void ApplyInvalidInput(OrderPlacedV2IntegrationEvent evt, string invalidInput)
+    {
+        switch (invalidInput)
+        {
+            case "missing-authorization": evt.AuthorizedAmount = 0m; break;
+            case "non-positive-authorization": evt.AuthorizedAmount = -1m; break;
+            case "blank-token": evt.PaymentMethodToken = " "; break;
+            case "over-limit-token": evt.PaymentMethodToken = new string('t', 257); break;
+            case "blank-request": evt.RequestId = " "; break;
+            case "over-limit-request": evt.RequestId = new string('r', 129); break;
+            case "invalid-currency": evt.Currency = "usd"; break;
+            case "over-scale-amount": evt.Amount = 42.501m; break;
+            case "over-scale-authorization": evt.AuthorizedAmount = 50.001m; break;
+            case "over-ceiling": evt.Amount = 50.01m; break;
+            default: throw new ArgumentOutOfRangeException(nameof(invalidInput), invalidInput, null);
+        }
     }
 }

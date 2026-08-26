@@ -22,6 +22,12 @@ public sealed class GetOrderEndpoint(IMessageBus bus) : AuthenticatedEndpoint<Ge
         var query = new GetOrderQuery(request.Id);
         var result = await _bus.InvokeAsync<OrderDto>(query, ct);
 
+        if (result is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+
         await Send.OkAsync(result, ct);
     }
 

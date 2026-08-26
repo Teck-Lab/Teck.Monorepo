@@ -123,6 +123,13 @@ public sealed class ReservationPersistenceTests
             .UseInMemoryDatabase(name)
             .Options;
 
-        return new InventoryDbContext(options, Substitute.For<IMultiTenantContextAccessor<TenantDetails>>());
+        return new InventoryDbContext(options, TenantAccessor());
+    }
+
+    private static IMultiTenantContextAccessor<TenantDetails> TenantAccessor()
+    {
+        var accessor = Substitute.For<IMultiTenantContextAccessor<TenantDetails>>();
+        accessor.MultiTenantContext.Returns(new MultiTenantContext<TenantDetails>(new TenantDetails { Id = "tenant-1", Identifier = "tenant-1" }));
+        return accessor;
     }
 }

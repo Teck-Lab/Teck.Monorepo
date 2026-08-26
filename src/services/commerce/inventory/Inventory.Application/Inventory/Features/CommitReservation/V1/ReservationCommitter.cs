@@ -3,6 +3,7 @@ using Inventories.Domain.Entities;
 using Inventories.Domain.Services;
 using Inventories.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using SharedKernel.Core.Database;
 using SharedKernel.Events;
 
@@ -16,12 +17,15 @@ namespace Inventories.Application.Inventory.Features.CommitReservation.V1;
 /// </summary>
 internal static class ReservationCommitter
 {
+    private const string ReservationSourceKeyConstraint = "IX_Reservations_TenantId_SourceType_SourceId";
+
     /// <summary>
-    /// Attempts to commit the requested reservation, retrying on optimistic-concurrency conflicts.
+    /// Attempts to commit the requested reservation, retrying on optimistic-concurrency and source-key conflicts.
     /// </summary>
     /// <remarks>
     /// The first attempt runs against the caller's ambient repositories/unit of work. On a
-    /// <see cref="DbUpdateConcurrencyException"/> the ambient DbContext is poisoned — its change
+    /// <see cref="DbUpdateConcurrencyException"/> or a duplicate reservation source-key conflict,
+    /// the ambient DbContext is poisoned — its change
     /// tracker now holds stock items that were already mutated by <see cref="StockItem.Reserve(int)"/>
     /// and a failed save. Reloading within that same context would return those stale, mutated
     /// instances (EF's identity map wins over the database for tracking queries), so re-running would
@@ -37,6 +41,7 @@ internal static class ReservationCommitter
     /// <param name="scopeFactory">Factory used to open a fresh scope (fresh DbContext) per retry.</param>
     /// <param name="maxRetries">The maximum number of retries after the first attempt.</param>
     /// <param name="request">The reservation to commit.</param>
+    /// <param name="backorderExpiresAt">The deadline to persist when an order commit contains a backordered quantity.</param>
     /// <param name="ct">A cancellation token.</param>
     /// <returns>The commit result describing what happened and what to publish.</returns>
     public static Task<ReservationCommitResult> CommitAsync(
@@ -47,8 +52,9 @@ internal static class ReservationCommitter
         IServiceScopeFactory scopeFactory,
         int maxRetries,
         ReservationCommitRequest request,
+        DateTimeOffset? backorderExpiresAt,
         CancellationToken ct) =>
-        ExecuteAsync(stockItems, reservations, locationPriorities, unitOfWork, scopeFactory, maxRetries, request, expiresAt: null, ct);
+        ExecuteAsync(stockItems, reservations, locationPriorities, unitOfWork, scopeFactory, maxRetries, request, expiresAt: null, backorderExpiresAt, ct);
 
     /// <summary>
     /// Attempts to place a <see cref="ReservationStatus.Held"/> reservation that expires at
@@ -76,7 +82,7 @@ internal static class ReservationCommitter
         ReservationCommitRequest request,
         DateTimeOffset expiresAt,
         CancellationToken ct) =>
-        ExecuteAsync(stockItems, reservations, locationPriorities, unitOfWork, scopeFactory, maxRetries, request, expiresAt, ct);
+        ExecuteAsync(stockItems, reservations, locationPriorities, unitOfWork, scopeFactory, maxRetries, request, expiresAt, backorderExpiresAt: null, ct);
 
     private static async Task<ReservationCommitResult> ExecuteAsync(
         IGenericWriteRepository<StockItem, Guid> stockItems,
@@ -87,14 +93,27 @@ internal static class ReservationCommitter
         int maxRetries,
         ReservationCommitRequest request,
         DateTimeOffset? expiresAt,
+        DateTimeOffset? backorderExpiresAt,
         CancellationToken ct)
     {
         try
         {
-            return await AttemptAsync(stockItems, reservations, locationPriorities, unitOfWork, request, expiresAt, ct)
-                .ConfigureAwait(false);
+            ReservationCommitResult result = await AttemptAsync(
+                stockItems,
+                reservations,
+                locationPriorities,
+                unitOfWork,
+                request,
+                expiresAt,
+                backorderExpiresAt,
+                ct).ConfigureAwait(false);
+            return await ResolveOrdinaryV2RejectionAsync(result, scopeFactory, request, ct).ConfigureAwait(false);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (DbUpdateException exception) when (IsDuplicateSourceKeyConflict(exception))
+        {
+            return await ResolveSourceWinnerAsync(scopeFactory, request, ct).ConfigureAwait(false);
+        }
+        catch (DbUpdateException exception) when (IsRetriableReservationConflict(exception))
         {
             // Fall through to fresh-scope retries below.
         }
@@ -107,23 +126,91 @@ internal static class ReservationCommitter
             IServiceProvider sp = scope.ServiceProvider;
             try
             {
-                return await AttemptAsync(
+                ReservationCommitResult result = await AttemptAsync(
                     sp.GetRequiredService<IGenericWriteRepository<StockItem, Guid>>(),
                     sp.GetRequiredService<IGenericWriteRepository<Reservation, Guid>>(),
                     sp.GetRequiredService<IGenericReadRepository<LocationPriority, Guid>>(),
                     sp.GetRequiredService<IUnitOfWork>(),
                     request,
                     expiresAt,
+                    backorderExpiresAt,
                     ct).ConfigureAwait(false);
+                result = await ResolveOrdinaryV2RejectionAsync(result, scopeFactory, request, ct).ConfigureAwait(false);
+                return result.Outcome == ReservationCommitOutcome.Rejected
+                    ? result with { RequiresFreshScopeRejectionHandling = true }
+                    : result;
             }
-            catch (DbUpdateConcurrencyException)
+            catch (DbUpdateException exception) when (IsDuplicateSourceKeyConflict(exception))
+            {
+                return await ResolveSourceWinnerAsync(scopeFactory, request, ct).ConfigureAwait(false);
+            }
+            catch (DbUpdateException exception) when (IsRetriableReservationConflict(exception))
             {
                 // Retry in the next fresh scope until the budget is exhausted.
             }
         }
 
-        return ReservationCommitResult.Contention(ToLines(request.Lines));
+        return IsLifecycleV2OrderRequest(request)
+            ? await ResolveSourceWinnerAsync(scopeFactory, request, ct).ConfigureAwait(false)
+            : ReservationCommitResult.Contention(ToLines(request.Lines));
     }
+
+    private static Task<ReservationCommitResult> ResolveOrdinaryV2RejectionAsync(
+        ReservationCommitResult result,
+        IServiceScopeFactory scopeFactory,
+        ReservationCommitRequest request,
+        CancellationToken ct) =>
+        // A V1 delivery can commit after this attempt's idempotency lookup but before allocation
+        // rejects. Re-check in a fresh scope so V2 adopts that winner rather than publishes a rejection.
+        result.Outcome == ReservationCommitOutcome.Rejected && IsLifecycleV2OrderRequest(request)
+            ? ResolveSourceWinnerAsync(scopeFactory, request, result, ct)
+            : Task.FromResult(result);
+
+    private static bool IsRetriableReservationConflict(DbUpdateException exception) =>
+        exception is DbUpdateConcurrencyException
+        || IsDuplicateSourceKeyConflict(exception);
+
+    private static bool IsDuplicateSourceKeyConflict(DbUpdateException exception) =>
+        exception.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: ReservationSourceKeyConstraint,
+        };
+
+    private static async Task<ReservationCommitResult> ResolveSourceWinnerAsync(
+        IServiceScopeFactory scopeFactory,
+        ReservationCommitRequest request,
+        ReservationCommitResult? noWinnerResult,
+        CancellationToken ct)
+    {
+        // Every source-key conflict, exhausted V2 contention path, and ordinary V2 rejection checks
+        // this fresh scope before returning. A committed V1 winner is therefore adopted atomically
+        // rather than allowing the V2 delivery to complete without its required provenance.
+        using IServiceScope scope = scopeFactory.CreateScope();
+        IServiceProvider services = scope.ServiceProvider;
+        IGenericWriteRepository<Reservation, Guid> reservations = services.GetRequiredService<IGenericWriteRepository<Reservation, Guid>>();
+        IUnitOfWork unitOfWork = services.GetRequiredService<IUnitOfWork>();
+        Reservation? winner = await reservations
+            .FirstOrDefaultAsync(new ReservationBySourceSpec(request.TenantId, request.Source, request.SourceId), enableTracking: true, ct)
+            .ConfigureAwait(false);
+        if (winner is not null)
+        {
+            return await ExistingReservationResultAsync(winner, unitOfWork, request, ct).ConfigureAwait(false);
+        }
+
+        return noWinnerResult ?? ReservationCommitResult.Contention(ToLines(request.Lines));
+    }
+
+    private static Task<ReservationCommitResult> ResolveSourceWinnerAsync(
+        IServiceScopeFactory scopeFactory,
+        ReservationCommitRequest request,
+        CancellationToken ct) =>
+        ResolveSourceWinnerAsync(scopeFactory, request, noWinnerResult: null, ct: ct);
+
+    private static bool IsLifecycleV2OrderRequest(ReservationCommitRequest request) =>
+        request.Source == ReservationSource.Order
+        && request.BasketId is not null
+        && !string.IsNullOrWhiteSpace(request.SourceCorrelationId);
 
     private static async Task<ReservationCommitResult> AttemptAsync(
         IGenericWriteRepository<StockItem, Guid> stockItems,
@@ -132,15 +219,16 @@ internal static class ReservationCommitter
         IUnitOfWork unitOfWork,
         ReservationCommitRequest request,
         DateTimeOffset? expiresAt,
+        DateTimeOffset? backorderExpiresAt,
         CancellationToken ct)
     {
         // 1. Idempotency FIRST: a matching reservation means this source has already been committed.
         Reservation? existing = await reservations
-            .FirstOrDefaultAsync(new ReservationBySourceSpec(request.Source, request.SourceId), ct)
+            .FirstOrDefaultAsync(new ReservationBySourceSpec(request.TenantId, request.Source, request.SourceId), enableTracking: true, ct)
             .ConfigureAwait(false);
         if (existing is not null)
         {
-            return ReservationCommitResult.AlreadyReserved(existing.Id);
+            return await ExistingReservationResultAsync(existing, unitOfWork, request, ct).ConfigureAwait(false);
         }
 
         // 2. Load the tenant's ordered location preference (null → deterministic fallback ordering).
@@ -208,7 +296,14 @@ internal static class ReservationCommitter
         }
 
         Reservation reservation = expiresAt is null
-            ? Reservation.CreateCommitted(request.Source, request.SourceId, request.TenantId, reservationLines)
+            ? Reservation.CreateCommitted(
+                request.Source,
+                request.SourceId,
+                request.TenantId,
+                reservationLines,
+                reservationLines.Any(line => line.BackorderedQuantity > 0) ? backorderExpiresAt : null,
+                request.BasketId,
+                request.SourceCorrelationId)
             : Reservation.CreateHeld(request.Source, request.SourceId, request.TenantId, expiresAt.Value, reservationLines);
         await reservations.AddAsync(reservation, ct).ConfigureAwait(false);
 
@@ -232,6 +327,27 @@ internal static class ReservationCommitter
             .ToList();
 
         return ReservationCommitResult.Committed(reservation.Id, committedLines, affectedSnapshots);
+    }
+
+    private static async Task<ReservationCommitResult> ExistingReservationResultAsync(
+        Reservation existing,
+        IUnitOfWork unitOfWork,
+        ReservationCommitRequest request,
+        CancellationToken ct)
+    {
+        if (request.Source == ReservationSource.Order
+            && !existing.IsLifecycleV2
+            && request.BasketId is Guid basketId
+            && !string.IsNullOrWhiteSpace(request.SourceCorrelationId))
+        {
+            existing.AdoptLifecycleV2(basketId, request.SourceCorrelationId);
+            await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);
+            return ReservationCommitResult.LifecycleHandoff(existing.Id, existing.Lines
+                .Select(line => new StockReservationLine(line.ProductId, line.RequestedQuantity, line.BackorderedQuantity))
+                .ToList());
+        }
+
+        return ReservationCommitResult.AlreadyReserved(existing.Id);
     }
 
     private static List<StockItem> OrderByPriority(IReadOnlyList<StockItem> items, IReadOnlyList<Guid> priorityOrder)

@@ -12,7 +12,6 @@ public sealed class AddItemRequestValidator : Validator<AddItemRequest>
         RuleFor(request => request.BasketId).NotEmpty();
         RuleFor(request => request.ProductId).NotEmpty();
         RuleFor(request => request.ProductName).NotEmpty();
-        RuleFor(request => request.UnitPrice).GreaterThanOrEqualTo(0);
         RuleFor(request => request.Quantity).GreaterThan(0);
     }
 }

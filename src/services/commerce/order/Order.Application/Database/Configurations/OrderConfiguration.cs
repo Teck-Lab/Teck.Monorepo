@@ -16,11 +16,26 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.ToTable("Orders");
         builder.HasKey(o => o.Id);
         builder.Property(o => o.TenantId).HasMaxLength(64);
+        builder.Property(o => o.KeycloakSubjectId).HasMaxLength(255);
+        builder.Property(o => o.ActionText).HasMaxLength(512);
+        builder.Property(o => o.Currency).HasMaxLength(3);
+        builder.Property(o => o.CheckoutCorrelationId).HasMaxLength(128);
+        builder.Property(o => o.RetryRequestId).HasMaxLength(128);
+        builder.Property(o => o.ProcessedTransitionKeys).HasMaxLength(8192);
         builder.Ignore(o => o.DomainEvents);
 
         // OrderStatus is an Ardalis SmartEnum — persist its integer value and rebuild from it.
         builder.Property(o => o.Status)
             .HasConversion(status => status.Value, value => OrderStatus.FromValue(value));
+        builder.Property(o => o.PaymentState)
+            .HasConversion(state => state.Value, value => PaymentState.FromValue(value));
+        builder.Property(o => o.StockState)
+            .HasConversion(state => state.Value, value => StockState.FromValue(value));
+        builder.Property(o => o.FailureReason)
+            .HasConversion(reason => reason.Value, value => OrderFailureReason.FromValue(value));
+
+        builder.HasIndex(o => new { o.TenantId, o.CheckoutCorrelationId }).IsUnique();
+        builder.HasIndex(o => new { o.TenantId, o.RetryRequestId });
 
         builder.OwnsMany(o => o.Lines, lines =>
         {

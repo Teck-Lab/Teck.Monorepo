@@ -1,4 +1,5 @@
 using Finbuckle.MultiTenant.Abstractions;
+using Finbuckle.MultiTenant.EntityFrameworkCore.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Pricing.Domain.Entities;
 using SharedKernel.Infrastructure.Database.EFCore;
@@ -24,6 +25,12 @@ public abstract class PricingDbContextBase(DbContextOptions options, IMultiTenan
     /// <summary>Gets the set of tracked exchange rates.</summary>
     public DbSet<ExchangeRate> ExchangeRates => Set<ExchangeRate>();
 
+    /// <summary>Gets catalog fallback price projections.</summary>
+    public DbSet<CatalogPrice> CatalogPrices => Set<CatalogPrice>();
+
+    /// <summary>Gets pending catalog fallback reconciliations.</summary>
+    public DbSet<PendingPriceResolution> PendingPriceResolutions => Set<PendingPriceResolution>();
+
     /// <inheritdoc/>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,5 +38,10 @@ public abstract class PricingDbContextBase(DbContextOptions options, IMultiTenan
         // discover owned collections (Prices.Tiers, PriceList.Scope) as plain entities.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(PricingDbContextBase).Assembly);
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<PriceList>().IsMultiTenant();
+        modelBuilder.Entity<Price>().IsMultiTenant();
+        modelBuilder.Entity<ExchangeRate>().IsMultiTenant();
+        modelBuilder.Entity<CatalogPrice>().IsMultiTenant();
+        modelBuilder.Entity<PendingPriceResolution>().IsMultiTenant();
     }
 }
