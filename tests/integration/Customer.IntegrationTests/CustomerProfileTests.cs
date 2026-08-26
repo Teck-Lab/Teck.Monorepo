@@ -4,7 +4,12 @@
 
 using System.Net;
 using System.Net.Http.Json;
+using Customers.Application.Database;
 using Customers.Application.Customers.Responses;
+using Customers.Domain.Entities;
+using Finbuckle.MultiTenant.Extensions;
+using Microsoft.EntityFrameworkCore;
+using SharedKernel.Infrastructure.Database.EFCore;
 using Teck.Platform.IntegrationTests.Shared;
 using Xunit;
 
@@ -64,6 +69,33 @@ public sealed class CustomerProfileTests : CustomerIntegrationTestBase
         Assert.NotNull(fetched);
         Assert.Equal(created.Id, fetched!.Id);
         Assert.Equal(created.Email, fetched.Email);
+    }
+
+    [Fact]
+    public async Task GetCustomer_ForeignTenantCustomer_IsExcluded()
+    {
+        var foreignCustomer = Customer.Create(
+            "tenant-b",
+            "foreign-subject",
+            "foreign@example.com",
+            "Foreign",
+            "Customer");
+
+        await using (var seed = new CustomerDbContext(
+            new DbContextOptionsBuilder<CustomerDbContext>()
+                .UseNpgsql(DatabaseConnectionString)
+                .UseTeckCloudTenant("tenant-b")
+                .Options,
+            null!))
+        {
+            seed.Customers.Add(foreignCustomer);
+            await seed.SaveChangesAsync();
+        }
+
+        HttpResponseMessage response = await Client.GetAsync($"/customers/{foreignCustomer.Id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty(await response.Content.ReadAsStringAsync());
     }
 
     [Fact]

@@ -60,7 +60,7 @@ public sealed class BackorderLifecycleTests : InventoryIntegrationTestBase
         {
             if (message is BackorderReadyIntegrationEvent or BackorderExpiredIntegrationEvent)
             {
-                Reservation persisted = await InventoryHandlerHarness.ReadReservationAsync(Services, reservation.Id);
+                Reservation persisted = await InventoryHandlerHarness.ReadReservationAsync(Services, tenantId, reservation.Id);
                 Assert.True(
                     (persisted.Status == ReservationStatus.Committed && !persisted.HasOutstandingBackorder)
                     || persisted.Status == ReservationStatus.Expired,
@@ -69,12 +69,12 @@ public sealed class BackorderLifecycleTests : InventoryIntegrationTestBase
         });
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        Task<int> expiry = InventoryHandlerHarness.ExpireAsync(Services, new FixedTimeProvider(now), outcomes.Bus, cts.Token);
-        Task adjust = InventoryHandlerHarness.AdjustAsync(Services, stock.Id, 1, outcomes.Bus, cts.Token);
+        Task<int> expiry = InventoryHandlerHarness.ExpireAsync(Services, tenantId, new FixedTimeProvider(now), outcomes.Bus, cts.Token);
+        Task adjust = InventoryHandlerHarness.AdjustAsync(Services, tenantId, stock.Id, 1, outcomes.Bus, cts.Token);
         await Task.WhenAll(expiry, adjust);
 
-        Reservation finalReservation = await InventoryHandlerHarness.ReadReservationAsync(Services, reservation.Id);
-        StockItem finalStock = Assert.Single(await InventoryHandlerHarness.ReadStockAsync(Services, stock.Id));
+        Reservation finalReservation = await InventoryHandlerHarness.ReadReservationAsync(Services, tenantId, reservation.Id);
+        StockItem finalStock = Assert.Single(await InventoryHandlerHarness.ReadStockAsync(Services, tenantId, stock.Id));
         object lifecycleOutcome = Assert.Single(outcomes.Messages.Where(message =>
             message is BackorderReadyIntegrationEvent or BackorderExpiredIntegrationEvent));
         Assert.Equal(1, finalStock.QuantityOnHand);

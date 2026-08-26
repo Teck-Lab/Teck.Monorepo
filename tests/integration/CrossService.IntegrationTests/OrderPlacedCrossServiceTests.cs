@@ -171,8 +171,6 @@ public sealed class OrderPlacedCrossServiceTests : IDisposable
     /// </summary>
     private static void ConfigureCommonTestServices(IServiceCollection services)
     {
-        services.AddMultiTenant<TenantDetails>();
-
         services.AddTransient<MockBearerAuthenticationHandler>();
         services.PostConfigure<AuthenticationOptions>(options =>
         {

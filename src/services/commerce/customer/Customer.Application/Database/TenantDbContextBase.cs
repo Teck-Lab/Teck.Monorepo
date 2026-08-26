@@ -1,5 +1,6 @@
 using Customers.Domain.Entities;
 using Finbuckle.MultiTenant.Abstractions;
+using Finbuckle.MultiTenant.EntityFrameworkCore.Extensions;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Infrastructure.Database.EFCore;
 using SharedKernel.Infrastructure.MultiTenant;
@@ -23,5 +24,6 @@ public abstract class TenantDbContextBase(DbContextOptions options, IMultiTenant
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(TenantDbContextBase).Assembly);
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<Customer>().IsMultiTenant();
     }
 }

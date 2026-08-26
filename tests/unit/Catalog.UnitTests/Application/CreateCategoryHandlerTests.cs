@@ -21,5 +21,6 @@ public sealed class CreateCategoryHandlerTests
         Assert.Equal("beverages", dto.Slug);
         Assert.NotEqual(Guid.Empty, dto.Id);
         Assert.Equal(1, await db.Categories.CountAsync());
+        Assert.Equal("tenant-1", (await db.Categories.SingleAsync()).TenantId);
     }
 }

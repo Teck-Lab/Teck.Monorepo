@@ -1,34 +1,14 @@
 using Finbuckle.MultiTenant.Abstractions;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Options;
 using SharedKernel.Core.Pricing;
 
 namespace SharedKernel.Infrastructure.MultiTenant;
 
 /// <summary>
-/// Lightweight tenant store that resolves tenant details directly from request context.
-/// This store avoids external calls and is intended for header-driven gateway flows.
+/// Lightweight tenant store that materializes the tenant selected by the signed-claim strategy.
+/// Despite its legacy name, it never reads caller-supplied HTTP headers.
 /// </summary>
 public sealed class HeaderTenantStore : IMultiTenantStore<TenantDetails>
 {
-    private const string TenantDbStrategyHeaderName = "X-Tenant-DbStrategy";
-
-    private readonly IHttpContextAccessor _httpContextAccessor;
-    private readonly TeckCloudMultiTenancyOptions _options;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="HeaderTenantStore"/> class.
-    /// </summary>
-    /// <param name="httpContextAccessor">HTTP context accessor.</param>
-    /// <param name="options">Multi-tenancy options.</param>
-    public HeaderTenantStore(
-        IHttpContextAccessor httpContextAccessor,
-        IOptions<TeckCloudMultiTenancyOptions> options)
-    {
-        _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
-        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-    }
-
     /// <summary>
     /// Gets all tenants.
     /// </summary>
@@ -108,11 +88,6 @@ public sealed class HeaderTenantStore : IMultiTenantStore<TenantDetails>
             return Task.FromResult<TenantDetails?>(null);
         }
 
-        if (!MatchesHeaderTenant(identifier))
-        {
-            return Task.FromResult<TenantDetails?>(null);
-        }
-
         return Task.FromResult<TenantDetails?>(BuildTenant(identifier, identifier));
     }
 
@@ -158,7 +133,6 @@ public sealed class HeaderTenantStore : IMultiTenantStore<TenantDetails>
     public Task<bool> TryAddAsync(TenantDetails tenantInfo)
     {
         _ = tenantInfo;
-        _ = _httpContextAccessor.HttpContext;
         return Task.FromResult(false);
     }
 
@@ -170,7 +144,6 @@ public sealed class HeaderTenantStore : IMultiTenantStore<TenantDetails>
     public Task<bool> TryRemoveAsync(string identifier)
     {
         _ = identifier;
-        _ = _httpContextAccessor.HttpContext;
         return Task.FromResult(false);
     }
 
@@ -184,69 +157,17 @@ public sealed class HeaderTenantStore : IMultiTenantStore<TenantDetails>
         return TryAddAsync(tenantInfo);
     }
 
-    private bool MatchesHeaderTenant(string requestedTenantId)
-    {
-        HttpContext? httpContext = _httpContextAccessor.HttpContext;
-        if (httpContext is null)
-        {
-            return true;
-        }
-
-        string tenantHeaderName = _options.TenantIdHeaderName;
-        if (!httpContext.Request.Headers.TryGetValue(tenantHeaderName, out var headerValue))
-        {
-            return true;
-        }
-
-        string resolvedHeaderTenant = headerValue.ToString();
-        if (string.IsNullOrWhiteSpace(resolvedHeaderTenant))
-        {
-            return true;
-        }
-
-        return string.Equals(resolvedHeaderTenant, requestedTenantId, StringComparison.OrdinalIgnoreCase);
-    }
-
     private TenantDetails BuildTenant(string id, string identifier)
     {
-        string strategy = ResolveDatabaseStrategyFromHeader();
-
         return new TenantDetails
         {
             Id = id,
             Identifier = identifier,
             Name = identifier,
             IsActive = true,
-            DatabaseStrategy = strategy,
+            DatabaseStrategy = DatabaseStrategy.Shared.Name,
             DatabaseProvider = string.Empty,
             Plan = string.Empty,
         };
-    }
-
-    private string ResolveDatabaseStrategyFromHeader()
-    {
-        HttpContext? httpContext = _httpContextAccessor.HttpContext;
-        if (httpContext is null)
-        {
-            return DatabaseStrategy.Shared.Name;
-        }
-
-        if (!httpContext.Request.Headers.TryGetValue(TenantDbStrategyHeaderName, out var strategyHeaderValue))
-        {
-            return DatabaseStrategy.Shared.Name;
-        }
-
-        string strategy = strategyHeaderValue.ToString();
-        if (string.IsNullOrWhiteSpace(strategy))
-        {
-            return DatabaseStrategy.Shared.Name;
-        }
-
-        if (DatabaseStrategy.TryFromName(strategy, true, out var resolvedStrategy))
-        {
-            return resolvedStrategy.Name;
-        }
-
-        return DatabaseStrategy.Shared.Name;
     }
 }

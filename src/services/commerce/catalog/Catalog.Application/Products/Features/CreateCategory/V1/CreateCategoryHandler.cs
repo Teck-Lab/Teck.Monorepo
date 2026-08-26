@@ -20,7 +20,7 @@ public static class CreateCategoryHandler
         IUnitOfWork unitOfWork,
         CancellationToken ct)
     {
-        var category = Category.Create(string.Empty, command.Name, command.Slug, command.ParentId);
+        var category = Category.Create(tenantId: null, command.Name, command.Slug, command.ParentId);
         await repository.AddAsync(category, ct).ConfigureAwait(false);
         await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);
         return category.ToDto();

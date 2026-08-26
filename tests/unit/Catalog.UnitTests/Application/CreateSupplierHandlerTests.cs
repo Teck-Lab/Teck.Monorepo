@@ -20,5 +20,6 @@ public sealed class CreateSupplierHandlerTests
         Assert.Equal("Acme", dto.Name);
         Assert.True(dto.IsActive);
         Assert.Equal(1, await db.Suppliers.CountAsync());
+        Assert.Equal("tenant-1", (await db.Suppliers.SingleAsync()).TenantId);
     }
 }

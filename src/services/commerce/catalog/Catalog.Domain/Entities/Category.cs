@@ -12,7 +12,7 @@ public sealed class Category : BaseEntity, IAggregateRoot, ITenantScoped
     }
 
     /// <inheritdoc/>
-    public string TenantId { get; set; } = string.Empty;
+    public string TenantId { get; set; } = null!;
 
     /// <summary>Gets the display name.</summary>
     public string Name { get; private set; } = string.Empty;
@@ -29,7 +29,7 @@ public sealed class Category : BaseEntity, IAggregateRoot, ITenantScoped
     /// <param name="slug">The URL slug.</param>
     /// <param name="parentId">The optional parent category id.</param>
     /// <returns>The newly created category.</returns>
-    public static Category Create(string tenantId, string name, string slug, Guid? parentId = null)
+    public static Category Create(string? tenantId, string name, string slug, Guid? parentId = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -43,7 +43,7 @@ public sealed class Category : BaseEntity, IAggregateRoot, ITenantScoped
 
         return new Category
         {
-            TenantId = tenantId,
+            TenantId = tenantId!,
             Name = name,
             Slug = slug,
             ParentId = parentId,

@@ -17,6 +17,8 @@ namespace SharedKernel.Infrastructure.Database.EFCore;
 public abstract class BaseDbContext : DbContext, IMultiTenantDbContext
 {
     private readonly DatabaseStrategy _tenantStrategy;
+    private readonly TenantDetails? _tenantDetails;
+    private readonly IMultiTenantContextAccessor<TenantDetails>? _tenantAccessor;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BaseDbContext"/> class.
@@ -36,9 +38,10 @@ public abstract class BaseDbContext : DbContext, IMultiTenantDbContext
         // Prefer explicit tenantDetails, then accessor, then TenantDbContextOptionsExtension embedded in options
         // (used when Wolverine constructs the context via Activator.CreateInstance with a single options argument).
         var tenantId = options.FindExtension<TenantDbContextOptionsExtension>()?.TenantId;
-        TenantDetails = tenantDetails
+        _tenantDetails = tenantDetails
             ?? tenantAccessor?.MultiTenantContext?.TenantInfo
             ?? (tenantId is not null ? new TenantDetails { Id = tenantId, Identifier = tenantId, Name = tenantId, IsActive = true } : null);
+        _tenantAccessor = tenantAccessor;
         _tenantStrategy = tenantStrategy ?? DatabaseStrategy.Shared;
     }
 
@@ -49,7 +52,10 @@ public abstract class BaseDbContext : DbContext, IMultiTenantDbContext
     /// This property satisfies the <see cref="IMultiTenantDbContext"/> interface
     /// and is used by Finbuckle.MultiTenant to apply tenant-specific filters.
     /// </remarks>
-    public TenantDetails? TenantDetails { get; }
+    // Wolverine resolves scoped repositories before its message middleware executes. Retain an
+    // explicit construction-time tenant, but defer the ambient fallback until Finbuckle applies
+    // the global filter or SaveChanges so durable messages observe the envelope tenant.
+    public TenantDetails? TenantDetails => _tenantDetails ?? _tenantAccessor?.MultiTenantContext?.TenantInfo;
 
     /// <summary>
     /// Gets the tenant information as <see cref="ITenantInfo"/> for multi-tenant support.

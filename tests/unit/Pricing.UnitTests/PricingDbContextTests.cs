@@ -68,6 +68,13 @@ public sealed class PricingDbContextTests
             .UseInMemoryDatabase(name)
             .Options;
 
-        return new PricingDbContext(options, Substitute.For<IMultiTenantContextAccessor<TenantDetails>>());
+        return new PricingDbContext(options, TenantAccessor());
+    }
+
+    private static IMultiTenantContextAccessor<TenantDetails> TenantAccessor()
+    {
+        var accessor = Substitute.For<IMultiTenantContextAccessor<TenantDetails>>();
+        accessor.MultiTenantContext.Returns(new MultiTenantContext<TenantDetails>(new TenantDetails { Id = "tenant-1", Identifier = "tenant-1" }));
+        return accessor;
     }
 }

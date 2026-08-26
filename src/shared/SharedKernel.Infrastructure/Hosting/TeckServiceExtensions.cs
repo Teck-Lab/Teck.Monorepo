@@ -1,5 +1,6 @@
 using System.Reflection;
 using FastEndpoints;
+using Finbuckle.MultiTenant.AspNetCore.Extensions;
 using JasperFx;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -37,6 +38,9 @@ public static class TeckServiceExtensions
         services.Configure<TeckServiceOptions>(configuration.GetSection(TeckServiceOptions.SectionName));
         services.Configure<TenantRateLimitOptions>(configuration.GetSection(TenantRateLimitOptions.SectionName));
         services.Configure<TeckCloudMultiTenancyOptions>(configuration.GetSection("MultiTenancy"));
+        // Tenant authority is the authenticated principal's signed claims. A caller supplied
+        // header must never select or widen a tenant context in a service host.
+        services.AddTeckCloudMultiTenancy();
         services.AddSingleton<ITenantTokenContextResolver, TenantTokenContextResolver>();
 
         // Services that act as handler-only hosts (e.g. Customer.Host with only gRPC remote
@@ -106,6 +110,7 @@ public static class TeckServiceExtensions
         app.UseMiddleware<TenantRateLimitMiddleware>();
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseMultiTenant();
         app.UseMiddleware<TenantMessageBusMiddleware>();
 
         if (app.Services.GetService<NoHttpEndpointsMarker>() is null)

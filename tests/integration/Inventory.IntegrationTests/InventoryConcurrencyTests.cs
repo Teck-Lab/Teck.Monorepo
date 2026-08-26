@@ -5,6 +5,7 @@
 using System.Net.Http.Json;
 using System.Collections.Concurrent;
 using System.Reflection;
+using Finbuckle.MultiTenant.Abstractions;
 using Inventories.Application.Database;
 using Inventories.Application.Inventory;
 using Inventories.Application.Inventory.EventHandlers.IntegrationEvents;
@@ -19,7 +20,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using SharedKernel.Core.Database;
+using SharedKernel.Core.Domain;
 using SharedKernel.Infrastructure.FeatureFlags;
+using SharedKernel.Infrastructure.MultiTenant;
 using SharedKernel.Events;
 using Teck.Platform.IntegrationTests.Shared;
 using Wolverine;
@@ -73,14 +76,12 @@ public sealed class InventoryConcurrencyTests : InventoryIntegrationTestBase
         var orderId1 = Guid.NewGuid();
         var orderId2 = Guid.NewGuid();
 
-        // TenantId matches whatever RegisterStockItemHandler stamped on the seeded StockItem: the
-        // test host has no multi-tenant strategy/store configured, so ITenantInfo.Id resolves to
-        // string.Empty for every request/message in this process (see TenantDetails.Id default).
+        // TenantId matches the authenticated HTTP tenant that stamped the seeded StockItem.
         OrderPlacedIntegrationEvent BuildEvent(Guid orderId) => new()
         {
             OrderId = orderId,
             CustomerId = Guid.NewGuid(),
-            TenantId = string.Empty,
+            TenantId = MockBearerAuthenticationHandler.TestTenantId,
             Status = "Placed",
             Total = 10m,
             CreatedAt = DateTimeOffset.UtcNow,
@@ -99,8 +100,8 @@ public sealed class InventoryConcurrencyTests : InventoryIntegrationTestBase
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
         await Task.WhenAll(
-            bus1.InvokeAsync(BuildEvent(orderId1), cts.Token),
-            bus2.InvokeAsync(BuildEvent(orderId2), cts.Token));
+            InventoryHandlerHarness.PlaceV1Async(Services, BuildEvent(orderId1), bus1, cts.Token),
+            InventoryHandlerHarness.PlaceV1Async(Services, BuildEvent(orderId2), bus2, cts.Token));
 
         // Never oversold: the raw stored counters on the StockItem must show exactly one unit
         // reserved and zero available, no matter which order won.
@@ -119,6 +120,9 @@ public sealed class InventoryConcurrencyTests : InventoryIntegrationTestBase
 
         // Exactly one of the two orders produced a Committed reservation; the other produced none.
         using IServiceScope readScope = Services.CreateScope();
+        using TenantContextScope readTenant = InventoryHandlerHarness.EstablishTenantContext(
+            readScope.ServiceProvider,
+            MockBearerAuthenticationHandler.TestTenantId);
         InventoryReadDbContext readDb = readScope.ServiceProvider.GetRequiredService<InventoryReadDbContext>();
         List<Reservation> reservationsForOrders = await readDb.Reservations
             .Where(r => r.SourceType == ReservationSource.Order && (r.SourceId == orderId1 || r.SourceId == orderId2))
@@ -155,7 +159,7 @@ public sealed class InventoryConcurrencyTests : InventoryIntegrationTestBase
         {
             OrderId = orderId,
             CustomerId = Guid.NewGuid(),
-            TenantId = string.Empty,
+            TenantId = MockBearerAuthenticationHandler.TestTenantId,
             Status = "Placed",
             Total = 10m,
             CreatedAt = DateTimeOffset.UtcNow,
@@ -165,31 +169,31 @@ public sealed class InventoryConcurrencyTests : InventoryIntegrationTestBase
         {
             OrderId = orderId,
             BasketId = basketId,
-            TenantId = string.Empty,
+            TenantId = MockBearerAuthenticationHandler.TestTenantId,
             SourceCorrelationId = "checkout-handoff",
             Lines = [new OrderPlacedLine(productId, "Widget", 2, 5m, 10m)],
         };
 
         using IServiceScope firstScope = Services.CreateScope();
         using IServiceScope secondScope = Services.CreateScope();
-        await firstScope.ServiceProvider.GetRequiredService<IMessageBus>().InvokeAsync(v1);
-        await OrderPlacedV2Handler.Handle(
+        await InventoryHandlerHarness.PlaceV1Async(
+            Services,
+            v1,
+            firstScope.ServiceProvider.GetRequiredService<IMessageBus>(),
+            CancellationToken.None);
+        await InventoryHandlerHarness.PlaceV2Async(
+            Services,
             v2,
-            secondScope.ServiceProvider.GetRequiredService<SharedKernel.Core.Database.IGenericWriteRepository<StockItem, Guid>>(),
-            secondScope.ServiceProvider.GetRequiredService<SharedKernel.Core.Database.IGenericWriteRepository<Reservation, Guid>>(),
-            secondScope.ServiceProvider.GetRequiredService<SharedKernel.Core.Database.IGenericReadRepository<LocationPriority, Guid>>(),
-            secondScope.ServiceProvider.GetRequiredService<SharedKernel.Core.Database.IUnitOfWork>(),
-            secondScope.ServiceProvider.GetRequiredService<IServiceScopeFactory>(),
-            secondScope.ServiceProvider.GetRequiredService<IOptions<InventoryOptions>>(),
-            secondScope.ServiceProvider.GetRequiredService<TimeProvider>(),
-            secondScope.ServiceProvider.GetRequiredService<IFeatureProvider>(),
             secondScope.ServiceProvider.GetRequiredService<IMessageBus>(),
             CancellationToken.None);
 
         using IServiceScope readScope = Services.CreateScope();
+        using TenantContextScope readTenant = InventoryHandlerHarness.EstablishTenantContext(
+            readScope.ServiceProvider,
+            MockBearerAuthenticationHandler.TestTenantId);
         InventoryReadDbContext db = readScope.ServiceProvider.GetRequiredService<InventoryReadDbContext>();
         Reservation reservation = Assert.Single(await db.Reservations
-            .Where(candidate => candidate.TenantId == string.Empty && candidate.SourceType == ReservationSource.Order && candidate.SourceId == orderId)
+            .Where(candidate => candidate.TenantId == MockBearerAuthenticationHandler.TestTenantId && candidate.SourceType == ReservationSource.Order && candidate.SourceId == orderId)
             .ToListAsync());
         Assert.Equal(basketId, reservation.BasketId);
         Assert.Equal("checkout-handoff", reservation.SourceCorrelationId);
@@ -213,7 +217,7 @@ public sealed class InventoryConcurrencyTests : InventoryIntegrationTestBase
         {
             OrderId = orderId,
             CustomerId = Guid.NewGuid(),
-            TenantId = string.Empty,
+            TenantId = MockBearerAuthenticationHandler.TestTenantId,
             Status = "Placed",
             Total = 10m,
             CreatedAt = DateTimeOffset.UtcNow,
@@ -223,7 +227,7 @@ public sealed class InventoryConcurrencyTests : InventoryIntegrationTestBase
         {
             OrderId = orderId,
             BasketId = basketId,
-            TenantId = string.Empty,
+            TenantId = MockBearerAuthenticationHandler.TestTenantId,
             SourceCorrelationId = "checkout-concurrent-handoff",
             Lines = [new OrderPlacedLine(productId, "Widget", 2, 5m, 10m)],
         };
@@ -232,11 +236,11 @@ public sealed class InventoryConcurrencyTests : InventoryIntegrationTestBase
         {
             if (message is StockReservedV2IntegrationEvent)
             {
-                using IServiceScope publishScope = Services.CreateScope();
-                InventoryReadDbContext publishDb = publishScope.ServiceProvider.GetRequiredService<InventoryReadDbContext>();
-                Reservation persisted = await publishDb.Reservations
-                    .SingleAsync(candidate => candidate.TenantId == string.Empty && candidate.SourceType == ReservationSource.Order && candidate.SourceId == orderId, cts.Token)
-                    .ConfigureAwait(false);
+                Reservation persisted = await InventoryHandlerHarness.ReadReservationBySourceAsync(
+                    Services,
+                    MockBearerAuthenticationHandler.TestTenantId,
+                    orderId,
+                    cts.Token).ConfigureAwait(false);
                 Assert.True(persisted.IsLifecycleV2);
                 Assert.Equal(basketId, persisted.BasketId);
                 Assert.Equal("checkout-concurrent-handoff", persisted.SourceCorrelationId);
@@ -248,16 +252,19 @@ public sealed class InventoryConcurrencyTests : InventoryIntegrationTestBase
             InventoryHandlerHarness.PlaceV2Async(Services, v2, outcomes.Bus, cts.Token));
 
         using IServiceScope readScope = Services.CreateScope();
+        using TenantContextScope readTenant = InventoryHandlerHarness.EstablishTenantContext(
+            readScope.ServiceProvider,
+            MockBearerAuthenticationHandler.TestTenantId);
         InventoryReadDbContext db = readScope.ServiceProvider.GetRequiredService<InventoryReadDbContext>();
         Reservation reservation = Assert.Single(await db.Reservations
-            .Where(candidate => candidate.TenantId == string.Empty && candidate.SourceType == ReservationSource.Order && candidate.SourceId == orderId)
+            .Where(candidate => candidate.TenantId == MockBearerAuthenticationHandler.TestTenantId && candidate.SourceType == ReservationSource.Order && candidate.SourceId == orderId)
             .ToListAsync(cts.Token));
         Assert.True(reservation.IsLifecycleV2);
         Assert.Equal(basketId, reservation.BasketId);
         Assert.Equal("checkout-concurrent-handoff", reservation.SourceCorrelationId);
         Assert.Equal(2, Assert.Single(reservation.Lines).Allocations.Single().Quantity);
 
-        StockItem stock = Assert.Single(await db.StockItems.Where(item => item.Id != Guid.Empty && item.TenantId == string.Empty && item.ProductId == productId).ToListAsync(cts.Token));
+        StockItem stock = Assert.Single(await db.StockItems.Where(item => item.Id != Guid.Empty && item.TenantId == MockBearerAuthenticationHandler.TestTenantId && item.ProductId == productId).ToListAsync(cts.Token));
         Assert.Equal(2, stock.QuantityReserved);
         Assert.Equal(0, stock.Available);
 
@@ -297,7 +304,7 @@ public sealed class InventoryConcurrencyTests : InventoryIntegrationTestBase
         {
             if (message is BackorderReadyIntegrationEvent)
             {
-                Reservation persisted = await InventoryHandlerHarness.ReadReservationAsync(Services, reservation.Id);
+                Reservation persisted = await InventoryHandlerHarness.ReadReservationAsync(Services, tenantId, reservation.Id);
                 Assert.Equal(ReservationStatus.Committed, persisted.Status);
                 Assert.False(persisted.HasOutstandingBackorder);
                 Assert.Null(persisted.BackorderExpiresAt);
@@ -306,17 +313,17 @@ public sealed class InventoryConcurrencyTests : InventoryIntegrationTestBase
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         await Task.WhenAll(
-            InventoryHandlerHarness.AdjustAsync(Services, first.Id, 1, outcomes.Bus, cts.Token),
-            InventoryHandlerHarness.AdjustAsync(Services, second.Id, 1, outcomes.Bus, cts.Token));
+            InventoryHandlerHarness.AdjustAsync(Services, tenantId, first.Id, 1, outcomes.Bus, cts.Token),
+            InventoryHandlerHarness.AdjustAsync(Services, tenantId, second.Id, 1, outcomes.Bus, cts.Token));
 
-        IReadOnlyList<StockItem> stock = await InventoryHandlerHarness.ReadStockAsync(Services, first.Id, second.Id);
+        IReadOnlyList<StockItem> stock = await InventoryHandlerHarness.ReadStockAsync(Services, tenantId, first.Id, second.Id);
         Assert.All(stock, item =>
         {
             Assert.Equal(1, item.QuantityOnHand);
             Assert.Equal(1, item.QuantityReserved);
             Assert.Equal(0, item.Available);
         });
-        Reservation finalReservation = await InventoryHandlerHarness.ReadReservationAsync(Services, reservation.Id);
+        Reservation finalReservation = await InventoryHandlerHarness.ReadReservationAsync(Services, tenantId, reservation.Id);
         ReservationLine line = Assert.Single(finalReservation.Lines);
         Assert.Equal(0, line.BackorderedQuantity);
         Assert.Equal(2, line.Allocations.Sum(allocation => allocation.Quantity));
@@ -357,11 +364,11 @@ public sealed class InventoryConcurrencyTests : InventoryIntegrationTestBase
         await InventoryHandlerHarness.SeedAsync(Services, firstStock, secondStock, firstReservation, secondReservation);
         var outcomes = LifecycleOutcomeRecorder.Create();
 
-        await InventoryHandlerHarness.AdjustAsync(Services, firstStock.Id, 1, outcomes.Bus, CancellationToken.None);
+        await InventoryHandlerHarness.AdjustAsync(Services, firstTenant, firstStock.Id, 1, outcomes.Bus, CancellationToken.None);
 
-        Reservation persistedFirst = await InventoryHandlerHarness.ReadReservationAsync(Services, firstReservation.Id);
-        Reservation persistedSecond = await InventoryHandlerHarness.ReadReservationAsync(Services, secondReservation.Id);
-        StockItem persistedSecondStock = Assert.Single(await InventoryHandlerHarness.ReadStockAsync(Services, secondStock.Id));
+        Reservation persistedFirst = await InventoryHandlerHarness.ReadReservationAsync(Services, firstTenant, firstReservation.Id);
+        Reservation persistedSecond = await InventoryHandlerHarness.ReadReservationAsync(Services, secondTenant, secondReservation.Id);
+        StockItem persistedSecondStock = Assert.Single(await InventoryHandlerHarness.ReadStockAsync(Services, secondTenant, secondStock.Id));
         Assert.Equal(0, Assert.Single(persistedFirst.Lines).BackorderedQuantity);
         Assert.Equal(1, Assert.Single(persistedSecond.Lines).BackorderedQuantity);
         Assert.Empty(Assert.Single(persistedSecond.Lines).Allocations);
@@ -377,16 +384,21 @@ internal static class InventoryHandlerHarness
 {
     internal static async Task SeedAsync(IServiceProvider services, params object[] entities)
     {
-        using IServiceScope scope = services.CreateScope();
-        InventoryDbContext db = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
-        db.AddRange(entities);
-        await db.SaveChangesAsync();
+        foreach (IGrouping<string, ITenantScoped> tenantEntities in entities.Cast<ITenantScoped>().GroupBy(entity => entity.TenantId))
+        {
+            using IServiceScope scope = services.CreateScope();
+            using TenantContextScope tenant = EstablishTenantContext(scope.ServiceProvider, tenantEntities.Key);
+            InventoryDbContext db = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
+            db.AddRange(tenantEntities);
+            await db.SaveChangesAsync();
+        }
     }
 
-    internal static async Task AdjustAsync(IServiceProvider services, Guid stockItemId, int delta, IMessageBus bus, CancellationToken ct)
+    internal static async Task AdjustAsync(IServiceProvider services, string tenantId, Guid stockItemId, int delta, IMessageBus bus, CancellationToken ct)
     {
         using IServiceScope scope = services.CreateScope();
         IServiceProvider provider = scope.ServiceProvider;
+        using TenantContextScope tenant = EstablishTenantContext(provider, tenantId);
         IFeatureProvider featureProvider = LifecycleFeatureProvider.Enabled;
         await AdjustStockHandler.Handle(
             new AdjustStockCommand(stockItemId, delta),
@@ -405,6 +417,7 @@ internal static class InventoryHandlerHarness
     {
         using IServiceScope scope = services.CreateScope();
         IServiceProvider provider = scope.ServiceProvider;
+        using TenantContextScope tenant = EstablishTenantContext(provider, evt.TenantId);
         await OrderPlacedHandler.Handle(
             evt,
             provider.GetRequiredService<IGenericWriteRepository<StockItem, Guid>>(),
@@ -422,6 +435,7 @@ internal static class InventoryHandlerHarness
     {
         using IServiceScope scope = services.CreateScope();
         IServiceProvider provider = scope.ServiceProvider;
+        using TenantContextScope tenant = EstablishTenantContext(provider, evt.TenantId);
         await OrderPlacedV2Handler.Handle(
             evt,
             provider.GetRequiredService<IGenericWriteRepository<StockItem, Guid>>(),
@@ -436,12 +450,13 @@ internal static class InventoryHandlerHarness
             ct);
     }
 
-    internal static async Task<int> ExpireAsync(IServiceProvider services, TimeProvider timeProvider, IMessageBus bus, CancellationToken ct)
+    internal static async Task<int> ExpireAsync(IServiceProvider services, string tenantId, TimeProvider timeProvider, IMessageBus bus, CancellationToken ct)
     {
         using IServiceScope scope = services.CreateScope();
         IServiceProvider provider = scope.ServiceProvider;
+        using TenantContextScope tenant = EstablishTenantContext(provider, tenantId);
         return await ExpireHeldReservationsHandler.Handle(
-            new ExpireHeldReservationsCommand(),
+            new ExpireHeldReservationsCommand(tenantId),
             provider.GetRequiredService<IGenericWriteRepository<Reservation, Guid>>(),
             provider.GetRequiredService<IGenericWriteRepository<StockItem, Guid>>(),
             provider.GetRequiredService<IUnitOfWork>(),
@@ -457,6 +472,7 @@ internal static class InventoryHandlerHarness
     {
         using IServiceScope scope = services.CreateScope();
         IServiceProvider provider = scope.ServiceProvider;
+        using TenantContextScope tenant = EstablishTenantContext(provider, command.TenantId);
         await ReleaseReservationHandler.Handle(
             command,
             provider.GetRequiredService<IGenericWriteRepository<Reservation, Guid>>(),
@@ -468,19 +484,69 @@ internal static class InventoryHandlerHarness
             provider.GetRequiredService<IOptions<InventoryOptions>>());
     }
 
-    internal static async Task<IReadOnlyList<StockItem>> ReadStockAsync(IServiceProvider services, params Guid[] ids)
+    internal static async Task<IReadOnlyList<StockItem>> ReadStockAsync(IServiceProvider services, string tenantId, params Guid[] ids)
     {
         using IServiceScope scope = services.CreateScope();
+        using TenantContextScope tenant = EstablishTenantContext(scope.ServiceProvider, tenantId);
         InventoryReadDbContext db = scope.ServiceProvider.GetRequiredService<InventoryReadDbContext>();
         return await db.StockItems.Where(item => ids.Contains(item.Id)).ToListAsync();
     }
 
-    internal static async Task<Reservation> ReadReservationAsync(IServiceProvider services, Guid reservationId)
+    internal static async Task<Reservation> ReadReservationAsync(IServiceProvider services, string tenantId, Guid reservationId)
     {
         using IServiceScope scope = services.CreateScope();
+        using TenantContextScope tenant = EstablishTenantContext(scope.ServiceProvider, tenantId);
         InventoryReadDbContext db = scope.ServiceProvider.GetRequiredService<InventoryReadDbContext>();
         return await db.Reservations.SingleAsync(reservation => reservation.Id == reservationId);
     }
+
+    internal static async Task<Reservation> ReadReservationBySourceAsync(
+        IServiceProvider services,
+        string tenantId,
+        Guid sourceId,
+        CancellationToken ct)
+    {
+        using IServiceScope scope = services.CreateScope();
+        using TenantContextScope tenant = EstablishTenantContext(scope.ServiceProvider, tenantId);
+        InventoryReadDbContext db = scope.ServiceProvider.GetRequiredService<InventoryReadDbContext>();
+        return await db.Reservations.SingleAsync(
+            reservation => reservation.SourceType == ReservationSource.Order && reservation.SourceId == sourceId,
+            ct);
+    }
+
+    internal static TenantContextScope EstablishTenantContext(IServiceProvider provider, string tenantId)
+    {
+        var accessor = provider.GetRequiredService<IMultiTenantContextAccessor<TenantDetails>>();
+        var setter = provider.GetRequiredService<IMultiTenantContextSetter>();
+        return new TenantContextScope(
+            setter,
+            accessor.MultiTenantContext,
+            new MultiTenantContext<TenantDetails>(new TenantDetails
+            {
+                Id = tenantId,
+                Identifier = tenantId,
+                Name = tenantId,
+                IsActive = true,
+            }));
+    }
+}
+
+internal sealed class TenantContextScope : IDisposable
+{
+    private readonly IMultiTenantContextSetter setter;
+    private readonly IMultiTenantContext previous;
+
+    internal TenantContextScope(
+        IMultiTenantContextSetter setter,
+        IMultiTenantContext previous,
+        IMultiTenantContext current)
+    {
+        this.setter = setter;
+        this.previous = previous;
+        setter.MultiTenantContext = current;
+    }
+
+    public void Dispose() => setter.MultiTenantContext = previous;
 }
 
 internal class LifecycleOutcomeRecorder : DispatchProxy

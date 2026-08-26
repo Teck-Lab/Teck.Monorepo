@@ -20,7 +20,7 @@ public static class CreateSupplierHandler
         IUnitOfWork unitOfWork,
         CancellationToken ct)
     {
-        var supplier = Supplier.Create(string.Empty, command.Name, command.ContactEmail, command.ContactPhone);
+        var supplier = Supplier.Create(tenantId: null, command.Name, command.ContactEmail, command.ContactPhone);
         await repository.AddAsync(supplier, ct).ConfigureAwait(false);
         await unitOfWork.SaveChangesAsync(ct).ConfigureAwait(false);
         return supplier.ToDto();

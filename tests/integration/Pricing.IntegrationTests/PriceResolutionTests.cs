@@ -11,8 +11,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Pricing.Application.Database;
 using Pricing.Application.Pricing.Responses;
+using Pricing.Domain.Entities;
+using Pricing.Domain.ValueObjects;
+using SharedKernel.Infrastructure.Database.EFCore;
 using SharedKernel.Infrastructure.MultiTenant;
 using Teck.Platform.IntegrationTests.Shared;
 using Xunit;
@@ -99,6 +104,33 @@ public sealed class PriceResolutionTests : PricingIntegrationTestBase
         Assert.Equal(11.00m, resolved.UnitAmount);
         Assert.Equal(1.1m, resolved.RateApplied);
     }
+
+    [Fact]
+    public async Task GetPriceList_ForeignTenantList_IsExcluded()
+    {
+        PriceList foreignList = PriceList.Create(
+            "Foreign tenant list",
+            new PriceScope("USD", country: null, customerGroupId: null, channelId: null),
+            validFrom: null,
+            validUntil: null,
+            tenantId: "tenant-b");
+
+        await using (var seed = new PricingDbContext(
+            new DbContextOptionsBuilder<PricingDbContext>()
+                .UseNpgsql(DatabaseConnectionString)
+                .UseTeckCloudTenant("tenant-b")
+                .Options,
+            null!))
+        {
+            seed.PriceLists.Add(foreignList);
+            await seed.SaveChangesAsync();
+        }
+
+        HttpResponseMessage response = await Client.GetAsync($"/price-lists/{foreignList.Id}");
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty(await response.Content.ReadAsStringAsync());
+    }
 }
 
 /// <summary>Boots Pricing.Host in-memory against a Testcontainers Postgres, with mock auth.</summary>
@@ -161,7 +193,6 @@ public abstract class PricingIntegrationTestBase : IDisposable
 
             builder.ConfigureTestServices(services =>
             {
-                services.AddMultiTenant<TenantDetails>();
                 services.AddTransient<MockBearerAuthenticationHandler>();
                 services.PostConfigure<AuthenticationOptions>(options =>
                 {

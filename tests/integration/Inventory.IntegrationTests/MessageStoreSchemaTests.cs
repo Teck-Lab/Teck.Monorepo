@@ -162,9 +162,6 @@ public sealed class MessageStoreSchemaTests : IDisposable
             builder.UseSetting("Keycloak:auth-server-url", "http://localhost:8080");
             builder.UseSetting("Keycloak:resource", "inventory-api");
 
-            // The inventory host resolves Finbuckle multi-tenant services per request; register the
-            // infrastructure so the host boots. No strategy/store is configured (not needed here).
-            builder.ConfigureTestServices(services => services.AddMultiTenant<TenantDetails>());
         }
     }
 }

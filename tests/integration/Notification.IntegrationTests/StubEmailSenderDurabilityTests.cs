@@ -27,8 +27,8 @@ public sealed class StubEmailSenderDurabilityTests(SharedTestcontainersFixture f
         await SendAsync(connectionString, delivery.Id);
 
         await using var verify = NotificationMigrationModelTests.CreateContext(connectionString);
-        Assert.Single(await verify.StubEmailAcceptances.IgnoreQueryFilters().Where(receipt => receipt.IdempotencyKey == "restart-key").ToListAsync());
-        Assert.Equal(DeliveryStatus.Sent, (await verify.NotificationDeliveries.IgnoreQueryFilters().SingleAsync(item => item.Id == delivery.Id)).Status);
+        Assert.Single(await verify.StubEmailAcceptances.Where(receipt => receipt.IdempotencyKey == "restart-key").ToListAsync());
+        Assert.Equal(DeliveryStatus.Sent, (await verify.NotificationDeliveries.SingleAsync(item => item.Id == delivery.Id)).Status);
     }
 
     [Fact]
@@ -40,8 +40,8 @@ public sealed class StubEmailSenderDurabilityTests(SharedTestcontainersFixture f
         await Task.WhenAll(SendAsync(connectionString, delivery.Id), SendAsync(connectionString, delivery.Id));
 
         await using var verify = NotificationMigrationModelTests.CreateContext(connectionString);
-        Assert.Single(await verify.StubEmailAcceptances.IgnoreQueryFilters().Where(receipt => receipt.IdempotencyKey == "concurrent-key").ToListAsync());
-        Assert.Equal(DeliveryStatus.Sent, (await verify.NotificationDeliveries.IgnoreQueryFilters().SingleAsync(item => item.Id == delivery.Id)).Status);
+        Assert.Single(await verify.StubEmailAcceptances.Where(receipt => receipt.IdempotencyKey == "concurrent-key").ToListAsync());
+        Assert.Equal(DeliveryStatus.Sent, (await verify.NotificationDeliveries.SingleAsync(item => item.Id == delivery.Id)).Status);
     }
 
     private static async Task<NotificationDelivery> SeedDeliveryAsync(string connectionString, string key)

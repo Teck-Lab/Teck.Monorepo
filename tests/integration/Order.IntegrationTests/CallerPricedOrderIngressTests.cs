@@ -13,7 +13,7 @@ public sealed class CallerPricedOrderIngressTests(SharedTestcontainersFixture fi
     [Fact]
     public async Task PostOrders_WithCallerUnitPrice_IsAbsentAndCreatesNoOrder()
     {
-        using var scope = Services.CreateScope();
+        using var scope = CreateTenantScope();
         var context = scope.ServiceProvider.GetRequiredService<Orders.Application.Database.OrderDbContext>();
         var orderCountBefore = await context.Orders.CountAsync();
         var response = await Client.PostAsJsonAsync("/orders", new

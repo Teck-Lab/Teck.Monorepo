@@ -19,15 +19,23 @@ public static class BillingTestContext
             .UseInMemoryDatabase(name ?? $"billing-{Guid.NewGuid()}")
             .Options;
 
-    private static IMultiTenantContextAccessor<TenantDetails> NoTenant() =>
-        // The substituted accessor resolves no tenant, so the context's TenantId is null.
-        // Production contexts always receive a real tenant from the Host's interceptor.
-        Substitute.For<IMultiTenantContextAccessor<TenantDetails>>();
+    private static IMultiTenantContextAccessor<TenantDetails> Tenant()
+    {
+        var accessor = Substitute.For<IMultiTenantContextAccessor<TenantDetails>>();
+        accessor.MultiTenantContext.Returns(new MultiTenantContext<TenantDetails>(new TenantDetails
+        {
+            Id = "tenant-1",
+            Identifier = "tenant-1",
+            Name = "Tenant 1",
+            IsActive = true,
+        }));
+        return accessor;
+    }
 
     /// <summary>Creates an isolated in-memory billing context (real SaveChanges).
     /// Use for seeding and for pure-create handlers that do a single insert.</summary>
     public static BillingDbContext CreateInMemory(string? name = null) =>
-        new(Options(name), NoTenant());
+        new(Options(name), Tenant());
 
     /// <summary>
     /// Creates a context over the named in-memory database whose <c>SaveChangesAsync</c> is stubbed
@@ -38,7 +46,7 @@ public static class BillingTestContext
     /// </summary>
     public static BillingDbContext CreateWithStubbedSave(string name)
     {
-        var ctx = Substitute.ForPartsOf<BillingDbContext>(Options(name), NoTenant());
+        var ctx = Substitute.ForPartsOf<BillingDbContext>(Options(name), Tenant());
         ctx.Configure().SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(1));
         return ctx;
     }

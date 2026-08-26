@@ -18,11 +18,17 @@ public sealed class TenantIsolationTests(SharedTestcontainersFixture fixture)
         var tenantADelivery = NotificationDelivery.Create("tenant-a", Guid.NewGuid(), Guid.NewGuid(), "subject-a", "tenant-a-event", "tenant-a-source", NotificationKind.OrderConfirmed, "Tenant A", "Tenant A delivery.", "tenant-a@example.test", null);
         var tenantBDelivery = NotificationDelivery.Create("tenant-b", Guid.NewGuid(), Guid.NewGuid(), "subject-b", "tenant-b-event", "tenant-b-source", NotificationKind.OrderCancelled, "Tenant B", "Tenant B delivery.", "tenant-b@example.test", null);
 
-        await using (var seed = NotificationMigrationModelTests.CreateContext(connectionString))
+        await using (var seed = NotificationMigrationModelTests.CreateContext(connectionString, "tenant-a"))
         {
             seed.CustomerContacts.Add(CustomerContact.Create("tenant-a", tenantADelivery.CustomerId!.Value, "subject-a", "tenant-a@example.test"));
+            seed.NotificationDeliveries.Add(tenantADelivery);
+            await seed.SaveChangesAsync();
+        }
+
+        await using (var seed = NotificationMigrationModelTests.CreateContext(connectionString, "tenant-b"))
+        {
             seed.CustomerContacts.Add(CustomerContact.Create("tenant-b", tenantBDelivery.CustomerId!.Value, "subject-b", "tenant-b@example.test"));
-            seed.NotificationDeliveries.AddRange(tenantADelivery, tenantBDelivery);
+            seed.NotificationDeliveries.Add(tenantBDelivery);
             await seed.SaveChangesAsync();
         }
 

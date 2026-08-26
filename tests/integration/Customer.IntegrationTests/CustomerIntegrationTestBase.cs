@@ -53,6 +53,9 @@ public abstract class CustomerIntegrationTestBase : IDisposable
     /// <summary>Gets the HTTP client bound to the in-memory Customer.Host test server.</summary>
     protected HttpClient Client { get; }
 
+    /// <summary>Gets the PostgreSQL connection string shared by this test project.</summary>
+    protected string DatabaseConnectionString => databaseConnectionString;
+
     /// <inheritdoc/>
     public void Dispose()
     {
@@ -94,11 +97,6 @@ public abstract class CustomerIntegrationTestBase : IDisposable
 
             builder.ConfigureTestServices(services =>
             {
-                // Register Finbuckle multi-tenant infrastructure so IMultiTenantContextAccessor<TenantDetails>
-                // is available. No strategy or store is configured, so MultiTenantContext will be null per
-                // request and the DbContext factories will fall back to the default connection string.
-                services.AddMultiTenant<TenantDetails>();
-
                 // Replace the Keycloak JWT bearer handler with the test-only mock so that
                 // AuthSchemes(JwtBearerDefaults.AuthenticationScheme) in AuthenticatedEndpoint
                 // (used by all five customer endpoints, none of which are anonymous) resolves this

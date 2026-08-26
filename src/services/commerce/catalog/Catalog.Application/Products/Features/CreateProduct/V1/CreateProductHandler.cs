@@ -26,7 +26,7 @@ public static class CreateProductHandler
         CancellationToken ct)
     {
         var product = Product.Create(
-            string.Empty,
+            tenantId: null,
             command.Name,
             command.Description,
             command.CategoryId,

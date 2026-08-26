@@ -27,8 +27,10 @@ public sealed class CreateProductHandlerTests
         Assert.True(variant.IsDefault);
         Assert.Equal(9.99m, variant.SellPriceAmount);
         Assert.Equal(1, await db.Products.CountAsync());
+        Assert.Equal("tenant-1", (await db.Products.SingleAsync()).TenantId);
         await bus.Received(1).PublishAsync(Arg.Is<CatalogPriceChangedIntegrationEvent>(e =>
             e.ProductId == dto.Id &&
+            e.TenantId == "tenant-1" &&
             e.Amount == 9.99m &&
             e.Currency == "USD"));
     }

@@ -1,7 +1,9 @@
+using Finbuckle.MultiTenant.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Orders.Application.Orders.Mapping;
 using Orders.Domain.Entities;
 using Orders.Domain.ValueObjects;
+using SharedKernel.Infrastructure.Database.EFCore;
 using Teck.Platform.IntegrationTests.Shared;
 using Xunit;
 
@@ -14,9 +16,7 @@ public sealed class CheckoutLifecycleTests(SharedTestcontainersFixture fixture)
     public async Task DelayedPaymentAndStockOutcomes_PersistTheSameConfirmedState()
     {
         var connectionString = await fixture.CreateSharedTestDatabaseAsync(typeof(Orders.Application.Database.OrderDbContext), "Order.Host");
-        var options = new DbContextOptionsBuilder<Orders.Application.Database.OrderDbContext>()
-            .UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly("Order.Host"))
-            .Options;
+        var options = CreateOptions(connectionString);
         var order = Order.Create(Guid.NewGuid(), "subject-lifecycle", Guid.NewGuid(), MockBearerAuthenticationHandler.TestTenantId, [new OrderLine(Guid.NewGuid(), "Widget", 2, 10m)], 25m, "USD", Guid.NewGuid().ToString("N"));
 
         await using (var write = new Orders.Application.Database.OrderDbContext(options, null!))
@@ -45,9 +45,7 @@ public sealed class CheckoutLifecycleTests(SharedTestcontainersFixture fixture)
     public async Task BackorderedReservation_PersistsWaitThenConfirmsAfterReadyAndAcceptedPrice()
     {
         var connectionString = await fixture.CreateSharedTestDatabaseAsync(typeof(Orders.Application.Database.OrderDbContext), "Order.Host");
-        var options = new DbContextOptionsBuilder<Orders.Application.Database.OrderDbContext>()
-            .UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly("Order.Host"))
-            .Options;
+        var options = CreateOptions(connectionString);
         var order = Order.Create(Guid.NewGuid(), "subject-lifecycle", Guid.NewGuid(), MockBearerAuthenticationHandler.TestTenantId, [new OrderLine(Guid.NewGuid(), "Widget", 2, 10m)], 25m, "USD", Guid.NewGuid().ToString("N"));
 
         await using (var write = new Orders.Application.Database.OrderDbContext(options, null!))
@@ -82,9 +80,7 @@ public sealed class CheckoutLifecycleTests(SharedTestcontainersFixture fixture)
     public async Task ReadyBeforeBackorderedReservation_PersistsThePendingReadyFactAcrossReload()
     {
         var connectionString = await fixture.CreateSharedTestDatabaseAsync(typeof(Orders.Application.Database.OrderDbContext), "Order.Host");
-        var options = new DbContextOptionsBuilder<Orders.Application.Database.OrderDbContext>()
-            .UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly("Order.Host"))
-            .Options;
+        var options = CreateOptions(connectionString);
         var order = CreateLifecycleOrder();
         const string readyKey = "ready|key";
         const string readyCorrelation = "ready|correlation";
@@ -122,9 +118,7 @@ public sealed class CheckoutLifecycleTests(SharedTestcontainersFixture fixture)
     public async Task BackorderedOverCeilingPrice_PersistsPaidUnfulfillableState()
     {
         var connectionString = await fixture.CreateSharedTestDatabaseAsync(typeof(Orders.Application.Database.OrderDbContext), "Order.Host");
-        var options = new DbContextOptionsBuilder<Orders.Application.Database.OrderDbContext>()
-            .UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly("Order.Host"))
-            .Options;
+        var options = CreateOptions(connectionString);
         var order = Order.Create(Guid.NewGuid(), "subject-lifecycle", Guid.NewGuid(), MockBearerAuthenticationHandler.TestTenantId, [new OrderLine(Guid.NewGuid(), "Widget", 2, 10m)], 25m, "USD", Guid.NewGuid().ToString("N"));
 
         await using (var write = new Orders.Application.Database.OrderDbContext(options, null!))
@@ -153,9 +147,7 @@ public sealed class CheckoutLifecycleTests(SharedTestcontainersFixture fixture)
     public async Task BackorderedOverCeilingTransitions_PersistHumanDecisionForEitherTerminalDeliveryOrderAndRedelivery(bool paymentArrivesFirst)
     {
         var connectionString = await fixture.CreateSharedTestDatabaseAsync(typeof(Orders.Application.Database.OrderDbContext), "Order.Host");
-        var options = new DbContextOptionsBuilder<Orders.Application.Database.OrderDbContext>()
-            .UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly("Order.Host"))
-            .Options;
+        var options = CreateOptions(connectionString);
         var order = CreateLifecycleOrder();
         const string stockKey = "stock-backordered";
         const string readyKey = "backorder-ready";
@@ -204,9 +196,7 @@ public sealed class CheckoutLifecycleTests(SharedTestcontainersFixture fixture)
     public async Task BackorderedWaitTimeout_PersistsPaidUnfulfillableState()
     {
         var connectionString = await fixture.CreateSharedTestDatabaseAsync(typeof(Orders.Application.Database.OrderDbContext), "Order.Host");
-        var options = new DbContextOptionsBuilder<Orders.Application.Database.OrderDbContext>()
-            .UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly("Order.Host"))
-            .Options;
+        var options = CreateOptions(connectionString);
         var order = Order.Create(Guid.NewGuid(), "subject-lifecycle", Guid.NewGuid(), MockBearerAuthenticationHandler.TestTenantId, [new OrderLine(Guid.NewGuid(), "Widget", 2, 10m)], 25m, "USD", Guid.NewGuid().ToString("N"));
 
         await using (var write = new Orders.Application.Database.OrderDbContext(options, null!))
@@ -232,9 +222,7 @@ public sealed class CheckoutLifecycleTests(SharedTestcontainersFixture fixture)
     public async Task RetryLedger_PersistsDelimiterBearingIdsAndSuppressesAReplayAfterLaterRetryKeys()
     {
         var connectionString = await fixture.CreateSharedTestDatabaseAsync(typeof(Orders.Application.Database.OrderDbContext), "Order.Host");
-        var options = new DbContextOptionsBuilder<Orders.Application.Database.OrderDbContext>()
-            .UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly("Order.Host"))
-            .Options;
+        var options = CreateOptions(connectionString);
         var order = Order.Create(Guid.NewGuid(), "subject-lifecycle", Guid.NewGuid(), MockBearerAuthenticationHandler.TestTenantId, [new OrderLine(Guid.NewGuid(), "Widget", 2, 10m)], 25m, "USD", Guid.NewGuid().ToString("N"));
 
         await using (var write = new Orders.Application.Database.OrderDbContext(options, null!))
@@ -277,9 +265,7 @@ public sealed class CheckoutLifecycleTests(SharedTestcontainersFixture fixture)
     public async Task PaymentFailure_PersistsAndMapsSafeActionForLaterReadback()
     {
         var connectionString = await fixture.CreateSharedTestDatabaseAsync(typeof(Orders.Application.Database.OrderDbContext), "Order.Host");
-        var options = new DbContextOptionsBuilder<Orders.Application.Database.OrderDbContext>()
-            .UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly("Order.Host"))
-            .Options;
+        var options = CreateOptions(connectionString);
         var order = Order.Create(Guid.NewGuid(), "subject-lifecycle", Guid.NewGuid(), MockBearerAuthenticationHandler.TestTenantId, [new OrderLine(Guid.NewGuid(), "Widget", 2, 10m)], 25m, "USD", Guid.NewGuid().ToString("N"));
 
         await using (var write = new Orders.Application.Database.OrderDbContext(options, null!))
@@ -310,9 +296,7 @@ public sealed class CheckoutLifecycleTests(SharedTestcontainersFixture fixture)
     public async Task CurrentLifecycleActions_PersistAndMapForRetryCaptureAndTerminalStates()
     {
         var connectionString = await fixture.CreateSharedTestDatabaseAsync(typeof(Orders.Application.Database.OrderDbContext), "Order.Host");
-        var options = new DbContextOptionsBuilder<Orders.Application.Database.OrderDbContext>()
-            .UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly("Order.Host"))
-            .Options;
+        var options = CreateOptions(connectionString);
         var retryPending = CreateLifecycleOrder();
         var capturedAwaitingStock = CreateLifecycleOrder();
         var cancelled = CreateLifecycleOrder();
@@ -363,6 +347,12 @@ public sealed class CheckoutLifecycleTests(SharedTestcontainersFixture fixture)
         write.Entry(order).State = EntityState.Modified;
         await write.SaveChangesAsync();
     }
+
+    private static DbContextOptions<Orders.Application.Database.OrderDbContext> CreateOptions(string connectionString) =>
+        new DbContextOptionsBuilder<Orders.Application.Database.OrderDbContext>()
+            .UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly("Order.Host"))
+            .UseTeckCloudTenant(MockBearerAuthenticationHandler.TestTenantId)
+            .Options;
 
     private static async Task ApplyAndPersistAsync(
         DbContextOptions<Orders.Application.Database.OrderDbContext> options,

@@ -5,6 +5,7 @@
 using Billings.Application.Database;
 using Billings.Application.Billing.Payments;
 using System.Collections.Concurrent;
+using Finbuckle.MultiTenant.Abstractions;
 using Finbuckle.MultiTenant.Extensions;
 using JasperFx.CommandLine;
 using Keycloak.AuthServices.Authorization.Requirements;
@@ -19,6 +20,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using SharedKernel.Infrastructure.MultiTenant;
 using Teck.Platform.IntegrationTests.Shared;
+using Wolverine;
 
 namespace Billing.IntegrationTests;
 
@@ -73,6 +75,21 @@ public abstract class BillingIntegrationTestBase : IDisposable
 
     /// <summary>Gets the shared RabbitMQ connection string for broker-backed regression tests.</summary>
     protected string RabbitMqConnectionString => fixture.RabbitMqConnectionString;
+
+    /// <summary>Establishes the tenant that production Wolverine middleware receives from an envelope.</summary>
+    protected static void EstablishMessageTenant(IServiceProvider services, string tenantId)
+    {
+        services.GetRequiredService<IMultiTenantContextSetter>().MultiTenantContext =
+            new MultiTenantContext<TenantDetails>(new TenantDetails
+            {
+                Id = tenantId,
+                Identifier = tenantId,
+                Name = tenantId,
+                IsActive = true,
+            });
+
+        services.GetRequiredService<IMessageBus>().TenantId = tenantId;
+    }
 
     /// <summary>Updates a reloadable payment-provider setting in the running real host.</summary>
     /// <param name="key">The setting name relative to <c>PaymentProvider</c>.</param>
@@ -138,11 +155,6 @@ public abstract class BillingIntegrationTestBase : IDisposable
 
             builder.ConfigureTestServices(services =>
             {
-                // Register Finbuckle multi-tenant infrastructure so IMultiTenantContextAccessor<TenantDetails>
-                // is available. No strategy or store is configured, so MultiTenantContext will be null per
-                // request and the DbContext factories will fall back to the default connection string.
-                services.AddMultiTenant<TenantDetails>();
-
                 // Handler discovery for the Billing.Application assembly is configured in
                 // Billing.Host/Program.cs (opts.Discovery.IncludeAssembly), so it applies here too —
                 // the test boots the real host via WebApplicationFactory and needs no test-only

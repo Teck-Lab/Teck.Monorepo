@@ -90,6 +90,7 @@ public sealed class PaymentFlowTests : BillingIntegrationTestBase
         ApplyInvalidInput(evt, invalidInput);
 
         using var scope = Services.CreateScope();
+        EstablishMessageTenant(scope.ServiceProvider, evt.TenantId);
         var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
         await bus.InvokeAsync(evt, CancellationToken.None);
 
@@ -108,6 +109,7 @@ public sealed class PaymentFlowTests : BillingIntegrationTestBase
         var evt = CreateOrderPlacedEvent(orderId, requestId);
 
         using var scope = Services.CreateScope();
+        EstablishMessageTenant(scope.ServiceProvider, evt.TenantId);
         var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
         await bus.InvokeAsync(evt, CancellationToken.None);
 

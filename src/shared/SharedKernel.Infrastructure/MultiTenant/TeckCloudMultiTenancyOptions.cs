@@ -11,9 +11,10 @@ public class TeckCloudMultiTenancyOptions
     public bool UseClaimStrategy { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets a value indicating whether whether to use header-based tenant resolution (default: true).
+    /// Gets or sets a value indicating whether whether to use header-based tenant resolution.
+    /// Service hosts always disable this: tenant authority is derived from signed claims only.
     /// </summary>
-    public bool UseHeaderStrategy { get; set; } = true;
+    public bool UseHeaderStrategy { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether whether to use distributed cache store (default: true)
@@ -65,9 +66,9 @@ public class TeckCloudMultiTenancyOptions
     public string TenantIdSeparator { get; set; } = ",";
 
     /// <summary>
-    /// Gets or sets the strategy to use when multiple tenant IDs are available (default: Primary).
+    /// Gets or sets the strategy to use when multiple tenant IDs are available (default: First).
     /// </summary>
-    public MultiTenantResolutionStrategy MultiTenantResolutionStrategy { get; set; } = MultiTenantResolutionStrategy.FromRequest;
+    public MultiTenantResolutionStrategy MultiTenantResolutionStrategy { get; set; } = MultiTenantResolutionStrategy.First;
 
     /// <summary>
     /// Gets or sets customer API tenant details options.

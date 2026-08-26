@@ -1,0 +1,81 @@
+<implementation-result version="1">
+  <routing>
+    <work-kind>security-fix</work-kind>
+    <workflow-stage>execution</workflow-stage>
+    <route>security-fix:execution</route>
+  </routing>
+  <outcome>succeeded</outcome>
+  <base-sha>0d3ee7182c235b6410ba019a6411c9c90de92889</base-sha>
+  <tip-sha>0d3ee7182c235b6410ba019a6411c9c90de92889</tip-sha>
+  <files-modified>.omx/reports/496/impl-574-mutation.xml</files-modified>
+  <validation-evidence><![CDATA[
+Scope: exactly two temporary source mutations were applied, probed, and restored. No production source change remains.
+
+MUTATION ONE — restore the constructor-captured BaseDbContext tenant behavior that commit 6228d6a replaced:
+Mutation command (executed):
+git diff 6228d6a^ 6228d6a -- src/shared/SharedKernel.Infrastructure/Database/EFCore/BaseDbContext.cs | git apply -R --check && git diff 6228d6a^ 6228d6a -- src/shared/SharedKernel.Infrastructure/Database/EFCore/BaseDbContext.cs | git apply -R
+Probe command (executed):
+dotnet test tests/integration/Billing.IntegrationTests/Billing.IntegrationTests.csproj --no-restore --filter "FullyQualifiedName~ForeignTenantInvoice_IsNotFound" --logger "console;verbosity=normal"
+Probe output (verbatim pass/fail result; exit code 0):
+  Passed Billing.IntegrationTests.PaymentLifecycleTests.ForeignTenantInvoice_IsNotFound [6 s]
+
+Test Run Successful.
+Total tests: 1
+     Passed: 1
+ Total time: 19.1620 Seconds
+Restore command (executed):
+git diff 6228d6a^ 6228d6a -- src/shared/SharedKernel.Infrastructure/Database/EFCore/BaseDbContext.cs | git apply --check && git diff 6228d6a^ 6228d6a -- src/shared/SharedKernel.Infrastructure/Database/EFCore/BaseDbContext.cs | git apply && git diff --exit-code -- src/shared/SharedKernel.Infrastructure/Database/EFCore/BaseDbContext.cs
+Restored-probe command (executed):
+dotnet test tests/integration/Billing.IntegrationTests/Billing.IntegrationTests.csproj --no-restore --filter "FullyQualifiedName~ForeignTenantInvoice_IsNotFound" --logger "console;verbosity=normal"
+Restored-probe output (verbatim pass/fail result; exit code 0):
+  Passed Billing.IntegrationTests.PaymentLifecycleTests.ForeignTenantInvoice_IsNotFound [5 s]
+
+Test Run Successful.
+Total tests: 1
+     Passed: 1
+ Total time: 18.6215 Seconds
+Tree restored: yes; git diff --exit-code for BaseDbContext returned 0.
+
+MUTATION TWO — neutralise the signed-claim bus assignment in TenantMessageBusMiddleware:
+Mutation command (executed via Codex apply_patch):
+*** Begin Patch
+*** Update File: src/shared/SharedKernel.Infrastructure/Middlewares/TenantMessageBusMiddleware.cs
+@@
+         string? previousTenantId = bus.TenantId;
+-        bus.TenantId = tenantIds[0];
+*** End Patch
+Probe command (executed):
+dotnet test tests/integration/Billing.IntegrationTests/Billing.IntegrationTests.csproj --no-restore --filter "FullyQualifiedName~ForeignTenantInvoice_IsNotFound" --logger "console;verbosity=normal"
+Probe output (verbatim pass/fail result; exit code 0):
+  Passed Billing.IntegrationTests.PaymentLifecycleTests.ForeignTenantInvoice_IsNotFound [6 s]
+
+Test Run Successful.
+Total tests: 1
+     Passed: 1
+ Total time: 19.0622 Seconds
+Restore command (executed via Codex apply_patch):
+*** Begin Patch
+*** Update File: src/shared/SharedKernel.Infrastructure/Middlewares/TenantMessageBusMiddleware.cs
+@@
+         string? previousTenantId = bus.TenantId;
++        bus.TenantId = tenantIds[0];
+*** End Patch
+Final restored-probe command (executed):
+dotnet test tests/integration/Billing.IntegrationTests/Billing.IntegrationTests.csproj --no-restore --filter "FullyQualifiedName~ForeignTenantInvoice_IsNotFound" --logger "console;verbosity=normal"
+Final restored-probe output (verbatim pass/fail result; exit code 0):
+  Passed Billing.IntegrationTests.PaymentLifecycleTests.ForeignTenantInvoice_IsNotFound [5 s]
+
+Test Run Successful.
+Total tests: 1
+     Passed: 1
+ Total time: 18.5200 Seconds
+Tree restored: yes; git diff --exit-code for TenantMessageBusMiddleware returned 0.
+
+Finding: the earlier accepted UseMultiTenant mutation establishes that UseMultiTenant is not what protects the Billing HTTP read path; its tenant read guarantee travels through the Wolverine/bus-tenant chain rather than that HTTP middleware. These two prescribed mutations, however, both left the foreign read denied, so they do not establish which element of that chain is presently load-bearing and must not be used to claim that the BaseDbContext lazy fallback or the TenantMessageBusMiddleware assignment alone protects this probe. The next single element to test is AmbientTenantEnvelopeRule.Modify's assignment of Envelope.TenantId from TenantPropagationContext, because it can stamp the in-process GetInvoiceQuery after the HTTP bus middleware and would explain why neutralising bus.TenantId did not change the observed result.
+
+Final checks: git diff --check returned 0; only this report was uncommitted before the checkpoint; HEAD was 0d3ee7182c235b6410ba019a6411c9c90de92889 before the report commit; tools/teck-agent-contract .omx/reports/496/impl-574-mutation.xml returned valid true.
+]]></validation-evidence>
+  <remaining-risks><![CDATA[
+Neither prescribed mutation made a foreign invoice readable. Therefore the exact current protection mechanism is not proven by these experiments; the recommended next isolated mutation is AmbientTenantEnvelopeRule.Modify's Envelope.TenantId stamping, for the stated causal reason. Existing package and analyzer warnings (including NU1903 for SSH.NET) were emitted by the focused test runs and are outside this evidence-only task.
+]]></remaining-risks>
+</implementation-result>

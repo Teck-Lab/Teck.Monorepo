@@ -1,4 +1,5 @@
 using Finbuckle.MultiTenant.Abstractions;
+using Finbuckle.MultiTenant.EntityFrameworkCore.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Orders.Domain.Entities;
 using SharedKernel.Infrastructure.Database.EFCore;
@@ -26,5 +27,6 @@ public abstract class OrderDbContextBase(DbContextOptions options, IMultiTenantC
         // as a plain entity type before it is marked owned.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(OrderDbContextBase).Assembly);
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<Order>().IsMultiTenant();
     }
 }

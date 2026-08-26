@@ -20,7 +20,6 @@ public sealed class StubEmailAcceptanceDbContextStore(NotificationDbContext dbCo
     /// <inheritdoc />
     public Task<bool> HasAcceptedAsync(string tenantId, string idempotencyKey, CancellationToken ct) =>
         dbContext.StubEmailAcceptances
-            .IgnoreQueryFilters()
             .AsNoTracking()
             .AnyAsync(receipt => receipt.TenantId == tenantId && receipt.IdempotencyKey == idempotencyKey, ct);
 }

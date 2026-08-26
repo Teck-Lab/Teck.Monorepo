@@ -4,7 +4,9 @@
 
 using System.Net.Http.Json;
 using Finbuckle.MultiTenant.Extensions;
+using Inventories.Application.Database;
 using Inventories.Application.Inventory.Responses;
+using Inventories.Domain.Entities;
 using JasperFx.CommandLine;
 using Keycloak.AuthServices.Authorization.Requirements;
 using Microsoft.AspNetCore.Authentication;
@@ -12,7 +14,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using SharedKernel.Infrastructure.Database.EFCore;
 using SharedKernel.Infrastructure.MultiTenant;
 using Teck.Platform.IntegrationTests.Shared;
 using Xunit;
@@ -78,6 +82,38 @@ public sealed class InventoryStockTests : InventoryIntegrationTestBase
         Assert.Equal(productId, afterAdjust!.ProductId);
         Assert.Equal(0, afterAdjust.Available);
     }
+
+    [Fact]
+    public async Task GetAvailability_ForeignTenantStock_IsExcluded()
+    {
+        var productId = Guid.NewGuid();
+        var foreignStock = StockItem.Create(
+            productId,
+            Guid.NewGuid(),
+            "tenant-b",
+            quantityOnHand: 23,
+            allowBackorder: false,
+            reorderThreshold: 0);
+
+        await using (var seed = new InventoryDbContext(
+            new DbContextOptionsBuilder<InventoryDbContext>()
+                .UseNpgsql(DatabaseConnectionString)
+                .UseTeckCloudTenant("tenant-b")
+                .Options,
+            null!))
+        {
+            seed.StockItems.Add(foreignStock);
+            await seed.SaveChangesAsync();
+        }
+
+        AvailabilityDto availability = await Client.GetFromJsonAsync<AvailabilityDto>(
+            $"/inventory/availability?productId={productId}")
+            ?? throw new InvalidOperationException("GET /inventory/availability returned no availability.");
+
+        Assert.Equal(productId, availability.ProductId);
+        Assert.Equal(0, availability.Available);
+        Assert.Empty(availability.ByLocation);
+    }
 }
 
 /// <summary>
@@ -109,6 +145,9 @@ public abstract class InventoryIntegrationTestBase : IDisposable
     }
 
     protected HttpClient Client { get; }
+
+    /// <summary>Gets the PostgreSQL connection string shared by this test project.</summary>
+    protected string DatabaseConnectionString => databaseConnectionString;
 
     /// <summary>
     /// Gets the host's root service provider, exposed so subclasses can open independent
@@ -160,11 +199,6 @@ public abstract class InventoryIntegrationTestBase : IDisposable
 
             builder.ConfigureTestServices(services =>
             {
-                // Register Finbuckle multi-tenant infrastructure so IMultiTenantContextAccessor<TenantDetails>
-                // is available. No strategy or store is configured, so MultiTenantContext will be null per
-                // request and the DbContext factories will fall back to the default connection string.
-                services.AddMultiTenant<TenantDetails>();
-
                 // Handler discovery for the Inventory.Application assembly is configured in
                 // Inventory.Host/Program.cs (opts.Discovery.IncludeAssembly), so it applies here too —
                 // the test boots the real host via WebApplicationFactory and needs no test-only

@@ -2,9 +2,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
+using Finbuckle.MultiTenant.Abstractions;
+using Finbuckle.MultiTenant.Extensions;
 using Orders.Application.Database;
 using Orders.Domain.Entities;
 using Orders.Domain.ValueObjects;
+using SharedKernel.Infrastructure.Database.EFCore;
 using Teck.Platform.IntegrationTests.Shared;
 using Xunit;
 
@@ -57,7 +60,7 @@ public sealed class OrderMigrationModelTests(SharedTestcontainersFixture fixture
             context.ChangeTracker.Clear();
 
             var upgradedOrders = await context.Orders
-                .IgnoreQueryFilters()
+                .IgnoreQueryFilters([Constants.TenantToken])
                 .OrderBy(order => order.Id)
                 .ToListAsync();
 
@@ -86,6 +89,7 @@ public sealed class OrderMigrationModelTests(SharedTestcontainersFixture fixture
     {
         var options = new DbContextOptionsBuilder<OrderDbContext>()
             .UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly("Order.Host"))
+            .UseTeckCloudTenant("order-migration-test")
             .Options;
 
         return new OrderDbContext(options, null!);

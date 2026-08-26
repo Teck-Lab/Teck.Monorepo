@@ -189,6 +189,31 @@ public sealed class BasketCheckoutTests : BasketIntegrationTestBase
         Assert.Equal(15m, pending.Subtotal);
         Assert.Equal(7.50m, Assert.Single(pending.Items).UnitPrice);
     }
+
+    [Fact]
+    public async Task GetCurrentBasket_DoesNotReturnForeignTenantsMatchingSubjectBasket()
+    {
+        const string foreignTenantId = "tenant-b";
+        var foreignBasket = Baskets.Domain.Entities.Basket.CreateForSubject(
+            MockBearerAuthenticationHandler.TestSubject,
+            foreignTenantId);
+
+        await using (var seed = new BasketDbContext(
+            new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<BasketDbContext>()
+                .UseNpgsql(DatabaseConnectionString)
+                .UseTeckCloudTenant(foreignTenantId)
+                .Options,
+            null!))
+        {
+            seed.Baskets.Add(foreignBasket);
+            await seed.SaveChangesAsync();
+        }
+
+        BasketDto current = await Client.GetFromJsonAsync<BasketDto>("/baskets/current")
+            ?? throw new InvalidOperationException("GET /baskets/current returned no basket.");
+
+        Assert.NotEqual(foreignBasket.Id, current.Id);
+    }
 }
 
 /// <summary>
@@ -270,11 +295,6 @@ public abstract class BasketIntegrationTestBase : IDisposable
 
             builder.ConfigureTestServices(services =>
             {
-                // Register Finbuckle multi-tenant infrastructure so IMultiTenantContextAccessor<TenantDetails>
-                // is available. No strategy or store is configured, so MultiTenantContext will be null per
-                // request and the DbContext factories will fall back to the default connection string.
-                services.AddMultiTenant<TenantDetails>();
-
                 // Handler discovery for the Basket.Application assembly is configured in
                 // Basket.Host/Program.cs (opts.Discovery.IncludeAssembly), so it applies here too —
                 // the test boots the real host via WebApplicationFactory and needs no test-only

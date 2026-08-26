@@ -1,4 +1,5 @@
 using Finbuckle.MultiTenant.Abstractions;
+using Finbuckle.MultiTenant.EntityFrameworkCore.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Notifications.Domain.Entities;
 using SharedKernel.Infrastructure.Database.EFCore;
@@ -22,8 +23,8 @@ public abstract class NotificationDbContextBase(DbContextOptions options, IMulti
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(NotificationDbContextBase).Assembly);
         base.OnModelCreating(modelBuilder);
-        modelBuilder.Entity<NotificationDelivery>().HasQueryFilter("NotificationTenant", delivery => delivery.TenantId == TenantId);
-        modelBuilder.Entity<StubEmailAcceptance>().HasQueryFilter("NotificationTenant", acceptance => acceptance.TenantId == TenantId);
-        modelBuilder.Entity<CustomerContact>().HasQueryFilter("NotificationTenant", contact => contact.TenantId == TenantId);
+        modelBuilder.Entity<NotificationDelivery>().IsMultiTenant();
+        modelBuilder.Entity<StubEmailAcceptance>().IsMultiTenant();
+        modelBuilder.Entity<CustomerContact>().IsMultiTenant();
     }
 }

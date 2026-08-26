@@ -47,6 +47,9 @@ public abstract class CatalogIntegrationTestBase : IDisposable
     /// <summary>Gets the HTTP client bound to the in-memory Catalog host.</summary>
     protected HttpClient Client { get; }
 
+    /// <summary>Gets the PostgreSQL connection string shared by this test project.</summary>
+    protected string DatabaseConnectionString => databaseConnectionString;
+
     /// <inheritdoc/>
     public void Dispose()
     {
@@ -78,8 +81,6 @@ public abstract class CatalogIntegrationTestBase : IDisposable
 
             builder.ConfigureTestServices(services =>
             {
-                services.AddMultiTenant<TenantDetails>();
-
                 services.AddTransient<MockBearerAuthenticationHandler>();
                 services.PostConfigure<AuthenticationOptions>(options =>
                 {

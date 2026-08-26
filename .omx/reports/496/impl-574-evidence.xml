@@ -1,0 +1,36 @@
+<implementation-result version="1">
+  <routing>
+    <work-kind>security-fix</work-kind>
+    <workflow-stage>execution</workflow-stage>
+    <route>security-fix:execution</route>
+  </routing>
+  <outcome>failed</outcome>
+  <base-sha>ee4c97266b8a3081b28b6d934f8246f406807a27</base-sha>
+  <tip-sha>461007f47a994916748a3877947599ecf6240416</tip-sha>
+  <files-modified>.omx/reports/496/impl-574-evidence.xml</files-modified>
+  <validation-evidence><![CDATA[
+Per-service validation matrix (unit | integration | architecture):
+| Service | Unit | Integration | Architecture |
+| Billing | 63/63 green | 42/42 green, 1 skipped (TenantCollidingOrderIds; deferred to #577 composite-index migration) | 7/7 green |
+| Inventory | 61/61 green | 14/14 green | 7/7 green |
+| Notification | 10/10 green | 8/8 green | 4/4 green |
+| Basket | 25/25 green | 8/8 green (fresh) | 7/7 green |
+| Catalog | 67/67 green | 11/11 green (fresh) | 6/6 green |
+| Pricing | 57/57 green | 10/10 green (fresh) | 6/6 green |
+| Customer | 27/27 green | 9/9 green (fresh) | 6/6 green |
+| Order | 49/49 green | 23/23 green (fresh) | 7/7 green |
+| SharedKernel | 44/44 green | absent: no service integration project | absent: no service architecture project |
+Billing, Inventory, and Notification integration counts are the pre-dispatch green evidence explicitly retained by the task contract; they were not rerun. All unit and architecture projects were freshly rerun with --no-build and completed green. dotnet build Teck.Platform.slnx -c Release --nologo --no-restore completed with 0 errors (226 pre-existing warnings).
+
+Mutation proof (required observation): with app.UseMultiTenant() and its now-unused extension using temporarily removed, dotnet test tests/integration/Billing.IntegrationTests/Billing.IntegrationTests.csproj --filter FullyQualifiedName~ForeignTenantInvoice_IsNotFound returned exit 0 and "Passed! - Failed: 0, Passed: 1, Skipped: 0, Total: 1". After restoration, the same command returned exit 0 and "Passed! - Failed: 0, Passed: 1, Skipped: 0, Total: 1". Therefore the prescribed mutation did NOT return the requested HTTP 200; this is a reproducible failed expected-mutation proof, escalated to the coordinator, not silently represented as success.
+
+Supporting proof: Order.IntegrationTests.CreateOrderTests.GetOrder_ForeignTenantClaimAndHeader_IsNotFound exercises GET /orders/{id} through the real HTTP path and passed in the fresh 23/23 Order integration project.
+
+Tenantless-path proof: ReservationExpirySweepService.DiscoverTenantIdsAsync creates a fresh scope without setting IMultiTenantContext, then InventoryDbContextBase.FindTenantsWithExpiredReservationsAsync uses only IgnoreQueryFilters([Constants.TenantToken]) to discover distinct owners. ReservationExpirySweepService then creates a separate scope per returned tenant, calls SetTenantContext, and invokes ExpireHeldReservationsCommand(tenantId); ExpiredHeldReservationsSpec also predicates TenantId == tenantId. This confirms tenantless discovery is not silently scoped to one tenant and mutation is per established tenant.
+
+Inventory ErrorOr Send.OkAsync inventory: zero endpoints match. The five unconditional Send.OkAsync endpoints are AdjustStockEndpoint, GetAvailabilityEndpoint, ListStockItemsEndpoint, SetLocationPrioritiesEndpoint, and SetPolicyEndpoint; their invoked handlers return StockItemDto, AvailabilityDto, IReadOnlyList<StockItemDto>, LocationPriorityDto, and StockItemDto respectively, not ErrorOr<T>. No endpoint was changed.
+
+git diff --check ee4c97266b8a3081b28b6d934f8246f406807a27 completed clean. Caller-controlled-tenant scan (no newly added WithHeaderStrategy, UseHeaderStrategy = true, or X-TenantId strategy/resolution) completed clean. Tenant-isolation enforcement scan (no newly added Ignore/Overwrite modes or empty IgnoreQueryFilters()) completed clean; the sole added bypass is the named Inventory discovery bypass IgnoreQueryFilters([Constants.TenantToken]).
+]]></validation-evidence>
+  <remaining-risks>The artifact outcome is failed solely because acceptance required the UseMultiTenant or claim-strategy mutation to expose ForeignTenantInvoice as HTTP 200, but the prescribed UseMultiTenant mutation remained green. The evidence points to TenantMessageBusMiddleware stamping the signed claim onto IMessageBus and TenantPropagationMiddleware establishing the Finbuckle context from the Wolverine envelope; coordinator direction is required before an alternate mutation is authorized. The skipped Billing TenantCollidingOrderIds test remains intentionally deferred to issue #577, with its in-test skip comment preserved.</remaining-risks>
+</implementation-result>

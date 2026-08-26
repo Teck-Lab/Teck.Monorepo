@@ -22,14 +22,21 @@ public sealed class CreateOrderHandlerTests
     public async Task Handle_WithValidCommand_ReturnsOrderDto()
     {
         var command = new CreateOrderCommand(
-            Guid.NewGuid(),
-            [new CreateOrderLine(Guid.NewGuid(), "Test Product", 2, 12.50m)]);
+            CustomerId: Guid.NewGuid(),
+            KeycloakSubjectId: "test-subject",
+            BasketId: Guid.NewGuid(),
+            TenantId: "tenant-1",
+            AuthorizedAmount: 25m,
+            Currency: "USD",
+            PaymentMethodToken: "test-token",
+            SourceCorrelationId: Guid.NewGuid().ToString("N"),
+            Lines: [new CreateOrderLine(Guid.NewGuid(), "Test Product", 2, 12.50m)]);
 
         var options = new DbContextOptionsBuilder<OrderDbContext>()
             .UseInMemoryDatabase($"order-unit-tests-{Guid.NewGuid()}")
             .Options;
 
-        var tenantAccessor = Substitute.For<IMultiTenantContextAccessor<TenantDetails>>();
+        var tenantAccessor = TenantAccessor("tenant-1");
         var db = new OrderDbContext(options, tenantAccessor);
         var repository = new GenericWriteRepository<Order, Guid, OrderDbContext>(db, Substitute.For<IHttpContextAccessor>());
         var unitOfWork = new UnitOfWork<OrderDbContext>(db);
@@ -51,14 +58,7 @@ public sealed class CreateOrderHandlerTests
         var options = new DbContextOptionsBuilder<OrderDbContext>()
             .UseInMemoryDatabase($"order-unit-tests-{Guid.NewGuid()}")
             .Options;
-        var tenantAccessor = Substitute.For<IMultiTenantContextAccessor<TenantDetails>>();
-        tenantAccessor.MultiTenantContext.Returns(new MultiTenantContext<TenantDetails>(new TenantDetails
-        {
-            Id = tenantId,
-            Identifier = tenantId,
-            Name = tenantId,
-            IsActive = true,
-        }));
+        var tenantAccessor = TenantAccessor(tenantId);
         var db = new OrderDbContext(options, tenantAccessor);
         var repository = new GenericWriteRepository<Order, Guid, OrderDbContext>(db, Substitute.For<IHttpContextAccessor>());
         var unitOfWork = new UnitOfWork<OrderDbContext>(db);
@@ -102,5 +102,18 @@ public sealed class CreateOrderHandlerTests
         Assert.Equal(originalOrder.Id, result.Id);
         Assert.Equal(2, await db.Orders.CountAsync());
         await bus.DidNotReceive().PublishAsync(Arg.Any<OrderPlacedV2IntegrationEvent>());
+    }
+
+    private static IMultiTenantContextAccessor<TenantDetails> TenantAccessor(string tenantId)
+    {
+        var accessor = Substitute.For<IMultiTenantContextAccessor<TenantDetails>>();
+        accessor.MultiTenantContext.Returns(new MultiTenantContext<TenantDetails>(new TenantDetails
+        {
+            Id = tenantId,
+            Identifier = tenantId,
+            Name = tenantId,
+            IsActive = true,
+        }));
+        return accessor;
     }
 }

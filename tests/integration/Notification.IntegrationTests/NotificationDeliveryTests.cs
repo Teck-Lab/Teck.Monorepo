@@ -21,7 +21,7 @@ public sealed class NotificationDeliveryTests(SharedTestcontainersFixture fixtur
         }
 
         await using var read = NotificationMigrationModelTests.CreateContext(connectionString);
-        var persisted = await read.NotificationDeliveries.IgnoreQueryFilters().SingleAsync(item => item.Id == delivery.Id);
+        var persisted = await read.NotificationDeliveries.SingleAsync(item => item.Id == delivery.Id);
         Assert.Equal("shopper@example.test", persisted.Recipient);
         Assert.Equal(NotificationKind.OrderConfirmed, persisted.Kind);
         Assert.Equal("Your order is confirmed", persisted.Subject);

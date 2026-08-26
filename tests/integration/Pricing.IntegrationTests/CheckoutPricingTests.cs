@@ -175,7 +175,6 @@ public sealed class CheckoutPricingTests : IDisposable
 
     private static void ConfigureCommonTestServices(IServiceCollection services)
     {
-        services.AddMultiTenant<TenantDetails>();
         services.AddTransient<MockBearerAuthenticationHandler>();
         services.PostConfigure<AuthenticationOptions>(options =>
         {

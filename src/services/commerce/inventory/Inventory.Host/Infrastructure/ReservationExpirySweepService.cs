@@ -1,6 +1,9 @@
+using Finbuckle.MultiTenant.Abstractions;
+using Inventories.Application.Database;
 using Inventories.Application.Inventory;
 using Inventories.Application.Inventory.Features.ExpireHeldReservations.V1;
 using Microsoft.Extensions.Options;
+using SharedKernel.Infrastructure.MultiTenant;
 using Wolverine;
 
 namespace Inventories.Host.Infrastructure;
@@ -8,8 +11,8 @@ namespace Inventories.Host.Infrastructure;
 /// <summary>
 /// Periodically sweeps expired held reservations (Task 18 housekeeping): every
 /// <see cref="InventoryOptions.SweepInterval"/>, invokes <see cref="ExpireHeldReservationsCommand"/>
-/// in a fresh scope so the stored <c>StockItem.QuantityReserved</c> counter is corrected for holds
-/// whose expiry already made them invisible to reads (Task 17's lazy expiry).
+/// without a tenant only to discover owning tenant ids, then invokes the production handler in one
+/// fresh tenant scope per id so the stored <c>StockItem.QuantityReserved</c> counter is corrected.
 /// </summary>
 /// <param name="scopeFactory">Factory used to create a fresh DI scope for each sweep tick.</param>
 /// <param name="options">The inventory options, providing the sweep interval.</param>
@@ -32,14 +35,31 @@ public sealed class ReservationExpirySweepService(
         while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false));
     }
 
+    private static void SetTenantContext(IServiceProvider services, string tenantId)
+    {
+        services.GetRequiredService<IMultiTenantContextSetter>().MultiTenantContext =
+            new MultiTenantContext<TenantDetails>(new TenantDetails
+            {
+                Id = tenantId,
+                Identifier = tenantId,
+                Name = tenantId,
+                IsActive = true,
+            });
+    }
+
     private async Task RunSweepAsync(CancellationToken stoppingToken)
     {
         try
         {
-            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
-            var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
-
-            int expiredCount = await bus.InvokeAsync<int>(new ExpireHeldReservationsCommand(), stoppingToken).ConfigureAwait(false);
+            IReadOnlyList<string> tenantIds = await DiscoverTenantIdsAsync(stoppingToken).ConfigureAwait(false);
+            int expiredCount = 0;
+            foreach (string tenantId in tenantIds)
+            {
+                await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+                SetTenantContext(scope.ServiceProvider, tenantId);
+                var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+                expiredCount += await bus.InvokeAsync<int>(new ExpireHeldReservationsCommand(tenantId), stoppingToken).ConfigureAwait(false);
+            }
 
             if (expiredCount > 0)
             {
@@ -53,5 +73,13 @@ public sealed class ReservationExpirySweepService(
             // reads (Task 17) until a subsequent sweep succeeds.
             logger.LogError(ex, "Reservation expiry sweep failed.");
         }
+    }
+
+    private async Task<IReadOnlyList<string>> DiscoverTenantIdsAsync(CancellationToken ct)
+    {
+        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
+        DateTimeOffset now = TimeProvider.System.GetUtcNow();
+        return await db.FindTenantsWithExpiredReservationsAsync(now, ct).ConfigureAwait(false);
     }
 }

@@ -1,3 +1,4 @@
+using Finbuckle.MultiTenant.Abstractions;
 using Inventories.Application.Inventory.ReadModels;
 using Inventories.Domain.Entities;
 using Inventories.Domain.ValueObjects;
@@ -6,6 +7,7 @@ using Microsoft.Extensions.Options;
 using SharedKernel.Core.Database;
 using SharedKernel.Events;
 using SharedKernel.Infrastructure.FeatureFlags;
+using SharedKernel.Infrastructure.MultiTenant;
 using Wolverine;
 
 namespace Inventories.Application.Inventory.Features.ExpireHeldReservations.V1;
@@ -62,6 +64,7 @@ public static class ExpireHeldReservationsHandler
             IServiceProvider services = scope.ServiceProvider;
             try
             {
+                SetTenantContext(services, command.TenantId);
                 return await AttemptAsync(
                     command,
                     services.GetRequiredService<IGenericWriteRepository<Reservation, Guid>>(),
@@ -94,7 +97,7 @@ public static class ExpireHeldReservationsHandler
         ArgumentNullException.ThrowIfNull(timeProvider);
 
         DateTimeOffset now = timeProvider.GetUtcNow();
-        var spec = new ExpiredHeldReservationsSpec(now);
+        var spec = new ExpiredHeldReservationsSpec(command.TenantId, now);
         IReadOnlyList<Reservation> expired = await reservations.ListAsync(spec, enableTracking: true, ct).ConfigureAwait(false);
 
         if (expired.Count == 0)
@@ -151,5 +154,17 @@ public static class ExpireHeldReservationsHandler
         }
 
         return expired.Count;
+    }
+
+    private static void SetTenantContext(IServiceProvider services, string tenantId)
+    {
+        services.GetRequiredService<IMultiTenantContextSetter>().MultiTenantContext =
+            new MultiTenantContext<TenantDetails>(new TenantDetails
+            {
+                Id = tenantId,
+                Identifier = tenantId,
+                Name = tenantId,
+                IsActive = true,
+            });
     }
 }

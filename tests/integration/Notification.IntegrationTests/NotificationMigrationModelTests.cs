@@ -10,6 +10,8 @@ namespace Notifications.IntegrationTests;
 [Collection("SharedTestcontainers")]
 public sealed class NotificationMigrationModelTests(SharedTestcontainersFixture fixture)
 {
+    internal const string FixtureTenantId = "tenant-a";
+
     [Fact]
     public async Task CommittedMigration_AppliesWithoutPendingMigrationsOrModelChanges()
     {
@@ -20,14 +22,11 @@ public sealed class NotificationMigrationModelTests(SharedTestcontainersFixture 
         Assert.False(context.Database.HasPendingModelChanges());
     }
 
-    internal static NotificationDbContext CreateContext(string connectionString, string? tenantId = null)
+    internal static NotificationDbContext CreateContext(string connectionString, string tenantId = FixtureTenantId)
     {
         var optionsBuilder = new DbContextOptionsBuilder<NotificationDbContext>()
-            .UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly("Notification.Host"));
-        if (tenantId is not null)
-        {
-            optionsBuilder.UseTeckCloudTenant(tenantId);
-        }
+            .UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly("Notification.Host"))
+            .UseTeckCloudTenant(tenantId);
 
         var options = optionsBuilder.Options;
         return new NotificationDbContext(options, null!);

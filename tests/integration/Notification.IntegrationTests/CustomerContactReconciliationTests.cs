@@ -31,7 +31,7 @@ public sealed class CustomerContactReconciliationTests(SharedTestcontainersFixtu
         const string subjectId = "subject-contact";
         const string email = "subject-contact@example.test";
         var connectionString = await fixture.CreateSharedTestDatabaseAsync(typeof(NotificationDbContext), "Notification.Host");
-        await using (var seed = NotificationMigrationModelTests.CreateContext(connectionString))
+        await using (var seed = NotificationMigrationModelTests.CreateContext(connectionString, tenantId))
         {
             seed.CustomerContacts.Add(CustomerContact.Create(tenantId, Guid.NewGuid(), subjectId, email));
             await seed.SaveChangesAsync();
@@ -60,8 +60,8 @@ public sealed class CustomerContactReconciliationTests(SharedTestcontainersFixtu
         var queueBus = Substitute.For<IMessageBus>();
         var deliveryId = await QueueAsync(connectionString, Assert.IsType<QueueNotificationCommand>(queued), tenant, queueBus);
 
-        await using var verify = NotificationMigrationModelTests.CreateContext(connectionString);
-        var delivery = await verify.NotificationDeliveries.IgnoreQueryFilters().SingleAsync(item => item.Id == deliveryId);
+        await using var verify = NotificationMigrationModelTests.CreateContext(connectionString, tenantId);
+        var delivery = await verify.NotificationDeliveries.SingleAsync(item => item.Id == deliveryId);
         Assert.Equal(email, delivery.Recipient);
         Assert.Null(delivery.ContactRequestId);
         await queueBus.DidNotReceive().PublishAsync(Arg.Any<CustomerContactReconciliationRequestedIntegrationEvent>());
@@ -105,15 +105,15 @@ public sealed class CustomerContactReconciliationTests(SharedTestcontainersFixtu
 
         var deliveryId = await QueueAsync(connectionString, queueCommand, tenant, reconciliationBus);
 
-        await using (var pendingContext = NotificationMigrationModelTests.CreateContext(connectionString))
+        await using (var pendingContext = NotificationMigrationModelTests.CreateContext(connectionString, tenantId))
         {
-            var pending = await pendingContext.NotificationDeliveries.IgnoreQueryFilters().SingleAsync(item => item.Id == deliveryId);
-            Assert.Single(await pendingContext.NotificationDeliveries.IgnoreQueryFilters().Where(item => item.IdempotencyKey == idempotencyKey && item.Status == DeliveryStatus.Pending).ToListAsync());
+            var pending = await pendingContext.NotificationDeliveries.SingleAsync(item => item.Id == deliveryId);
+            Assert.Single(await pendingContext.NotificationDeliveries.Where(item => item.IdempotencyKey == idempotencyKey && item.Status == DeliveryStatus.Pending).ToListAsync());
             Assert.Equal(DeliveryStatus.Pending, pending.Status);
             Assert.Null(pending.Recipient);
             Assert.Equal(Assert.IsType<CustomerContactReconciliationRequestedIntegrationEvent>(request).RequestId, pending.ContactRequestId);
             Assert.DoesNotContain(
-                await pendingContext.CustomerContacts.IgnoreQueryFilters().ToListAsync(),
+                await pendingContext.CustomerContacts.ToListAsync(),
                 contact => contact.KeycloakSubjectId == subjectId);
         }
 
@@ -137,13 +137,13 @@ public sealed class CustomerContactReconciliationTests(SharedTestcontainersFixtu
         await ReconcileAsync(connectionString, response, dispatchBus);
 
         await dispatchBus.Received(1).InvokeAsync(Arg.Is<SendEmailCommand>(command => command.DeliveryId == deliveryId), Arg.Any<CancellationToken>());
-        await using var verify = NotificationMigrationModelTests.CreateContext(connectionString);
-        Assert.Single(await verify.CustomerContacts.IgnoreQueryFilters().Where(contact => contact.CustomerId == resolvedCustomerId).ToListAsync());
-        Assert.Single(await verify.StubEmailAcceptances.IgnoreQueryFilters().Where(receipt => receipt.IdempotencyKey == idempotencyKey).ToListAsync());
-        var delivery = await verify.NotificationDeliveries.IgnoreQueryFilters().SingleAsync(item => item.Id == deliveryId);
+        await using var verify = NotificationMigrationModelTests.CreateContext(connectionString, tenantId);
+        Assert.Single(await verify.CustomerContacts.Where(contact => contact.CustomerId == resolvedCustomerId).ToListAsync());
+        Assert.Single(await verify.StubEmailAcceptances.Where(receipt => receipt.IdempotencyKey == idempotencyKey).ToListAsync());
+        var delivery = await verify.NotificationDeliveries.SingleAsync(item => item.Id == deliveryId);
         Assert.Equal(DeliveryStatus.Sent, delivery.Status);
         Assert.Equal(email, delivery.Recipient);
-        Assert.Single(await verify.NotificationDeliveries.IgnoreQueryFilters().Where(item => item.IdempotencyKey == idempotencyKey && item.Status == DeliveryStatus.Sent).ToListAsync());
+        Assert.Single(await verify.NotificationDeliveries.Where(item => item.IdempotencyKey == idempotencyKey && item.Status == DeliveryStatus.Sent).ToListAsync());
     }
 
     private static async Task<Guid> QueueAsync(string connectionString, QueueNotificationCommand command, ITenantInfo tenant, IMessageBus bus)

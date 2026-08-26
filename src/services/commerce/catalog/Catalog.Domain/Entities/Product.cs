@@ -17,7 +17,7 @@ public sealed class Product : BaseEntity, IAggregateRoot, ITenantScoped
     }
 
     /// <inheritdoc/>
-    public string TenantId { get; set; } = string.Empty;
+    public string TenantId { get; set; } = null!;
 
     /// <summary>Gets the product name.</summary>
     public string Name { get; private set; } = string.Empty;
@@ -42,7 +42,7 @@ public sealed class Product : BaseEntity, IAggregateRoot, ITenantScoped
     /// <param name="sku">The stock-keeping unit of the default variant.</param>
     /// <param name="sellPrice">The sell price of the default variant.</param>
     /// <returns>The newly created product.</returns>
-    public static Product Create(string tenantId, string name, string? description, Guid? categoryId, string sku, Money sellPrice)
+    public static Product Create(string? tenantId, string name, string? description, Guid? categoryId, string sku, Money sellPrice)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -51,7 +51,7 @@ public sealed class Product : BaseEntity, IAggregateRoot, ITenantScoped
 
         var product = new Product
         {
-            TenantId = tenantId,
+            TenantId = tenantId!,
             Name = name,
             Description = description,
             CategoryId = categoryId,

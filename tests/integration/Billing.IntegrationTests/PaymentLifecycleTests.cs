@@ -4,6 +4,9 @@
 
 using System.Net.Http.Json;
 using Billings.Application.Billing;
+using Billings.Application.Billing.Invoices.Features.GetInvoice.V1;
+using Billings.Application.Billing.Invoices.ReadModels;
+using Billings.Application.Billing.Invoices.Responses;
 using Billings.Application.Billing.Payments.Features.CapturePayment.V1;
 using Billings.Application.Billing.Payments.Features.ProcessPaymentOutcome.V1;
 using Billings.Application.Billing.Payments.Features.RetryPayment.V1;
@@ -11,6 +14,7 @@ using Billings.Application.Billing.Payments.Responses;
 using Billings.Application.Database;
 using Billings.Domain.Entities;
 using Billings.Domain.ValueObjects;
+using Billings.Host.Database;
 using Finbuckle.MultiTenant.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,6 +43,29 @@ public sealed class PaymentLifecycleTests : BillingIntegrationTestBase
     }
 
     [Fact]
+    public async Task IncomingEnvelopeTenant_ResolvesLazilyInTheGeneratedHandlerPipeline()
+    {
+        const string tenantId = "unseeded-envelope-tenant";
+        var orderId = Guid.NewGuid();
+        await SeedPendingPaymentWithoutMessageTenantAsync(tenantId, orderId);
+        Provider.QueueAttemptResults(RecordingPaymentProvider.Outcome("succeeded"));
+
+        using var scope = Services.CreateScope();
+        var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+
+        Assert.Null(scope.ServiceProvider.GetRequiredService<IMultiTenantContextAccessor<TenantDetails>>().MultiTenantContext?.TenantInfo);
+        Assert.Null(bus.TenantId);
+
+        await bus.InvokeForTenantAsync(
+            tenantId,
+            new RetryPaymentCommand(orderId, 50m, "USD", "pm_unseeded_envelope", NewRequestId(), $"retry-{orderId:N}"),
+            CancellationToken.None);
+
+        Assert.Equal(1, Provider.AttemptCalls);
+        Assert.Equal(orderId, Assert.Single(Provider.AttemptRequests).OrderId);
+    }
+
+    [Fact]
     public async Task PersistedAttemptBeforeOutcome_RedeliveredOutcomeConvergesWithoutDuplicateProviderCalls()
     {
         var orderId = Guid.NewGuid();
@@ -48,8 +75,8 @@ public sealed class PaymentLifecycleTests : BillingIntegrationTestBase
         await DeliverOrderAsync(CreateOrder(orderId, requestId));
         await WaitForAsync(() => GetPaymentAsync(orderId), payment => payment?.Status == "Pending");
 
-        var accepted = await WolverineHost.InvokeMessageAndWaitAsync(new ProcessPaymentOutcomeCommand(orderId, requestId, "succeeded", "delayed-reference", null));
-        var duplicate = await WolverineHost.InvokeMessageAndWaitAsync(new ProcessPaymentOutcomeCommand(orderId, requestId, "succeeded", "delayed-reference", null));
+        var accepted = await InvokeForTenantAndTrackAsync(new ProcessPaymentOutcomeCommand(orderId, requestId, "succeeded", "delayed-reference", null));
+        var duplicate = await InvokeForTenantAndTrackAsync(new ProcessPaymentOutcomeCommand(orderId, requestId, "succeeded", "delayed-reference", null));
         await DeliverOrderAsync(CreateOrder(orderId, requestId));
 
         var immediateOrderId = Guid.NewGuid();
@@ -97,8 +124,8 @@ public sealed class PaymentLifecycleTests : BillingIntegrationTestBase
         var originalRequestId = NewRequestId();
         Provider.QueueAttemptResults(RecordingPaymentProvider.Outcome("succeeded"));
 
-        var initial = await WolverineHost.InvokeMessageAndWaitAsync(CreateOrder(orderId, originalRequestId));
-        var replay = await WolverineHost.InvokeMessageAndWaitAsync(CreateOrder(orderId, NewRequestId()));
+        var initial = await InvokeForTenantAndTrackAsync(CreateOrder(orderId, originalRequestId));
+        var replay = await InvokeForTenantAndTrackAsync(CreateOrder(orderId, NewRequestId()));
         var payment = await WaitForAsync(() => GetPaymentAsync(orderId), candidate => candidate?.Status == "Captured");
         var persisted = await GetPersistedPaymentAsync(orderId);
 
@@ -118,8 +145,8 @@ public sealed class PaymentLifecycleTests : BillingIntegrationTestBase
         var requestId = NewRequestId();
         Provider.QueueAttemptResults(RecordingPaymentProvider.Outcome("succeeded"));
 
-        var first = await WolverineHost.InvokeMessageAndWaitAsync(CreateOrder(orderId, requestId));
-        var replay = await WolverineHost.InvokeMessageAndWaitAsync(CreateOrder(orderId, requestId));
+        var first = await InvokeForTenantAndTrackAsync(CreateOrder(orderId, requestId));
+        var replay = await InvokeForTenantAndTrackAsync(CreateOrder(orderId, requestId));
 
         Assert.Single(first.NoRoutes.AllMessages().OfType<PaymentCapturedV2IntegrationEvent>());
         Assert.Empty(replay.NoRoutes.AllMessages().OfType<PaymentCapturedV2IntegrationEvent>());
@@ -135,7 +162,7 @@ public sealed class PaymentLifecycleTests : BillingIntegrationTestBase
         var customerId = Guid.NewGuid();
         await SeedTerminalLegacyPaymentWithoutAttemptAsync(orderId, customerId);
 
-        var tracked = await WolverineHost.InvokeMessageAndWaitAsync(new CapturePaymentCommand(orderId, customerId, 42.50m, "USD"));
+        var tracked = await InvokeForTenantAndTrackAsync(new CapturePaymentCommand(orderId, customerId, 42.50m, "USD"));
         var persisted = await GetPersistedPaymentAsync(orderId);
 
         Assert.Equal(PaymentStatus.Captured, persisted.Status);
@@ -164,8 +191,8 @@ public sealed class PaymentLifecycleTests : BillingIntegrationTestBase
         await WaitForAsync(() => GetPaymentAsync(orderId), payment => payment?.Status == "Pending");
 
         var retry = new RetryPaymentCommand(orderId, 50m, "USD", "pm_lifecycle_token", retryRequestId, $"retry-{orderId:N}");
-        var firstRetry = await WolverineHost.InvokeMessageAndWaitAsync(retry);
-        var duplicateRetry = await WolverineHost.InvokeMessageAndWaitAsync(retry);
+        var firstRetry = await InvokeForTenantAndTrackAsync(retry);
+        var duplicateRetry = await InvokeForTenantAndTrackAsync(retry);
 
         var persisted = await GetPersistedPaymentAsync(orderId);
         Assert.Equal([requestId, retryRequestId, retryRequestId], Provider.AttemptRequests.Select(request => request.RequestId));
@@ -186,7 +213,7 @@ public sealed class PaymentLifecycleTests : BillingIntegrationTestBase
             RecordingPaymentProvider.Outcome("failed", "temporary"),
             RecordingPaymentProvider.Outcome("failed", "temporary"));
 
-        var tracked = await WolverineHost.InvokeMessageAndWaitAsync(CreateOrder(orderId, requestId));
+        var tracked = await InvokeForTenantAndTrackAsync(CreateOrder(orderId, requestId));
         var payment = await WaitForAsync(() => GetPaymentAsync(orderId), candidate => candidate?.Status == "Failed" && Provider.AttemptCalls == 3);
 
         Assert.NotNull(payment);
@@ -314,6 +341,68 @@ public sealed class PaymentLifecycleTests : BillingIntegrationTestBase
         Assert.All(payments, payment => Assert.Single(payment.Attempts, attempt => attempt.RequestId == requestId));
     }
 
+    // The assertion belongs with the deferred tenant-scoped payment index migration (issue #577).
+    [Fact(Skip = "Blocked by issue #577: the deferred tenant-scoped IX_payments(OrderId) migration.")]
+    public async Task TenantCollidingOrderIds_ArePersistedAsIndependentPaymentsAndProviderCalls()
+    {
+        var orderId = Guid.NewGuid();
+        Provider.QueueAttemptResults(RecordingPaymentProvider.Outcome("succeeded"), RecordingPaymentProvider.Outcome("succeeded"));
+
+        await DeliverForTenantAsync("tenant-a", CreateOrder(orderId, NewRequestId(), tenantId: "tenant-a"));
+        await DeliverForTenantAsync("tenant-b", CreateOrder(orderId, NewRequestId(), tenantId: "tenant-b"));
+
+        await WaitForAsync(() => GetPersistedPaymentsAsync(orderId), payments => payments.Count == 2);
+        var payments = await GetPersistedPaymentsAsync(orderId);
+
+        Assert.Equal(2, Provider.AttemptCalls);
+        Assert.Equal(["tenant-a", "tenant-b"], payments.Select(payment => payment.TenantId).Order());
+        Assert.All(payments, payment => Assert.Single(payment.Attempts));
+    }
+
+    [Fact]
+    public async Task ForeignTenantInvoice_IsNotFound()
+    {
+        var sameTenantOrderId = Guid.NewGuid();
+        var foreignTenantOrderId = Guid.NewGuid();
+        Provider.QueueAttemptResults(
+            RecordingPaymentProvider.Outcome("succeeded"),
+            RecordingPaymentProvider.Outcome("succeeded"));
+
+        await DeliverOrderAsync(CreateOrder(sameTenantOrderId, NewRequestId()));
+        await DeliverForTenantAsync("tenant-b", CreateOrder(foreignTenantOrderId, NewRequestId(), tenantId: "tenant-b"));
+        var sameTenantInvoice = Assert.Single(await GetInvoicesAsync(sameTenantOrderId));
+        var foreignTenantInvoice = Assert.Single(await GetInvoicesAsync(foreignTenantOrderId, "tenant-b"));
+
+        var sameTenantResponse = await Client.GetAsync($"/invoices/{sameTenantInvoice.Id}");
+        var foreignTenantResponse = await Client.GetAsync($"/invoices/{foreignTenantInvoice.Id}");
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, sameTenantResponse.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, foreignTenantResponse.StatusCode);
+
+        await using (var scope = Services.CreateAsyncScope())
+        {
+            EstablishMessageTenant(scope.ServiceProvider, MockBearerAuthenticationHandler.TestTenantId);
+            var context = scope.ServiceProvider.GetRequiredService<BillingDbContext>();
+
+            Assert.Equal(MockBearerAuthenticationHandler.TestTenantId, context.TenantId);
+            Assert.Null(await context.Invoices.SingleOrDefaultAsync(invoice => invoice.Id == foreignTenantInvoice.Id));
+
+            var readContext = scope.ServiceProvider.GetRequiredService<BillingReadDbContext>();
+            Assert.Equal(MockBearerAuthenticationHandler.TestTenantId, readContext.TenantId);
+            Assert.Null(await readContext.Invoices.SingleOrDefaultAsync(invoice => invoice.Id == foreignTenantInvoice.Id));
+            var evaluator = new Ardalis.Specification.EntityFrameworkCore.SpecificationEvaluator();
+            Assert.Null(await evaluator.GetQuery(readContext.Invoices.AsQueryable(), new InvoiceByIdSpec(foreignTenantInvoice.Id)).SingleOrDefaultAsync());
+        }
+
+        await using (var scope = Services.CreateAsyncScope())
+        {
+            var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+            bus.TenantId = MockBearerAuthenticationHandler.TestTenantId;
+
+            Assert.Null(await bus.InvokeAsync<InvoiceDto>(new GetInvoiceQuery(foreignTenantInvoice.Id)));
+        }
+    }
+
     [Fact]
     public async Task PaymentCreatedForForeignTenant_IsNotFoundAndExcludedFromList()
     {
@@ -348,20 +437,12 @@ public sealed class PaymentLifecycleTests : BillingIntegrationTestBase
     private async Task DeliverForTenantAsync(string tenantId, OrderPlacedV2IntegrationEvent evt)
     {
         using var scope = Services.CreateScope();
-        var contextSetter = scope.ServiceProvider.GetRequiredService<IMultiTenantContextSetter>();
-        contextSetter.MultiTenantContext = new MultiTenantContext<TenantDetails>(
-            new TenantDetails { Id = tenantId, Identifier = tenantId });
-
-        await scope.ServiceProvider.GetRequiredService<IMessageBus>().InvokeAsync(evt, CancellationToken.None);
+        await scope.ServiceProvider.GetRequiredService<IMessageBus>()
+            .InvokeForTenantAsync(tenantId, evt, CancellationToken.None)
+            .ConfigureAwait(false);
     }
 
-    private async Task DeliverOrderAsync(OrderPlacedV2IntegrationEvent evt) => await InvokeAsync(evt);
-
-    private async Task InvokeAsync<TMessage>(TMessage message)
-    {
-        using var scope = Services.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<IMessageBus>().InvokeAsync(message, CancellationToken.None);
-    }
+    private async Task DeliverOrderAsync(OrderPlacedV2IntegrationEvent evt) => await DeliverForTenantAsync(evt.TenantId, evt);
 
     private static OrderPlacedV2IntegrationEvent CreateOrder(
         Guid orderId,
@@ -369,14 +450,15 @@ public sealed class PaymentLifecycleTests : BillingIntegrationTestBase
         decimal amount = 42.50m,
         decimal authorizedAmount = 50m,
         string currency = "USD",
-        string token = "pm_lifecycle_token") =>
+        string token = "pm_lifecycle_token",
+        string tenantId = MockBearerAuthenticationHandler.TestTenantId) =>
         new()
         {
             OrderId = orderId,
             BasketId = Guid.NewGuid(),
             CustomerId = Guid.NewGuid(),
             KeycloakSubjectId = "test-user",
-            TenantId = MockBearerAuthenticationHandler.TestTenantId,
+            TenantId = tenantId,
             Amount = amount,
             AuthorizedAmount = authorizedAmount,
             Currency = currency,
@@ -389,6 +471,7 @@ public sealed class PaymentLifecycleTests : BillingIntegrationTestBase
     private async Task<PaymentDto?> GetPaymentAsync(Guid orderId)
     {
         await using var scope = Services.CreateAsyncScope();
+        EstablishMessageTenant(scope.ServiceProvider, MockBearerAuthenticationHandler.TestTenantId);
         var context = scope.ServiceProvider.GetRequiredService<BillingDbContext>();
         return await context.Payments
             .Where(payment => payment.OrderId == orderId)
@@ -399,28 +482,30 @@ public sealed class PaymentLifecycleTests : BillingIntegrationTestBase
     private async Task<Payment> GetPersistedPaymentAsync(Guid orderId)
     {
         await using var scope = Services.CreateAsyncScope();
+        EstablishMessageTenant(scope.ServiceProvider, MockBearerAuthenticationHandler.TestTenantId);
         var context = scope.ServiceProvider.GetRequiredService<BillingDbContext>();
         return await context.Payments.Include(payment => payment.Attempts).SingleAsync(payment => payment.OrderId == orderId);
     }
 
-    private async Task<List<Payment>> GetPersistedPaymentsAsync(Guid firstOrderId, Guid secondOrderId)
+    private async Task<List<Payment>> GetPersistedPaymentsAsync(params Guid[] orderIds)
     {
         await using var scope = Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<BillingDbContext>();
-        return await context.Payments.IgnoreQueryFilters().Include(payment => payment.Attempts)
-            .Where(payment => payment.OrderId == firstOrderId || payment.OrderId == secondOrderId)
+        return await context.Payments.IgnoreQueryFilters([Constants.TenantToken]).Include(payment => payment.Attempts)
+            .Where(payment => orderIds.Contains(payment.OrderId))
             .ToListAsync();
     }
 
     private async Task<List<Payment>> GetAllPaymentsAsync()
     {
         await using var scope = Services.CreateAsyncScope();
-        return await scope.ServiceProvider.GetRequiredService<BillingDbContext>().Payments.IgnoreQueryFilters().ToListAsync();
+        return await scope.ServiceProvider.GetRequiredService<BillingDbContext>().Payments.IgnoreQueryFilters([Constants.TenantToken]).ToListAsync();
     }
 
-    private async Task<List<Invoice>> GetInvoicesAsync(Guid orderId)
+    private async Task<List<Invoice>> GetInvoicesAsync(Guid orderId, string tenantId = MockBearerAuthenticationHandler.TestTenantId)
     {
         await using var scope = Services.CreateAsyncScope();
+        EstablishMessageTenant(scope.ServiceProvider, tenantId);
         return await scope.ServiceProvider.GetRequiredService<BillingDbContext>().Invoices
             .Where(invoice => invoice.OrderId == orderId)
             .ToListAsync();
@@ -441,6 +526,38 @@ public sealed class PaymentLifecycleTests : BillingIntegrationTestBase
                 {paymentId}, {MockBearerAuthenticationHandler.TestTenantId}, {orderId}, {customerId}, {42.50m}, {"USD"}, {PaymentStatus.Captured.Value}, {"migrated-provider-reference"}, {DateTimeOffset.UtcNow}, {false},
                 {42.50m}, {"USD"}, {"legacy-token"}, {legacyRequestId}, {string.Empty})
             """);
+    }
+
+    private async Task SeedPendingPaymentWithoutMessageTenantAsync(string tenantId, Guid orderId)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<BillingDbContext>();
+        await context.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO payments (
+                "Id", "TenantId", "OrderId", "CustomerId", "Amount", "Currency", "Status", "ProviderReference", "CreatedAt", "IsDeleted",
+                "AuthorizedAmount", "AuthorizedCurrency", "PaymentMethodToken", "RequestId", "SourceCorrelationId")
+            VALUES (
+                {Guid.NewGuid()}, {tenantId}, {orderId}, {Guid.NewGuid()}, {42.50m}, {"USD"}, {PaymentStatus.Pending.Value}, {null}, {DateTimeOffset.UtcNow}, {false},
+                {50m}, {"USD"}, {"pm_seeded_pending"}, {$"seed-{orderId:N}"}, {string.Empty})
+            """);
+    }
+
+    private async Task<ITrackedSession> InvokeForTenantAndTrackAsync(object message)
+    {
+        Func<IMessageContext, Task> invoke = async _ =>
+        {
+            using var scope = Services.CreateScope();
+            EstablishMessageTenant(scope.ServiceProvider, MockBearerAuthenticationHandler.TestTenantId);
+            var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+            await bus
+                .InvokeAsync(message, CancellationToken.None)
+                .ConfigureAwait(false);
+        };
+
+        return await Services.TrackActivity()
+            .Timeout(TimeSpan.FromSeconds(10))
+            .ExecuteAndWaitAsync(invoke)
+            .ConfigureAwait(false);
     }
 
     private static async Task<T> WaitForAsync<T>(Func<Task<T>> getValue, Func<T, bool> condition)

@@ -62,8 +62,8 @@ public sealed class ReleaseReservationTests : InventoryIntegrationTestBase
         {
             if (message is StockReleasedIntegrationEvent)
             {
-                Reservation persistedReservation = await InventoryHandlerHarness.ReadReservationAsync(Services, reservation.Id);
-                StockItem persistedStock = Assert.Single(await InventoryHandlerHarness.ReadStockAsync(Services, stock.Id));
+                Reservation persistedReservation = await InventoryHandlerHarness.ReadReservationAsync(Services, tenantId, reservation.Id);
+                StockItem persistedStock = Assert.Single(await InventoryHandlerHarness.ReadStockAsync(Services, tenantId, stock.Id));
                 Assert.Equal(ReservationStatus.Released, persistedReservation.Status);
                 Assert.Equal(0, persistedStock.QuantityReserved);
             }
@@ -75,8 +75,8 @@ public sealed class ReleaseReservationTests : InventoryIntegrationTestBase
             InventoryHandlerHarness.ReleaseAsync(Services, command, outcomes.Bus, cts.Token));
         await InventoryHandlerHarness.ReleaseAsync(Services, command, outcomes.Bus, cts.Token);
 
-        Reservation finalReservation = await InventoryHandlerHarness.ReadReservationAsync(Services, reservation.Id);
-        StockItem finalStock = Assert.Single(await InventoryHandlerHarness.ReadStockAsync(Services, stock.Id));
+        Reservation finalReservation = await InventoryHandlerHarness.ReadReservationAsync(Services, tenantId, reservation.Id);
+        StockItem finalStock = Assert.Single(await InventoryHandlerHarness.ReadStockAsync(Services, tenantId, stock.Id));
         StockReleasedIntegrationEvent released = Assert.Single(outcomes.Messages.OfType<StockReleasedIntegrationEvent>());
         Assert.Equal(ReservationStatus.Released, finalReservation.Status);
         Assert.Equal(0, finalStock.QuantityReserved);
@@ -110,8 +110,8 @@ public sealed class ReleaseReservationTests : InventoryIntegrationTestBase
         {
             if (message is StockReleasedIntegrationEvent or BackorderExpiredIntegrationEvent)
             {
-                Reservation persistedReservation = await InventoryHandlerHarness.ReadReservationAsync(Services, reservation.Id);
-                StockItem persistedStock = Assert.Single(await InventoryHandlerHarness.ReadStockAsync(Services, stock.Id));
+                Reservation persistedReservation = await InventoryHandlerHarness.ReadReservationAsync(Services, tenantId, reservation.Id);
+                StockItem persistedStock = Assert.Single(await InventoryHandlerHarness.ReadStockAsync(Services, tenantId, stock.Id));
                 Assert.True(persistedReservation.Status == ReservationStatus.Released || persistedReservation.Status == ReservationStatus.Expired);
                 Assert.Equal(0, persistedStock.QuantityReserved);
             }
@@ -120,10 +120,10 @@ public sealed class ReleaseReservationTests : InventoryIntegrationTestBase
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         await Task.WhenAll(
             InventoryHandlerHarness.ReleaseAsync(Services, command, outcomes.Bus, cts.Token),
-            InventoryHandlerHarness.ExpireAsync(Services, new FixedTimeProvider(now), outcomes.Bus, cts.Token));
+            InventoryHandlerHarness.ExpireAsync(Services, tenantId, new FixedTimeProvider(now), outcomes.Bus, cts.Token));
 
-        Reservation finalReservation = await InventoryHandlerHarness.ReadReservationAsync(Services, reservation.Id);
-        StockItem finalStock = Assert.Single(await InventoryHandlerHarness.ReadStockAsync(Services, stock.Id));
+        Reservation finalReservation = await InventoryHandlerHarness.ReadReservationAsync(Services, tenantId, reservation.Id);
+        StockItem finalStock = Assert.Single(await InventoryHandlerHarness.ReadStockAsync(Services, tenantId, stock.Id));
         object lifecycleOutcome = Assert.Single(outcomes.Messages.Where(message =>
             message is StockReleasedIntegrationEvent or BackorderExpiredIntegrationEvent));
         Assert.Equal(0, finalStock.QuantityReserved);
