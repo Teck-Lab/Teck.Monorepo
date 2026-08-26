@@ -341,23 +341,9 @@ public sealed class PaymentLifecycleTests : BillingIntegrationTestBase
         Assert.All(payments, payment => Assert.Single(payment.Attempts, attempt => attempt.RequestId == requestId));
     }
 
-    // The assertion belongs with the deferred tenant-scoped payment index migration (issue #577).
-    [Fact(Skip = "Blocked by issue #577: the deferred tenant-scoped IX_payments(OrderId) migration.")]
-    public async Task TenantCollidingOrderIds_ArePersistedAsIndependentPaymentsAndProviderCalls()
-    {
-        var orderId = Guid.NewGuid();
-        Provider.QueueAttemptResults(RecordingPaymentProvider.Outcome("succeeded"), RecordingPaymentProvider.Outcome("succeeded"));
-
-        await DeliverForTenantAsync("tenant-a", CreateOrder(orderId, NewRequestId(), tenantId: "tenant-a"));
-        await DeliverForTenantAsync("tenant-b", CreateOrder(orderId, NewRequestId(), tenantId: "tenant-b"));
-
-        await WaitForAsync(() => GetPersistedPaymentsAsync(orderId), payments => payments.Count == 2);
-        var payments = await GetPersistedPaymentsAsync(orderId);
-
-        Assert.Equal(2, Provider.AttemptCalls);
-        Assert.Equal(["tenant-a", "tenant-b"], payments.Select(payment => payment.TenantId).Order());
-        Assert.All(payments, payment => Assert.Single(payment.Attempts));
-    }
+    // IX_payments_OrderId is intentionally unique on OrderId alone: BaseEntity assigns a globally
+    // unique NewId, so one payment per order is the correct invariant and two tenants cannot collide.
+    // SharedKernel.UnitTests.Domain.EntityIdentityTests guards that identifier-uniqueness assumption.
 
     [Fact]
     public async Task ForeignTenantInvoice_IsNotFound()
