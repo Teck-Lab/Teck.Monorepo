@@ -16,6 +16,7 @@
 #   nxProject    - nx project name of the Host (Order.Host, Gateway.Public, ...)
 #   projectPath  - path to the Host csproj (build target for the image)
 #   scanPath     - directory the source scanners target for this service
+#   releaseGroup - fixed release group used to version related service images
 #
 # Keys are camelCase because GitHub Actions matrix access (matrix.scanPath) parses
 # hyphens as subtraction; the reusable workflow maps them onto its hyphenated inputs.
@@ -53,11 +54,18 @@ while IFS= read -r svcdir; do
     product="$service"
   fi
 
+  # Product names are the default release groups; operations is deliberately
+  # the only fixed multi-service group.
+  release_group="$product"
+  if [ "$group" = "operations" ]; then
+    release_group="operations"
+  fi
+
   # baseVersion = the next release version for this service: the highest existing
-  # <product>@X.Y.Z tag with the patch bumped, or 0.1.0 before the first release.
+  # <releaseGroup>@X.Y.Z tag with the patch bumped, or 0.1.0 before the first release.
   # Lanes append a prerelease suffix (e.g. -rc.N) to it; GA uses the nx-computed one.
-  latest=$(git tag -l "${product}@*" 2>/dev/null \
-    | sed "s/^${product}@//" \
+  latest=$(git tag -l "${release_group}@*" 2>/dev/null \
+    | sed "s/^${release_group}@//" \
     | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)
   if [ -z "$latest" ]; then
     base="0.1.0"
@@ -73,8 +81,9 @@ while IFS= read -r svcdir; do
     --arg nxproject "$nxproj" \
     --arg projectpath "$host" \
     --arg scanpath "$svcdir" \
+    --arg releasegroup "$release_group" \
     --arg baseversion "$base" \
-    '{group:$group, service:$service, product:$product, nxProject:$nxproject, projectPath:$projectpath, scanPath:$scanpath, baseVersion:$baseversion}')")
+    '{group:$group, service:$service, product:$product, nxProject:$nxproject, projectPath:$projectpath, scanPath:$scanpath, releaseGroup:$releasegroup, baseVersion:$baseversion}')")
 done < <(find src/services -mindepth 2 -maxdepth 2 -type d | sort)
 
 printf '%s\n' "${objs[@]}" | jq -s '.'

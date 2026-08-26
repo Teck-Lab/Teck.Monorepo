@@ -141,12 +141,12 @@ jobs:
           for tag in $(git tag --points-at HEAD); do
             product="${tag%@*}"
             version="${tag##*@}"
-            entry=$(echo "$discovered" | jq -c --arg p "$product" '.[] | select(.product==$p)')
-            [ -z "$entry" ] && continue
+            entry=$(echo "$discovered" | jq -c --arg p "$product" '[.[] | select(.releaseGroup==$p)]')
+            [ "$entry" = "[]" ] && continue
             item=$(echo "$entry" | jq -c \
               --arg v "$version" --arg ref "refs/tags/$tag" \
-              '. + {version: $v, sourceRef: $ref}')
-            items=$(echo "$items" | jq -c --argjson it "$item" '. + [$it]')
+              '[.[] + {version: $v, sourceRef: $ref}]')
+            items=$(echo "$items" | jq -c --argjson it "$item" '. + $it')
           done
           count=$(echo "$items" | jq 'length')
           echo "matrix=$(echo "$items" | jq -c '{include: .}')" >> "$GITHUB_OUTPUT"

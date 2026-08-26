@@ -3,7 +3,16 @@ var builder = DistributedApplication.CreateBuilder(args);
 // Infrastructure
 // Database resource names use a "db" suffix to avoid Aspire's case-insensitive name
 // collision with the same-named project resources (order, customer, catalog).
-var postgres = builder.AddPostgres("postgres").WithDataVolume();
+// A generated password changes between AppHost launches, which cannot authenticate against a
+// retained PostgreSQL data volume. Keep the password in the AppHost secret store instead.
+var postgresPassword = builder.AddParameter("postgres-password", secret: true);
+var postgres = builder.AddPostgres("postgres", password: postgresPassword);
+bool useVolumes = !string.Equals(builder.Configuration["UseVolumes"], "false", StringComparison.OrdinalIgnoreCase);
+if (useVolumes)
+{
+    postgres.WithDataVolume();
+}
+
 var orderDb = postgres.AddDatabase("orderdb");
 var basketDb = postgres.AddDatabase("basketdb");
 var customerDb = postgres.AddDatabase("customerdb");
@@ -11,13 +20,18 @@ var catalogDb = postgres.AddDatabase("catalogdb");
 var inventoryDb = postgres.AddDatabase("inventorydb");
 var pricingDb = postgres.AddDatabase("pricingdb");
 var billingDb = postgres.AddDatabase("billingdb");
+var notificationDb = postgres.AddDatabase("notificationdb");
 
 var rabbitmq = builder.AddRabbitMQ("rabbitmq").WithManagementPlugin();
 var redis = builder.AddRedis("redis");
 
-var keycloak = builder.AddKeycloak("keycloak")
-    .WithDataVolume()
-    .WithRealmImport("./realms");
+var keycloak = builder.AddKeycloak("keycloak");
+if (useVolumes)
+{
+    keycloak.WithDataVolume();
+}
+
+keycloak.WithRealmImport("./realms");
 
 // Services. ConnectionStrings__{Name} env vars match what each persistence extension reads
 // (OrderWrite/OrderRead/CustomerWrite/CustomerRead/CatalogWrite/CatalogRead);
@@ -91,6 +105,13 @@ builder.AddProject<Projects.Billing_Host>("billing")
     .WithEnvironment("ConnectionStrings__BillingRead", billingDb)
     .WithReference(rabbitmq).WithReference(redis).WithReference(keycloak)
     .WaitFor(billingDb).WaitFor(keycloak);
+
+builder.AddProject<Projects.Notification_Host>("notification")
+    .WithHttpEndpoint(name: "http")
+    .WithEnvironment("ConnectionStrings__NotificationWrite", notificationDb)
+    .WithEnvironment("ConnectionStrings__NotificationRead", notificationDb)
+    .WithReference(rabbitmq).WithReference(keycloak)
+    .WaitFor(notificationDb).WaitFor(keycloak);
 
 // WithHttpEndpoint registers a named "http" endpoint so Aspire can inject the correct
 // ASPNETCORE_URLS and the testing framework can resolve it via CreateHttpClient("gateway", "http").

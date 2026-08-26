@@ -7,6 +7,7 @@ Supporting infrastructure services. Same 3-project structure as commerce. Postgr
 | Service | Projects | Key Characteristics |
 |---------|----------|-------------------|
 | **billing** | Domain + Application + Host (3) | Invoicing, payment processing |
+| **notification** | Domain + Application + Host (3) | Idempotent email notification and delivery records |
 | **device** | Domain + Application + Host + VendorWorker (4) | Device management, has background worker |
 | **location** | Domain + Application + Host (3) | Location data, geocoding |
 | **statistic** | Domain + Application + Host (3) | Analytics, real-time statistics |

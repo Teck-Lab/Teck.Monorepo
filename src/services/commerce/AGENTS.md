@@ -7,10 +7,11 @@ Core e-commerce domain. All 5 services are full clean architecture skeletons (7 
 | Service | Key Capabilities | Integration Events (Emits) | Integration Events (Consumes) |
 |---------|-----------------|---------------------------|-------------------------------|
 | **basket** | Cart management, line items, checkout | BasketCheckedOut | ProductPriceChanged, OrderPlaced |
-| **catalog** | Products, categories, variants, pricing | ProductPriceChanged | — |
+| **catalog** | Products, categories, variants, master data, default sell-price fallback | ProductPriceChanged | — |
 | **customer** | **Platform tenant authority.** Global tenant registry (`Tenant` entity), per-tenant database-strategy metadata, remote `GetTenantDatabaseInfo` gRPC handler (FastEndpoints `ICommandHandler`, not WolverineFx). No HTTP endpoints; no `ITenantScoped` aggregates (the Tenant entity IS the authority). Migration seed: `dev` tenant (id `00000000-0000-0000-0000-0000000000a1`, strategy `shared`). | CustomerCreated | — |
 | **order** | Order lifecycle, line items, fulfillment | OrderPlaced, OrderShipped | BasketCheckedOut, CustomerCreated |
-| **product** | Product catalog, inventory | — | — |
+| **pricing** | Price-list authority | PriceChanged | CatalogPriceChanged |
+| **inventory** | Stock authority | StockReserved, StockReservationRejected | BasketCheckedOut, OrderPlaced |
 
 ## Standard Service Structure (All Commerce Services)
 
