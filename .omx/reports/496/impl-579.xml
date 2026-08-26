@@ -1,0 +1,21 @@
+<implementation-result version="1">
+  <routing>
+    <work-kind>bug-fix</work-kind>
+    <workflow-stage>execution</workflow-stage>
+    <route>bug-fix:execution</route>
+  </routing>
+  <outcome>failed</outcome>
+  <base-sha>f1d0072248eafbad988952402d8bf93718c544a1</base-sha>
+  <tip-sha>17ca8bab1f1a4013aba7c3fc13d5d96881ed2acb</tip-sha>
+  <files-modified>src/shared/SharedKernel.Infrastructure/Database/MultiTenant/MultiTenantDbExtensions.cs, src/shared/SharedKernel.Infrastructure/MultiTenant/AmbientTenantInfo.cs, tests/unit/SharedKernel.UnitTests/MultiTenant/TenantResolutionOrderingTests.cs, tests/integration/Order.IntegrationTests/CreateOrderTests.cs</files-modified>
+  <validation-evidence><![CDATA[
+Implemented commit 17ca8bab1f1a4013aba7c3fc13d5d96881ed2acb: scoped ITenantInfo is now an ambient forwarding view. It reads Finbuckle's tenant when a handler uses Id/Identifier, after TenantPropagationMiddleware.Before, and throws a descriptive InvalidOperationException when no tenant exists rather than yielding an empty TenantDetails silent no-op.
+
+Pass: dotnet test tests/unit/SharedKernel.UnitTests/SharedKernel.UnitTests.csproj --no-restore --filter "FullyQualifiedName~TenantResolutionOrderingTests" --logger "console;verbosity=normal" -> 5/5 passed. The new test resolves ITenantInfo before any ambient tenant, runs TenantPropagationMiddleware against a tenant-bearing Envelope, and observes the envelope tenant; a distinct test verifies a tenantless use fails loudly.
+Pass: dotnet test tests/integration/Order.IntegrationTests/Order.IntegrationTests.csproj --no-restore --filter "FullyQualifiedName~TenantBearingLifecycleEnvelopes" --logger "console;verbosity=minimal" -> 1/1 passed. Its real Wolverine Order host scope begins with IMultiTenantContextAccessor and IMessageBus.TenantId unset, delivers tenant-bearing checkout, StockReservedV2, and PaymentCapturedV2 messages through generated handlers, and asserts OrderStatus.Confirmed, StockState.Reserved, and PaymentState.Captured.
+Mutation proof: temporarily restoring the old eager ITenantInfo registration made the same generated-pipeline test fail 1/1, with OrderEventTenantGuard reporting payload tenant 'unseeded-envelope-tenant' did not match injected empty tenant ''. The forwarding registration was restored before the final passing run.
+Pass: dotnet test tests/unit/Order.UnitTests/Order.UnitTests.csproj --logger "console;verbosity=minimal" -> 49/49 passed. Pass: git diff --check 1acdaf0e0f8e2fc84abeed5b35591cb843132a64 -> clean.
+Tenantless expiry proof: ReservationExpirySweepService.DiscoverTenantIdsAsync creates a scope without setting IMultiTenantContext; InventoryDbContextBase.FindTenantsWithExpiredReservationsAsync uses only IgnoreQueryFilters([Constants.TenantToken]) for discovery and does not resolve ITenantInfo. Per-tenant mutation remains in a fresh explicitly established tenant scope.
+]]></validation-evidence>
+  <remaining-risks>Required complete unit, integration, and architecture project matrix across every tenant-consuming service, the Billing #574/#556 and Inventory legs, Release solution build, and tenant-isolation/caller-controlled-tenant security scans were not completed in this dispatch. The result is therefore deliberately failed despite the focused regression and mutation proof passing; the known Semgrep OrderMigrationModelTests finding, skipped Billing TenantCollidingOrderIds #577 test, and parallel-only Pricing contention remain pre-existing items to report when the broader validation runs.</remaining-risks>
+</implementation-result>

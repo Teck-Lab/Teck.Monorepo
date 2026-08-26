@@ -105,10 +105,56 @@ public sealed class TenantResolutionOrderingTests
         }
     }
 
-    private static ServiceProvider CreateServices()
+    [Fact]
+    public void IncomingMessage_ResolvedAfterTenantInfoInjection_UsesEnvelopeTenantWhenTheHandlerRuns()
+    {
+        const string envelopeTenantId = "tenant-from-envelope";
+        using ServiceProvider provider = CreateServices(includeApplicationTenantInfo: true);
+        using IServiceScope scope = provider.CreateScope();
+        var tenant = scope.ServiceProvider.GetRequiredService<ITenantInfo>();
+        var accessor = scope.ServiceProvider.GetRequiredService<IMultiTenantContextAccessor<TenantDetails>>();
+        var setter = scope.ServiceProvider.GetRequiredService<IMultiTenantContextSetter>();
+        var messageContext = Substitute.For<IMessageContext>();
+        messageContext.Envelope.Returns(new Envelope(new TestMessage()) { TenantId = envelopeTenantId });
+        var middleware = new TenantPropagationMiddleware(
+            accessor,
+            setter,
+            NullLogger<TenantPropagationMiddleware>.Instance);
+
+        Assert.Null(accessor.MultiTenantContext?.TenantInfo);
+
+        TenantPropagationMiddleware.TenantPropagationScope tenantScope = middleware.Before(messageContext);
+        try
+        {
+            Assert.Equal(envelopeTenantId, tenant.Id);
+        }
+        finally
+        {
+            middleware.Finally(tenantScope);
+        }
+    }
+
+    [Fact]
+    public void TenantInfo_WithoutAnAmbientTenant_FailsWhenUsed()
+    {
+        using ServiceProvider provider = CreateServices(includeApplicationTenantInfo: true);
+        using IServiceScope scope = provider.CreateScope();
+        var tenant = scope.ServiceProvider.GetRequiredService<ITenantInfo>();
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => _ = tenant.Id);
+
+        Assert.Contains("No tenant is active", exception.Message, StringComparison.Ordinal);
+    }
+
+    private static ServiceProvider CreateServices(bool includeApplicationTenantInfo = false)
     {
         var services = new ServiceCollection();
         services.AddTeckCloudMultiTenancy();
+        if (includeApplicationTenantInfo)
+        {
+            services.AddScoped<ITenantInfo, AmbientTenantInfo>();
+        }
+
         return services.BuildServiceProvider();
     }
 

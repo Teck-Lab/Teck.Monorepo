@@ -60,6 +60,83 @@ public sealed class CreateOrderTests : OrderIntegrationTestBase
     }
 
     [Fact]
+    public async Task TenantBearingLifecycleEnvelopes_ResolveTenantAfterConsumerConstruction_AndConfirmOrder()
+    {
+        const string tenantId = "unseeded-envelope-tenant";
+        var checkout = new BasketCheckedOutV2IntegrationEvent
+        {
+            BasketId = Guid.NewGuid(),
+            CustomerId = Guid.NewGuid(),
+            KeycloakSubjectId = "subject-unseeded-envelope",
+            TenantId = tenantId,
+            Amount = 20m,
+            AuthorizedAmount = 20m,
+            Currency = "USD",
+            PaymentMethodToken = "pm_unseeded_envelope",
+            SourceCorrelationId = $"checkout-{Guid.NewGuid():N}",
+            CheckedOutAt = DateTimeOffset.UtcNow,
+            Items = [new BasketCheckedOutLineV2 { ProductId = Guid.NewGuid(), ProductName = "Tenant pipeline item", Quantity = 2, UnitPrice = 10m, LineTotal = 20m }],
+        };
+
+        Guid orderId;
+        using (var scope = Services.CreateScope())
+        {
+            var accessor = scope.ServiceProvider.GetRequiredService<IMultiTenantContextAccessor<TenantDetails>>();
+            var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+            Assert.Null(accessor.MultiTenantContext?.TenantInfo);
+            Assert.Null(bus.TenantId);
+
+            await bus.InvokeForTenantAsync(tenantId, checkout, CancellationToken.None);
+
+            await using var read = Services.CreateAsyncScope();
+            var context = read.ServiceProvider.GetRequiredService<Orders.Application.Database.OrderDbContext>();
+            orderId = await context.Orders.IgnoreQueryFilters([Constants.TenantToken])
+                .Where(order => order.CheckoutCorrelationId == checkout.SourceCorrelationId)
+                .Select(order => order.Id)
+                .SingleAsync();
+
+            await bus.InvokeForTenantAsync(
+                tenantId,
+                new StockReservedV2IntegrationEvent
+                {
+                    ReservationId = Guid.NewGuid(),
+                    OrderId = orderId,
+                    BasketId = checkout.BasketId,
+                    SourceType = "order",
+                    SourceId = orderId,
+                    SourceCorrelationId = checkout.SourceCorrelationId,
+                    TenantId = tenantId,
+                    IdempotencyKey = $"stock-{orderId:N}",
+                    Lines = [new StockReservationLine(checkout.Items[0].ProductId, 2, 0)],
+                },
+                CancellationToken.None);
+            await bus.InvokeForTenantAsync(
+                tenantId,
+                new PaymentCapturedV2IntegrationEvent
+                {
+                    PaymentId = Guid.NewGuid(),
+                    OrderId = orderId,
+                    TenantId = tenantId,
+                    Amount = checkout.Amount,
+                    AuthorizedAmount = checkout.AuthorizedAmount,
+                    Currency = checkout.Currency,
+                    RequestId = $"payment-{orderId:N}",
+                    SourceCorrelationId = checkout.SourceCorrelationId,
+                    CapturedAt = DateTimeOffset.UtcNow,
+                },
+                CancellationToken.None);
+        }
+
+        await using var assertionScope = Services.CreateAsyncScope();
+        var assertionContext = assertionScope.ServiceProvider.GetRequiredService<Orders.Application.Database.OrderDbContext>();
+        var order = await assertionContext.Orders.IgnoreQueryFilters([Constants.TenantToken]).SingleAsync(candidate => candidate.Id == orderId);
+
+        Assert.Equal(OrderStatus.Confirmed, order.Status);
+        Assert.Equal(StockState.Reserved, order.StockState);
+        Assert.Equal(PaymentState.Captured, order.PaymentState);
+    }
+
+    [Fact]
     public async Task GetOrder_ForeignTenantClaimAndHeader_IsNotFound()
     {
         const string otherTenantId = "00000000-0000-0000-0000-000000000002";

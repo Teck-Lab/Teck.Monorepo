@@ -55,11 +55,11 @@ public static class MultiTenantDbExtensions
         DatabaseProvider effectiveProvider = defaultProvider ?? DatabaseProvider.PostgreSQL;
 
         // AddTeckService registers Finbuckle with the signed-claim resolver before persistence
-        // is configured. This method only projects the resolved tenant for Application handlers;
-        // registering a second bare Finbuckle builder here would discard that resolver.
-        builder.Services.AddScoped<ITenantInfo>(sp =>
-            sp.GetRequiredService<IMultiTenantContextAccessor<TenantDetails>>().MultiTenantContext?.TenantInfo
-                ?? new TenantDetails());
+        // is configured. The scoped view defers its lookup until a handler uses it because
+        // Wolverine materializes dependencies before TenantPropagationMiddleware establishes an
+        // incoming envelope's tenant. A missing tenant now fails at use rather than becoming an
+        // empty TenantDetails that silently filters every tenant-scoped query.
+        builder.Services.AddScoped<ITenantInfo, AmbientTenantInfo>();
 
         // Bind OpenBao options and register the vault connection provider
         var openBaoOptions = builder.Configuration
