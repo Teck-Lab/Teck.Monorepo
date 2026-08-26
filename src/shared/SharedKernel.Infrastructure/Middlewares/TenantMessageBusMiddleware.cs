@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
+using SharedKernel.Infrastructure.Messaging.MultiTenant;
 using SharedKernel.Infrastructure.MultiTenant;
 using Wolverine;
 
@@ -10,8 +11,9 @@ namespace SharedKernel.Infrastructure.Middlewares;
 /// </summary>
 /// <remarks>
 /// This boundary deliberately resolves tenants only from signed claims. It neither reads request headers
-/// nor establishes <c>TenantPropagationContext</c>; Wolverine's message middleware derives that context
-/// from the tenant-bearing command envelope after this bus has invoked it.
+/// nor treats a caller-supplied tenant as authority. It establishes <c>TenantPropagationContext</c> for
+/// the request so Wolverine can stamp the resolved tenant onto outgoing envelopes before durable outbox
+/// persistence.
 /// </remarks>
 /// <param name="next">The next middleware in the HTTP pipeline.</param>
 public sealed class TenantMessageBusMiddleware(RequestDelegate next)
@@ -56,7 +58,9 @@ public sealed class TenantMessageBusMiddleware(RequestDelegate next)
         }
 
         string? previousTenantId = bus.TenantId;
+        string? previousPropagationTenantId = TenantPropagationContext.CurrentTenantId;
         bus.TenantId = tenantIds[0];
+        TenantPropagationContext.CurrentTenantId = tenantIds[0];
 
         try
         {
@@ -65,6 +69,7 @@ public sealed class TenantMessageBusMiddleware(RequestDelegate next)
         finally
         {
             bus.TenantId = previousTenantId;
+            TenantPropagationContext.CurrentTenantId = previousPropagationTenantId;
         }
     }
 }
