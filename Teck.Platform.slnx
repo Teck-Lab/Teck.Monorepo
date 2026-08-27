@@ -69,6 +69,7 @@
   <Folder Name="/src/aspire/">
     <Project Path="src/aspire/Teck.ServiceDefaults/Teck.ServiceDefaults.csproj" />
     <Project Path="src/aspire/Teck.AppHost/Teck.AppHost.csproj" />
+    <Project Path="src/aspire/Teck.LocalIdentity/Teck.LocalIdentity.csproj" />
   </Folder>
   <Folder Name="/src/apps/" />
   <Folder Name="/src/packages/" />
@@ -90,6 +91,7 @@
     <Project Path="tests/unit/Gateway.Public.UnitTests/Gateway.Public.UnitTests.csproj" />
     <Project Path="tests/unit/Pricing.UnitTests/Pricing.UnitTests.csproj" />
     <Project Path="tests/unit/Teck.ServiceDefaults.UnitTests/Teck.ServiceDefaults.UnitTests.csproj" />
+    <Project Path="tests/unit/Teck.LocalIdentity.UnitTests/Teck.LocalIdentity.UnitTests.csproj" />
     <Project Path="tests/unit/Notification.UnitTests/Notification.UnitTests.csproj" />
     <Project Path="tests/integration/Teck.Platform.IntegrationTests.Shared/Teck.Platform.IntegrationTests.Shared.csproj" />
     <Project Path="tests/integration/Basket.IntegrationTests/Basket.IntegrationTests.csproj" />

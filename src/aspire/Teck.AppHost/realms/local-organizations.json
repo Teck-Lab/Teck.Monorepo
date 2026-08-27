@@ -1,0 +1,30 @@
+{
+  "organizations": [
+    {
+      "name": "Teck Local Alpha",
+      "alias": "teck-local-alpha",
+      "enabled": true,
+      "domains": [{ "name": "alpha.teck.local", "verified": false }],
+      "members": ["dev@teck.local", "dev-reader@teck.local"],
+      "tenant": {
+        "identifier": "teck-local-alpha",
+        "databaseStrategy": "shared",
+        "databaseProvider": "postgres",
+        "hasReadReplicas": false
+      }
+    },
+    {
+      "name": "Teck Local Beta",
+      "alias": "teck-local-beta",
+      "enabled": true,
+      "domains": [{ "name": "beta.teck.local", "verified": false }],
+      "members": ["dev@teck.local"],
+      "tenant": {
+        "identifier": "teck-local-beta",
+        "databaseStrategy": "shared",
+        "databaseProvider": "postgres",
+        "hasReadReplicas": false
+      }
+    }
+  ]
+}
