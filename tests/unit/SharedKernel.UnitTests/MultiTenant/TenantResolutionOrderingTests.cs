@@ -150,6 +150,7 @@ public sealed class TenantResolutionOrderingTests
     {
         var services = new ServiceCollection();
         services.AddTeckCloudMultiTenancy();
+        services.AddSingleton<ITenantTokenContextResolver, TenantTokenContextResolver>();
         if (includeApplicationTenantInfo)
         {
             services.AddScoped<ITenantInfo, AmbientTenantInfo>();

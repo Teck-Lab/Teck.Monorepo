@@ -36,12 +36,16 @@ public sealed class TenantTokenContextResolver : ITenantTokenContextResolver
 
         var tenantIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        string? organizationClaimValue = user.FindFirst(organizationClaimName)?.Value;
-        if (!string.IsNullOrWhiteSpace(organizationClaimValue))
+        foreach (Claim organizationClaim in user.FindAll(organizationClaimName))
         {
+            if (string.IsNullOrWhiteSpace(organizationClaim.Value))
+            {
+                continue;
+            }
+
             try
             {
-                using JsonDocument organizationsJson = JsonDocument.Parse(organizationClaimValue);
+                using JsonDocument organizationsJson = JsonDocument.Parse(organizationClaim.Value);
                 if (organizationsJson.RootElement.ValueKind == JsonValueKind.Object)
                 {
                     foreach (JsonProperty organization in organizationsJson.RootElement.EnumerateObject())
@@ -66,12 +70,8 @@ public sealed class TenantTokenContextResolver : ITenantTokenContextResolver
             }
             catch (JsonException)
             {
-                foreach (string tenantId in organizationClaimValue
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .Where(static tenantId => !string.IsNullOrWhiteSpace(tenantId)))
-                {
-                    tenantIds.Add(tenantId);
-                }
+                // Keycloak may emit scalar organization-scope claims alongside membership
+                // objects. A scalar is never a tenant authority and must not be promoted.
             }
         }
 

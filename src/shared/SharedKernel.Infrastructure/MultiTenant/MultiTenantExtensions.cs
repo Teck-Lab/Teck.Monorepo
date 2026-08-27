@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Finbuckle.MultiTenant.Abstractions;
 using Finbuckle.MultiTenant.Extensions;
 using Microsoft.AspNetCore.Http;
@@ -117,93 +116,38 @@ string httpClientName = "TenantApi")
         return services;
     }
 
-    // Helper method to resolve tenant ID from claims
+    // Resolve tenant identity exclusively from signed token claims.
     private static async Task<string?> ResolveClaimStrategy(object context)
     {
-        var httpContext = context as HttpContext;
-        if (httpContext?.User?.Identity?.IsAuthenticated != true)
+        if (context is not HttpContext httpContext || httpContext.User.Identity?.IsAuthenticated != true)
         {
             return null;
         }
 
-        // Get options to determine which claim names to use
         var options = httpContext.RequestServices.GetService<IOptions<TeckCloudMultiTenancyOptions>>()?.Value
             ?? new TeckCloudMultiTenancyOptions();
+        var tokenContextResolver = httpContext.RequestServices.GetRequiredService<ITenantTokenContextResolver>();
+        string[] tenantIds = tokenContextResolver
+            .ResolveTenantIds(httpContext.User, options.OrganizationClaimName, options.TenantIdClaimName)
+            .ToArray();
 
-        // First check for the organization claim (new nested JSON structure)
-        var organizationClaim = httpContext.User.FindFirst(options.OrganizationClaimName);
-        if (organizationClaim != null && !string.IsNullOrWhiteSpace(organizationClaim.Value))
+        if (tenantIds.Length == 0)
         {
-            try
-            {
-                // Parse the JSON from the claim
-                // Expected format: { "OrgName1": { "id": "guid1" }, "OrgName2": { "id": "guid2" } }
-                var organizationsJson = JsonDocument.Parse(organizationClaim.Value);
-                var tenantIds = new List<string>();
-                var tenantNames = new Dictionary<string, string>(); // Map of tenant ID to tenant name
-
-                // Extract organization IDs from the JSON structure
-                foreach (var org in organizationsJson.RootElement.EnumerateObject())
-                {
-                    string tenantName = org.Name; // This is the tenant name (e.g., "Dagrofa")
-
-                    if (org.Value.TryGetProperty("id", out var idProperty) &&
-                        idProperty.ValueKind == JsonValueKind.String)
-                    {
-                        var orgId = idProperty.GetString();
-                        if (!string.IsNullOrEmpty(orgId))
-                        {
-                            tenantIds.Add(orgId);
-                            tenantNames[orgId] = tenantName;
-                        }
-                    }
-                }
-
-                if (tenantIds.Count > 0)
-                {
-                    // Store all tenant IDs and names in context for potential later use
-                    httpContext.Items["AvailableTenantIds"] = tenantIds.ToArray();
-                    httpContext.Items["TenantNames"] = tenantNames;
-
-                    // Process according to the strategy
-                    return await ResolveTenantIdFromList(httpContext, tenantIds.ToArray(), options, context);
-                }
-            }
-            catch (JsonException exception)
-            {
-                // If JSON parsing fails, log and fall back to other strategies
-                var logger = httpContext.RequestServices.GetService<ILogger<IMultiTenantContext>>();
-                logger?.LogWarning(exception, "Failed to parse organization claim JSON: {ClaimValue}", organizationClaim.Value);
-            }
-        }
-
-        // If organization claim approach fails, check for the single tenant ID claim
-        var tenantClaim = httpContext.User.FindFirst(options.TenantIdClaimName);
-        if (tenantClaim != null && !string.IsNullOrWhiteSpace(tenantClaim.Value))
-        {
-            return tenantClaim.Value;
-        }
-
-        // If not found, check for the multi-tenant claim
-        var multiTenantClaim = httpContext.User.FindFirst(options.MultiTenantClaimName);
-        if (multiTenantClaim != null && !string.IsNullOrWhiteSpace(multiTenantClaim.Value))
-        {
-            // Split the value by the separator
-            var tenantIds = multiTenantClaim.Value.Split(
+            string? multiTenantClaim = httpContext.User.FindFirst(options.MultiTenantClaimName)?.Value;
+            tenantIds = string.IsNullOrWhiteSpace(multiTenantClaim)
+                ? []
+                : multiTenantClaim.Split(
                 new[] { options.TenantIdSeparator },
-                StringSplitOptions.RemoveEmptyEntries);
-
-            if (tenantIds.Length > 0)
-            {
-                // Store all tenant IDs in context for potential later use
-                httpContext.Items["AvailableTenantIds"] = tenantIds;
-
-                // Process according to the strategy
-                return await ResolveTenantIdFromList(httpContext, tenantIds, options, context);
-            }
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         }
 
-        return null;
+        if (tenantIds.Length == 0)
+        {
+            return null;
+        }
+
+        httpContext.Items["AvailableTenantIds"] = tenantIds;
+        return await ResolveTenantIdFromList(httpContext, tenantIds, options, context);
     }
 
     // Helper method to resolve tenant ID from a list based on strategy

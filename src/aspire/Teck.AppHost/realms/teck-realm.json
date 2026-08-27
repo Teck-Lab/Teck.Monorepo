@@ -280,7 +280,11 @@
     {
       "username": "dev@teck.local",
       "email": "dev@teck.local",
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "User",
       "enabled": true,
+      "requiredActions": [],
       "realmRoles": ["platform-reader", "platform-manager"],
       "credentials": [
         {
@@ -293,7 +297,11 @@
     {
       "username": "dev-reader@teck.local",
       "email": "dev-reader@teck.local",
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "Reader",
       "enabled": true,
+      "requiredActions": [],
       "realmRoles": ["platform-reader"],
       "credentials": [
         {
