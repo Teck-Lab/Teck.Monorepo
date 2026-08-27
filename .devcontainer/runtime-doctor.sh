@@ -43,6 +43,11 @@ if [ -s "$HOME/.claude/.credentials.json" ] && [ -s "$HOME/.claude.json" ]; then
 else
   warn 'Claude authentication mounts are missing; use the Codex Sol/high coordinator fallback'
 fi
+if [ -d "$HOME/.claude" ] && [ -w "$HOME/.claude" ]; then
+  pass 'Claude config directory is writable for transcripts and resume state'
+else
+  fail 'Claude config directory is not writable; transcript persistence will fail with EACCES'
+fi
 if [ -s "$HOME/.claude/settings.json" ] \
   && jq -e '.skipDangerousModePermissionPrompt == true' "$HOME/.claude/settings.json" >/dev/null 2>&1; then
   pass 'Claude unattended bypass confirmation is configured'

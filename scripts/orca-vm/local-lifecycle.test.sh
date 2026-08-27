@@ -37,6 +37,8 @@ jq -e '
   and any(.mounts[]; . == "source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind")
 ' "$devcontainer" >/dev/null
 grep -q 'for command_name in .*claude codex' "$repo_root/.devcontainer/runtime-doctor.sh"
+grep -q "sudo chown .*\$HOME/.claude" "$repo_root/.devcontainer/postCreate.sh"
+grep -q "Claude config directory is writable" "$repo_root/.devcontainer/runtime-doctor.sh"
 grep -q 'skipDangerousModePermissionPrompt == true' "$repo_root/.devcontainer/runtime-doctor.sh"
 if grep -q 'attempt_suffix' "$create"; then
   echo 'create still uses an attempt timestamp instead of stable instance identity' >&2

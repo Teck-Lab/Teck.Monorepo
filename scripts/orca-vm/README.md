@@ -37,7 +37,9 @@ Docker reuses unchanged build layers.
    auth. Set `skipDangerousModePermissionPrompt` to `true` in the host Claude
    settings so unattended workers launched with `--dangerously-skip-permissions`
    cannot stop at the confirmation dialog. Other Claude settings and history
-   remain in an isolated per-devcontainer volume.
+   remain in an isolated per-devcontainer volume. Container setup assigns that
+   volume mountpoint to the non-root `vscode` user so Claude can persist
+   transcripts and resume state.
 4. Validate statically with
    `orca-ide vm recipe doctor local-devcontainer --repo-path . --json`.
 5. Add `--provision` for a live create/destroy validation.
