@@ -67,11 +67,9 @@ public sealed class RoutedServiceAuthorizationTests(LocalIdentityKeycloakFixture
         Assert.Equal(path.StartsWith("/orders", StringComparison.Ordinal) ? JsonValueKind.Object : JsonValueKind.Array, responseBody.RootElement.ValueKind);
     }
 
-    /// <summary>Ensures the dual-member developer reaches a real routed service for every provisioned tenant.</summary>
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    public async Task GatewayRead_WhenDeveloperSelectsEachProvisionedTenant_ReachesPricingService(int organizationIndex)
+    /// <summary>Ensures each selected tenant writes and reads only its own pricing state through the real gateway.</summary>
+    [Fact]
+    public async Task GatewayRequest_WhenDeveloperSelectsEachProvisionedTenant_IsolatesPricingState()
     {
         LocalIdentityTestInstance instance = fixture.Provisioned;
         string token = await LocalIdentityKeycloakFixture.GetTokenAsync(
@@ -80,20 +78,25 @@ public sealed class RoutedServiceAuthorizationTests(LocalIdentityKeycloakFixture
             LocalIdentityKeycloakFixture.DeveloperPassword).ConfigureAwait(false);
         string issuer = LocalIdentityKeycloakFixture.ReadToken(token).Issuer;
         IReadOnlyList<SecurityKey> signingKeys = await GetPublishedSigningKeysAsync(issuer).ConfigureAwait(false);
-        string tenantId = TenantAwareSignInTests.ReadOrganizationIds(LocalIdentityKeycloakFixture.ReadToken(token))[organizationIndex];
+        string[] tenantIds = TenantAwareSignInTests.ReadOrganizationIds(LocalIdentityKeycloakFixture.ReadToken(token));
+        Assert.Equal(2, tenantIds.Length);
         using var routedServices = await RoutedServiceHosts.CreateAsync(instance, issuer, signingKeys).ConfigureAwait(false);
         using var gateway = new RealIdentityGatewayFactory(instance, routedServices, issuer, signingKeys);
         using HttpClient client = gateway.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        client.DefaultRequestHeaders.Add("X-TenantId", tenantId);
 
-        HttpResponseMessage response = await client.GetAsync(new Uri("/price-lists", UriKind.Relative)).ConfigureAwait(false);
+        string firstTenantPriceListName = $"tenant-one-price-list-{Guid.NewGuid():N}";
+        string secondTenantPriceListName = $"tenant-two-price-list-{Guid.NewGuid():N}";
+        await CreatePriceListAsync(client, tenantIds[0], firstTenantPriceListName).ConfigureAwait(false);
+        await CreatePriceListAsync(client, tenantIds[1], secondTenantPriceListName).ConfigureAwait(false);
 
-        Assert.True(
-            response.StatusCode == HttpStatusCode.OK,
-            $"Developer tenant read returned {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync().ConfigureAwait(false)}");
-        using JsonDocument responseBody = JsonDocument.Parse(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
-        Assert.Equal(JsonValueKind.Array, responseBody.RootElement.ValueKind);
+        IReadOnlyList<string> firstTenantPriceListNames = await GetPriceListNamesAsync(client, tenantIds[0]).ConfigureAwait(false);
+        IReadOnlyList<string> secondTenantPriceListNames = await GetPriceListNamesAsync(client, tenantIds[1]).ConfigureAwait(false);
+
+        Assert.Contains(firstTenantPriceListName, firstTenantPriceListNames);
+        Assert.DoesNotContain(secondTenantPriceListName, firstTenantPriceListNames);
+        Assert.Contains(secondTenantPriceListName, secondTenantPriceListNames);
+        Assert.DoesNotContain(firstTenantPriceListName, secondTenantPriceListNames);
     }
 
     /// <summary>Ensures reader-only access is refused by each real management endpoint.</summary>
@@ -173,6 +176,39 @@ public sealed class RoutedServiceAuthorizationTests(LocalIdentityKeycloakFixture
         using var client = new HttpClient();
         string jwks = await client.GetStringAsync($"{issuer}/protocol/openid-connect/certs").ConfigureAwait(false);
         return new JsonWebKeySet(jwks).GetSigningKeys().ToArray();
+    }
+
+    private static async Task CreatePriceListAsync(HttpClient client, string tenantId, string name)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri("/price-lists", UriKind.Relative))
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new { name, currency = "USD" }),
+                Encoding.UTF8,
+                "application/json"),
+        };
+        request.Headers.Add("X-TenantId", tenantId);
+
+        using HttpResponseMessage response = await client.SendAsync(request).ConfigureAwait(false);
+        Assert.True(
+            response.StatusCode == HttpStatusCode.Created,
+            $"Tenant {tenantId} price-list creation returned {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync().ConfigureAwait(false)}");
+    }
+
+    private static async Task<IReadOnlyList<string>> GetPriceListNamesAsync(HttpClient client, string tenantId)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri("/price-lists", UriKind.Relative));
+        request.Headers.Add("X-TenantId", tenantId);
+
+        using HttpResponseMessage response = await client.SendAsync(request).ConfigureAwait(false);
+        string responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK,
+            $"Tenant {tenantId} price-list read returned {(int)response.StatusCode}: {responseBody}");
+        using JsonDocument document = JsonDocument.Parse(responseBody);
+        return document.RootElement.EnumerateArray()
+            .Select(priceList => priceList.GetProperty("name").GetString() ?? string.Empty)
+            .ToArray();
     }
 
     private sealed class RealIdentityGatewayFactory(

@@ -116,7 +116,8 @@ string httpClientName = "TenantApi")
         return services;
     }
 
-    // Resolve tenant identity exclusively from signed token claims.
+    // Resolve tenant identity from signed token claims and permit a request to select only one
+    // of those signed tenant identifiers.
     private static async Task<string?> ResolveClaimStrategy(object context)
     {
         if (context is not HttpContext httpContext || httpContext.User.Identity?.IsAuthenticated != true)
@@ -198,16 +199,22 @@ string httpClientName = "TenantApi")
                 return tenantIds[0];
 
             case MultiTenantResolutionStrategy.FromRequest:
-                // Try to get from header or URL
+                // A missing selected-tenant header preserves the established first-membership
+                // behavior. When one is supplied, it must be a case-sensitive exact signed
+                // membership; an untrusted identifier never falls back to another tenant.
+                if (!httpContext.Request.Headers.ContainsKey(options.TenantIdHeaderName))
+                {
+                    return tenantIds[0];
+                }
+
                 var headerTenantId = await ResolveHeaderStrategy(context);
                 if (!string.IsNullOrWhiteSpace(headerTenantId) &&
-                    tenantIds.Contains(headerTenantId, StringComparer.OrdinalIgnoreCase))
+                    tenantIds.Contains(headerTenantId, StringComparer.Ordinal))
                 {
                     return headerTenantId;
                 }
 
-                // Default to first if not found in request
-                return tenantIds[0];
+                return null;
 
             case MultiTenantResolutionStrategy.Custom:
                 // Application code will handle this
