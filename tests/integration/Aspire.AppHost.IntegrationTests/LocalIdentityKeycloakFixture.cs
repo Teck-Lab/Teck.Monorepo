@@ -6,6 +6,7 @@ extern alias PricingApplication;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Customers.Application.Database;
 using Customers.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -34,6 +35,7 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
     private const string AdminUsername = "admin";
     private const string AdminPassword = "local-only-keycloak-admin-password-not-for-production";
     private const string KeycloakImage = "quay.io/keycloak/keycloak:26.6.0";
+    private static readonly Regex DatabaseIdentifierPattern = new("^[a-z0-9_]{1,63}$", RegexOptions.CultureInvariant);
     private PostgreSqlContainer? postgres;
     private KeycloakContainer? provisioned;
     private KeycloakContainer? unprovisioned;
@@ -192,11 +194,13 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
     private async Task<string> CreateMigratedDatabaseAsync<TDbContext>(string databaseName, string migrationsAssembly)
         where TDbContext : DbContext
     {
+        ValidateDatabaseIdentifier(databaseName);
         PostgreSqlContainer database = GetRequired(postgres);
         await using var admin = new global::Npgsql.NpgsqlConnection(database.GetConnectionString());
         await admin.OpenAsync().ConfigureAwait(false);
         await using (var command = admin.CreateCommand())
         {
+            // nosemgrep: csharp.lang.security.sqli.csharp-sqli.csharp-sqli -- ValidateDatabaseIdentifier restricts databaseName to safe PostgreSQL identifier characters.
             command.CommandText = $"CREATE DATABASE \"{databaseName}\"";
             await command.ExecuteNonQueryAsync().ConfigureAwait(false);
         }
@@ -213,6 +217,14 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
     private static CustomerDbContext CreateCustomerContext(string connectionString) => new(
         new DbContextOptionsBuilder<CustomerDbContext>().UseNpgsql(connectionString).Options,
         null!);
+
+    private static void ValidateDatabaseIdentifier(string databaseName)
+    {
+        if (string.IsNullOrEmpty(databaseName) || !DatabaseIdentifierPattern.IsMatch(databaseName))
+        {
+            throw new ArgumentException("Database identifiers must contain only lowercase letters, digits, and underscores and be at most 63 characters long.", nameof(databaseName));
+        }
+    }
 
     private static string FindRepositoryRoot()
     {
