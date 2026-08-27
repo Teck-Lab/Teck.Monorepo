@@ -24,7 +24,13 @@
     <ProjectReference Include="..\..\..\src\services\commerce\order\Order.Host\Order.Host.csproj">
       <Aliases>OrderHost</Aliases>
     </ProjectReference>
+    <ProjectReference Include="..\..\..\src\services\commerce\pricing\Pricing.Host\Pricing.Host.csproj">
+      <Aliases>PricingHost</Aliases>
+    </ProjectReference>
     <ProjectReference Include="..\..\..\src\services\commerce\order\Order.Application\Order.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\services\commerce\pricing\Pricing.Application\Pricing.Application.csproj">
+      <Aliases>PricingApplication</Aliases>
+    </ProjectReference>
     <ProjectReference Include="..\..\..\src\services\commerce\customer\Customer.Application\Customer.Application.csproj" />
     <ProjectReference Include="..\..\..\src\services\commerce\customer\Customer.Domain\Customer.Domain.csproj" />
     <ProjectReference Include="..\..\..\src\services\commerce\order\Order.Domain\Order.Domain.csproj" />
