@@ -48,12 +48,6 @@ if [ -d "$HOME/.claude" ] && [ -w "$HOME/.claude" ]; then
 else
   fail 'Claude config directory is not writable; transcript persistence will fail with EACCES'
 fi
-if [ -s "$HOME/.claude/settings.json" ] \
-  && jq -e '.skipDangerousModePermissionPrompt == true' "$HOME/.claude/settings.json" >/dev/null 2>&1; then
-  pass 'Claude unattended bypass confirmation is configured'
-else
-  fail 'Claude settings must set skipDangerousModePermissionPrompt to true for unattended workers'
-fi
 if gh auth status >/dev/null 2>&1; then
   pass 'GitHub CLI authentication works'
 else
