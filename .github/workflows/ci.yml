@@ -62,11 +62,12 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Derive nx affected SHAs
-        uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5.0.1
-
+      # `nx affected` ignores --projects, so `nx affected -t test --projects=...`
+      # silently ran the entire affected test set — byte-identical to the 32 targets
+      # PR Checks already runs, duplicating every container-backed integration suite on
+      # a second runner. run-many honours the filter, which is what this job is named for.
       - name: Run architecture tests
-        run: bunx nx affected -t test --projects='*.Architecture.UnitTests'
+        run: bunx nx run-many -t test --projects='*.Architecture.UnitTests'
 
   validate-specs:
     name: OpenAPI Spec Validation
