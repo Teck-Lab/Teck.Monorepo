@@ -40,7 +40,7 @@ public sealed class OrganizationReconcilerTests
     {
         for (DirectoryInfo? directory = new(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
         {
-            string path = Path.Combine(directory.FullName, "src", "aspire", "Teck.AppHost", "realms", "local-organizations.json");
+            string path = Path.Combine(directory.FullName, "src", "aspire", "Teck.AppHost", "identity", "local-organizations.json");
             if (File.Exists(path))
             {
                 return JsonDocument.Parse(File.ReadAllText(path));

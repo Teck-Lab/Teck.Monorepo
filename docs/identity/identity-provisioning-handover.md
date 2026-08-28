@@ -4,7 +4,7 @@ This is the staging and production identity contract. It is derived from the
 committed local reference manifests:
 
 - `src/aspire/Teck.AppHost/realms/teck-realm.json`
-- `src/aspire/Teck.AppHost/realms/local-organizations.json`
+- `src/aspire/Teck.AppHost/identity/local-organizations.json`
 
 Teck.Terraform and Teck.GitOps must provision the environment-specific
 equivalent of every object below. The local manifests are an object inventory,

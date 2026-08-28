@@ -12,7 +12,7 @@ var options = new LocalIdentityOptions
     AdminUsername = configuration["Keycloak:AdminUsername"] ?? "admin",
     AdminPassword = configuration["Keycloak:AdminPassword"] ?? string.Empty,
     ManifestPath = configuration["Keycloak:ManifestPath"] ?? "src/aspire/Teck.AppHost/realms/teck-realm.json",
-    OrganizationManifestPath = configuration["Keycloak:OrganizationManifestPath"] ?? "src/aspire/Teck.AppHost/realms/local-organizations.json",
+    OrganizationManifestPath = configuration["Keycloak:OrganizationManifestPath"] ?? "src/aspire/Teck.AppHost/identity/local-organizations.json",
     Realm = configuration["Keycloak:Realm"] ?? "teck",
 };
 options.Validate();

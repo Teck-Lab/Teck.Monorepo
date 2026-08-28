@@ -201,6 +201,33 @@ public sealed class RealmPermissionContractTests
         .Distinct()
         .ToArray();
 
+    /// <summary>Ensures the realm import directory holds only importable realm documents.</summary>
+    /// <remarks>
+    /// Aspire bind-mounts this directory as Keycloak's data/import folder and Keycloak imports
+    /// every JSON file in it as a realm. A non-realm document there aborts the import, so the
+    /// container exits 1 and crash-loops, and every resource that waits on Keycloak — the whole
+    /// stack — never starts. That is silent: the failure surfaces only as a hang. Keep this
+    /// directory free of anything that is not a realm.
+    /// </remarks>
+    [Fact]
+    public void RealmImportDirectory_WhenAspireMountsIt_ContainsOnlyImportableRealmDocuments()
+    {
+        string importDirectory = Path.Combine(FindRepositoryRoot(), "src", "aspire", "Teck.AppHost", "realms");
+
+        string[] files = Directory.GetFiles(importDirectory);
+
+        Assert.NotEmpty(files);
+        foreach (string file in files)
+        {
+            using JsonDocument document = JsonDocument.Parse(File.ReadAllText(file));
+            Assert.True(
+                document.RootElement.TryGetProperty("realm", out JsonElement realmName)
+                    && !string.IsNullOrWhiteSpace(realmName.GetString()),
+                $"'{Path.GetFileName(file)}' sits in Keycloak's import directory but declares no realm. "
+                + "Keycloak will fail the whole import and crash-loop. Move it outside this directory.");
+        }
+    }
+
     private static JsonDocument ReadRealm()
     {
         string root = FindRepositoryRoot();

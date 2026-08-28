@@ -218,7 +218,7 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
         using var client = new HttpClient { BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute) };
         string root = FindRepositoryRoot();
         using JsonDocument realm = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(root, "src", "aspire", "Teck.AppHost", "realms", "teck-realm.json")).ConfigureAwait(false));
-        using JsonDocument organizations = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(root, "src", "aspire", "Teck.AppHost", "realms", "local-organizations.json")).ConfigureAwait(false));
+        using JsonDocument organizations = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(root, "src", "aspire", "Teck.AppHost", "identity", "local-organizations.json")).ConfigureAwait(false));
 
         await new RealmReconciler(client, options).ReconcileAsync(realm, CancellationToken.None).ConfigureAwait(false);
         var provisioner = new LocalIdentityProvisioner(

@@ -16,7 +16,7 @@ public sealed class LocalIdentityOptions
     public string ManifestPath { get; set; } = "src/aspire/Teck.AppHost/realms/teck-realm.json";
 
     /// <summary>Gets or sets the path to the committed local organization manifest.</summary>
-    public string OrganizationManifestPath { get; set; } = "src/aspire/Teck.AppHost/realms/local-organizations.json";
+    public string OrganizationManifestPath { get; set; } = "src/aspire/Teck.AppHost/identity/local-organizations.json";
 
     /// <summary>Gets or sets the Keycloak realm that owns the local organizations.</summary>
     public string Realm { get; set; } = "teck";
