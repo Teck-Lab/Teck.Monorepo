@@ -44,6 +44,7 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
     private string? unprovisionedConnectionString;
     private string? orderConnectionString;
     private string? pricingConnectionString;
+    private Dictionary<bool, Lazy<Task<RoutedServiceFixture>>>? routedServiceFixtures;
 
     /// <summary>Gets the Keycloak state after reconciliation and tenant registration.</summary>
     internal LocalIdentityTestInstance Provisioned => new(
@@ -53,15 +54,6 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
         GetRequired(pricingConnectionString),
         RabbitMqConnectionString,
         true);
-
-    /// <summary>Gets the imported-realm-only state before the documented reconciliation command runs.</summary>
-    internal LocalIdentityTestInstance Unprovisioned => new(
-        GetRequired(unprovisioned),
-        GetRequired(unprovisionedConnectionString),
-        GetRequired(orderConnectionString),
-        GetRequired(pricingConnectionString),
-        RabbitMqConnectionString,
-        false);
 
     /// <summary>Gets the migrated shared database used by the in-process order host.</summary>
     internal string OrderConnectionString => GetRequired(orderConnectionString);
@@ -86,19 +78,29 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
             .WithPassword("guest")
             .Build();
         provisioned = CreateKeycloak(realmPath);
-        unprovisioned = CreateKeycloak(realmPath);
 
-        await Task.WhenAll(postgres.StartAsync(), rabbitMq.StartAsync(), provisioned.StartAsync(), unprovisioned.StartAsync()).ConfigureAwait(false);
+        await Task.WhenAll(postgres.StartAsync(), rabbitMq.StartAsync(), provisioned.StartAsync()).ConfigureAwait(false);
         provisionedConnectionString = await CreateMigratedDatabaseAsync<CustomerDbContext>("local_identity_provisioned", typeof(CustomerHost::Program).Assembly.GetName().Name!).ConfigureAwait(false);
-        unprovisionedConnectionString = await CreateMigratedDatabaseAsync<CustomerDbContext>("local_identity_unprovisioned", typeof(CustomerHost::Program).Assembly.GetName().Name!).ConfigureAwait(false);
         orderConnectionString = await CreateMigratedDatabaseAsync<Orders.Application.Database.OrderDbContext>("local_identity_order", typeof(OrderHost::Program).Assembly.GetName().Name!).ConfigureAwait(false);
         pricingConnectionString = await CreateMigratedDatabaseAsync<PricingApplication::Pricing.Application.Database.PricingDbContext>("local_identity_pricing", typeof(PricingHost::Program).Assembly.GetName().Name!).ConfigureAwait(false);
         await ReconcileProvisionedInstanceAsync().ConfigureAwait(false);
+        routedServiceFixtures = [];
     }
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
+        if (routedServiceFixtures is not null)
+        {
+            foreach (Lazy<Task<RoutedServiceFixture>> fixture in routedServiceFixtures.Values)
+            {
+                if (fixture.IsValueCreated && fixture.Value.IsCompletedSuccessfully)
+                {
+                    (await fixture.Value.ConfigureAwait(false)).Dispose();
+                }
+            }
+        }
+
         if (unprovisioned is not null)
         {
             await unprovisioned.DisposeAsync().ConfigureAwait(false);
@@ -162,6 +164,40 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
 
     /// <summary>Parses the access token without validating it; Keycloak issued it moments earlier over the fixture's private endpoint.</summary>
     internal static JwtSecurityToken ReadToken(string accessToken) => new JwtSecurityTokenHandler().ReadJwtToken(accessToken);
+
+    /// <summary>Starts the imported-realm-only control only for a test that explicitly needs the pre-command state.</summary>
+    internal async Task<LocalIdentityTestInstance> GetUnprovisionedAsync()
+    {
+        if (unprovisioned is null)
+        {
+            string realmPath = Path.Combine(FindRepositoryRoot(), "src", "aspire", "Teck.AppHost", "realms", "teck-realm.json");
+            unprovisioned = CreateKeycloak(realmPath);
+            await unprovisioned.StartAsync().ConfigureAwait(false);
+            unprovisionedConnectionString = await CreateMigratedDatabaseAsync<CustomerDbContext>("local_identity_unprovisioned", typeof(CustomerHost::Program).Assembly.GetName().Name!).ConfigureAwait(false);
+        }
+
+        return new LocalIdentityTestInstance(
+            GetRequired(unprovisioned),
+            GetRequired(unprovisionedConnectionString),
+            OrderConnectionString,
+            PricingConnectionString,
+            RabbitMqConnectionString,
+            false);
+    }
+
+    /// <summary>Gets the one shared routed-service and gateway stack for the selected identity state.</summary>
+    internal Task<RoutedServiceFixture> GetRoutedServiceFixtureAsync(LocalIdentityTestInstance instance)
+    {
+        Dictionary<bool, Lazy<Task<RoutedServiceFixture>>> fixtures = routedServiceFixtures
+            ?? throw new InvalidOperationException("Fixture initialization has not completed.");
+        if (!fixtures.TryGetValue(instance.IsProvisioned, out Lazy<Task<RoutedServiceFixture>>? fixture))
+        {
+            fixture = new Lazy<Task<RoutedServiceFixture>>(() => RoutedServiceFixture.CreateAsync(instance));
+            fixtures.Add(instance.IsProvisioned, fixture);
+        }
+
+        return fixture.Value;
+    }
 
     private static KeycloakContainer CreateKeycloak(string realmPath) => new KeycloakBuilder(KeycloakImage)
         .WithUsername(AdminUsername)

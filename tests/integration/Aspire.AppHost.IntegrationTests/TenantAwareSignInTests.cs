@@ -14,11 +14,11 @@ public sealed class TenantAwareSignInTests(LocalIdentityKeycloakFixture fixture)
     public async Task CommittedUsers_WhenRealmIsFreshlyImported_CanSignInWithoutManualSetup()
     {
         string developerToken = await LocalIdentityKeycloakFixture.GetTokenAsync(
-            fixture.Unprovisioned,
+            await fixture.GetUnprovisionedAsync().ConfigureAwait(false),
             LocalIdentityKeycloakFixture.DeveloperUsername,
             LocalIdentityKeycloakFixture.DeveloperPassword).ConfigureAwait(false);
         string readerToken = await LocalIdentityKeycloakFixture.GetTokenAsync(
-            fixture.Unprovisioned,
+            await fixture.GetUnprovisionedAsync().ConfigureAwait(false),
             LocalIdentityKeycloakFixture.ReaderUsername,
             LocalIdentityKeycloakFixture.ReaderPassword).ConfigureAwait(false);
 
@@ -31,15 +31,15 @@ public sealed class TenantAwareSignInTests(LocalIdentityKeycloakFixture fixture)
     public async Task DeveloperSignIn_WhenProvisioned_ListsBothOrganizationsWithIdentifiers()
     {
         string accessToken = await LocalIdentityKeycloakFixture.GetTokenAsync(
-            SelectedInstance(),
+            await SelectedInstanceAsync().ConfigureAwait(false),
             LocalIdentityKeycloakFixture.DeveloperUsername,
             LocalIdentityKeycloakFixture.DeveloperPassword).ConfigureAwait(false);
         AssertOrganizationMemberships(LocalIdentityKeycloakFixture.ReadToken(accessToken));
     }
 
-    private LocalIdentityTestInstance SelectedInstance() =>
+    private async Task<LocalIdentityTestInstance> SelectedInstanceAsync() =>
         string.Equals(Environment.GetEnvironmentVariable("TECK_LOCAL_IDENTITY_INSTANCE"), "unprovisioned", StringComparison.Ordinal)
-            ? fixture.Unprovisioned
+            ? await fixture.GetUnprovisionedAsync().ConfigureAwait(false)
             : fixture.Provisioned;
 
     internal static void AssertOrganizationMemberships(System.IdentityModel.Tokens.Jwt.JwtSecurityToken token)

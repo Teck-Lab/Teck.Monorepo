@@ -7,17 +7,14 @@ namespace Aspire.AppHost.IntegrationTests;
 
 /// <summary>Verifies Notification is bootstrapped as a first-class AppHost resource.</summary>
 [Collection("AppHost")]
-public sealed class NotificationResourceTests
+public sealed class NotificationResourceTests(AppHostFixture fixture)
 {
     /// <summary>Starts Notification on Aspire's dynamic endpoint and checks its liveness surface.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Fact]
     public async Task Notification_IsReachable_WhenAppHostStarts()
     {
-        var appHost = await AppHostTestBuilder.CreateAsync();
-
-        await using var app = await appHost.BuildAsync();
-        await app.StartAsync();
+        var app = fixture.Application;
 
         await app.ResourceNotifications
             .WaitForResourceAsync("notification", KnownResourceStates.Running)

@@ -20,18 +20,12 @@ namespace Aspire.AppHost.IntegrationTests;
 /// First run pulls Docker images and builds four services — allow up to 5 minutes end-to-end.
 /// </summary>
 [Collection("AppHost")]
-public sealed class AppHostSmokeTests
+public sealed class AppHostSmokeTests(AppHostFixture fixture)
 {
     [Fact]
     public async Task Gateway_IsReachable_WhenAppHostStarts()
     {
-        // Build and start the entire distributed application.
-        // DistributedApplicationTestingBuilder launches all resources defined in AppHost.cs
-        // inside the test process using the Aspire orchestration layer.
-        var appHost = await AppHostTestBuilder.CreateAsync();
-
-        await using var app = await appHost.BuildAsync();
-        await app.StartAsync();
+        var app = fixture.Application;
 
         // Wait for the gateway resource to reach the Running state.
         // AppHost.cs does not call WithHttpHealthCheck on the gateway, so Aspire never
