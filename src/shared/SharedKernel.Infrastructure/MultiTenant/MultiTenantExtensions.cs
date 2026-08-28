@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Finbuckle.MultiTenant.Abstractions;
 using Finbuckle.MultiTenant.Extensions;
 using Microsoft.AspNetCore.Http;
@@ -117,93 +116,39 @@ string httpClientName = "TenantApi")
         return services;
     }
 
-    // Helper method to resolve tenant ID from claims
+    // Resolve tenant identity from signed token claims and permit a request to select only one
+    // of those signed tenant identifiers.
     private static async Task<string?> ResolveClaimStrategy(object context)
     {
-        var httpContext = context as HttpContext;
-        if (httpContext?.User?.Identity?.IsAuthenticated != true)
+        if (context is not HttpContext httpContext || httpContext.User.Identity?.IsAuthenticated != true)
         {
             return null;
         }
 
-        // Get options to determine which claim names to use
         var options = httpContext.RequestServices.GetService<IOptions<TeckCloudMultiTenancyOptions>>()?.Value
             ?? new TeckCloudMultiTenancyOptions();
+        var tokenContextResolver = httpContext.RequestServices.GetRequiredService<ITenantTokenContextResolver>();
+        string[] tenantIds = tokenContextResolver
+            .ResolveTenantIds(httpContext.User, options.OrganizationClaimName, options.TenantIdClaimName)
+            .ToArray();
 
-        // First check for the organization claim (new nested JSON structure)
-        var organizationClaim = httpContext.User.FindFirst(options.OrganizationClaimName);
-        if (organizationClaim != null && !string.IsNullOrWhiteSpace(organizationClaim.Value))
+        if (tenantIds.Length == 0)
         {
-            try
-            {
-                // Parse the JSON from the claim
-                // Expected format: { "OrgName1": { "id": "guid1" }, "OrgName2": { "id": "guid2" } }
-                var organizationsJson = JsonDocument.Parse(organizationClaim.Value);
-                var tenantIds = new List<string>();
-                var tenantNames = new Dictionary<string, string>(); // Map of tenant ID to tenant name
-
-                // Extract organization IDs from the JSON structure
-                foreach (var org in organizationsJson.RootElement.EnumerateObject())
-                {
-                    string tenantName = org.Name; // This is the tenant name (e.g., "Dagrofa")
-
-                    if (org.Value.TryGetProperty("id", out var idProperty) &&
-                        idProperty.ValueKind == JsonValueKind.String)
-                    {
-                        var orgId = idProperty.GetString();
-                        if (!string.IsNullOrEmpty(orgId))
-                        {
-                            tenantIds.Add(orgId);
-                            tenantNames[orgId] = tenantName;
-                        }
-                    }
-                }
-
-                if (tenantIds.Count > 0)
-                {
-                    // Store all tenant IDs and names in context for potential later use
-                    httpContext.Items["AvailableTenantIds"] = tenantIds.ToArray();
-                    httpContext.Items["TenantNames"] = tenantNames;
-
-                    // Process according to the strategy
-                    return await ResolveTenantIdFromList(httpContext, tenantIds.ToArray(), options, context);
-                }
-            }
-            catch (JsonException exception)
-            {
-                // If JSON parsing fails, log and fall back to other strategies
-                var logger = httpContext.RequestServices.GetService<ILogger<IMultiTenantContext>>();
-                logger?.LogWarning(exception, "Failed to parse organization claim JSON: {ClaimValue}", organizationClaim.Value);
-            }
-        }
-
-        // If organization claim approach fails, check for the single tenant ID claim
-        var tenantClaim = httpContext.User.FindFirst(options.TenantIdClaimName);
-        if (tenantClaim != null && !string.IsNullOrWhiteSpace(tenantClaim.Value))
-        {
-            return tenantClaim.Value;
-        }
-
-        // If not found, check for the multi-tenant claim
-        var multiTenantClaim = httpContext.User.FindFirst(options.MultiTenantClaimName);
-        if (multiTenantClaim != null && !string.IsNullOrWhiteSpace(multiTenantClaim.Value))
-        {
-            // Split the value by the separator
-            var tenantIds = multiTenantClaim.Value.Split(
+            string? multiTenantClaim = httpContext.User.FindFirst(options.MultiTenantClaimName)?.Value;
+            tenantIds = string.IsNullOrWhiteSpace(multiTenantClaim)
+                ? []
+                : multiTenantClaim.Split(
                 new[] { options.TenantIdSeparator },
-                StringSplitOptions.RemoveEmptyEntries);
-
-            if (tenantIds.Length > 0)
-            {
-                // Store all tenant IDs in context for potential later use
-                httpContext.Items["AvailableTenantIds"] = tenantIds;
-
-                // Process according to the strategy
-                return await ResolveTenantIdFromList(httpContext, tenantIds, options, context);
-            }
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         }
 
-        return null;
+        if (tenantIds.Length == 0)
+        {
+            return null;
+        }
+
+        httpContext.Items["AvailableTenantIds"] = tenantIds;
+        return await ResolveTenantIdFromList(httpContext, tenantIds, options, context);
     }
 
     // Helper method to resolve tenant ID from a list based on strategy
@@ -254,16 +199,22 @@ string httpClientName = "TenantApi")
                 return tenantIds[0];
 
             case MultiTenantResolutionStrategy.FromRequest:
-                // Try to get from header or URL
+                // A missing selected-tenant header preserves the established first-membership
+                // behavior. When one is supplied, it must be a case-sensitive exact signed
+                // membership; an untrusted identifier never falls back to another tenant.
+                if (!httpContext.Request.Headers.ContainsKey(options.TenantIdHeaderName))
+                {
+                    return tenantIds[0];
+                }
+
                 var headerTenantId = await ResolveHeaderStrategy(context);
                 if (!string.IsNullOrWhiteSpace(headerTenantId) &&
-                    tenantIds.Contains(headerTenantId, StringComparer.OrdinalIgnoreCase))
+                    tenantIds.Contains(headerTenantId, StringComparer.Ordinal))
                 {
                     return headerTenantId;
                 }
 
-                // Default to first if not found in request
-                return tenantIds[0];
+                return null;
 
             case MultiTenantResolutionStrategy.Custom:
                 // Application code will handle this

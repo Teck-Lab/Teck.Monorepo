@@ -13,6 +13,9 @@ jobs:
   check:
     name: PR Checks
     runs-on: ubuntu-latest
+    # Container-backed integration tests can wedge (Aspire DCP, Testcontainers). Without a
+    # bound these jobs inherit GitHub's 6-hour default and burn a runner on a dead run.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -38,12 +41,18 @@ jobs:
       - name: Derive nx affected SHAs
         uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5.0.1
 
+      # Aspire.AppHost.IntegrationTests boots real containers and runs ~16 minutes on its
+      # own. Serialised behind the other ~14 minutes of affected work it pushed this job
+      # past its bound, so it runs as a sibling job instead. Nothing leaves the gate: both
+      # jobs are required, they just run concurrently.
       - name: Affected checks
-        run: bunx nx affected -t build test lint typecheck --verbose
+        run: bunx nx affected -t build test lint typecheck --verbose --exclude=Aspire.AppHost.IntegrationTests
 
-  architecture-tests:
-    name: Architecture tests
+  aspire-integration-tests:
+    name: Aspire integration tests
     runs-on: ubuntu-latest
+    # Container-backed: boots Keycloak, Postgres, RabbitMQ, Redis and the service stack.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -61,8 +70,40 @@ jobs:
       - name: Derive nx affected SHAs
         uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5.0.1
 
+      # `nx affected` ignores --projects, so affectedness is checked first and the suite is
+      # then run explicitly. Unrelated pull requests skip the container cost entirely.
+      - name: Aspire integration tests
+        run: |
+          if bunx nx show projects --affected | grep -q 'Aspire.AppHost.IntegrationTests'; then
+            bunx nx run-many -t test --projects=Aspire.AppHost.IntegrationTests --verbose
+          else
+            echo "Aspire.AppHost.IntegrationTests is not affected; skipping."
+          fi
+
+  architecture-tests:
+    name: Architecture tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5.2.0
+        with:
+          global-json-file: global.json
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # `nx affected` ignores --projects, so `nx affected -t test --projects=...`
+      # silently ran the entire affected test set — byte-identical to the 32 targets
+      # PR Checks already runs, duplicating every container-backed integration suite on
+      # a second runner. run-many honours the filter, which is what this job is named for.
       - name: Run architecture tests
-        run: bunx nx affected -t test --projects='*.Architecture.UnitTests'
+        run: bunx nx run-many -t test --projects='*.Architecture.UnitTests'
 
   validate-specs:
     name: OpenAPI Spec Validation

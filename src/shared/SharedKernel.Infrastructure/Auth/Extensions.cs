@@ -2,11 +2,13 @@ using System.Diagnostics;
 using System.Text.Json;
 using Keycloak.AuthServices.Authentication;
 using Keycloak.AuthServices.Authorization;
+using Keycloak.AuthServices.Authorization.AuthorizationServer;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -166,6 +168,8 @@ public static class Extensions
         services.AddAuthorization()
                 .AddKeycloakAuthorization()
                 .AddAuthorizationServer(config);
+        services.RemoveAll<IAuthorizationServerClient>();
+        services.AddScoped<IAuthorizationServerClient, ClientCredentialsAuthorizationServerClient>();
 
         // Add health check for Keycloak's OpenID Connect server.
         // Prefer AuthServerUrl+Realm when available, otherwise fall back to Authority/KeycloakUrlRealm.

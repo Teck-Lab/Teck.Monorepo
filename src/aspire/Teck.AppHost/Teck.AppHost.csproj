@@ -13,6 +13,7 @@
     <PackageReference Include="Aspire.Hosting.Keycloak" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Teck.LocalIdentity\Teck.LocalIdentity.csproj" />
     <ProjectReference Include="..\..\services\commerce\order\Order.Host\Order.Host.csproj" />
     <ProjectReference Include="..\..\services\commerce\basket\Basket.Host\Basket.Host.csproj" />
     <ProjectReference Include="..\..\services\commerce\inventory\Inventory.Host\Inventory.Host.csproj" />

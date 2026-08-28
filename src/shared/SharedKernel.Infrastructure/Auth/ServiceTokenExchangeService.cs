@@ -62,6 +62,7 @@ public sealed class ServiceTokenExchangeService : IServiceTokenExchangeService
             SubjectToken = subjectToken,
             SubjectTokenType = "urn:ietf:params:oauth:token-type:access_token",
             Audience = audience,
+            Scope = "organization:*",
         };
 
         var response = await client.RequestTokenExchangeTokenAsync(

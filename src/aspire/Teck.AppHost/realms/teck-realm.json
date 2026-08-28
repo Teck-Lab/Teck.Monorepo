@@ -2,9 +2,206 @@
   "realm": "teck",
   "enabled": true,
   "sslRequired": "none",
+  "organizationsEnabled": true,
+  "roles": {
+    "realm": [{ "name": "platform-reader" }, { "name": "platform-manager" }]
+  },
   "clients": [
-    { "clientId": "order-api", "enabled": true, "publicClient": true, "protocol": "openid-connect" },
-    { "clientId": "catalog-api", "enabled": true, "publicClient": true, "protocol": "openid-connect" },
+    {
+      "clientId": "order-api",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "local-only-order-api-secret-not-for-production",
+      "authorizationServicesEnabled": true,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "organization-membership",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-organization-membership-mapper",
+          "config": {
+            "claim.name": "organization",
+            "jsonType.label": "JSON",
+            "multivalued": "true",
+            "addOrganizationId": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ],
+      "authorizationSettings": {
+        "policyEnforcementMode": "ENFORCING",
+        "resources": [
+          {
+            "name": "order",
+            "scopes": [{ "name": "read" }, { "name": "retry-payment" }]
+          }
+        ],
+        "policies": [
+          {
+            "name": "order-read-roles",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-reader\",\"required\":false},{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "order-read",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"read\"]",
+              "applyPolicies": "[\"order-read-roles\"]"
+            }
+          },
+          {
+            "name": "order-retry-payment-manager",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "order-retry-payment",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"retry-payment\"]",
+              "applyPolicies": "[\"order-retry-payment-manager\"]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "clientId": "catalog-api",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "pricing-api",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "local-only-pricing-api-secret-not-for-production",
+      "authorizationServicesEnabled": true,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "organization-membership",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-organization-membership-mapper",
+          "config": {
+            "claim.name": "organization",
+            "jsonType.label": "JSON",
+            "multivalued": "true",
+            "addOrganizationId": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ],
+      "authorizationSettings": {
+        "policyEnforcementMode": "ENFORCING",
+        "resources": [
+          {
+            "name": "pricing",
+            "scopes": [{ "name": "read" }, { "name": "manage" }]
+          }
+        ],
+        "policies": [
+          {
+            "name": "pricing-read-roles",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-reader\",\"required\":false},{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "pricing-read",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"read\"]",
+              "applyPolicies": "[\"pricing-read-roles\"]"
+            }
+          },
+          {
+            "name": "pricing-manage-manager",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "pricing-manage",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"manage\"]",
+              "applyPolicies": "[\"pricing-manage-manager\"]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "clientId": "teck-dashboard",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "local-only-dashboard-secret-not-for-production",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:3001/api/auth/callback/keycloak",
+        "http://localhost:3001/*"
+      ],
+      "webOrigins": ["http://localhost:3001"],
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "organization-membership",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-organization-membership-mapper",
+          "config": {
+            "claim.name": "organization",
+            "jsonType.label": "JSON",
+            "multivalued": "true",
+            "addOrganizationId": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
     {
       "clientId": "public-gateway",
       "enabled": true,
@@ -32,6 +229,21 @@
           }
         },
         {
+          "name": "organization-membership",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-organization-membership-mapper",
+          "config": {
+            "claim.name": "organization",
+            "jsonType.label": "JSON",
+            "multivalued": "true",
+            "addOrganizationId": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
           "name": "public-gateway-audience",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
@@ -50,6 +262,52 @@
             "access.token.claim": "true",
             "id.token.claim": "false"
           }
+        },
+        {
+          "name": "pricing-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "pricing-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "dev@teck.local",
+      "email": "dev@teck.local",
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "User",
+      "enabled": true,
+      "requiredActions": [],
+      "realmRoles": ["platform-reader", "platform-manager"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "local-only-dev-password-not-for-production",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "dev-reader@teck.local",
+      "email": "dev-reader@teck.local",
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "Reader",
+      "enabled": true,
+      "requiredActions": [],
+      "realmRoles": ["platform-reader"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "local-only-dev-reader-password-not-for-production",
+          "temporary": false
         }
       ]
     }

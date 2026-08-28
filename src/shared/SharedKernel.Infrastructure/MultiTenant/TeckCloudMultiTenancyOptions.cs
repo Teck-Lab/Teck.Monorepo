@@ -66,9 +66,10 @@ public class TeckCloudMultiTenancyOptions
     public string TenantIdSeparator { get; set; } = ",";
 
     /// <summary>
-    /// Gets or sets the strategy to use when multiple tenant IDs are available (default: First).
+    /// Gets or sets the strategy to use when multiple tenant IDs are available (default: FromRequest).
+    /// A request-selected tenant is accepted only after case-sensitive exact membership validation against signed claims.
     /// </summary>
-    public MultiTenantResolutionStrategy MultiTenantResolutionStrategy { get; set; } = MultiTenantResolutionStrategy.First;
+    public MultiTenantResolutionStrategy MultiTenantResolutionStrategy { get; set; } = MultiTenantResolutionStrategy.FromRequest;
 
     /// <summary>
     /// Gets or sets customer API tenant details options.

@@ -1,6 +1,5 @@
 using Customers.Application.Customers;
 using Customers.Application.Database;
-using Customers.Domain.Entities;
 using Customers.Host.Database;
 using Customers.Host.Grpc.V1;
 using Customers.Host.Infrastructure;
@@ -34,30 +33,16 @@ app.MapHandlers(registry =>
 // `codegen write`; that path must not touch the database.
 if (!CodeGenerationDetector.IsRunningGeneration() && app.Environment.IsDevelopment())
 {
-    await SeedDevTenantAsync(app);
+    await MigrateDatabaseAsync(app);
 }
 
 return await app.RunTeckServiceAsync(args);
 
-// Idempotently inserts the canonical dev tenant in the Development environment.
-// This seed does not run in staging or production — it exists for local development
-// convenience only and must never be relied on by any integration test fixture.
-static async Task SeedDevTenantAsync(WebApplication app)
+// Local tenant records are provisioned from Keycloak-generated organization identifiers.
+// Development startup still applies Customer migrations before the local provisioner runs.
+static async Task MigrateDatabaseAsync(WebApplication app)
 {
     await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<CustomerDbContext>();
     await db.Database.MigrateAsync();
-
-    var devTenantId = Guid.Parse("00000000-0000-0000-0000-0000000000a1");
-    bool exists = await db.Set<Tenant>().AnyAsync(t => t.Id == devTenantId);
-    if (!exists)
-    {
-        db.Set<Tenant>().Add(Tenant.Create(
-            devTenantId,
-            identifier: "dev",
-            databaseStrategy: "shared",
-            databaseProvider: "postgres",
-            hasReadReplicas: false));
-        await db.SaveChangesAsync();
-    }
 }

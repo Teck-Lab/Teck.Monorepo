@@ -44,7 +44,7 @@ public sealed class KeycloakSubjectOwnershipTests : IDisposable
     private const string GatewayClientId = "public-gateway";
     private const string GatewayClientSecret = "dev-secret-change-me";
     private const string OrderAudience = "order-api";
-    private static readonly string[] ExchangeFormFields = ["audience", "grant_type", "subject_token", "subject_token_type"];
+    private static readonly string[] ExchangeFormFields = ["audience", "grant_type", "scope", "subject_token", "subject_token_type"];
     private readonly SharedTestcontainersFixture fixture;
     private readonly string orderConnectionString;
     private readonly TokenEndpointStub tokenEndpoint = new();
@@ -273,7 +273,7 @@ public sealed class KeycloakSubjectOwnershipTests : IDisposable
         Assert.Equal(exchange.InboundToken, exchange.Form["subject_token"]);
         Assert.Equal("urn:ietf:params:oauth:token-type:access_token", exchange.Form["subject_token_type"]);
         Assert.Equal(OrderAudience, exchange.Form["audience"]);
-        Assert.DoesNotContain("scope", exchange.Form.Keys);
+        Assert.Equal("organization:*", exchange.Form["scope"]);
     }
 
     private static string FindRepositoryRoot()

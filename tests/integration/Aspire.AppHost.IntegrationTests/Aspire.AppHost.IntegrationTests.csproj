@@ -9,6 +9,9 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.Extensions.Configuration" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Testcontainers.Keycloak" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.RabbitMq" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio">
@@ -24,9 +27,19 @@
     <ProjectReference Include="..\..\..\src\services\commerce\order\Order.Host\Order.Host.csproj">
       <Aliases>OrderHost</Aliases>
     </ProjectReference>
+    <ProjectReference Include="..\..\..\src\services\commerce\pricing\Pricing.Host\Pricing.Host.csproj">
+      <Aliases>PricingHost</Aliases>
+    </ProjectReference>
     <ProjectReference Include="..\..\..\src\services\commerce\order\Order.Application\Order.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\services\commerce\pricing\Pricing.Application\Pricing.Application.csproj">
+      <Aliases>PricingApplication</Aliases>
+    </ProjectReference>
     <ProjectReference Include="..\..\..\src\services\commerce\customer\Customer.Application\Customer.Application.csproj" />
     <ProjectReference Include="..\..\..\src\services\commerce\customer\Customer.Domain\Customer.Domain.csproj" />
+    <ProjectReference Include="..\..\..\src\services\commerce\customer\Customer.Host\Customer.Host.csproj">
+      <Aliases>CustomerHost</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\src\aspire\Teck.LocalIdentity\Teck.LocalIdentity.csproj" />
     <ProjectReference Include="..\..\..\src\services\commerce\order\Order.Domain\Order.Domain.csproj" />
     <ProjectReference Include="..\Teck.Platform.IntegrationTests.Shared\Teck.Platform.IntegrationTests.Shared.csproj" />
     <ProjectReference Include="..\..\..\src\shared\SharedKernel.Infrastructure\SharedKernel.Infrastructure.csproj" />

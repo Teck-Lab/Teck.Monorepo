@@ -17,19 +17,23 @@ namespace SharedKernel.UnitTests.MultiTenant;
 /// <summary>Proves that tenant resolution precedes construction of tenant-bound database contexts.</summary>
 public sealed class TenantResolutionOrderingTests
 {
-    [Fact]
-    public async Task HttpRequest_ResolvesSignedClaimBeforeDbContextConstruction_AndIgnoresTenantHeader()
+    [Theory]
+    [InlineData("tenant-from-selected-signed-claim", "tenant-from-selected-signed-claim")]
+    [InlineData("TENANT-FROM-SELECTED-SIGNED-CLAIM", null)]
+    public async Task HttpRequest_ResolvesOnlyExactSignedMembershipBeforeDbContextConstruction(
+        string headerTenantId,
+        string? expectedTenantId)
     {
-        const string claimTenantId = "tenant-from-signed-claim";
-        const string hostileHeaderTenantId = "tenant-from-caller-header";
+        const string firstTenantId = "tenant-from-first-signed-claim";
+        const string selectedTenantId = "tenant-from-selected-signed-claim";
         await using ServiceProvider provider = CreateServices();
         await using AsyncServiceScope scope = provider.CreateAsyncScope();
         var context = new DefaultHttpContext
         {
             RequestServices = scope.ServiceProvider,
-            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("tenant_id", claimTenantId)], "test")),
+            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("tenant_ids", $"{firstTenantId},{selectedTenantId}")], "test")),
         };
-        context.Request.Headers["X-TenantId"] = hostileHeaderTenantId;
+        context.Request.Headers["X-TenantId"] = headerTenantId;
 
         ProbeDbContext? constructedContext = null;
         var middleware = new MultiTenantMiddleware(_ =>
@@ -44,7 +48,38 @@ public sealed class TenantResolutionOrderingTests
         Assert.NotNull(constructedContext);
         using (constructedContext)
         {
-            Assert.Equal(claimTenantId, constructedContext.TenantDetails?.Id);
+            Assert.Equal(expectedTenantId, constructedContext.TenantDetails?.Id);
+        }
+    }
+
+    [Fact]
+    public async Task HttpRequest_FailsClosedWhenHeaderDoesNotSelectSignedMembership()
+    {
+        const string firstTenantId = "tenant-from-first-signed-claim";
+        const string nonMemberTenantId = "tenant-not-in-signed-claims";
+        await using ServiceProvider provider = CreateServices();
+        await using AsyncServiceScope scope = provider.CreateAsyncScope();
+        var context = new DefaultHttpContext
+        {
+            RequestServices = scope.ServiceProvider,
+            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("tenant_ids", firstTenantId)], "test")),
+        };
+        context.Request.Headers["X-TenantId"] = nonMemberTenantId;
+
+        ProbeDbContext? constructedContext = null;
+        var middleware = new MultiTenantMiddleware(_ =>
+        {
+            var accessor = scope.ServiceProvider.GetRequiredService<IMultiTenantContextAccessor<TenantDetails>>();
+            constructedContext = new ProbeDbContext(new DbContextOptionsBuilder<ProbeDbContext>().Options, accessor);
+            return Task.CompletedTask;
+        });
+
+        await middleware.Invoke(context).ConfigureAwait(false);
+
+        Assert.NotNull(constructedContext);
+        using (constructedContext)
+        {
+            Assert.Null(constructedContext.TenantDetails);
         }
     }
 
@@ -150,6 +185,7 @@ public sealed class TenantResolutionOrderingTests
     {
         var services = new ServiceCollection();
         services.AddTeckCloudMultiTenancy();
+        services.AddSingleton<ITenantTokenContextResolver, TenantTokenContextResolver>();
         if (includeApplicationTenantInfo)
         {
             services.AddScoped<ITenantInfo, AmbientTenantInfo>();
