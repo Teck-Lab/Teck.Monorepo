@@ -28,7 +28,10 @@ var redis = builder.AddRedis("redis");
 // A generated Keycloak password changes between AppHost launches and cannot authenticate
 // against a retained Keycloak data volume. Keep this local-only secret in the AppHost store.
 var keycloakAdminPassword = builder.AddParameter("keycloak-admin-password", secret: true);
-var keycloak = builder.AddKeycloak("keycloak", port: 8080, adminPassword: keycloakAdminPassword);
+bool useFixedKeycloakPort = !string.Equals(builder.Configuration["UseFixedKeycloakPort"], "false", StringComparison.OrdinalIgnoreCase);
+// The developer command keeps localhost:8080 for the committed Development settings. AppHost
+// integration tests opt out so each DCP instance receives an isolated dynamic host port.
+var keycloak = builder.AddKeycloak("keycloak", port: useFixedKeycloakPort ? 8080 : null, adminPassword: keycloakAdminPassword);
 if (useVolumes)
 {
     keycloak.WithDataVolume();

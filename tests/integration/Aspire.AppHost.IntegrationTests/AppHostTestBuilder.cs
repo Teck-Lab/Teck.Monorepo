@@ -6,10 +6,13 @@ namespace Aspire.AppHost.IntegrationTests;
 internal static class AppHostTestBuilder
 {
     private const string TestPostgresPassword = "apphost-integration-test-password";
+    private const string TestKeycloakAdminPassword = "apphost-integration-test-keycloak-admin-password";
 
     internal static Task<IDistributedApplicationTestingBuilder> CreateAsync() =>
         DistributedApplicationTestingBuilder.CreateAsync<Projects.Teck_AppHost>([
             $"Parameters:postgres-password={TestPostgresPassword}",
+            $"Parameters:keycloak-admin-password={TestKeycloakAdminPassword}",
             "UseVolumes=false",
+            "UseFixedKeycloakPort=false",
         ]);
 }

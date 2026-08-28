@@ -26,4 +26,19 @@ public sealed class LocalIdentityResourceTests
         Assert.Contains("keycloak", waits);
         Assert.Contains("customer", waits);
     }
+
+    /// <summary>Ensures AppHost integration tests do not bind the developer-only fixed Keycloak host port.</summary>
+    [Fact]
+    public async Task AppHostTests_WhenFixedKeycloakPortIsDisabled_UseDynamicEndpoint()
+    {
+        using var appHost = await DistributedApplicationTestingBuilder.CreateAsync<Projects.Teck_AppHost>([
+            "Parameters:postgres-password=apphost-integration-test-password",
+            "Parameters:keycloak-admin-password=local-only-keycloak-admin-password-not-for-production",
+            "UseVolumes=false",
+            "UseFixedKeycloakPort=false",
+        ]);
+
+        var keycloak = Assert.IsType<KeycloakResource>(appHost.Resources.Single(resource => resource.Name == "keycloak"));
+        Assert.Contains(keycloak.Annotations.OfType<EndpointAnnotation>(), endpoint => endpoint.Port is null);
+    }
 }

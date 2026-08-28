@@ -147,3 +147,9 @@ available. That local command is not a staging or production deployment
 procedure. Teck.Terraform and Teck.GitOps own deployed identity provisioning,
 secret injection, and tenant-registry reconciliation using environment-specific
 inputs.
+
+The developer command keeps Keycloak at `http://localhost:8080`, matching the
+committed Development settings and browser redirect addresses. AppHost
+integration tests explicitly disable that fixed host binding so each test run
+uses an isolated dynamic port; this test-only override does not change the
+local development address.
