@@ -34,7 +34,9 @@ Docker reuses unchanged build layers.
 3. Sign in to Claude Code, GitHub CLI, and Codex once in WSL2. Each workspace
    bind-mounts WSL2's `~/.claude/.credentials.json`, `~/.claude.json`, Codex
    auth, and GitHub CLI auth. Claude's non-auth settings and history remain in
-   an isolated per-devcontainer volume.
+   an isolated per-devcontainer volume. Container setup assigns that volume
+   mountpoint to the non-root `vscode` user so Claude can persist transcripts
+   and resume state.
 4. Validate statically with
    `orca-ide vm recipe doctor local-devcontainer --repo-path . --json`.
 5. Add `--provision` for a live create/destroy validation.

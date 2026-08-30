@@ -9,6 +9,15 @@
 set -uo pipefail
 
 SETUP_CACHE_DIR="${TECK_SETUP_CACHE_DIR:-/workspaces/.teck-devcontainer-cache}"
+
+# Docker creates a fresh named-volume mountpoint as root. Claude runs as the
+# non-root vscode user and needs to create transcript, project, and resume
+# state beneath this directory. Do not recurse: credential files mounted
+# inside it retain their host ownership and permissions.
+if [ -d "$HOME/.claude" ] && [ ! -w "$HOME/.claude" ]; then
+  sudo chown "$(id -u):$(id -g)" "$HOME/.claude"
+fi
+
 mkdir -p "$SETUP_CACHE_DIR"
 
 fingerprint_files() {
