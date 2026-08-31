@@ -50,21 +50,6 @@ export function shellQuote(value) {
   return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
-export function redactedCommand(command, args) {
-  const safe = [];
-  let redactNext = false;
-  for (const arg of args) {
-    if (redactNext) {
-      safe.push("<redacted>");
-      redactNext = false;
-      continue;
-    }
-    safe.push(arg);
-    redactNext = arg === "--value" || arg === "--password" || arg === "--token";
-  }
-  return `${command} ${safe.join(" ")}`;
-}
-
 function log(message) {
   process.stderr.write(`${message}\n`);
 }
@@ -82,7 +67,7 @@ function run(command, args, options = {}) {
   if (result.status !== 0) {
     const detail = options.capture ? `${result.stderr || result.stdout || ""}`.trim() : "";
     throw new Error(
-      `${redactedCommand(command, args)} failed with exit code ${result.status}${detail ? `: ${detail}` : ""}`,
+      `${command} ${args.join(" ")} failed with exit code ${result.status}${detail ? `: ${detail}` : ""}`,
     );
   }
   return options.capture ? result.stdout : "";
@@ -104,32 +89,6 @@ function lifecyclePayload() {
     throw new Error("Lifecycle payload has no valid Orca Docker Sandbox resource id");
   }
   return { resourceId, projectRoot: userData?.projectRoot };
-}
-
-function configuredApiKey(repoRoot) {
-  if (process.env.OMNIROUTE_API_KEY?.trim()) return process.env.OMNIROUTE_API_KEY.trim();
-  const candidates = [
-    process.env.ORCA_OMNIROUTE_ENV_FILE,
-    join(scriptDir, ".env"),
-    join(dirname(repoRoot), "Teck.Paseo", ".env"),
-  ].filter(Boolean);
-  for (const path of candidates) {
-    try {
-      const line = readFileSync(path, "utf8")
-        .split(/\r?\n/)
-        .find((entry) => /^\s*OMNIROUTE_API_KEY=/.test(entry));
-      const value = line
-        ?.replace(/^\s*OMNIROUTE_API_KEY=/, "")
-        .trim()
-        .replace(/^(['"])(.*)\1$/, "$2");
-      if (value && !value.startsWith("change-me")) return value;
-    } catch (error) {
-      if (error.code !== "ENOENT") throw error;
-    }
-  }
-  throw new Error(
-    "OmniRoute key not found. Set OMNIROUTE_API_KEY or ORCA_OMNIROUTE_ENV_FILE; secrets are never stored in recipe state",
-  );
 }
 
 function sandboxExists(name) {
@@ -190,25 +149,6 @@ function create() {
     } else {
       log(`[REUSE] ${name}`);
     }
-
-    const key = configuredApiKey(repoRoot);
-    run("sbx", ["secret", "rm", "--sandbox", name, "--placeholder", "proxy-managed", "--force"]);
-    run("sbx", [
-      "secret",
-      "set-custom",
-      "--sandbox",
-      name,
-      "--host",
-      "host.docker.internal",
-      "--host",
-      "localhost",
-      "--env",
-      "OMNIROUTE_API_KEY",
-      "--placeholder",
-      "proxy-managed",
-      "--value",
-      key,
-    ]);
 
     const ompRoot = `${projectRoot}/.omp`;
     const command = `set -eu; install -d -o 1000 -g 1000 /home/agent/.omp/agent; ln -sfn ${shellQuote(`${ompRoot}/config.yml`)} /home/agent/.omp/agent/config.yml; ln -sfn ${shellQuote(`${ompRoot}/models.yml`)} /home/agent/.omp/agent/models.yml; ln -sfn ${shellQuote(`${ompRoot}/RULES.md`)} /home/agent/.omp/agent/RULES.md`;

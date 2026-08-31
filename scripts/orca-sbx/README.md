@@ -8,9 +8,9 @@ default linked-worktree ownership because the recipe intentionally omits
 
 OMP is installed in the pinned worker image. Its canonical non-secret
 configuration is committed once under `.omp/` and linked into the sandbox's
-user-level OMP location during provisioning. The OmniRoute key remains on the
-host and is registered with `sbx secret`; it is never written to recipe state
-or emitted in Orca JSON.
+user-level OMP location during provisioning. The OmniRoute key is configured
+once per machine as a global Docker Sandbox secret; it is never written to a
+repository, recipe state, or Orca JSON.
 
 ## Windows prerequisites
 
@@ -19,8 +19,29 @@ or emitted in Orca JSON.
 - Node.js 22 or newer
 - access to `ghcr.io/teck-lab/paseo-worker:omp18.0.4-bun1.4.0`
 - OmniRoute running on `127.0.0.1:20128`
-- `OMNIROUTE_API_KEY` set, `ORCA_OMNIROUTE_ENV_FILE` pointing at a local env
-  file, or a sibling `Teck.Paseo/.env` containing the key
+
+## One-time host credential setup
+
+Configure the global OmniRoute binding once on each Windows machine. The
+script securely prompts for the key, verifies it, and stores it in Docker
+Sandboxes' host credential store:
+
+```powershell
+.\scripts\orca-sbx\setup-host.ps1
+```
+
+For automatic rotation from 1Password or AWS Secrets Manager, register a
+dynamic reference instead; the real value never passes through the script:
+
+```powershell
+.\scripts\orca-sbx\setup-host.ps1 `
+  -SecretRef 'op://Teck/OmniRoute/api-key'
+```
+
+The binding is global but restricted to requests sent to `localhost` or
+`host.docker.internal`. New sandboxes receive the placeholder automatically.
+After replacing a static key, recreate already-existing sandboxes. Dynamic
+references use Docker's on-demand refresh policy.
 
 Docker's SSH integration is represented by the `*.sbx` entry in the user's
 OpenSSH config. Orca must use a transport that honors that OpenSSH config. If
