@@ -1,0 +1,26 @@
+schemaVersion: "2"
+kind: mixin
+name: orca-omp-worker
+displayName: Orca OMP worker
+description: Adds the writable OMP home used by Orca-managed Docker Sandboxes.
+
+environment:
+  variables:
+    OMNIROUTE_BASE_URL: http://host.docker.internal:20128/v1
+    OMNIROUTE_API_KEY: proxy-managed
+    OMNIROUTE_MODEL: teck-orchestrator
+    ONNXRUNTIME_NODE_INSTALL: skip
+
+setup:
+  install:
+    - command: install -d -o 1000 -g 1000 /home/agent/.omp/agent /home/agent/.local/bin
+      user: "0"
+      description: Prepare writable OMP state
+
+permissions:
+  network:
+    allow:
+      - localhost:20128
+      - host.docker.internal:20128
+      - github.com:443
+      - api.github.com:443
