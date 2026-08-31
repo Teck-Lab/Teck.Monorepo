@@ -1,10 +1,10 @@
 environmentRecipes:
   - id: local-docker-sandbox
     name: Docker Sandbox (OMP)
-    create: '%ORCA_REPO_PATH%\scripts\orca-sbx\create.cmd'
-    suspend: '%ORCA_REPO_PATH%\scripts\orca-sbx\suspend.cmd'
-    resume: '%ORCA_REPO_PATH%\scripts\orca-sbx\resume.cmd'
-    destroy: '%ORCA_REPO_PATH%\scripts\orca-sbx\destroy.cmd'
+    create: ./scripts/orca-sbx/create.cmd
+    suspend: ./scripts/orca-sbx/suspend.cmd
+    resume: ./scripts/orca-sbx/resume.cmd
+    destroy: ./scripts/orca-sbx/destroy.cmd
 
   - id: local-devcontainer
     name: Local Dev Container
