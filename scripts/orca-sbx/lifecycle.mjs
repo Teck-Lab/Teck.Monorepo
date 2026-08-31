@@ -50,6 +50,21 @@ export function shellQuote(value) {
   return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
+export function redactedCommand(command, args) {
+  const safe = [];
+  let redactNext = false;
+  for (const arg of args) {
+    if (redactNext) {
+      safe.push("<redacted>");
+      redactNext = false;
+      continue;
+    }
+    safe.push(arg);
+    redactNext = arg === "--value" || arg === "--password" || arg === "--token";
+  }
+  return `${command} ${safe.join(" ")}`;
+}
+
 function log(message) {
   process.stderr.write(`${message}\n`);
 }
@@ -67,7 +82,7 @@ function run(command, args, options = {}) {
   if (result.status !== 0) {
     const detail = options.capture ? `${result.stderr || result.stdout || ""}`.trim() : "";
     throw new Error(
-      `${command} ${args.join(" ")} failed with exit code ${result.status}${detail ? `: ${detail}` : ""}`,
+      `${redactedCommand(command, args)} failed with exit code ${result.status}${detail ? `: ${detail}` : ""}`,
     );
   }
   return options.capture ? result.stdout : "";
@@ -197,7 +212,7 @@ function create() {
 
     const ompRoot = `${projectRoot}/.omp`;
     const command = `set -eu; install -d -o 1000 -g 1000 /home/agent/.omp/agent; ln -sfn ${shellQuote(`${ompRoot}/config.yml`)} /home/agent/.omp/agent/config.yml; ln -sfn ${shellQuote(`${ompRoot}/models.yml`)} /home/agent/.omp/agent/models.yml; ln -sfn ${shellQuote(`${ompRoot}/RULES.md`)} /home/agent/.omp/agent/RULES.md`;
-    run("sbx", ["exec", "-u", "0", name, "sh", "-lc", command]);
+    run("sbx", ["exec", "-u", "0", name, "sh", "-lc", command], { capture: true });
     wakeAndVerify(name);
     emit(recipeResult(name, projectRoot));
   } catch (error) {

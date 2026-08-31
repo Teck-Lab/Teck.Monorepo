@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { recipeResult, remoteWindowsPath, sandboxName, shellQuote } from "./lifecycle.mjs";
+import {
+  recipeResult,
+  redactedCommand,
+  remoteWindowsPath,
+  sandboxName,
+  shellQuote,
+} from "./lifecycle.mjs";
 
 test("sandbox names are deterministic, safe, and capped", () => {
   const name = sandboxName("local.docker sandbox", "ABC_123");
@@ -17,6 +23,20 @@ test("Windows workspace paths map to Docker Sandbox paths", () => {
 
 test("remote paths are shell quoted without interpolation", () => {
   assert.equal(shellQuote("/c/Users/Jacob's Repo"), "'/c/Users/Jacob'\"'\"'s Repo'");
+});
+
+test("secret values are redacted from command diagnostics", () => {
+  assert.equal(
+    redactedCommand("sbx", [
+      "secret",
+      "set-custom",
+      "--value",
+      "real-secret",
+      "--host",
+      "localhost",
+    ]),
+    "sbx secret set-custom --value <redacted> --host localhost",
+  );
 });
 
 test("SSH result preserves Orca default checkout ownership", () => {
