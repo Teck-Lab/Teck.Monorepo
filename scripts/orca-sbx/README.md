@@ -1,11 +1,13 @@
 # Orca Docker Sandbox environment
 
 This Windows-host recipe creates one Docker Sandbox per
-`ORCA_VM_INSTANCE_ID`. It uses the standalone `sbx` CLI; Docker Desktop and a
-host Docker Engine are not dependencies. Orca connects through Docker's
-managed `<name>.sbx` SSH `ProxyCommand` and retains schema-version-1,
-linked-worktree checkout ownership because the recipe intentionally omits
-`checkoutMode`.
+`ORCA_VM_INSTANCE_ID`. It uses the standalone `sbx` CLI; Docker Desktop, a
+host Docker Engine, and Podman are not dependencies. Each sandbox owns a
+private Docker Engine with the Docker Compose v2 plugin, and the lifecycle
+never detects, shims, or mounts a host Docker/Podman engine into the
+sandbox. Orca connects through Docker's managed `<name>.sbx` SSH
+`ProxyCommand` and retains schema-version-1, linked-worktree checkout
+ownership because the recipe intentionally omits `checkoutMode`.
 
 OMP is installed in the pinned worker image. Its canonical non-secret
 configuration is committed under `.omp/` and linked into the sandbox's
@@ -46,10 +48,12 @@ $env:ORCA_SSH_FORCE_SYSTEM_TRANSPORT = '1'
 orca open
 ```
 
-The recipe verifies the managed SSH block before provisioning and verifies
-OMP, its committed configuration, the proxy sentinel, and that the proxied
-key authenticates against the public OmniRoute endpoint before returning the
-schema-version-1 SSH result.
+The recipe verifies the managed SSH block before provisioning. Create and
+resume readiness run inside the sandbox and verify OMP, its committed
+configuration, the Docker CLI connected to the sandbox's private Docker
+Engine, the Docker Compose v2 plugin, the proxy sentinel, and that the
+proxied key authenticates against the public OmniRoute endpoint before
+returning the schema-version-1 SSH result.
 
 ## Validation
 

@@ -176,6 +176,8 @@ export function wakeCheckCommand() {
     "test -r /home/agent/.omp/agent/RULES.md",
     'test "${OMNIROUTE_API_KEY:-}" = proxy-managed',
     "omp --version >/dev/null",
+    "docker info >/dev/null",
+    "docker compose version >/dev/null",
     `curl -fsS -H 'Authorization: Bearer proxy-managed' ${omniRouteBaseUrl}/models >/dev/null`,
   ].join("; ");
 }

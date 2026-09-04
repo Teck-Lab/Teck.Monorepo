@@ -83,14 +83,18 @@ test("custom secret is proxy-injected only for the public OmniRoute host", () =>
   assert.deepEqual(customSecretTargetHosts(), ["omniroute.tecklab.dk"]);
 });
 
-test("wake check reaches public OmniRoute through the proxy sentinel", () => {
+test("wake check gates on the sandbox Docker engine and Compose v2 plugin", () => {
   const command = wakeCheckCommand();
+  assert.ok(command.includes("docker info >/dev/null"));
+  assert.ok(command.includes("docker compose version >/dev/null"));
+  assert.ok(!command.includes("docker-compose"));
   assert.ok(command.includes("https://omniroute.tecklab.dk/v1/models"));
   assert.ok(command.includes("Authorization: Bearer proxy-managed"));
   assert.ok(command.includes("test -x /home/agent/.local/bin/orca-runtime-check"));
   assert.ok(!command.includes("host.docker.internal"));
   assert.ok(!command.includes("localhost"));
   assert.ok(!command.includes("20128"));
+  assert.ok(!command.includes("podman"));
 });
 
 test("non-empty OMNIROUTE_API_KEY wins over every env file", (t) => {
