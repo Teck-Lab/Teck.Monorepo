@@ -10,10 +10,10 @@ linked-worktree checkout ownership because the recipe intentionally omits
 OMP is installed in the pinned worker image. Its canonical non-secret
 configuration is committed under `.omp/` and linked into the sandbox's
 user-level OMP location during provisioning. The host lifecycle reads the
-OmniRoute key, registers a sandbox-scoped custom secret with Docker's
-host-side proxy, and redacts command failures. The sandbox receives only the
-`proxy-managed` sentinel; the real key is never written to the sandbox, repo,
-recipe JSON, or lifecycle logs.
+OmniRoute key and registers a sandbox-scoped custom secret that Docker's
+proxy injects only for `omniroute.tecklab.dk`; command failures are redacted.
+The sandbox receives only the `proxy-managed` sentinel; the real key is never
+written to the sandbox, repo, recipe JSON, or lifecycle logs.
 
 ## Windows prerequisites
 
@@ -24,7 +24,8 @@ recipe JSON, or lifecycle logs.
 - `sbx login` and `sbx setup ssh` completed
 - Windows OpenSSH client and Node.js 22 or newer
 - access to `ghcr.io/teck-lab/paseo-worker:omp18.0.4-bun1.4.0`
-- OmniRoute listening on the host at `127.0.0.1:20128`
+- outbound HTTPS access to `https://omniroute.tecklab.dk/v1`; `/v1/models`
+  returns `401` without the key
 - `OMNIROUTE_API_KEY` set, `ORCA_OMNIROUTE_ENV_FILE` pointing at a host-only
   env file, or a sibling `Teck.Paseo/.env` containing the key
 
@@ -38,8 +39,9 @@ orca open
 ```
 
 The recipe verifies the managed SSH block before provisioning and verifies
-OMP, its committed configuration, the proxy sentinel, and OmniRoute before
-returning the schema-version-1 SSH result.
+OMP, its committed configuration, the proxy sentinel, and that the proxied
+key authenticates against the public OmniRoute endpoint before returning the
+schema-version-1 SSH result.
 
 ## Validation
 

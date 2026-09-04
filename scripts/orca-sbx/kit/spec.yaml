@@ -6,7 +6,7 @@ description: Adds the writable OMP home used by Orca-managed Docker Sandboxes.
 
 environment:
   variables:
-    OMNIROUTE_BASE_URL: http://host.docker.internal:20128/v1
+    OMNIROUTE_BASE_URL: https://omniroute.tecklab.dk/v1
     OMNIROUTE_API_KEY: proxy-managed
     OMNIROUTE_MODEL: teck-orchestrator
     ONNXRUNTIME_NODE_INSTALL: skip
@@ -49,7 +49,6 @@ setup:
 permissions:
   network:
     allow:
-      - localhost:20128
-      - host.docker.internal:20128
+      - omniroute.tecklab.dk:443
       - github.com:443
       - api.github.com:443

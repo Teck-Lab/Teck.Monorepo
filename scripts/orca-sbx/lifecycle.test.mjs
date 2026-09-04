@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  customSecretTargetHosts,
   recipeResult,
   redactSensitive,
   remoteWindowsPath,
   sandboxName,
   shellQuote,
   supportsSbxVersion,
+  wakeCheckCommand,
 } from "./lifecycle.mjs";
 
 test("sandbox names are deterministic, safe, and capped", () => {
@@ -50,4 +52,18 @@ test("SSH result preserves Orca default checkout ownership", () => {
   assert.equal(result.connection.target.host, "orca-example-1.sbx");
   assert.equal(result.checkoutMode, undefined);
   assert.equal(result.pairingCode, undefined);
+});
+
+test("custom secret is proxy-injected only for the public OmniRoute host", () => {
+  assert.deepEqual(customSecretTargetHosts(), ["omniroute.tecklab.dk"]);
+});
+
+test("wake check reaches public OmniRoute through the proxy sentinel", () => {
+  const command = wakeCheckCommand();
+  assert.ok(command.includes("https://omniroute.tecklab.dk/v1/models"));
+  assert.ok(command.includes("Authorization: Bearer proxy-managed"));
+  assert.ok(command.includes("test -x /home/agent/.local/bin/orca-runtime-check"));
+  assert.ok(!command.includes("host.docker.internal"));
+  assert.ok(!command.includes("localhost"));
+  assert.ok(!command.includes("20128"));
 });

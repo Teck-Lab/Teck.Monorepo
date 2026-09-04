@@ -8,6 +8,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const defaultImage = "ghcr.io/teck-lab/paseo-worker:omp18.0.4-bun1.4.0";
 
+const omniRouteHost = "omniroute.tecklab.dk";
+const omniRouteBaseUrl = `https://${omniRouteHost}/v1`;
+
 export function sandboxName(recipeId, instanceId) {
   const clean = (value) =>
     value
@@ -160,9 +163,25 @@ function sandboxExists(name) {
     .includes(name);
 }
 
+export function customSecretTargetHosts() {
+  return [omniRouteHost];
+}
+
+export function wakeCheckCommand() {
+  return [
+    "set -eu",
+    "test -x /usr/local/bin/omp",
+    "test -x /home/agent/.local/bin/orca-runtime-check",
+    "test -r /home/agent/.omp/agent/config.yml",
+    "test -r /home/agent/.omp/agent/models.yml",
+    "test -r /home/agent/.omp/agent/RULES.md",
+    'test "${OMNIROUTE_API_KEY:-}" = proxy-managed',
+    "omp --version >/dev/null",
+    `curl -fsS -H 'Authorization: Bearer proxy-managed' ${omniRouteBaseUrl}/models >/dev/null`,
+  ].join("; ");
+}
+
 function wakeAndVerify(name) {
-  const check =
-    "set -eu; test -x /usr/local/bin/omp; test -x /home/agent/.local/bin/orca-runtime-check; test -r /home/agent/.omp/agent/config.yml; test -r /home/agent/.omp/agent/models.yml; test -r /home/agent/.omp/agent/RULES.md; test \"${OMNIROUTE_API_KEY:-}\" = proxy-managed; omp --version >/dev/null; curl -fsS -H 'Authorization: Bearer proxy-managed' http://host.docker.internal:20128/v1/models >/dev/null";
   run("ssh.exe", [
     "-T",
     "-o",
@@ -173,7 +192,7 @@ function wakeAndVerify(name) {
     `${name}.sbx`,
     "sh",
     "-lc",
-    check,
+    wakeCheckCommand(),
   ]);
 }
 
@@ -228,6 +247,7 @@ function create() {
     const key = configuredApiKey(repoRoot);
     removeCustomSecret(name);
     secretTouched = true;
+    const secretArgs = customSecretTargetHosts().flatMap((host) => ["--host", host]);
     run(
       "sbx",
       [
@@ -235,10 +255,7 @@ function create() {
         "set-custom",
         "--sandbox",
         name,
-        "--host",
-        "host.docker.internal",
-        "--host",
-        "localhost",
+        ...secretArgs,
         "--env",
         "OMNIROUTE_API_KEY",
         "--placeholder",

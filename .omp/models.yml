@@ -1,6 +1,6 @@
 providers:
   omniroute:
-    baseUrl: http://host.docker.internal:20128/v1
+    baseUrl: https://omniroute.tecklab.dk/v1
     api: openai-completions
     apiKey: OMNIROUTE_API_KEY
     authHeader: true
