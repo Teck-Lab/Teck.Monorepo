@@ -15,6 +15,13 @@ proxy injects only for `omniroute.tecklab.dk`; command failures are redacted.
 The sandbox receives only the `proxy-managed` sentinel; the real key is never
 written to the sandbox, repo, recipe JSON, or lifecycle logs.
 
+Host key lookup precedence is: a non-empty `OMNIROUTE_API_KEY` environment
+variable, then an explicit non-empty `ORCA_OMNIROUTE_ENV_FILE` path, then the
+default host credential file `%USERPROFILE%\.config\teck\omniroute.env`
+(built from the host home directory, `os.homedir()`). Only these host-only
+sources are read; the lifecycle never falls back to a sibling repo checkout
+such as a `Teck.Paseo/.env` next to this repository.
+
 ## Windows prerequisites
 
 - Windows 11 on a 64-bit Intel or AMD CPU
@@ -26,8 +33,9 @@ written to the sandbox, repo, recipe JSON, or lifecycle logs.
 - access to `ghcr.io/teck-lab/paseo-worker:omp18.0.4-bun1.4.0`
 - outbound HTTPS access to `https://omniroute.tecklab.dk/v1`; `/v1/models`
   returns `401` without the key
-- `OMNIROUTE_API_KEY` set, `ORCA_OMNIROUTE_ENV_FILE` pointing at a host-only
-  env file, or a sibling `Teck.Paseo/.env` containing the key
+- `OMNIROUTE_API_KEY` set in the environment, `ORCA_OMNIROUTE_ENV_FILE`
+  pointing at a host-only env file, or the default host credential file
+  `%USERPROFILE%\.config\teck\omniroute.env` containing the key
 
 Docker's managed SSH block lives in `%USERPROFILE%\.ssh\config` and routes
 `*.sbx` through the local `sbx ssh proxy` command. Start Orca with the system

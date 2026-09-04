@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
+  configuredApiKey,
   customSecretTargetHosts,
   recipeResult,
   redactSensitive,
@@ -11,6 +15,27 @@ import {
   supportsSbxVersion,
   wakeCheckCommand,
 } from "./lifecycle.mjs";
+
+function withFreshHome(t) {
+  const home = mkdtempSync(join(tmpdir(), "orca-sbx-home-"));
+  const keys = ["OMNIROUTE_API_KEY", "ORCA_OMNIROUTE_ENV_FILE"];
+  const previous = new Map(keys.map((key) => [key, process.env[key]]));
+  for (const key of keys) delete process.env[key];
+  t.after(() => {
+    for (const [key, value] of previous) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    rmSync(home, { recursive: true, force: true });
+  });
+  return home;
+}
+
+function writeHomeCredential(home, value) {
+  const dir = join(home, ".config", "teck");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "omniroute.env"), `OMNIROUTE_API_KEY=${value}\n`);
+}
 
 test("sandbox names are deterministic, safe, and capped", () => {
   const name = sandboxName("local.docker sandbox", "ABC_123");
@@ -66,4 +91,52 @@ test("wake check reaches public OmniRoute through the proxy sentinel", () => {
   assert.ok(!command.includes("host.docker.internal"));
   assert.ok(!command.includes("localhost"));
   assert.ok(!command.includes("20128"));
+});
+
+test("non-empty OMNIROUTE_API_KEY wins over every env file", (t) => {
+  const home = withFreshHome(t);
+  writeHomeCredential(home, "default-key");
+  const explicitFile = join(home, "explicit.env");
+  writeFileSync(explicitFile, "OMNIROUTE_API_KEY=explicit-key\n");
+  process.env.ORCA_OMNIROUTE_ENV_FILE = explicitFile;
+  process.env.OMNIROUTE_API_KEY = "env-key";
+  assert.equal(configuredApiKey({ homeDir: home }), "env-key");
+});
+
+test("explicit ORCA_OMNIROUTE_ENV_FILE wins over the home default", (t) => {
+  const home = withFreshHome(t);
+  writeHomeCredential(home, "default-key");
+  const explicitFile = join(home, "explicit.env");
+  writeFileSync(explicitFile, "OMNIROUTE_API_KEY=explicit-key\n");
+  process.env.ORCA_OMNIROUTE_ENV_FILE = explicitFile;
+  assert.equal(configuredApiKey({ homeDir: home }), "explicit-key");
+});
+
+test("empty or whitespace-only overrides fall through to the next source", (t) => {
+  const home = withFreshHome(t);
+  writeHomeCredential(home, "default-key");
+  process.env.OMNIROUTE_API_KEY = "   ";
+  process.env.ORCA_OMNIROUTE_ENV_FILE = "";
+  assert.equal(configuredApiKey({ homeDir: home }), "default-key");
+});
+
+test("host home default is <home>/.config/teck/omniroute.env when nothing else is set", (t) => {
+  const home = withFreshHome(t);
+  writeHomeCredential(home, '"home quoted key"');
+  assert.equal(configuredApiKey({ homeDir: home }), "home quoted key");
+});
+
+test("a sibling Teck.Paseo/.env is never consulted as a credential source", (t) => {
+  const home = withFreshHome(t);
+  const repoRoot = join(home, "omniroute-public-endpoint");
+  const paseoDir = join(home, "Teck.Paseo");
+  mkdirSync(repoRoot, { recursive: true });
+  mkdirSync(paseoDir);
+  writeFileSync(join(paseoDir, ".env"), "OMNIROUTE_API_KEY=sibling-project-key\n");
+  assert.throws(
+    () => configuredApiKey({ homeDir: home }),
+    /OmniRoute key not found\. Set OMNIROUTE_API_KEY, point ORCA_OMNIROUTE_ENV_FILE at a host-only env file, or store the key in .*\.config[\\/]teck[\\/]omniroute\.env/,
+  );
+  writeHomeCredential(home, "home-key");
+  assert.equal(configuredApiKey({ homeDir: home }), "home-key");
 });

@@ -2,6 +2,7 @@
 
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -130,13 +131,11 @@ function lifecyclePayload() {
   return { resourceId, projectRoot: userData?.projectRoot };
 }
 
-function configuredApiKey(repoRoot) {
+export function configuredApiKey({ homeDir = homedir() } = {}) {
   if (process.env.OMNIROUTE_API_KEY?.trim()) return process.env.OMNIROUTE_API_KEY.trim();
-  const candidates = [
-    process.env.ORCA_OMNIROUTE_ENV_FILE,
-    join(dirname(repoRoot), "Teck.Paseo", ".env"),
-  ].filter(Boolean);
-  for (const path of candidates) {
+  const explicitEnvFile = process.env.ORCA_OMNIROUTE_ENV_FILE?.trim();
+  const defaultEnvFile = join(homeDir, ".config", "teck", "omniroute.env");
+  for (const path of [explicitEnvFile, defaultEnvFile].filter(Boolean)) {
     try {
       const line = readFileSync(path, "utf8")
         .split(/\r?\n/)
@@ -151,7 +150,7 @@ function configuredApiKey(repoRoot) {
     }
   }
   throw new Error(
-    "OmniRoute key not found. Set OMNIROUTE_API_KEY or ORCA_OMNIROUTE_ENV_FILE; secrets are never stored in recipe state",
+    `OmniRoute key not found. Set OMNIROUTE_API_KEY, point ORCA_OMNIROUTE_ENV_FILE at a host-only env file, or store the key in ${defaultEnvFile}; secrets are never stored in recipe state`,
   );
 }
 
@@ -244,7 +243,7 @@ function create() {
       log(`[REUSE] ${name}`);
     }
 
-    const key = configuredApiKey(repoRoot);
+    const key = configuredApiKey();
     removeCustomSecret(name);
     secretTouched = true;
     const secretArgs = customSecretTargetHosts().flatMap((host) => ["--host", host]);
