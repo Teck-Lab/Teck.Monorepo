@@ -54,6 +54,14 @@ function log(message) {
   process.stderr.write(`${message}\n`);
 }
 
+export function redactSensitive(value, sensitiveValues = []) {
+  let redacted = String(value);
+  for (const sensitiveValue of sensitiveValues) {
+    if (sensitiveValue) redacted = redacted.replaceAll(sensitiveValue, "<redacted>");
+  }
+  return redacted;
+}
+
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     encoding: "utf8",
@@ -63,11 +71,21 @@ function run(command, args, options = {}) {
       : [options.input === undefined ? "ignore" : "pipe", 2, 2],
     input: options.input,
   });
-  if (result.error) throw new Error(`${command} could not be started: ${result.error.message}`);
-  if (result.status !== 0) {
-    const detail = options.capture ? `${result.stderr || result.stdout || ""}`.trim() : "";
+  const sensitiveValues = options.sensitive ?? [];
+  if (result.error) {
     throw new Error(
-      `${command} ${args.join(" ")} failed with exit code ${result.status}${detail ? `: ${detail}` : ""}`,
+      redactSensitive(`${command} could not be started: ${result.error.message}`, sensitiveValues),
+    );
+  }
+  if (result.status !== 0) {
+    const detail = options.capture
+      ? redactSensitive(`${result.stderr || result.stdout || ""}`.trim(), sensitiveValues)
+      : "";
+    const invocation = [command, ...args]
+      .map((part) => redactSensitive(part, sensitiveValues))
+      .join(" ");
+    throw new Error(
+      `${invocation} failed with exit code ${result.status}${detail ? `: ${detail}` : ""}`,
     );
   }
   return options.capture ? result.stdout : "";
@@ -77,6 +95,24 @@ function required(name) {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`${name} is required by the Docker Sandbox recipe`);
   return value;
+}
+export function supportsSbxVersion(output) {
+  const match = /\bv?(\d+)\.(\d+)\.(\d+)\b/i.exec(output);
+  if (!match) return false;
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  return major > 0 || (major === 0 && minor >= 39);
+}
+
+function verifyHostPrerequisites() {
+  const version = run("sbx", ["version"], { capture: true });
+  if (!supportsSbxVersion(version)) {
+    throw new Error(`Docker Sandboxes 0.39.0 or newer is required; found: ${version.trim()}`);
+  }
+  const sshConfig = run("ssh.exe", ["-G", "orca-probe.sbx"], { capture: true });
+  if (!/^proxycommand\s+.*sbx(?:\.exe)?"?\s+ssh\s+proxy\s+%[nh]\s*$/im.test(sshConfig)) {
+    throw new Error("Docker-managed SSH configuration is missing; run `sbx setup ssh`");
+  }
 }
 
 function lifecyclePayload() {
@@ -95,7 +131,6 @@ function configuredApiKey(repoRoot) {
   if (process.env.OMNIROUTE_API_KEY?.trim()) return process.env.OMNIROUTE_API_KEY.trim();
   const candidates = [
     process.env.ORCA_OMNIROUTE_ENV_FILE,
-    join(scriptDir, ".env"),
     join(dirname(repoRoot), "Teck.Paseo", ".env"),
   ].filter(Boolean);
   for (const path of candidates) {
@@ -127,7 +162,7 @@ function sandboxExists(name) {
 
 function wakeAndVerify(name) {
   const check =
-    "set -eu; test -x /usr/local/bin/omp; test -r /home/agent/.omp/agent/config.yml; test -r /home/agent/.omp/agent/models.yml; omp --version >/dev/null; curl -fsS -H 'Authorization: Bearer proxy-managed' http://host.docker.internal:20128/v1/models >/dev/null";
+    "set -eu; test -x /usr/local/bin/omp; test -x /home/agent/.local/bin/orca-runtime-check; test -r /home/agent/.omp/agent/config.yml; test -r /home/agent/.omp/agent/models.yml; test -r /home/agent/.omp/agent/RULES.md; test \"${OMNIROUTE_API_KEY:-}\" = proxy-managed; omp --version >/dev/null; curl -fsS -H 'Authorization: Bearer proxy-managed' http://host.docker.internal:20128/v1/models >/dev/null";
   run("ssh.exe", [
     "-T",
     "-o",
@@ -142,6 +177,18 @@ function wakeAndVerify(name) {
   ]);
 }
 
+function removeCustomSecret(name) {
+  run("sbx", [
+    "secret",
+    "rm",
+    "--sandbox",
+    name,
+    "--placeholder",
+    "proxy-managed",
+    "--force",
+  ]);
+}
+
 function emit(result) {
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
@@ -149,10 +196,12 @@ function emit(result) {
 function create() {
   if (process.platform !== "win32")
     throw new Error("local-docker-sandbox must run on the Windows host that owns Docker Sandboxes");
+  verifyHostPrerequisites();
   const repoRoot = resolve(required("ORCA_REPO_PATH"));
   const name = sandboxName(process.env.ORCA_RECIPE_ID, required("ORCA_VM_INSTANCE_ID"));
   const projectRoot = remoteWindowsPath(repoRoot);
   let created = false;
+  let secretTouched = false;
   try {
     if (!sandboxExists(name)) {
       log(`[CREATE] ${name} -> ${repoRoot}`);
@@ -177,23 +226,28 @@ function create() {
     }
 
     const key = configuredApiKey(repoRoot);
-    run("sbx", ["secret", "rm", "--sandbox", name, "--placeholder", "proxy-managed", "--force"]);
-    run("sbx", [
-      "secret",
-      "set-custom",
-      "--sandbox",
-      name,
-      "--host",
-      "host.docker.internal",
-      "--host",
-      "localhost",
-      "--env",
-      "OMNIROUTE_API_KEY",
-      "--placeholder",
-      "proxy-managed",
-      "--value",
-      key,
-    ]);
+    removeCustomSecret(name);
+    secretTouched = true;
+    run(
+      "sbx",
+      [
+        "secret",
+        "set-custom",
+        "--sandbox",
+        name,
+        "--host",
+        "host.docker.internal",
+        "--host",
+        "localhost",
+        "--env",
+        "OMNIROUTE_API_KEY",
+        "--placeholder",
+        "proxy-managed",
+        "--value",
+        key,
+      ],
+      { capture: true, sensitive: [key] },
+    );
 
     const ompRoot = `${projectRoot}/.omp`;
     const command = `set -eu; install -d -o 1000 -g 1000 /home/agent/.omp/agent; ln -sfn ${shellQuote(`${ompRoot}/config.yml`)} /home/agent/.omp/agent/config.yml; ln -sfn ${shellQuote(`${ompRoot}/models.yml`)} /home/agent/.omp/agent/models.yml; ln -sfn ${shellQuote(`${ompRoot}/RULES.md`)} /home/agent/.omp/agent/RULES.md`;
@@ -201,11 +255,18 @@ function create() {
     wakeAndVerify(name);
     emit(recipeResult(name, projectRoot));
   } catch (error) {
+    if (secretTouched) {
+      try {
+        removeCustomSecret(name);
+      } catch (cleanupError) {
+        log(`[WARN] custom secret cleanup failed: ${cleanupError.message}`);
+      }
+    }
     if (created) {
       try {
         run("sbx", ["rm", "--force", name]);
       } catch (cleanupError) {
-        log(`[WARN] cleanup failed: ${cleanupError.message}`);
+        log(`[WARN] sandbox cleanup failed: ${cleanupError.message}`);
       }
     }
     throw error;
@@ -229,6 +290,7 @@ function resume() {
 function destroy() {
   const { resourceId } = lifecyclePayload();
   log(`[DESTROY] ${resourceId}`);
+  removeCustomSecret(resourceId);
   run("sbx", ["rm", "--force", resourceId]);
 }
 

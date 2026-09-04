@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { recipeResult, remoteWindowsPath, sandboxName, shellQuote } from "./lifecycle.mjs";
+import {
+  recipeResult,
+  redactSensitive,
+  remoteWindowsPath,
+  sandboxName,
+  shellQuote,
+  supportsSbxVersion,
+} from "./lifecycle.mjs";
 
 test("sandbox names are deterministic, safe, and capped", () => {
   const name = sandboxName("local.docker sandbox", "ABC_123");
@@ -18,6 +25,22 @@ test("Windows workspace paths map to Docker Sandbox paths", () => {
 test("remote paths are shell quoted without interpolation", () => {
   assert.equal(shellQuote("/c/Users/Jacob's Repo"), "'/c/Users/Jacob'\"'\"'s Repo'");
 });
+test("sensitive values are removed from lifecycle errors", () => {
+  const secret = "omniroute-real-key";
+  assert.equal(
+    redactSensitive(`sbx --value ${secret}: rejected ${secret}`, [secret]),
+    "sbx --value <redacted>: rejected <redacted>",
+  );
+});
+
+test("Docker Sandbox version gate requires the supported 0.39 line", () => {
+  assert.equal(supportsSbxVersion("sbx version: v0.39.0 def8cb"), true);
+  assert.equal(supportsSbxVersion("sbx version: v0.40.1"), true);
+  assert.equal(supportsSbxVersion("sbx version: v1.0.0"), true);
+  assert.equal(supportsSbxVersion("sbx version: v0.38.9"), false);
+  assert.equal(supportsSbxVersion("unknown"), false);
+});
+
 
 test("SSH result preserves Orca default checkout ownership", () => {
   const result = recipeResult("orca-example-1", "/c/repo");
