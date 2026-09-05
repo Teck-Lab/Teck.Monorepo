@@ -1,6 +1,6 @@
 scripts:
   setup: bun install --frozen-lockfile
-setupAgentStartupPolicy: wait-for-setup
+setupAgentStartupPolicy: start-immediately
 
 environmentRecipes:
   - id: local-docker-sandbox
