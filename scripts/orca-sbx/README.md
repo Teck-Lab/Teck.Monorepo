@@ -39,6 +39,30 @@ such as a `Teck.Paseo/.env` next to this repository.
   pointing at a host-only env file, or the default host credential file
   `%USERPROFILE%\.config\teck\omniroute.env` containing the key
 
+## One-time host credential setup
+
+Provision the default host credential file once per Windows machine. The
+script securely prompts for the key, verifies it against the public OmniRoute
+endpoint, and writes it to `%USERPROFILE%\.config\teck\omniroute.env` with
+ACLs restricted to the current user:
+
+```powershell
+.\scripts\orca-sbx\setup-host.ps1
+```
+
+To provision from 1Password without typing the key, resolve an `op://`
+reference with the 1Password CLI at setup time:
+
+```powershell
+.\scripts\orca-sbx\setup-host.ps1 `
+  -SecretRef 'op://Teck/OmniRoute/api-key'
+```
+
+The script always replaces the file, so re-run it after rotating the key, then
+recreate already-existing sandboxes. The file is the default host credential
+source; `OMNIROUTE_API_KEY` and `ORCA_OMNIROUTE_ENV_FILE` take precedence when
+set, and the lifecycle never consults any other location.
+
 Docker's managed SSH block lives in `%USERPROFILE%\.ssh\config` and routes
 `*.sbx` through the local `sbx ssh proxy` command. Start Orca with the system
 SSH transport so this `ProxyCommand` is authoritative:

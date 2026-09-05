@@ -77,9 +77,6 @@ web-build/
 scripts/orca-vm/.ssh/
 scripts/orca-vm/local-state.json
 
-# Orca Docker Sandbox recipe (host-local secrets/runtime state)
-scripts/orca-sbx/.env
-
 # Generated MCP backend secrets (see .devcontainer/prepare-compose.sh)
 .devcontainer/mcp/mcp.env
 .devcontainer/mcp/searxng/settings.yml
