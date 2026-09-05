@@ -13,7 +13,7 @@ providers:
         name: Executor
         contextWindow: 500000
         maxTokens: 32768
-      - id: teck-fast
+      - id: omniroute/teck-fast
         name: Fast
         contextWindow: 250000
         maxTokens: 32768

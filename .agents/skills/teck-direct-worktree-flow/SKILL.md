@@ -14,11 +14,12 @@ received an orchestration Dispatch.
 1. Confirm the current branch and preserve unrelated existing changes.
 2. Implement the user's request and run proportional repository validation.
 3. Review the final diff and separate it into meaningful conventional commits.
-4. Create unsigned local commits. Disabled local signing is intentional and is
-   never a blocker:
+4. Create GPG-signed conventional commits. Signing failure is a blocker; never
+   disable or bypass signing:
 
 ```bash
-git -c commit.gpgsign=false commit -m "fix(scope): concise description"
+git commit -S -m "fix(scope): concise description"
+git verify-commit HEAD
 ```
 
 Do not commit unrelated files. Never force-push, merge a PR, create tags, or

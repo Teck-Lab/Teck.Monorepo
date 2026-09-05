@@ -5,11 +5,57 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  commit-signatures:
+    name: GPG commit signatures
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify every introduced commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT_NAME" = pull_request ]; then
+            commits="$(
+              gh api --paginate --slurp \
+                "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/commits?per_page=100" |
+                jq 'add'
+            )"
+          elif [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            commits="$(gh api "repos/$GITHUB_REPOSITORY/commits/$AFTER_SHA" | jq '[.]')"
+          else
+            commits="$(
+              gh api --paginate --slurp \
+                "repos/$GITHUB_REPOSITORY/compare/$BEFORE_SHA...$AFTER_SHA?per_page=100" |
+                jq '[.[].commits[]]'
+            )"
+          fi
+
+          invalid="$(
+            jq -r '
+              .[] |
+              select(
+                .commit.verification.verified != true or
+                (((.commit.verification.signature // "") |
+                  startswith("-----BEGIN PGP SIGNATURE-----")) | not)
+              ) |
+              "\(.sha) \(.commit.verification.reason)"
+            ' <<<"$commits"
+          )"
+          if [ -n "$invalid" ]; then
+            printf 'Every commit must have a GitHub-verified GPG signature:\n%s\n' "$invalid" >&2
+            exit 1
+          fi
   check:
     name: PR Checks
     runs-on: ubuntu-latest

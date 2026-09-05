@@ -6,15 +6,15 @@ modelRoles:
   vision: omniroute/teck-orchestrator
   task: omniroute/teck-executor
   designer: omniroute/teck-executor
-  smol: omniroute/teck-fast
-  tiny: omniroute/teck-fast
-  commit: omniroute/teck-fast
+  smol: omniroute/omniroute/teck-fast
+  tiny: omniroute/omniroute/teck-fast
+  commit: omniroute/omniroute/teck-fast
 advisor:
   enabled: true
 enabledModels:
   - omniroute/teck-orchestrator
   - omniroute/teck-executor
-  - omniroute/teck-fast
+  - omniroute/omniroute/teck-fast
 cycleOrder:
   - smol
   - default

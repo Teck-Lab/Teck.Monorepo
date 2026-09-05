@@ -6,6 +6,7 @@ test -x tools/orca-coordinator-hook
 test -x tools/orca-coordinator-hook.test.sh
 jq -e '.hooks.Stop and .hooks.PostToolUse' .codex/hooks.json >/dev/null
 tools/orca-coordinator-hook.test.sh
+bun test tools/orca-omp-prefill.test.ts
 
 grep -Fxq '@AGENTS.md' CLAUDE.md
 test -x tools/sync-agent-skills
@@ -106,6 +107,41 @@ tdd_contract="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow
 visibility_contract="$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/references/agent-visibility.md"
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
+mkdir -p "$fixture/bin"
+cat >"$fixture/bin/omp-fixture.ts" <<'EOF'
+const args = process.argv.slice(2);
+if (args[0] !== "commit" || !args.includes("--no-changelog")) {
+  console.error(`unexpected OMP arguments: ${args.join(" ")}`);
+  process.exit(2);
+}
+const contextIndex = args.indexOf("--context");
+const context = contextIndex >= 0 ? args[contextIndex + 1] : "";
+if (!context?.includes("Create exactly one signed Conventional Commit")) {
+  console.error("missing single signed commit context");
+  process.exit(2);
+}
+const logPath = process.env.OMP_COMMIT_LOG;
+if (!logPath) process.exit(2);
+const logFile = Bun.file(logPath);
+const previous = (await logFile.exists()) ? await logFile.text() : "";
+await Bun.write(logPath, `${previous}${JSON.stringify(args)}\n`);
+if (process.env.OMP_COMMIT_FAIL === "true") process.exit(7);
+const commit = Bun.spawnSync(["git", "commit", "-S", "-m", "feat(fixture): commit reviewed integration"], {
+  stderr: "pipe",
+  stdout: "ignore",
+});
+if (commit.exitCode !== 0) {
+  console.error(commit.stderr.toString());
+  process.exit(commit.exitCode);
+}
+EOF
+if command -v cygpath >/dev/null 2>&1; then
+  bun build --compile "$fixture/bin/omp-fixture.ts" --outfile "$fixture/bin/omp.exe" >/dev/null
+else
+  bun build --compile "$fixture/bin/omp-fixture.ts" --outfile "$fixture/bin/omp" >/dev/null
+fi
+export PATH="$fixture/bin:$PATH"
+export OMP_COMMIT_LOG="$fixture/omp-commit.log"
 
 for contract in \
   'Starting a worker begins supervision' \
@@ -175,6 +211,10 @@ for contract in \
   }
 done
 grep -Fq 'A Terra consolidator inspects every member commit' "$executor_instructions"
+grep -Fq 'omp commit --no-changelog' "$workflow"
+grep -Fq "\`commit\` model role" "$workflow"
+grep -Fq 'failed, split, unsigned, dirty, or tree-changing commit-agent result' \
+  "$(cd "$(dirname "$0")/.." && pwd)/.agents/skills/teck-feature-flow/SKILL.md"
 for contract in \
   'Executors report facts' \
   'retry the same Task and' \
@@ -301,11 +341,30 @@ for contract in \
   }
 done
 
+gnupg_dir="$fixture/gnupg"
+umask 077
+mkdir "$gnupg_dir"
+if command -v cygpath >/dev/null 2>&1; then
+  export GNUPGHOME="$(cygpath -w "$gnupg_dir")"
+  gpg_program="$(git config --global gpg.program)"
+else
+  export GNUPGHOME="$gnupg_dir"
+  gpg_program="$(command -v gpg)"
+fi
+test -n "$gpg_program"
+"$gpg_program" --batch --pinentry-mode loopback --passphrase '' \
+  --quick-generate-key 'Teck Test Agent <agent@example.test>' ed25519 sign 1d >/dev/null 2>&1
+signing_key="$("$gpg_program" --batch --with-colons --list-secret-keys |
+  awk -F: '$1 == "fpr" { print $10; exit }')"
+test -n "$signing_key"
+
 git init --bare "$fixture/origin.git" >/dev/null
 git clone "$fixture/origin.git" "$fixture/repo" >/dev/null 2>&1
 git -C "$fixture/repo" config user.name 'Test Agent'
 git -C "$fixture/repo" config user.email 'agent@example.test'
-git -C "$fixture/repo" config commit.gpgsign false
+git -C "$fixture/repo" config user.signingkey "$signing_key"
+git -C "$fixture/repo" config gpg.program "$gpg_program"
+git -C "$fixture/repo" config commit.gpgsign true
 git -C "$fixture/repo" switch -c main >/dev/null
 printf 'root\n' > "$fixture/repo/README.md"
 git -C "$fixture/repo" add README.md
@@ -326,7 +385,7 @@ while [ "$#" -gt 0 ]; do
   esac
   shift 2
 done
-git -c commit.gpgsign=false commit -m "$message" >/dev/null
+git commit -S -m "$message" >/dev/null
 sha="$(git rev-parse HEAD)"
 git push origin "HEAD:refs/heads/$branch" >/dev/null
 printf '{"sha":"%s","verified":true}\n' "$sha"
@@ -349,9 +408,22 @@ git worktree add -b subfeature/120/122-plan-review-defect "$defect_path" feature
 
 printf 'tax\n' > "$tax_path/tax.txt"
 git -C "$tax_path" add tax.txt
-git -C "$tax_path" commit -m 'feat(billing): add tax system' >/dev/null
+git -C "$tax_path" -c commit.gpgsign=false commit -m 'feat(billing): add tax system' >/dev/null
 
 "$tool" set-status --issue 121 --status completed
+if "$tool" integrate --issue 121 >/dev/null 2>&1; then
+  echo "expected unsigned worker commit to be rejected" >&2
+  exit 1
+fi
+git -C "$tax_path" commit --amend --no-edit -S >/dev/null
+parent_before_failed_commit="$(git rev-parse HEAD)"
+if OMP_COMMIT_FAIL=true "$tool" integrate --issue 121 >/dev/null 2>&1; then
+  echo "expected failed OMP commit agent to reject integration" >&2
+  exit 1
+fi
+test "$(git rev-parse HEAD)" = "$parent_before_failed_commit"
+git diff --quiet
+git diff --cached --quiet
 "$tool" integrate --issue 121
 "$tool" sync --issue 122
 
@@ -360,6 +432,9 @@ git -C "$defect_path" add defect.txt
 git -C "$defect_path" commit -m 'fix(billing): resolve plan review defect' >/dev/null
 "$tool" set-status --issue 122 --status completed
 "$tool" integrate --issue 122
+test "$(wc -l <"$OMP_COMMIT_LOG")" -eq 3
+grep -Fq 'reviewed sub-issue #121' "$OMP_COMMIT_LOG"
+grep -Fq 'reviewed sub-issue #122' "$OMP_COMMIT_LOG"
 
 status="$("$tool" status --json)"
 bun -e 'const d=JSON.parse(await Bun.stdin.text()); if (!d.parentClean || !d.worktrees.every((x) => x.merged)) process.exit(1)' <<<"$status"

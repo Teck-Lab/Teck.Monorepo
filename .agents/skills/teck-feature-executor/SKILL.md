@@ -27,8 +27,10 @@ issues or dependencies, or dispatch a durable worker.
 
 Implement the smallest complete change, run targeted validation and required Nx
 affected gates, inspect the final diff, and create one or more meaningful
-unsigned conventional local commits. Never push, merge, create or remove
-worktrees, mutate GitHub, change Orca Tasks, bypass hooks, or create tags.
+GPG-signed conventional local commits. Verify each commit before reporting it.
+Missing signing capability is a blocker; never disable signing, push, merge,
+create or remove worktrees, mutate GitHub, change Orca Tasks, bypass hooks, or
+create tags.
 
 Do not spawn provider-native subagents. When research, exploration, testing,
 debugging, implementation, or independent checking needs another agent, ask

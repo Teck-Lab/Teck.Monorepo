@@ -20,6 +20,8 @@ RUN npm install --global --no-audit --no-fund "bun@${BUN_VERSION}" \
     && ln -sf "${global_bin}/bunx" /usr/local/bin/bunx \
     && ln -sf "${global_bin}/omp" /usr/local/bin/omp \
     && npm list --global --depth=0 "bun@${BUN_VERSION}" "@oh-my-pi/pi-coding-agent@${OMP_VERSION}" \
+    && command -v git \
+    && command -v gpg \
     && command -v bun \
     && command -v bunx \
     && command -v omp

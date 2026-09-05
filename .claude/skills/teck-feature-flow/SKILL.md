@@ -133,7 +133,10 @@ transferring unfinished ownership to a fresh session.
   executor and re-run the affected review unit or whole-feature QA. Enforce the
   repair limits and use a native decision gate at the convergence threshold.
 - Only the coordinator integrates child commits, publishes the parent branch,
-  creates the final PR, and updates parent lifecycle labels.
+  creates the final PR, and updates parent lifecycle labels. Each reviewed
+  squash is committed through OMP's configured `commit` model role by
+  `tools/orca-feature integrate`; the coordinator must reject and roll back a
+  failed, split, unsigned, dirty, or tree-changing commit-agent result.
 - Never yield a final response while an unacknowledged lifecycle delivery, an
   active or expected Dispatch, a ready Task, an open actionable sub-issue, or a
   blocker edge remains. Do not say that Orca will re-engage the coordinator and
