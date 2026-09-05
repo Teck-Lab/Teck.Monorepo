@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1.7
+
+ARG SANDBOX_BASE_IMAGE=docker.io/docker/sandbox-templates:shell-docker@sha256:5fc81bc7a127e59d81b244a06831ae3212a0310b2e5a0349c54e29249e45e919
+FROM ${SANDBOX_BASE_IMAGE}
+
+ARG BUN_VERSION=1.4.0
+ARG OMP_VERSION=18.0.4
+
+USER root
+ENV ONNXRUNTIME_NODE_INSTALL=skip \
+    DEBIAN_FRONTEND=noninteractive
+
+RUN npm install --global --no-audit --no-fund "bun@${BUN_VERSION}" \
+    && npm install --global --no-audit --no-fund "@oh-my-pi/pi-coding-agent@${OMP_VERSION}" \
+    && global_bin="$(npm prefix --global)/bin" \
+    && test -x "${global_bin}/bun" \
+    && test -x "${global_bin}/bunx" \
+    && test -x "${global_bin}/omp" \
+    && ln -sf "${global_bin}/bun" /usr/local/bin/bun \
+    && ln -sf "${global_bin}/bunx" /usr/local/bin/bunx \
+    && ln -sf "${global_bin}/omp" /usr/local/bin/omp \
+    && npm list --global --depth=0 "bun@${BUN_VERSION}" "@oh-my-pi/pi-coding-agent@${OMP_VERSION}" \
+    && command -v bun \
+    && command -v bunx \
+    && command -v omp
+
+LABEL org.opencontainers.image.source="https://github.com/Teck-Lab/Teck.Monorepo" \
+      org.opencontainers.image.title="Teck Orca OMP sandbox template"
+
+USER agent

@@ -67,6 +67,15 @@ fingerprint, and repair the missing half idempotently. Never erase the
 successful half to hide drift. Before adding an edge, reject self-dependencies,
 duplicates, reversed producer/consumer direction, and cycles.
 
+Use GitHub MCP for dependency-graph reads and supported issue mutations. The
+current MCP surface cannot mutate issue dependencies. Add `A waits for B` with
+`POST /repos/{owner}/{repo}/issues/{A_NUMBER}/dependencies/blocked_by` and body
+`{"issue_id": B_DATABASE_ID}`. Remove it with `DELETE
+/repos/{owner}/{repo}/issues/{A_NUMBER}/dependencies/blocked_by/{B_DATABASE_ID}`.
+The database ID is not the visible issue number. Re-read both `blockedBy` and
+`blocking` through GitHub GraphQL or MCP after each API mutation. Prose,
+comments, labels, and task descriptions never count as blocker relationships.
+
 Dependency direction is semantic, not inferred from issue state. The approved
 plan statement `A waits for B` means A has a `blocked_by` edge to B and the Orca
 Task for A depends on B. An open A does not block B merely because their file or

@@ -33,6 +33,9 @@ Orca's injected preamble exclusively owns Task/Dispatch identity, heartbeat,
 </task-contract>
 ```
 
+Engineering feature Tasks may use `parallel-child` only for manifest-approved,
+resource-disjoint work one level beneath the canonical sub-issue worktree.
+
 `work-kind` and `workflow-stage` are authoritative orthogonal axes. `route` is
 their derived lowercase value and must match exactly, for example
 `bug-fix:code-review`. Use Task class (`implementation`, `supporting`, `repair`,
@@ -95,11 +98,11 @@ architecture Tasks emit `delivery-manifest-result-v1`.
   <validation-profile>product-code|build-config|agent-workflow|docs-research</validation-profile>
   <manifest-digest>sha256:HEX</manifest-digest>
   <technical-approach>Architecture and repository constraints.</technical-approach>
-  <sub-issue-drafts>Readable coherent review-unit issue bodies.</sub-issue-drafts>
-  <member-tasks>Fine-grained Orca Task contracts.</member-tasks>
+  <sub-issue-drafts>Readable coherent issue bodies; each is one review unit and direct child worktree.</sub-issue-drafts>
+  <member-tasks>Fine-grained sequential Orca Task contracts per sub-issue.</member-tasks>
   <expected-change-boundaries>Expected files and narrow expansion rules.</expected-change-boundaries>
   <dependency-waves>Shallow executable waves.</dependency-waves>
-  <review-units>Named units and member Tasks.</review-units>
+  <review-units>One-to-one sub-issue, branch, worktree, and review mappings.</review-units>
   <model-routes>Luna/Terra route and escalation per member.</model-routes>
   <validation-strategy>Proportional evidence.</validation-strategy>
   <materialization-order>Deterministic coordinator mutation order.</materialization-order>

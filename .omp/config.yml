@@ -9,6 +9,8 @@ modelRoles:
   smol: omniroute/teck-fast
   tiny: omniroute/teck-fast
   commit: omniroute/teck-fast
+advisor:
+  enabled: true
 enabledModels:
   - omniroute/teck-orchestrator
   - omniroute/teck-executor

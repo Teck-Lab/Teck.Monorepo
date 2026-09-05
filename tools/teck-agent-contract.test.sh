@@ -77,6 +77,9 @@ if "$validator" "$fixture_dir/hidden-helper.xml" >/dev/null 2>&1; then
   exit 1
 fi
 
+sed 's#shared-durable#parallel-child#' "$fixture_dir/task.xml" >"$fixture_dir/feature-parallel-child.xml"
+"$validator" "$fixture_dir/feature-parallel-child.xml" >/dev/null
+
 sed '/<development-mode>/d' "$fixture_dir/task.xml" >"$fixture_dir/executor-without-mode.xml"
 if "$validator" "$fixture_dir/executor-without-mode.xml" >/dev/null 2>&1; then
   echo "expected executor task without development mode to fail" >&2
@@ -153,6 +156,8 @@ cat >"$fixture_dir/discovery-task.xml" <<'XML'
 </task-contract>
 XML
 "$validator" "$fixture_dir/discovery-task.xml" >/dev/null
+sed 's#shared-durable#parallel-child#' "$fixture_dir/discovery-task.xml" >"$fixture_dir/discovery-parallel-child.xml"
+"$validator" "$fixture_dir/discovery-parallel-child.xml" >/dev/null
 
 cat >"$fixture_dir/discovery-result.xml" <<'XML'
 <discovery-result version="1">

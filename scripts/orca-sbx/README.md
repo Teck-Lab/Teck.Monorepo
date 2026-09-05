@@ -9,8 +9,13 @@ sandbox. Orca connects through Docker's managed `<name>.sbx` SSH
 `ProxyCommand` and retains schema-version-1, linked-worktree checkout
 ownership because the recipe intentionally omits `checkoutMode`.
 
-OMP is installed in the pinned worker image. Its canonical non-secret
-configuration is committed under `.omp/` and linked into the sandbox's
+OMP and Bun are installed by the checked-in sandbox template at
+`scripts/orca-sbx/template/Containerfile`. The lifecycle's pinned
+`defaultImage` is the published build; `ORCA_SBX_IMAGE` can override that
+reference for another published build. The separate kit under
+`scripts/orca-sbx/kit/` applies runtime files and network policy.
+Its canonical non-secret configuration is committed under `.omp/` and linked
+into the sandbox's
 user-level OMP location during provisioning. The host lifecycle reads the
 OmniRoute key and registers a sandbox-scoped custom secret that Docker's
 proxy injects only for `omniroute.tecklab.dk`; command failures are redacted.

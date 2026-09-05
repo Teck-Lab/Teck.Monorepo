@@ -8,11 +8,14 @@ description: Coordinate a Teck parent GitHub issue through native Orca Tasks, Gi
 Coordinate only. Do not inspect implementation details to replace a delivery architect,
 edit product code, perform code review, or perform QA in the parent worktree.
 
-Use four state owners:
+Use five state owners:
 
-- GitHub MCP: durable parent/sub-issues, native blockers, comments, PR, and CI.
+- GitHub MCP: durable parent/sub-issue reads and supported issue, comment, PR,
+  and CI mutations.
+- GitHub REST or GraphQL dependency API: native `blocked_by` and `blocking`
+  relationships; the current GitHub MCP surface cannot mutate them.
 - Orca orchestration: Run, Task DAG, Dispatches, questions, and completion.
-- Native Orca worktrees: isolated leaf branches, terminals, and UI lineage.
+- Native Orca worktrees: isolated sub-issue branches, terminals, and UI lineage.
 - `tools/orca-feature`: local integration bookkeeping only.
 
 Read [references/workflow.md](references/workflow.md) completely before
@@ -68,17 +71,21 @@ transferring unfinished ownership to a fresh session.
   and native worktrees before creating or dispatching anything.
 - Bind plans, reviews, validation, and QA to immutable artifact digests and Git
   SHAs. Any changed artifact or branch tip invalidates the earlier approval.
-- Each executable leaf maps to one GitHub sub-issue and Orca Task. Each review
-  unit owns one native Orca child worktree/branch; its member Tasks run there
-  sequentially. Independent resource-safe review units may run concurrently.
-  Read-only supporting Tasks may use an explicitly selected existing worktree.
+- Each executable GitHub sub-issue owns exactly one canonical direct native Orca
+  child worktree and branch under the main feature worktree. Ordinary member
+  Tasks run sequentially there. Manifest-approved, resource-disjoint members may
+  run concurrently in worktrees one additional level beneath it when the
+  expected speedup exceeds integration cost. The coordinator integrates those
+  commits into the canonical sub-issue worktree before one combined review.
+  Independent resource-safe sub-issues may also run concurrently. Read-only
+  supporting Tasks may use an explicitly selected existing worktree.
 - Every delegated agent, including research, testing, debugging, or independent
   checking helpers, must be a visible Orca Task/Dispatch with its own verified
   terminal and correct Task/worktree lineage. Provider-native Claude/Codex
   subagents are prohibited.
-- The parent coordinator dispatches durable review-unit members. Member Tasks
-  normally run sequentially in the unit worktree; optional child worktrees are
-  limited to one extra level and require proven file/resource independence.
+- The parent coordinator owns every durable member Dispatch. Never share one
+  editable worktree across sub-issues or create descendants below the optional
+  parallel-member layer.
 - Only findings actionable under the convergence contract become blockers.
   Reuse one GitHub sub-issue and Orca Task per stable finding key. Scope
   expansions and observations are non-blocking follow-ups.
@@ -112,13 +119,16 @@ transferring unfinished ownership to a fresh session.
   after claiming and immediately before acceptance/integration; reconcile any
   competing live claim instead of duplicating work. In human-facing output,
   refer to issues by linked title, not bare-number chains.
-- Mirror GitHub blockers in Orca Task dependencies. Re-read both graphs after
-  mutation; disagreement blocks dispatch.
-- Preserve dependency direction from the approved plan. If it says `A waits
-  for B`, then A is blocked by B and B is the eligible predecessor. An open
-  overlapping issue alone never reverses that edge or blocks B; create and
-  verify the missing directed edge, then continue B unless live execution or
-  another explicit dependency proves a real collision.
+- Persist every blocker as a native GitHub relationship, never only in issue
+  prose, comments, or labels. For `A waits for B`, use the GitHub dependency API
+  to add B's numeric issue database ID to A's `blocked_by` collection, read the
+  directed edge back through GitHub GraphQL or MCP, and mirror it as an Orca Task
+  dependency. Remove and re-read both edges only after B is accepted and
+  integrated. Any disagreement blocks dispatch.
+- Preserve dependency direction from the approved plan. An open overlapping
+  issue alone never reverses that edge or blocks B; create and verify the
+  missing directed edge, then continue B unless live execution or another
+  explicit dependency proves a real collision.
 - Reviewers and QA never repair findings. Dispatch a bounded finding to an
   executor and re-run the affected review unit or whole-feature QA. Enforce the
   repair limits and use a native decision gate at the convergence threshold.

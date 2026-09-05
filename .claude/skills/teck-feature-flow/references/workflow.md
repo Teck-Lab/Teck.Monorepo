@@ -50,8 +50,9 @@ this parent coordinator:
    Delivery;
 6. validate the reported artifact with `tools/teck-agent-contract`, then
    validate the worktree, commits, and evidence for that Task type;
-7. reconcile the corresponding GitHub sub-issue and blocker edges through MCP;
-8. re-read both durable graphs and dispatch every newly eligible Task whose
+7. reconcile the GitHub sub-issue through MCP, mutate native blocker edges
+   through the GitHub dependency API, and verify the directed relationships;
+8. re-read GitHub and Orca and dispatch every newly eligible Task whose
    dependencies and resources permit execution; and
 9. acknowledge and atomically continue waiting with:
 
@@ -124,9 +125,10 @@ The coordinator must not report workflow completion when any of these exist:
 ## 2. Dedicated delivery architecture and review
 
 Apply `delegation-contracts.md` and `review-convergence.md` throughout this
-workflow. The approved plan freezes the acceptance contract. Classify the
-work kind and every Task, group implementation into coherent review units, and
-use proportional evidence for its validation profile.
+workflow. The approved plan freezes the acceptance contract. Classify the work
+kind and every Task, and partition implementation into coherent GitHub
+sub-issues. Each sub-issue is one review unit and one direct child worktree.
+Use proportional evidence for its validation profile.
 
 Create a read-only delivery-architecture Task whose spec contains:
 
@@ -167,6 +169,21 @@ dependencies; for splits across coherent sub-issues, create native GitHub
 blocker edges and mirror them exactly in Orca. Dispatch the initial frontier,
 then immediately dispatch every newly eligible Task after an accepted blocker
 releases its edges. The architect and reviewer never materialize durable state.
+
+A blocker mention in an issue body, comment, label, or task description is not
+a dependency. The current GitHub MCP surface has no dependency mutation, so use
+the native GitHub issue-dependency API for that write:
+
+- add `A waits for B` with `POST
+  /repos/{owner}/{repo}/issues/{A_NUMBER}/dependencies/blocked_by` and body
+  `{"issue_id": B_DATABASE_ID}`;
+- remove it only after B is accepted and integrated with `DELETE
+  /repos/{owner}/{repo}/issues/{A_NUMBER}/dependencies/blocked_by/{B_DATABASE_ID}`.
+
+`B_DATABASE_ID` is GitHub's numeric issue database ID, not the visible issue
+number. Re-read `blockedBy` and `blocking` through GitHub GraphQL or MCP after
+each write, then create or remove the identical Orca `--deps` edge. Do not
+dispatch while either graph disagrees.
 
 Materialize every Task with explicit same-Run hierarchy and readable labels.
 Pass `--run`, the logical `--parent`, and human-readable `--task-title` and
@@ -313,29 +330,36 @@ the workflow. Bare numbers remain machine identity fields, never the primary
 human-readable description.
 
 Start only Tasks reported ready by Orca and unblocked in GitHub. Apply
-`agent-visibility.md` when creating every Task, worktree, and Dispatch. Create one
-native Orca child worktree from the current verified parent feature head for
-each review unit, then register that existing checkout with
-`tools/orca-feature register`. Run member Tasks sequentially in that worktree;
-never give concurrent workers the same review-unit branch. Resource-safe review
-units may use separate child worktrees concurrently.
+`agent-visibility.md` when creating every Task, worktree, and Dispatch. Before
+the first editable Task for each executable GitHub sub-issue, create exactly one
+canonical native Orca child worktree from the current verified parent feature
+head and register that checkout with `tools/orca-feature register`. Persist the
+sub-issue-to-worktree ID mapping. Run ordinary implementation, consolidation,
+review, and repair Tasks sequentially there. Never share an editable worktree
+across sub-issues. Dependency-unblocked, resource-safe sub-issues may run
+concurrently in their separate direct child worktrees.
 
 The delivery architect selects one execution mode for each member:
 
-- shared durable Task: a coordinator-dispatched Orca Task in the review-unit
-  worktree, executed sequentially; or
-- parallel child Task: a substantial, independently integratable Orca Task in
-  one child worktree beneath the review unit.
+- `shared-durable`: the default coordinator-dispatched Task in the canonical
+  sub-issue worktree, executed sequentially;
+- `parallel-child`: a substantial, resource-disjoint Task in a worktree one
+  additional level beneath the canonical sub-issue worktree, used only when the
+  expected speedup exceeds integration cost; or
+- `consolidation`: a Terra/high Task in the canonical worktree after parallel
+  member integration or when multiple commits require semantic reconciliation.
+
+Parallel members require disjoint files, generated outputs, databases, ports,
+indexes, caches, and mutable services. The coordinator integrates every
+accepted parallel-child commit into the canonical sub-issue worktree, removes
+the nested worktree after reconciliation, then runs required consolidation and
+one combined Sol/high review. Never create descendants beneath a parallel-child
+worktree or give nested members separate planning, code-review, or QA loops.
 
 Use Luna/xhigh for explicit mechanical durable members, Terra/high for coherent
 implementation and required consolidation, and a native Orca Claude/Sonnet
 worker only when the plan justifies cross-provider work. The parent coordinator
-owns all durable dispatches; an executor never becomes a nested orchestrator.
-Allow at most one child-worktree layer beneath a review unit. Parallel child
-Tasks require disjoint files, generated outputs, databases, ports, and mutable
-services. The coordinator integrates their accepted commits into the review-unit
-worktree, then dispatches Terra/high consolidation and one combined Sol/high
-review. Nested members do not receive independent planning, review, or QA loops.
+owns every durable Dispatch; an executor never becomes a nested orchestrator.
 
 Before treating overlap as a dispatch blocker, distinguish ordering from active
 contention. Apply the approved direction exactly: `A waits for B` blocks A on B,
@@ -406,12 +430,12 @@ digest, and fresh independent CLEAN review before materialization.
 After executor `worker_done`, validate `implementation-result-v1`, require a
 clean worktree, local commit, and validation evidence, and update the worktree
 checkpoint. Require red/green/refactor evidence for TDD members or a justified
-validation-only exception with before/after evidence. Supporting Tasks are accepted by their consuming review unit and
-do not receive standalone code review.
+validation-only exception with before/after evidence. Supporting Tasks are
+accepted by their consuming sub-issue and do not receive standalone code review.
 
-When every member of a coherent review unit is complete, create one separate
-review Task using `teck-code-reviewer`, OMX `code-reviewer`, and Sol/high.
-Review the combined unit worktree against its exact tip SHA and plan digest. Any later
+When every member of a sub-issue is complete, create one separate review Task
+using `teck-code-reviewer`, OMX `code-reviewer`, and Sol/high. Review the
+combined sub-issue worktree against its exact tip SHA and plan digest. Any later
 commit invalidates that review and requires fresh independent review.
 
 Only findings actionable under `review-convergence.md` block integration.
@@ -422,10 +446,10 @@ audit and native decision gate.
 
 ## 5. Integrate and synchronize
 
-Only the coordinator integrates a CLEAN review unit with
-`tools/orca-feature integrate`. Run targeted checks, comment on every member
-issue with the integrated SHA and evidence, close accepted members, and re-read
-GitHub dependencies before releasing blocked work.
+Only the coordinator integrates a CLEAN sub-issue review unit with
+`tools/orca-feature integrate`. Run targeted checks, comment on the sub-issue
+with the integrated SHA and evidence, close it, and re-read GitHub dependencies
+before releasing blocked work.
 
 Release the settled Dispatch, remove the native child through Orca, then call
 `tools/orca-feature remove`. Never substitute raw `git worktree remove` or

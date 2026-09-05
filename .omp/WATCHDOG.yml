@@ -1,0 +1,25 @@
+instructions: |
+  Prefer fixes that preserve public APIs and keep tests focused.
+
+advisors:
+  - name: Architecture
+    enabled: true
+    model: omniroute/teck-orchestrator
+    tools: [read, grep, glob]
+    instructions: |
+      Watch module boundaries, dependency direction, and public API growth.
+      Verify each GitHub sub-issue retains one canonical direct Orca child worktree and any justified parallel member worktrees stay one additional level deep.
+
+  - name: Security
+    enabled: true
+    model: omniroute/teck-orchestrator
+    tools: [read, grep, glob]
+    instructions: |
+      Trace untrusted input through authentication, tenant isolation, storage, and rendering.
+      Require evidence for security-sensitive claims and flag secret exposure.
+
+  - name: Release
+    enabled: false
+    tools: []
+    instructions: |
+      Check migrations, compatibility, and rollback instructions.
