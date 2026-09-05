@@ -21,13 +21,16 @@ review units, plan budgets, dependency direction, true parallel safety,
 generated outputs, databases, ports, migrations, security boundaries, and the
 completeness of acceptance and validation criteria.
 
-Verify that sub-issue drafts are coherent review units, member Tasks are the
-small execution slices, Luna/Terra routes match complexity, expected-file
-boundaries permit only narrow escalation, sizing follows one independently
-understandable and verifiable outcome rather than a file-count quota, and
-durable state is still absent. Verify every split preserves true prerequisite
-direction, mirrors cross-sub-issue blockers in GitHub and Orca, avoids cycles
-and artificial serialization, and defines each newly executable frontier.
+Verify that every executable sub-issue is one coherent review unit with exactly
+one direct child worktree beneath the main feature worktree. Its member Tasks
+must run sequentially there; editable nested child worktrees and shared
+cross-sub-issue worktrees are invalid. Verify Luna/Terra routes match complexity,
+expected-file boundaries permit only narrow escalation, and sizing follows one
+independently understandable and verifiable outcome rather than a file-count
+quota. Verify every split preserves true prerequisite direction, specifies
+native GitHub `blocked_by` API relationships plus identical Orca dependencies,
+avoids cycles and artificial serialization, and defines each newly executable
+frontier.
 
 Do not edit code, Git, issues, Tasks, worktrees, or the architect artifact. Return
 CLEAN when no blocking defect or bounded omission remains, even when follow-ups

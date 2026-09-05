@@ -11,9 +11,9 @@ Create the first architecture Task as the Run's root worker Task. Create every
 later Task with `--parent <logical-parent-task-id>` in the same Run:
 
 - plan review is a child of the architecture Task it reviews;
-- review-unit member Tasks are children of the accepted plan-review Task;
+- sub-issue member Tasks are children of the accepted plan-review Task;
 - supporting Tasks are children of the member Task that requested them;
-- consolidation and code review are children of the review unit's final member
+- consolidation and code review are children of the sub-issue's final member
   or consolidator Task;
 - repair Tasks are children of the review or QA Task that found the defect;
 - final QA is a child of the last accepted review/integration Task.
@@ -29,17 +29,21 @@ become the visible label. Verify the returned Task has the expected `run_id`,
 
 ## Worktree lineage
 
-Create every review-unit worktree as an explicit child of the main feature
-worktree. Prefer `worker-start --worktree new-child` from the bound feature
-worktree; when an exact placement is required, create it with the explicit
-parent-worktree selector supported by the version-matched guide. Never use
-`new-top-level` or `--no-parent` for feature members, reviews, repairs, or QA.
+Create exactly one editable worktree for every executable GitHub sub-issue as
+an explicit direct child of the main feature worktree. Start the first member
+with `worker-start --worktree new-child` from the bound feature worktree, or use
+the explicit parent-worktree selector supported by the version-matched guide.
+Run later members, consolidation, review, and repair in that same worktree by
+its full ID. Never use `new-top-level`, `--no-parent`, or a nested editable child
+for feature execution.
 
-After creation, read `worktree list --json` and require the new worktree's
-`parentWorktreeId` to equal the main feature worktree's exact full ID, with
-explicit lineage capture. A permitted one-level parallel child must point to
-its review-unit worktree. Same-worktree workers do not create worktree lineage;
-their Task/Dispatch relationship remains visible in the Agent Map.
+After creation, read `worktree list --json` and require the worktree's
+`parentWorktreeId` to equal the main feature worktree's exact full ID. Persist
+the GitHub sub-issue-to-worktree ID mapping in the claim record. Two sub-issues
+must never share one editable worktree. Read-only supporting Tasks may use an
+explicitly selected existing worktree; same-worktree workers do not create
+worktree lineage, so their Task/Dispatch relationship remains visible in the
+Agent Map.
 
 ## Launch and presentation gate
 

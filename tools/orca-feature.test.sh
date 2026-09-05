@@ -11,6 +11,17 @@ grep -Fxq '@AGENTS.md' CLAUDE.md
 test -x tools/sync-agent-skills
 tools/sync-agent-skills --check
 
+(
+  sync_fixture="$(mktemp -d)"
+  trap 'rm -rf "$sync_fixture"' EXIT
+  mkdir -p "$sync_fixture/tools" "$sync_fixture/.agents/skills/windows-crlf"
+  cp tools/sync-agent-skills "$sync_fixture/tools/sync-agent-skills"
+  printf '%s\r\n' '---' 'name: windows-crlf' 'description: CRLF fixture.' '---' \
+    >"$sync_fixture/.agents/skills/windows-crlf/SKILL.md"
+  "$sync_fixture/tools/sync-agent-skills" --write >/dev/null
+  test -f "$sync_fixture/.claude/skills/windows-crlf/SKILL.md"
+)
+
 # agentskill.sh packages retain their upstream package metadata. Codex's
 # narrower quick validator is applied only to Teck-authored skills.
 grep -Fq 'compatibility: Requires Node.js 18+ (for npx)' .agents/skills/agentskill-sh-learn/SKILL.md
@@ -210,7 +221,6 @@ for contract in \
   grep -Fq "$contract" "$tdd_contract"
 done
 grep -Fq 'Any missing required' "$workflow"
-grep -Fq 'Never create a separate code-review or QA gate per child' "$convergence"
 
 for contract in \
   'canonical readable structure' \

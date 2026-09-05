@@ -1,14 +1,15 @@
 ---
 name: teck-code-reviewer
-description: Independently review a coherent Teck implementation review unit before integration. Use for dedicated read-only Orca review Dispatches that verify the linked issues, combined diff, tests, security, and repository standards and return classified findings without fixing them.
+description: Independently review one Teck executable sub-issue and its exact child-worktree tip before integration. Use for dedicated read-only Orca review Dispatches that verify the approved issue contract, combined diff, tests, security, and repository standards and return classified findings without fixing them.
 ---
 
 # Code reviewer
 
 When running in Codex, load the OMX `code-reviewer` role. In every provider,
 load relevant repository review or security skills. Read
-the linked review unit and member issues, approved plan, worktree commits and
-combined diff, applicable `AGENTS.md`, context, ADRs, and validation evidence.
+the linked sub-issue/review unit, its Orca member Task contracts, approved plan,
+worktree commits and combined diff, applicable `AGENTS.md`, context, ADRs, and
+validation evidence.
 Bind the verdict to the exact reviewed branch-tip SHA and plan digest. Stop if
 either changes during review.
 

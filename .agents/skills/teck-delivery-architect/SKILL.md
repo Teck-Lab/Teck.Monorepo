@@ -14,9 +14,11 @@ Produce one immutable `delivery-manifest-result-v1` containing:
 
 - the technical approach and repository constraints;
 - coherent GitHub sub-issue drafts with readable titles and complete Scope,
-  Acceptance criteria, Validation, and Constraints sections;
-- fine-grained Orca member Task contracts nested under each review unit, without
-  creating GitHub sub-sub-issues for mechanical implementation fragments;
+  Acceptance criteria, Validation, and Constraints sections; each sub-issue is
+  one review unit and owns one direct child worktree beneath the feature
+  worktree;
+- fine-grained Orca member Task contracts nested under their owning sub-issue,
+  without creating GitHub sub-sub-issues for mechanical implementation fragments;
 - expected files and directory/code boundaries per member, plus a narrow
   allowed-expansion rule and escalation boundary;
 - exact dependency direction, execution waves, resource ownership, and overlap
@@ -29,10 +31,13 @@ Produce one immutable `delivery-manifest-result-v1` containing:
   docs-research work; and
 - unresolved owner decisions, or none.
 
-Use only `shared-durable`, `parallel-child`, or `consolidation` execution modes.
+Use only `shared-durable` or `consolidation` execution modes for engineering
+Tasks. `parallel-child` is prohibited: independently editable concurrent work
+must be another executable GitHub sub-issue with its own direct child worktree.
 Never plan provider-native ephemeral helpers. Define the logical parent Task,
-readable Task/worker display name, and main-feature/review-unit worktree lineage
-for every planned Task so the coordinator can apply the agent-visibility gate.
+readable Task/worker display name, and exact main-feature/sub-issue worktree
+lineage for every planned Task so the coordinator can apply the
+agent-visibility gate.
 
 Read and apply the feature-flow test-driven-development contract. Assign every
 executor member `tdd` or `required-validation-only` and name its behavioral or
@@ -63,20 +68,22 @@ approved member or retry the same inherently coupled Task on Terra/high. Never
 split mechanically repetitive work merely to satisfy a file number.
 
 Preserve real prerequisite order whenever scope is split. Within one GitHub
-sub-issue/review unit, express prerequisites as Orca member-Task dependencies.
-When the split produces separate coherent GitHub sub-issues, draft native
-GitHub blocker edges and the identical Orca Task dependencies. State direction
-semantically (`A waits for B` means A is blocked by B), reject cycles, and do
-not serialize independent work merely because it was discovered in sequence.
-Identify the initial executable frontier and every frontier transition so the
-coordinator can dispatch newly unblocked work immediately after accepting its
-blocker.
+sub-issue, express prerequisites as Orca member-Task dependencies. Across
+separate coherent sub-issues, draft native GitHub `blocked_by` relationships and
+the identical Orca Task dependencies. State direction semantically (`A waits
+for B` means A is blocked by B), reject cycles, and include the blocked issue
+number plus the blocker's numeric GitHub database ID required by the dependency
+API. Never serialize independent work merely because it was discovered in
+sequence. Identify the initial executable frontier and every transition so the
+coordinator can dispatch newly unblocked work immediately after accepting and
+integrating its blocker.
 
-Default to seven or fewer executable members and dependency depth four. A
-GitHub sub-issue is a human-readable coherent subfeature/review unit; an Orca
-member Task is the smaller execution slice. Exceed the budgets or create a
-GitHub sub-sub-issue only when independently deliverable product scope requires
-it, with explicit justification.
+Default to seven or fewer executable sub-issues and dependency depth four. A
+GitHub sub-issue is a human-readable coherent subfeature/review unit with one
+direct child worktree; Orca member Tasks are smaller sequential execution
+slices within it. Exceed the budgets or create a GitHub sub-sub-issue only when
+independently deliverable product scope requires it, with explicit
+justification.
 
 Do not edit code, Git, GitHub, Orca state, worktrees, or issue bodies. Do not
 delegate. The parent coordinator materializes the exact manifest only after a

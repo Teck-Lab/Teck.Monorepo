@@ -55,35 +55,37 @@ The audit must not create another Task merely to keep the loop moving.
 
 ## Review units
 
-Review coherent changes, not scheduling Tasks.
+Review coherent changes, not scheduling Tasks. One executable GitHub sub-issue
+is one review unit and owns one direct child worktree and branch beneath the
+main feature worktree. Member Tasks execute sequentially and accumulate scoped
+commits there. Separate dependency-unblocked, resource-safe sub-issues may
+execute concurrently in their own child worktrees. The coordinator integrates
+a sub-issue only after its combined tip receives CLEAN review.
 
-One review unit owns one child worktree and branch. Its member Tasks execute
-sequentially and accumulate scoped commits there. Separate resource-safe units
-may execute concurrently. The coordinator integrates the unit only after its
-combined tip receives CLEAN review.
+Never share an editable worktree across sub-issues or create nested editable
+children for member Tasks. If planned work is independently executable enough
+to need concurrent editing, represent it as another reviewed GitHub sub-issue,
+give it a native blocker relationship when ordering exists, and create its own
+direct child worktree. This keeps GitHub, Orca Task, review, branch, and
+worktree identity aligned one-to-one.
 
-Optional parallel children add at most one worktree level beneath the unit.
-Use them only for substantial disjoint work whose integration cost is lower
-than the parallelism gained. Integrate their commits into the unit, remove the
-children after reconciliation, run Terra/high consolidation, and review only
-the combined unit tip. Never recursively create child worktrees. Never create a separate code-review or QA gate per child; code review gates the combined unit and QA gates the integrated whole feature.
-
-- `implementation`: contributes code to a review unit.
+- `implementation`: contributes code to its sub-issue review unit.
 - `supporting`: research, fixtures, inventories, or generated inputs validated
   by its consuming unit; no standalone code review.
-- `repair`: modifies the existing rejected unit and triggers fresh review of
-  that unit's new SHA; never creates another review unit.
-- `integration`: reviewed with its coherent bundle or whole-feature QA unless
+- `repair`: modifies the existing rejected sub-issue worktree and triggers
+  fresh review of that branch's new SHA; never creates another review unit.
+- `integration`: reviewed with its coherent sub-issue or whole-feature QA unless
   it introduces independently meaningful logic.
 
-Small features normally have one combined review unit. Medium features use one
-per coherent bundle. Large or high-risk features independently review units
-that are security-sensitive, independently integratable, or dependency gates.
+Small features normally have one executable sub-issue and review unit. Medium
+or large features use one unit per coherent, independently integratable
+subfeature, especially for security-sensitive or dependency-gating work.
 
-Plan review checks minimality, feasibility, dependency safety, and proportional
-evidence. Code review checks an exact review-unit SHA against its contract. QA
-checks the entire integrated parent SHA against observable parent acceptance.
-QA does not reopen implementation preferences without new reproducible evidence.
+Plan review checks minimality, feasibility, dependency safety, one-to-one
+sub-issue/worktree placement, and proportional evidence. Code review checks an
+exact sub-issue branch-tip SHA against its contract. QA checks the entire
+integrated parent SHA against observable parent acceptance. QA does not reopen
+implementation preferences without new reproducible evidence.
 
 For the `agent-workflow` validation profile, normal evidence is static contract tests plus one
 representative dry run. Do not require a new empirical measurement platform

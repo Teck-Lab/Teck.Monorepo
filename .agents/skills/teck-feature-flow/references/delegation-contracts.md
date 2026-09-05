@@ -26,12 +26,15 @@ Orca's injected preamble exclusively owns Task/Dispatch identity, heartbeat,
   <development-mode>tdd|required-validation-only</development-mode>
   <tdd-boundary>Behavioral test boundary, or validation boundary plus exception reason.</tdd-boundary>
   <constraints>Boundaries, dependencies, and resource ownership.</constraints>
-  <execution-mode>shared-durable|parallel-child|consolidation</execution-mode>
+  <execution-mode>shared-durable|consolidation</execution-mode>
   <model-route>Requested agent/model/effort and permitted fallback.</model-route>
   <permissions>Explicit allowed mutations; everything else remains prohibited.</permissions>
   <result-contract>discovery-result-v1|delivery-manifest-result-v1|plan-result-v1|implementation-result-v1|review-result-v1|qa-result-v1</result-contract>
 </task-contract>
 ```
+
+Engineering feature Tasks use `shared-durable` or `consolidation`.
+`parallel-child` remains valid only for pre-issue discovery Tasks.
 
 `work-kind` and `workflow-stage` are authoritative orthogonal axes. `route` is
 their derived lowercase value and must match exactly, for example
@@ -95,11 +98,11 @@ architecture Tasks emit `delivery-manifest-result-v1`.
   <validation-profile>product-code|build-config|agent-workflow|docs-research</validation-profile>
   <manifest-digest>sha256:HEX</manifest-digest>
   <technical-approach>Architecture and repository constraints.</technical-approach>
-  <sub-issue-drafts>Readable coherent review-unit issue bodies.</sub-issue-drafts>
-  <member-tasks>Fine-grained Orca Task contracts.</member-tasks>
+  <sub-issue-drafts>Readable coherent issue bodies; each is one review unit and direct child worktree.</sub-issue-drafts>
+  <member-tasks>Fine-grained sequential Orca Task contracts per sub-issue.</member-tasks>
   <expected-change-boundaries>Expected files and narrow expansion rules.</expected-change-boundaries>
   <dependency-waves>Shallow executable waves.</dependency-waves>
-  <review-units>Named units and member Tasks.</review-units>
+  <review-units>One-to-one sub-issue, branch, worktree, and review mappings.</review-units>
   <model-routes>Luna/Terra route and escalation per member.</model-routes>
   <validation-strategy>Proportional evidence.</validation-strategy>
   <materialization-order>Deterministic coordinator mutation order.</materialization-order>
