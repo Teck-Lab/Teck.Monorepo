@@ -1,8 +1,8 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-    Behavioral check for Set-OmniRouteCredentialFile (the write path shared
-    by setup-host.ps1 and omniroute-credential.ps1).
+    Behavioral check for Set-TeckHostSecretFile, the write path shared by
+    sandbox host setup scripts.
 
 .DESCRIPTION
     Exercises the exact credential write path without network, prompts, or
@@ -20,7 +20,7 @@
     %USERPROFILE%\.config\teck\omniroute.env is never touched.
 
 .EXAMPLE
-    powershell -NoProfile -ExecutionPolicy Bypass -File scripts\orca-sbx\omniroute-credential.test.ps1
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts\orca-sbx\host-secret.test.ps1
 #>
 $ErrorActionPreference = 'Stop'
 $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('orca-sbx-credential-' + [guid]::NewGuid().ToString('N'))
@@ -47,7 +47,7 @@ function ConvertTo-Sid {
 }
 
 # Dot-source the function under test exactly as setup-host.ps1 does.
-. (Join-Path $PSScriptRoot 'omniroute-credential.ps1')
+. (Join-Path $PSScriptRoot 'host-secret.ps1')
 
 $currentUserSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
 $systemSid = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-18')
@@ -87,7 +87,7 @@ try {
 
     # 1. Fresh write.
     $firstKey = 'first-rotation-key-do-not-use'
-    Set-OmniRouteCredentialFile -Path $credentialFile -ApiKey $firstKey
+    Set-TeckHostSecretFile -Path $credentialFile -Content ("OMNIROUTE_API_KEY=$firstKey" + [Environment]::NewLine)
     Assert-Check (Test-Path -LiteralPath $credentialFile) 'first write creates the credential file'
     $expectedFirst = "OMNIROUTE_API_KEY=$firstKey" + [Environment]::NewLine
     Assert-Check ([System.IO.File]::ReadAllText($credentialFile) -eq $expectedFirst) 'first write stores the expected env line'
@@ -102,14 +102,14 @@ try {
     $legacy.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule($currentUserSid, 'Read', 'Allow')))
     [System.IO.File]::SetAccessControl($credentialFile, $legacy)
     $rotatedKey = 'rotated-key-second-do-not-use'
-    Set-OmniRouteCredentialFile -Path $credentialFile -ApiKey $rotatedKey
+    Set-TeckHostSecretFile -Path $credentialFile -Content ("OMNIROUTE_API_KEY=$rotatedKey" + [Environment]::NewLine)
     $expectedRotated = "OMNIROUTE_API_KEY=$rotatedKey" + [Environment]::NewLine
     Assert-Check ([System.IO.File]::ReadAllText($credentialFile) -eq $expectedRotated) 'rotation over the legacy read-only ACL replaces the content'
     Assert-LockedAcl $credentialFile 'rotated'
 
     # 3. Ordinary rotation is idempotent and leaves no staging files.
     $finalKey = 'final-key-third-do-not-use'
-    Set-OmniRouteCredentialFile -Path $credentialFile -ApiKey $finalKey
+    Set-TeckHostSecretFile -Path $credentialFile -Content ("OMNIROUTE_API_KEY=$finalKey" + [Environment]::NewLine)
     $expectedFinal = "OMNIROUTE_API_KEY=$finalKey" + [Environment]::NewLine
     Assert-Check ([System.IO.File]::ReadAllText($credentialFile) -eq $expectedFinal) 'second rotation stores the new key'
     Assert-LockedAcl $credentialFile 'second rotation'
@@ -123,5 +123,5 @@ if ($failures -gt 0) {
     Write-Host "$failures check(s) failed" -ForegroundColor Red
     exit 1
 }
-Write-Host 'All omniroute credential checks passed' -ForegroundColor Green
+Write-Host 'All host secret checks passed' -ForegroundColor Green
 exit 0

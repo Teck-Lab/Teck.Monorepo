@@ -13,7 +13,7 @@ environment:
 
 setup:
   install:
-    - command: install -d -o 1000 -g 1000 /home/agent/.omp/agent /home/agent/.local/bin
+    - command: install -d -o 1000 -g 1000 /home/agent/.omp /home/agent/.omp/agent /home/agent/.omp/run /home/agent/.local/bin
       user: "0"
       description: Prepare writable OMP state
   files:
@@ -43,6 +43,15 @@ setup:
         "$cli" status --json >/dev/null
         "$cli" skills get orchestration >/dev/null
         "$cli" orchestration run-list --json >/dev/null
+        test "$(git config --global --bool commit.gpgsign)" = true
+        test -x /home/agent/.local/bin/orca-gpg
+        signing_key="$(git config --global user.signingkey)"
+        test -n "$signing_key"
+        printf 'teck-sandbox-runtime-signing-check' |
+          /home/agent/.local/bin/orca-gpg --batch --pinentry-mode loopback \
+            --passphrase '' --yes --local-user "$signing_key" \
+            --output /dev/null --detach-sign
+        printf 'GPG commit signing available with %s\n' "$signing_key" >&2
         printf 'Orca orchestration runtime available via %s\n' "$cli" >&2
 
 

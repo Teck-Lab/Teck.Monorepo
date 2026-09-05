@@ -154,6 +154,24 @@ export function configuredApiKey({ homeDir = homedir() } = {}) {
   );
 }
 
+export function configuredSigningPrivateKey({ homeDir = homedir() } = {}) {
+  const path =
+    process.env.ORCA_GPG_SIGNING_KEY_FILE?.trim() ||
+    join(homeDir, ".config", "teck", "sandbox-signing-key.asc");
+  let value;
+  try {
+    value = readFileSync(path, "utf8").trim();
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  if (!value?.includes("-----BEGIN PGP PRIVATE KEY BLOCK-----")) {
+    throw new Error(
+      `Dedicated sandbox GPG key not found in ${path}; run scripts/orca-sbx/setup-signing.ps1 on the Windows host`,
+    );
+  }
+  return value;
+}
+
 function sandboxExists(name) {
   const output = run("sbx", ["ls", "--quiet"], { capture: true });
   return output
@@ -174,39 +192,81 @@ export function wakeCheckCommand() {
     "test -r /home/agent/.omp/agent/config.yml",
     "test -r /home/agent/.omp/agent/models.yml",
     "test -r /home/agent/.omp/agent/RULES.md",
+    "test -w /home/agent/.omp/run",
     'test "${OMNIROUTE_API_KEY:-}" = proxy-managed',
     "omp --version >/dev/null",
     "docker info >/dev/null",
     "docker compose version >/dev/null",
     `curl -fsS -H 'Authorization: Bearer proxy-managed' ${omniRouteBaseUrl}/models >/dev/null`,
+    'test "$(git config --global --bool commit.gpgsign)" = true',
+    "test -x /home/agent/.local/bin/orca-gpg",
+    'test -n "$(git config --global user.signingkey)"',
+    'printf "teck-sandbox-signing-check" | /home/agent/.local/bin/orca-gpg --batch --pinentry-mode loopback --passphrase "" --yes --local-user "$(git config --global user.signingkey)" --output /dev/null --detach-sign',
   ].join("; ");
 }
 
 function wakeAndVerify(name) {
-  run("ssh.exe", [
-    "-T",
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "LogLevel=ERROR",
-    "--",
-    `${name}.sbx`,
-    "sh",
-    "-lc",
-    wakeCheckCommand(),
-  ]);
+  run(
+    "ssh.exe",
+    [
+      "-T",
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "LogLevel=ERROR",
+      "--",
+      `${name}.sbx`,
+      "sudo",
+      "-E",
+      "-u",
+      "agent",
+      "-H",
+      "sh",
+      "-lc",
+      shellQuote(wakeCheckCommand()),
+    ],
+    { capture: true },
+  );
 }
 
 function removeCustomSecret(name) {
-  run("sbx", [
-    "secret",
-    "rm",
-    "--sandbox",
-    name,
-    "--placeholder",
-    "proxy-managed",
-    "--force",
-  ]);
+  run(
+    "sbx",
+    [
+      "secret",
+      "rm",
+      "--sandbox",
+      name,
+      "--placeholder",
+      "proxy-managed",
+      "--force",
+    ],
+    { capture: true },
+  );
+}
+
+function installSigningKey(name, armoredKey) {
+  const signingHome = "/home/agent/.gnupg-orca-signing";
+  const gpgProgram = "/home/agent/.local/bin/orca-gpg";
+  const command = [
+    "set -eu",
+    `rm -rf ${signingHome}`,
+    `install -d -m 700 ${signingHome} /home/agent/.local/bin`,
+    `gpg --batch --homedir ${signingHome} --import`,
+    `fingerprint="$(gpg --batch --homedir ${signingHome} --with-colons --list-secret-keys | awk -F: '$1 == "fpr" { print $10; exit }')"`,
+    'test -n "$fingerprint"',
+    `printf '%s\\n' '#!/usr/bin/env sh' 'exec gpg --homedir ${signingHome} "$@"' > ${gpgProgram}`,
+    `chmod 700 ${gpgProgram}`,
+    'git config --global user.signingkey "$fingerprint"',
+    `git config --global gpg.program ${gpgProgram}`,
+    "git config --global commit.gpgsign true",
+    `printf 'teck-sandbox-signing-check' | ${gpgProgram} --batch --pinentry-mode loopback --passphrase '' --yes --local-user "$fingerprint" --output /dev/null --detach-sign`,
+  ].join("; ");
+  run("sbx", ["exec", "-i", "-u", "agent", name, "sh", "-lc", command], {
+    capture: true,
+    input: armoredKey,
+    sensitive: [armoredKey],
+  });
 }
 
 function emit(result) {
@@ -267,8 +327,10 @@ function create() {
       { capture: true, sensitive: [key] },
     );
 
+    installSigningKey(name, configuredSigningPrivateKey());
+
     const ompRoot = `${projectRoot}/.omp`;
-    const command = `set -eu; install -d -o 1000 -g 1000 /home/agent/.omp/agent; ln -sfn ${shellQuote(`${ompRoot}/config.yml`)} /home/agent/.omp/agent/config.yml; ln -sfn ${shellQuote(`${ompRoot}/models.yml`)} /home/agent/.omp/agent/models.yml; ln -sfn ${shellQuote(`${ompRoot}/RULES.md`)} /home/agent/.omp/agent/RULES.md`;
+    const command = `set -eu; install -d -o 1000 -g 1000 /home/agent/.omp /home/agent/.omp/agent /home/agent/.omp/run; ln -sfn ${shellQuote(`${ompRoot}/config.yml`)} /home/agent/.omp/agent/config.yml; ln -sfn ${shellQuote(`${ompRoot}/models.yml`)} /home/agent/.omp/agent/models.yml; ln -sfn ${shellQuote(`${ompRoot}/RULES.md`)} /home/agent/.omp/agent/RULES.md`;
     run("sbx", ["exec", "-u", "0", name, "sh", "-lc", command], { capture: true });
     wakeAndVerify(name);
     emit(recipeResult(name, projectRoot));

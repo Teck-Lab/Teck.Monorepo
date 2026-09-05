@@ -144,7 +144,7 @@ specs/
 
 - **NEVER** create git tags — tags are created by CI pipeline only
 - **NEVER** run `nx release` from a feature branch
-- All commits MUST use conventional commit format: `type(scope): description`
+- All commits MUST use conventional commit format (`type(scope): description`) and carry a valid GPG signature
 - Fix/small features: pre-commit gate → QA review → merge. No preview.
 - Medium+ features: pre-commit gate → test plan → preview label → QA validate preview → merge
 - The `preview` label is the handshake token between TL and QA — TL adds it, QA checks for it

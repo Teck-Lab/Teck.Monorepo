@@ -22,6 +22,13 @@ proxy injects only for `omniroute.tecklab.dk`; command failures are redacted.
 The sandbox receives only the `proxy-managed` sentinel; the real key is never
 written to the sandbox, repo, recipe JSON, or lifecycle logs.
 
+When Orca starts OMP in a workspace created from a linked issue, the project
+extension at `.omp/extensions/orca-prefill.ts` uses Orca's
+`ORCA_OMP_PREFILL` draft when available and otherwise resolves the workspace's
+linked issue metadata. If the OMP composer is empty, it automatically submits
+the issue URL as the first message and never overwrites text typed during
+startup.
+
 Host key lookup precedence is: a non-empty `OMNIROUTE_API_KEY` environment
 variable, then an explicit non-empty `ORCA_OMNIROUTE_ENV_FILE` path, then the
 default host credential file `%USERPROFILE%\.config\teck\omniroute.env`
@@ -43,6 +50,10 @@ such as a `Teck.Paseo/.env` next to this repository.
 - `OMNIROUTE_API_KEY` set in the environment, `ORCA_OMNIROUTE_ENV_FILE`
   pointing at a host-only env file, or the default host credential file
   `%USERPROFILE%\.config\teck\omniroute.env` containing the key
+- Gpg4win with a working personal signing key configured through
+  `user.signingkey`, `gpg.program`, and `commit.gpgsign=true`
+- GitHub CLI authenticated with `admin:gpg_key` while registering the dedicated
+  sandbox signing key
 
 ## One-time host credential setup
 
@@ -72,6 +83,42 @@ setup-host.ps1 is repaired automatically. The file is the default host
 credential source; `OMNIROUTE_API_KEY` and `ORCA_OMNIROUTE_ENV_FILE` take
 precedence when set, and the lifecycle never consults any other location.
 
+## GPG commit signing setup
+
+Windows commits use the developer's existing GPG identity. Sandbox commits use
+a separate sign-only GPG key so the personal private key never enters an
+agent-controlled environment. The dedicated key has no passphrase so
+non-interactive workers can sign; treat it as a constrained automation
+credential. It expires after one year, is stored only in
+`%USERPROFILE%\.config\teck\sandbox-signing-key.asc` under a locked ACL, and is
+imported into each disposable sandbox during creation.
+
+Grant GitHub CLI permission to register signing keys, then run the one-time
+setup:
+
+```powershell
+gh auth refresh -h github.com -s admin:gpg_key
+.\scripts\orca-sbx\setup-signing.ps1
+```
+
+The setup refuses to continue unless Windows can produce a signature with its
+configured personal key. It creates or reuses the dedicated sandbox key,
+registers the public key with the authenticated GitHub account, imports that
+public key into the Windows keyring for integration verification, and proves
+the dedicated private key can sign without interaction. Use `-Rotate` to
+replace an expired or compromised sandbox key, then recreate every existing
+sandbox.
+
+`ORCA_GPG_SIGNING_KEY_FILE` may point the lifecycle at another host-only
+armored private-key file. The lifecycle fails before returning a workspace when
+the key is missing or unusable. Inside the sandbox it installs the key in a
+dedicated GPG home, enables `commit.gpgsign`, and verifies an actual signature.
+The post-attach runtime check repeats that proof.
+
+The private key is intentionally available to processes inside each running
+sandbox. It must never be committed, logged, added to recipe JSON, or reused
+for encryption, certification, package signing, or personal commits.
+
 Docker's managed SSH block lives in `%USERPROFILE%\.ssh\config` and routes
 `*.sbx` through the local `sbx ssh proxy` command. Start Orca with the system
 SSH transport so this `ProxyCommand` is authoritative:
@@ -96,6 +143,13 @@ sandbox:
 
 ```powershell
 orca vm recipe doctor local-docker-sandbox --repo-path $PWD.Path --json
+```
+
+Verify both host secret storage and GPG-aware lifecycle behavior:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\orca-sbx\host-secret.test.ps1
+node --test scripts/orca-sbx/lifecycle.test.mjs
 ```
 
 After Orca attaches over SSH and opens the parent OMP coordinator, its first

@@ -6,6 +6,7 @@ import test from "node:test";
 
 import {
   configuredApiKey,
+  configuredSigningPrivateKey,
   customSecretTargetHosts,
   recipeResult,
   redactSensitive,
@@ -18,7 +19,7 @@ import {
 
 function withFreshHome(t) {
   const home = mkdtempSync(join(tmpdir(), "orca-sbx-home-"));
-  const keys = ["OMNIROUTE_API_KEY", "ORCA_OMNIROUTE_ENV_FILE"];
+  const keys = ["OMNIROUTE_API_KEY", "ORCA_OMNIROUTE_ENV_FILE", "ORCA_GPG_SIGNING_KEY_FILE"];
   const previous = new Map(keys.map((key) => [key, process.env[key]]));
   for (const key of keys) delete process.env[key];
   t.after(() => {
@@ -35,6 +36,20 @@ function writeHomeCredential(home, value) {
   const dir = join(home, ".config", "teck");
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "omniroute.env"), `OMNIROUTE_API_KEY=${value}\n`);
+}
+
+function writeHomeSigningKey(home, value) {
+  const dir = join(home, ".config", "teck");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "sandbox-signing-key.asc"), value);
+}
+
+function fakePrivateKey(body) {
+  return [
+    "-----BEGIN PGP",
+    ` PRIVATE KEY BLOCK-----\n${body}\n-----END PGP`,
+    " PRIVATE KEY BLOCK-----",
+  ].join("");
 }
 
 test("sandbox names are deterministic, safe, and capped", () => {
@@ -93,10 +108,44 @@ test("wake check gates on the sandbox Docker engine and Compose v2 plugin", () =
   );
   assert.ok(command.includes("Authorization: Bearer proxy-managed"));
   assert.ok(command.includes("test -x /home/agent/.local/bin/orca-runtime-check"));
+  assert.ok(command.includes("test -w /home/agent/.omp/run"));
+  assert.ok(command.includes('git config --global --bool commit.gpgsign'));
+  assert.ok(command.includes("/home/agent/.local/bin/orca-gpg"));
+  assert.ok(command.includes("--detach-sign"));
   assert.ok(!command.includes("host.docker.internal"));
   assert.ok(!command.includes("localhost"));
   assert.ok(!command.includes("20128"));
   assert.ok(!command.includes("podman"));
+});
+
+test("sandbox signing key defaults to the protected host credential path", (t) => {
+  const home = withFreshHome(t);
+  const armoredKey = fakePrivateKey("test-only-key-material");
+  writeHomeSigningKey(home, armoredKey);
+  assert.equal(configuredSigningPrivateKey({ homeDir: home }), armoredKey);
+});
+
+test("explicit sandbox signing key path overrides the host default", (t) => {
+  const home = withFreshHome(t);
+  writeHomeSigningKey(home, fakePrivateKey("default"));
+  const explicitFile = join(home, "explicit-signing-key.asc");
+  const armoredKey = fakePrivateKey("explicit");
+  writeFileSync(explicitFile, armoredKey);
+  process.env.ORCA_GPG_SIGNING_KEY_FILE = explicitFile;
+  assert.equal(configuredSigningPrivateKey({ homeDir: home }), armoredKey);
+});
+
+test("missing or malformed sandbox signing keys fail before provisioning", (t) => {
+  const home = withFreshHome(t);
+  assert.throws(
+    () => configuredSigningPrivateKey({ homeDir: home }),
+    /Dedicated sandbox GPG key not found/,
+  );
+  writeHomeSigningKey(home, "not a private key");
+  assert.throws(
+    () => configuredSigningPrivateKey({ homeDir: home }),
+    /Dedicated sandbox GPG key not found/,
+  );
 });
 
 test("non-empty OMNIROUTE_API_KEY wins over every env file", (t) => {

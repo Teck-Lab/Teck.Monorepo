@@ -377,7 +377,7 @@ Each Task spec uses `<task-contract version="1">` and contains:
 - exact GitHub sub-issue, worktree, scope, acceptance criteria, and validation
 - architect-selected `development-mode` and `tdd-boundary` per the
   test-driven-development contract
-- conventional local checkpoint commit and exactly-one `worker_done` contract
+- conventional GPG-signed local checkpoint commit, local signature verification, and exactly-one `worker_done` contract
 - prohibitions on push, merge, GitHub mutation, worktree creation, and Orca
   lifecycle mutation beyond injected completion and question commands
 
@@ -447,9 +447,14 @@ audit and native decision gate.
 ## 5. Integrate and synchronize
 
 Only the coordinator integrates a CLEAN sub-issue review unit with
-`tools/orca-feature integrate`. Run targeted checks, comment on the sub-issue
-with the integrated SHA and evidence, close it, and re-read GitHub dependencies
-before releasing blocked work.
+`tools/orca-feature integrate`. The tool stages the reviewed child as a squash,
+then invokes `omp commit --no-changelog` using the repository's configured
+`commit` model role. It requires exactly one signed Conventional Commit whose
+tree equals the staged reviewed squash, rejects file or changelog edits, and
+rolls back failed, split, unsigned, dirty, or tree-changing results. The commit
+agent never pushes; after acceptance, run targeted checks, comment on the
+sub-issue with the integrated SHA and evidence, close it, and re-read GitHub
+dependencies before releasing blocked work.
 
 Release the settled Dispatch, remove the native child through Orca, then call
 `tools/orca-feature remove`. Never substitute raw `git worktree remove` or
