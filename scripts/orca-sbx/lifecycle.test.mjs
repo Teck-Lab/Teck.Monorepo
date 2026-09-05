@@ -88,7 +88,9 @@ test("wake check gates on the sandbox Docker engine and Compose v2 plugin", () =
   assert.ok(command.includes("docker info >/dev/null"));
   assert.ok(command.includes("docker compose version >/dev/null"));
   assert.ok(!command.includes("docker-compose"));
-  assert.ok(command.includes("https://omniroute.tecklab.dk/v1/models"));
+  assert.ok(
+    command.split(/\s+/).some((token) => token === "https://omniroute.tecklab.dk/v1/models"),
+  );
   assert.ok(command.includes("Authorization: Bearer proxy-managed"));
   assert.ok(command.includes("test -x /home/agent/.local/bin/orca-runtime-check"));
   assert.ok(!command.includes("host.docker.internal"));
