@@ -29,21 +29,28 @@ become the visible label. Verify the returned Task has the expected `run_id`,
 
 ## Worktree lineage
 
-Create exactly one editable worktree for every executable GitHub sub-issue as
-an explicit direct child of the main feature worktree. Start the first member
-with `worker-start --worktree new-child` from the bound feature worktree, or use
-the explicit parent-worktree selector supported by the version-matched guide.
-Run later members, consolidation, review, and repair in that same worktree by
-its full ID. Never use `new-top-level`, `--no-parent`, or a nested editable child
-for feature execution.
+Create exactly one canonical editable worktree for every executable GitHub
+sub-issue as an explicit direct child of the main feature worktree. Start the
+first member with `worker-start --worktree new-child` from the bound feature
+worktree, or use the explicit parent-worktree selector supported by the
+version-matched guide. Run ordinary later members, consolidation, review, and
+repair in that same worktree by its full ID. Never use `new-top-level` or
+`--no-parent` for feature execution.
 
-After creation, read `worktree list --json` and require the worktree's
-`parentWorktreeId` to equal the main feature worktree's exact full ID. Persist
-the GitHub sub-issue-to-worktree ID mapping in the claim record. Two sub-issues
-must never share one editable worktree. Read-only supporting Tasks may use an
-explicitly selected existing worktree; same-worktree workers do not create
-worktree lineage, so their Task/Dispatch relationship remains visible in the
-Agent Map.
+The approved manifest may place substantial, resource-disjoint members in
+parallel worktrees one additional level beneath the canonical sub-issue
+worktree. Create each with `worker-start --worktree new-child` from that
+sub-issue worktree and integrate its accepted commit back before combined
+review. Never create a grandchild beneath a parallel-member worktree.
+
+After creation, read `worktree list --json`. Require the canonical worktree's
+`parentWorktreeId` to equal the main feature worktree's full ID and each
+parallel-member worktree's parent to equal the canonical sub-issue worktree ID.
+Persist the GitHub sub-issue-to-canonical-worktree mapping and nested Task
+mapping in the claim record. Two sub-issues must never share an editable
+worktree. Read-only supporting Tasks may use an explicitly selected existing
+worktree; same-worktree workers do not create worktree lineage, so their
+Task/Dispatch relationship remains visible in the Agent Map.
 
 ## Launch and presentation gate
 

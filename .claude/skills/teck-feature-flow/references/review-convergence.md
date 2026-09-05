@@ -56,18 +56,20 @@ The audit must not create another Task merely to keep the loop moving.
 ## Review units
 
 Review coherent changes, not scheduling Tasks. One executable GitHub sub-issue
-is one review unit and owns one direct child worktree and branch beneath the
-main feature worktree. Member Tasks execute sequentially and accumulate scoped
-commits there. Separate dependency-unblocked, resource-safe sub-issues may
-execute concurrently in their own child worktrees. The coordinator integrates
-a sub-issue only after its combined tip receives CLEAN review.
+is one review unit and owns one canonical direct child worktree and branch
+beneath the main feature worktree. Ordinary member Tasks execute sequentially
+and accumulate scoped commits there. Separate dependency-unblocked,
+resource-safe sub-issues may execute concurrently in their own direct child
+worktrees.
 
-Never share an editable worktree across sub-issues or create nested editable
-children for member Tasks. If planned work is independently executable enough
-to need concurrent editing, represent it as another reviewed GitHub sub-issue,
-give it a native blocker relationship when ordering exists, and create its own
-direct child worktree. This keeps GitHub, Orca Task, review, branch, and
-worktree identity aligned one-to-one.
+Manifest-approved parallel members may use sibling worktrees one additional
+level beneath the canonical sub-issue worktree only for substantial,
+resource-disjoint work whose expected speedup exceeds integration cost. The
+coordinator integrates accepted member commits into the canonical worktree,
+removes the nested children after reconciliation, and runs Terra/high
+consolidation when needed. Never create deeper descendants or a separate
+code-review or QA gate per nested child. One combined review gates the canonical
+sub-issue tip; whole-feature QA gates the integrated parent.
 
 - `implementation`: contributes code to its sub-issue review unit.
 - `supporting`: research, fixtures, inventories, or generated inputs validated

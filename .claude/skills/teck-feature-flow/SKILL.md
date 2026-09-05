@@ -71,18 +71,21 @@ transferring unfinished ownership to a fresh session.
   and native worktrees before creating or dispatching anything.
 - Bind plans, reviews, validation, and QA to immutable artifact digests and Git
   SHAs. Any changed artifact or branch tip invalidates the earlier approval.
-- Each executable GitHub sub-issue owns exactly one direct native Orca child
-  worktree and branch under the main feature worktree. Its Orca member Tasks run
-  sequentially in that worktree. Independent resource-safe sub-issues may run
-  concurrently. Read-only supporting Tasks may use an explicitly selected
-  existing worktree.
+- Each executable GitHub sub-issue owns exactly one canonical direct native Orca
+  child worktree and branch under the main feature worktree. Ordinary member
+  Tasks run sequentially there. Manifest-approved, resource-disjoint members may
+  run concurrently in worktrees one additional level beneath it when the
+  expected speedup exceeds integration cost. The coordinator integrates those
+  commits into the canonical sub-issue worktree before one combined review.
+  Independent resource-safe sub-issues may also run concurrently. Read-only
+  supporting Tasks may use an explicitly selected existing worktree.
 - Every delegated agent, including research, testing, debugging, or independent
   checking helpers, must be a visible Orca Task/Dispatch with its own verified
   terminal and correct Task/worktree lineage. Provider-native Claude/Codex
   subagents are prohibited.
-- The parent coordinator dispatches every durable member into its owning
-  sub-issue worktree. Never share one editable worktree across sub-issues,
-  create a separate worktree per member, or nest editable child worktrees.
+- The parent coordinator owns every durable member Dispatch. Never share one
+  editable worktree across sub-issues or create descendants below the optional
+  parallel-member layer.
 - Only findings actionable under the convergence contract become blockers.
   Reuse one GitHub sub-issue and Orca Task per stable finding key. Scope
   expansions and observations are non-blocking follow-ups.

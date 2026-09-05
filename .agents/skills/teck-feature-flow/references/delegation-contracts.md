@@ -26,15 +26,15 @@ Orca's injected preamble exclusively owns Task/Dispatch identity, heartbeat,
   <development-mode>tdd|required-validation-only</development-mode>
   <tdd-boundary>Behavioral test boundary, or validation boundary plus exception reason.</tdd-boundary>
   <constraints>Boundaries, dependencies, and resource ownership.</constraints>
-  <execution-mode>shared-durable|consolidation</execution-mode>
+  <execution-mode>shared-durable|parallel-child|consolidation</execution-mode>
   <model-route>Requested agent/model/effort and permitted fallback.</model-route>
   <permissions>Explicit allowed mutations; everything else remains prohibited.</permissions>
   <result-contract>discovery-result-v1|delivery-manifest-result-v1|plan-result-v1|implementation-result-v1|review-result-v1|qa-result-v1</result-contract>
 </task-contract>
 ```
 
-Engineering feature Tasks use `shared-durable` or `consolidation`.
-`parallel-child` remains valid only for pre-issue discovery Tasks.
+Engineering feature Tasks may use `parallel-child` only for manifest-approved,
+resource-disjoint work one level beneath the canonical sub-issue worktree.
 
 `work-kind` and `workflow-stage` are authoritative orthogonal axes. `route` is
 their derived lowercase value and must match exactly, for example

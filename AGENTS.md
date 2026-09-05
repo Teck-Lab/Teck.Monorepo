@@ -63,11 +63,15 @@ feature. This includes research, testing, debugging, and independent checking
 helpers. Never use provider-native Claude/Codex subagents for engineering
 delivery; apply the feature-flow agent-visibility receipt and layout gate.
 
-Each executable GitHub sub-issue owns exactly one direct Orca child worktree
-beneath the main feature worktree. Run its implementation, review, and repair
-Tasks sequentially there; never share an editable worktree across sub-issues or
-nest editable member worktrees. Dependency-unblocked, resource-safe sub-issues
-may run concurrently in separate child worktrees.
+Each executable GitHub sub-issue owns exactly one canonical direct Orca child
+worktree beneath the main feature worktree. Its ordinary Tasks run sequentially
+there. The approved manifest may place substantial, disjoint member Tasks in
+parallel worktrees one additional level beneath that sub-issue worktree when the
+speedup exceeds integration cost. The coordinator integrates those branches
+back into the canonical sub-issue worktree before one combined review. Never
+share editable worktrees across sub-issues or create deeper descendants.
+Dependency-unblocked, resource-safe sub-issues may also run concurrently in
+their separate direct child worktrees.
 
 Persist prerequisite ordering as native GitHub issue dependencies and mirror it
 in Orca Task `--deps`; prose, comments, and labels never count as blockers. Use

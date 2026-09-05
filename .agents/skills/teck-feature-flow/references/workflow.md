@@ -332,25 +332,29 @@ human-readable description.
 Start only Tasks reported ready by Orca and unblocked in GitHub. Apply
 `agent-visibility.md` when creating every Task, worktree, and Dispatch. Before
 the first editable Task for each executable GitHub sub-issue, create exactly one
-native Orca child worktree from the current verified parent feature head and
-register that checkout with `tools/orca-feature register`. Persist the
-sub-issue-to-worktree ID mapping. Run that sub-issue's implementation,
-consolidation, review, and repair Tasks sequentially in the same worktree.
-Never share one editable worktree across sub-issues or create a nested editable
-child. Dependency-unblocked, resource-safe sub-issues may run concurrently in
-their separate direct child worktrees.
+canonical native Orca child worktree from the current verified parent feature
+head and register that checkout with `tools/orca-feature register`. Persist the
+sub-issue-to-worktree ID mapping. Run ordinary implementation, consolidation,
+review, and repair Tasks sequentially there. Never share an editable worktree
+across sub-issues. Dependency-unblocked, resource-safe sub-issues may run
+concurrently in their separate direct child worktrees.
 
 The delivery architect selects one execution mode for each member:
 
-- `shared-durable`: the default coordinator-dispatched Task in the owning
-  sub-issue worktree, executed sequentially; or
-- `consolidation`: a Terra/high Task in that same worktree when multiple commits
-  or a manifest-declared semantic integration need require it.
+- `shared-durable`: the default coordinator-dispatched Task in the canonical
+  sub-issue worktree, executed sequentially;
+- `parallel-child`: a substantial, resource-disjoint Task in a worktree one
+  additional level beneath the canonical sub-issue worktree, used only when the
+  expected speedup exceeds integration cost; or
+- `consolidation`: a Terra/high Task in the canonical worktree after parallel
+  member integration or when multiple commits require semantic reconciliation.
 
-`parallel-child` is not permitted for engineering feature execution. Work that
-needs an independently editable concurrent branch must be a separate executable
-GitHub sub-issue, receive any required native blocker edge, and own its own
-direct child worktree.
+Parallel members require disjoint files, generated outputs, databases, ports,
+indexes, caches, and mutable services. The coordinator integrates every
+accepted parallel-child commit into the canonical sub-issue worktree, removes
+the nested worktree after reconciliation, then runs required consolidation and
+one combined Sol/high review. Never create descendants beneath a parallel-child
+worktree or give nested members separate planning, code-review, or QA loops.
 
 Use Luna/xhigh for explicit mechanical durable members, Terra/high for coherent
 implementation and required consolidation, and a native Orca Claude/Sonnet

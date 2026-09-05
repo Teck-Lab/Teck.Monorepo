@@ -78,10 +78,7 @@ if "$validator" "$fixture_dir/hidden-helper.xml" >/dev/null 2>&1; then
 fi
 
 sed 's#shared-durable#parallel-child#' "$fixture_dir/task.xml" >"$fixture_dir/feature-parallel-child.xml"
-if "$validator" "$fixture_dir/feature-parallel-child.xml" >/dev/null 2>&1; then
-  echo "expected feature parallel-child mode to fail" >&2
-  exit 1
-fi
+"$validator" "$fixture_dir/feature-parallel-child.xml" >/dev/null
 
 sed '/<development-mode>/d' "$fixture_dir/task.xml" >"$fixture_dir/executor-without-mode.xml"
 if "$validator" "$fixture_dir/executor-without-mode.xml" >/dev/null 2>&1; then

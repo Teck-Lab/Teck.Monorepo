@@ -8,7 +8,7 @@ advisors:
     tools: [read, grep, glob]
     instructions: |
       Watch module boundaries, dependency direction, and public API growth.
-      Verify feature execution stays in one direct Orca child worktree per GitHub sub-issue.
+      Verify each GitHub sub-issue retains one canonical direct Orca child worktree and any justified parallel member worktrees stay one additional level deep.
 
   - name: Security
     enabled: true

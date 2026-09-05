@@ -31,13 +31,15 @@ Produce one immutable `delivery-manifest-result-v1` containing:
   docs-research work; and
 - unresolved owner decisions, or none.
 
-Use only `shared-durable` or `consolidation` execution modes for engineering
-Tasks. `parallel-child` is prohibited: independently editable concurrent work
-must be another executable GitHub sub-issue with its own direct child worktree.
-Never plan provider-native ephemeral helpers. Define the logical parent Task,
-readable Task/worker display name, and exact main-feature/sub-issue worktree
-lineage for every planned Task so the coordinator can apply the
-agent-visibility gate.
+Use `shared-durable`, `parallel-child`, or `consolidation` execution modes.
+`parallel-child` is valid only for substantial, resource-disjoint member work
+whose expected speedup exceeds integration cost. Place it exactly one level
+beneath the canonical sub-issue worktree, define how its accepted commit returns
+to that worktree, and require combined review only after integration. Never plan
+deeper descendants or provider-native ephemeral helpers. Define the logical
+parent Task, readable Task/worker display name, and exact
+main-feature/sub-issue/member worktree lineage for every planned Task so the
+coordinator can apply the agent-visibility gate.
 
 Read and apply the feature-flow test-driven-development contract. Assign every
 executor member `tdd` or `required-validation-only` and name its behavioral or

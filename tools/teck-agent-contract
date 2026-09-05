@@ -42,7 +42,6 @@ if (root === "task-contract") {
   const executionMode = value("execution-mode");
   const workflowStage = value("workflow-stage");
   if (!/^(shared-durable|parallel-child|consolidation)$/.test(executionMode)) errors.push("invalid execution-mode");
-  if (executionMode === "parallel-child" && workflowStage !== "discovery") errors.push("parallel-child is restricted to discovery tasks");
   if (workflowStage === "discovery") {
     if (!hasTag("discovery-anchor")) errors.push("discovery task lacks discovery-anchor");
     if (!/^(discovery-researcher|discovery-prototyper)$/.test(value("role"))) errors.push("invalid discovery role");
