@@ -22,6 +22,11 @@ proxy injects only for `omniroute.tecklab.dk`; command failures are redacted.
 The sandbox receives only the `proxy-managed` sentinel; the real key is never
 written to the sandbox, repo, recipe JSON, or lifecycle logs.
 
+When Orca creates a workspace from a linked issue, it supplies that issue URL
+through `ORCA_OMP_PREFILL` to the first OMP process. The project extension at
+`.omp/extensions/orca-prefill.ts` copies the value into an empty composer
+without submitting it or overwriting text typed during startup.
+
 Host key lookup precedence is: a non-empty `OMNIROUTE_API_KEY` environment
 variable, then an explicit non-empty `ORCA_OMNIROUTE_ENV_FILE` path, then the
 default host credential file `%USERPROFILE%\.config\teck\omniroute.env`

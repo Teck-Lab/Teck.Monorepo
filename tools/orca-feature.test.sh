@@ -6,6 +6,7 @@ test -x tools/orca-coordinator-hook
 test -x tools/orca-coordinator-hook.test.sh
 jq -e '.hooks.Stop and .hooks.PostToolUse' .codex/hooks.json >/dev/null
 tools/orca-coordinator-hook.test.sh
+bun test tools/orca-omp-prefill.test.ts
 
 grep -Fxq '@AGENTS.md' CLAUDE.md
 test -x tools/sync-agent-skills

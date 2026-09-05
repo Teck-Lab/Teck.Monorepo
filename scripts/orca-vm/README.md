@@ -9,9 +9,11 @@ Each parent feature gets one disposable host checkout and one Dev Container.
 The recipe returns Orca's default schema-v1 SSH contract. Orca keeps the
 checkout at `projectRoot` as the host's primary repository and creates the
 assigned task as a linked worktree. This keeps task deletion scoped to the
-worktree instead of removing the owning project. The native startup draft
-delivers a linked GitHub issue to the first agent terminal, so no separate
-`issueCommand` terminal is configured.
+worktree instead of removing the owning project. Orca supplies the linked
+GitHub issue through `ORCA_OMP_PREFILL` when it starts the first OMP terminal.
+The project extension at `.omp/extensions/orca-prefill.ts` copies that value
+into an empty OMP composer without submitting it or overwriting text typed
+during startup, so no separate `issueCommand` terminal is configured.
 
 The Compose project name is stable for `ORCA_VM_INSTANCE_ID`. Paired suspend
 and resume hooks stop or restart the existing containers, rediscover the
