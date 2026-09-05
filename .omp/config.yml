@@ -1,0 +1,30 @@
+modelRoles:
+  default: omniroute/teck-orchestrator
+  plan: omniroute/teck-orchestrator
+  slow: omniroute/teck-orchestrator
+  advisor: omniroute/teck-orchestrator
+  vision: omniroute/teck-orchestrator
+  task: omniroute/teck-executor
+  designer: omniroute/teck-executor
+  smol: omniroute/teck-fast
+  tiny: omniroute/teck-fast
+  commit: omniroute/teck-fast
+enabledModels:
+  - omniroute/teck-orchestrator
+  - omniroute/teck-executor
+  - omniroute/teck-fast
+cycleOrder:
+  - smol
+  - default
+  - task
+retry:
+  enabled: true
+  maxRetries: 3
+  maxDelayMs: 30000
+  modelFallback: false
+providers:
+  maxInFlightRequests:
+    omniroute: 4
+task:
+  isolation:
+    mode: none

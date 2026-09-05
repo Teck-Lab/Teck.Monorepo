@@ -1,0 +1,19 @@
+providers:
+  omniroute:
+    baseUrl: https://omniroute.tecklab.dk/v1
+    api: openai-completions
+    apiKey: OMNIROUTE_API_KEY
+    authHeader: true
+    models:
+      - id: teck-orchestrator
+        name: Orchestrator
+        contextWindow: 700000
+        maxTokens: 32768
+      - id: teck-executor
+        name: Executor
+        contextWindow: 500000
+        maxTokens: 32768
+      - id: teck-fast
+        name: Fast
+        contextWindow: 250000
+        maxTokens: 32768

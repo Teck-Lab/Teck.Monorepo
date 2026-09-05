@@ -1,0 +1,54 @@
+schemaVersion: "2"
+kind: mixin
+name: orca-omp-worker
+displayName: Orca OMP worker
+description: Adds the writable OMP home used by Orca-managed Docker Sandboxes.
+
+environment:
+  variables:
+    OMNIROUTE_BASE_URL: https://omniroute.tecklab.dk/v1
+    OMNIROUTE_API_KEY: proxy-managed
+    OMNIROUTE_MODEL: teck-orchestrator
+    ONNXRUNTIME_NODE_INSTALL: skip
+
+setup:
+  install:
+    - command: install -d -o 1000 -g 1000 /home/agent/.omp/agent /home/agent/.local/bin
+      user: "0"
+      description: Prepare writable OMP state
+  files:
+    - path: /home/agent/.local/bin/orca-runtime-check
+      mode: "0755"
+      description: Verify Orca orchestration after the SSH attach
+      content: |
+        #!/usr/bin/env sh
+        set -eu
+
+        cli="$(printenv ORCA_CLI_COMMAND 2>/dev/null || true)"
+        dev_root="$(printenv ORCA_DEV_REPO_ROOT 2>/dev/null || true)"
+        if [ -z "$cli" ] && [ -n "$dev_root" ] && command -v orca-dev >/dev/null 2>&1; then
+          cli=orca-dev
+        fi
+        if [ -z "$cli" ] && command -v orca-ide >/dev/null 2>&1; then
+          cli=orca-ide
+        fi
+        if [ -z "$cli" ] && command -v orca >/dev/null 2>&1; then
+          cli=orca
+        fi
+        if [ -z "$cli" ]; then
+          echo "Orca CLI is unavailable after the SSH attach" >&2
+          exit 1
+        fi
+
+        "$cli" status --json >/dev/null
+        "$cli" skills get orchestration >/dev/null
+        "$cli" orchestration run-list --json >/dev/null
+        printf 'Orca orchestration runtime available via %s\n' "$cli" >&2
+
+
+permissions:
+  network:
+    allow:
+      - omniroute.tecklab.dk:443
+      - github.com:443
+      - api.github.com:443
