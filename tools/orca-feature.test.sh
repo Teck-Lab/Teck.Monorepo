@@ -301,11 +301,30 @@ for contract in \
   }
 done
 
+gnupg_dir="$fixture/gnupg"
+umask 077
+mkdir "$gnupg_dir"
+if command -v cygpath >/dev/null 2>&1; then
+  export GNUPGHOME="$(cygpath -w "$gnupg_dir")"
+  gpg_program="$(git config --global gpg.program)"
+else
+  export GNUPGHOME="$gnupg_dir"
+  gpg_program="$(command -v gpg)"
+fi
+test -n "$gpg_program"
+"$gpg_program" --batch --pinentry-mode loopback --passphrase '' \
+  --quick-generate-key 'Teck Test Agent <agent@example.test>' ed25519 sign 1d >/dev/null 2>&1
+signing_key="$("$gpg_program" --batch --with-colons --list-secret-keys |
+  awk -F: '$1 == "fpr" { print $10; exit }')"
+test -n "$signing_key"
+
 git init --bare "$fixture/origin.git" >/dev/null
 git clone "$fixture/origin.git" "$fixture/repo" >/dev/null 2>&1
 git -C "$fixture/repo" config user.name 'Test Agent'
 git -C "$fixture/repo" config user.email 'agent@example.test'
-git -C "$fixture/repo" config commit.gpgsign false
+git -C "$fixture/repo" config user.signingkey "$signing_key"
+git -C "$fixture/repo" config gpg.program "$gpg_program"
+git -C "$fixture/repo" config commit.gpgsign true
 git -C "$fixture/repo" switch -c main >/dev/null
 printf 'root\n' > "$fixture/repo/README.md"
 git -C "$fixture/repo" add README.md
@@ -326,7 +345,7 @@ while [ "$#" -gt 0 ]; do
   esac
   shift 2
 done
-git -c commit.gpgsign=false commit -m "$message" >/dev/null
+git commit -S -m "$message" >/dev/null
 sha="$(git rev-parse HEAD)"
 git push origin "HEAD:refs/heads/$branch" >/dev/null
 printf '{"sha":"%s","verified":true}\n' "$sha"
@@ -349,9 +368,14 @@ git worktree add -b subfeature/120/122-plan-review-defect "$defect_path" feature
 
 printf 'tax\n' > "$tax_path/tax.txt"
 git -C "$tax_path" add tax.txt
-git -C "$tax_path" commit -m 'feat(billing): add tax system' >/dev/null
+git -C "$tax_path" -c commit.gpgsign=false commit -m 'feat(billing): add tax system' >/dev/null
 
 "$tool" set-status --issue 121 --status completed
+if "$tool" integrate --issue 121 >/dev/null 2>&1; then
+  echo "expected unsigned worker commit to be rejected" >&2
+  exit 1
+fi
+git -C "$tax_path" commit --amend --no-edit -S >/dev/null
 "$tool" integrate --issue 121
 "$tool" sync --issue 122
 

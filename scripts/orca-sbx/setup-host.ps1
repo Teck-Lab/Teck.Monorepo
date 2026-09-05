@@ -7,8 +7,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-# Shared, testable credential write path (locked ACL + atomic rotation).
-. (Join-Path $PSScriptRoot 'omniroute-credential.ps1')
+# Shared, testable secret write path (locked ACL + atomic rotation).
+. (Join-Path $PSScriptRoot 'host-secret.ps1')
 $modelsUrl = 'https://omniroute.tecklab.dk/v1/models'
 $credentialDir = Join-Path $env:USERPROFILE '.config\teck'
 $credentialFile = Join-Path $credentialDir 'omniroute.env'
@@ -64,7 +64,7 @@ try {
     # inherited access removed; current user keeps Modify for future
     # rotations; the key is never placed on a command line or in logs; an
     # interrupted run leaves the previous credential intact.
-    Set-OmniRouteCredentialFile -Path $credentialFile -ApiKey $key
+    Set-TeckHostSecretFile -Path $credentialFile -Content ('OMNIROUTE_API_KEY=' + $key + [Environment]::NewLine)
 
     Write-Host '[PASS] Host OmniRoute credential configured' -ForegroundColor Green
     Write-Host 'Sandbox lifecycle reads this file on every create. Re-run this script after rotating the key, then recreate existing sandboxes.'

@@ -377,7 +377,7 @@ Each Task spec uses `<task-contract version="1">` and contains:
 - exact GitHub sub-issue, worktree, scope, acceptance criteria, and validation
 - architect-selected `development-mode` and `tdd-boundary` per the
   test-driven-development contract
-- conventional local checkpoint commit and exactly-one `worker_done` contract
+- conventional GPG-signed local checkpoint commit, local signature verification, and exactly-one `worker_done` contract
 - prohibitions on push, merge, GitHub mutation, worktree creation, and Orca
   lifecycle mutation beyond injected completion and question commands
 

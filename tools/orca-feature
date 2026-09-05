@@ -118,11 +118,25 @@ function requireClean(path: string, label: string): void {
   if (!isClean(path)) throw new FlowError(`${label} has uncommitted changes: ${path}`);
 }
 
+function requireVerifiedGpgCommit(root: string, commit: string, label: string): void {
+  const raw = git(["cat-file", "commit", commit], root).stdout;
+  if (!/^gpgsig -----BEGIN PGP SIGNATURE-----$/m.test(raw)) {
+    throw new FlowError(`${label} is not GPG-signed: ${commit}`);
+  }
+  const verification = git(["verify-commit", commit], root, false);
+  if (verification.exitCode !== 0) {
+    throw new FlowError(
+      `${label} has an invalid or untrusted GPG signature: ${commit}: ${verification.stderr.trim() || verification.stdout.trim()}`,
+    );
+  }
+}
+
 function requireWorkerCommits(root: string, parentBranch: string, workerBranch: string): void {
   const commits = git(["rev-list", `${parentBranch}..${workerBranch}`], root).stdout
     .split("\n")
     .filter(Boolean);
   if (commits.length === 0) throw new FlowError(`branch ${workerBranch} has no commits beyond ${parentBranch}`);
+  for (const commit of commits) requireVerifiedGpgCommit(root, commit, `worker commit on ${workerBranch}`);
 }
 
 function githubRepository(root: string): string {
@@ -362,7 +376,8 @@ function integrate(options: ParsedOptions): void {
   if (merge.exitCode !== 0) {
     throw new FlowError(`merge stopped before integration completed; resolve or abort it in the parent checkout:\n${merge.stderr.trim() || merge.stdout.trim()}`);
   }
-  git(["commit", "-m", message], state.parentRoot);
+  git(["commit", "-S", "-m", message], state.parentRoot);
+  requireVerifiedGpgCommit(root, git(["rev-parse", "HEAD"], state.parentRoot).stdout.trim(), "integration commit");
   entry.status = "integrated";
   entry.integratedCommit = git(["rev-parse", "HEAD"], state.parentRoot).stdout.trim();
   saveState(root, state);
