@@ -27,6 +27,19 @@ describe("Orca OMP startup draft", () => {
     expect(environment.ORCA_OMP_PREFILL).toBeUndefined();
   });
 
+  test("falls back to Orca linked workspace metadata", () => {
+    const input = editor();
+
+    expect(
+      applyOrcaPrefill(
+        input.ui,
+        {},
+        () => "https://github.com/Teck-Lab/Teck.Monorepo/issues/651",
+      ),
+    ).toBe(true);
+    expect(input.value()).toBe("https://github.com/Teck-Lab/Teck.Monorepo/issues/651");
+  });
+
   test("does not overwrite text entered during OMP startup", () => {
     const input = editor("keep my draft");
     const environment = {
