@@ -26,3 +26,5 @@ RUN npm install --global --no-audit --no-fund "bun@${BUN_VERSION}" \
 
 LABEL org.opencontainers.image.source="https://github.com/Teck-Lab/Teck.Monorepo" \
       org.opencontainers.image.title="Teck Orca OMP sandbox template"
+
+USER agent
