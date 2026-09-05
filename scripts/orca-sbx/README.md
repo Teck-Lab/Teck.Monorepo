@@ -25,8 +25,9 @@ written to the sandbox, repo, recipe JSON, or lifecycle logs.
 When Orca starts OMP in a workspace created from a linked issue, the project
 extension at `.omp/extensions/orca-prefill.ts` uses Orca's
 `ORCA_OMP_PREFILL` draft when available and otherwise resolves the workspace's
-linked issue metadata. It inserts the issue URL into an empty composer without
-submitting it or overwriting text typed during startup.
+linked issue metadata. If the OMP composer is empty, it automatically submits
+the issue URL as the first message and never overwrites text typed during
+startup.
 
 Host key lookup precedence is: a non-empty `OMNIROUTE_API_KEY` environment
 variable, then an explicit non-empty `ORCA_OMNIROUTE_ENV_FILE` path, then the

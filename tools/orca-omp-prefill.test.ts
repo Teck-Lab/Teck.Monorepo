@@ -1,61 +1,63 @@
 import { describe, expect, test } from "bun:test";
 
-import { applyOrcaPrefill } from "../.omp/extensions/orca-prefill";
+import { submitOrcaIssue } from "../.omp/extensions/orca-prefill";
 
-function editor(initial = "") {
-  let value = initial;
+function startupActions(initialEditorText = "") {
+  const sent: string[] = [];
   return {
-    ui: {
-      getEditorText: () => value,
-      setEditorText: (text: string) => {
-        value = text;
+    actions: {
+      getEditorText: () => initialEditorText,
+      sendUserMessage: (content: string) => {
+        sent.push(content);
       },
     },
-    value: () => value,
+    sent,
   };
 }
 
 describe("Orca OMP startup draft", () => {
-  test("prefills an empty composer with the linked issue URL", () => {
-    const input = editor();
+  test("submits the injected linked issue URL", () => {
+    const input = startupActions();
     const environment = {
       ORCA_OMP_PREFILL: "  https://github.com/Teck-Lab/Teck.Monorepo/issues/651  ",
     };
 
-    expect(applyOrcaPrefill(input.ui, environment)).toBe(true);
-    expect(input.value()).toBe("https://github.com/Teck-Lab/Teck.Monorepo/issues/651");
+    expect(submitOrcaIssue(input.actions, environment)).toBe(true);
+    expect(input.sent).toEqual(["https://github.com/Teck-Lab/Teck.Monorepo/issues/651"]);
     expect(environment.ORCA_OMP_PREFILL).toBeUndefined();
   });
 
   test("falls back to Orca linked workspace metadata", () => {
-    const input = editor();
+    const input = startupActions();
 
     expect(
-      applyOrcaPrefill(
-        input.ui,
+      submitOrcaIssue(
+        input.actions,
         {},
         () => "https://github.com/Teck-Lab/Teck.Monorepo/issues/651",
       ),
     ).toBe(true);
-    expect(input.value()).toBe("https://github.com/Teck-Lab/Teck.Monorepo/issues/651");
+    expect(input.sent).toEqual(["https://github.com/Teck-Lab/Teck.Monorepo/issues/651"]);
   });
 
-  test("does not overwrite text entered during OMP startup", () => {
-    const input = editor("keep my draft");
+  test("does not submit over text entered during OMP startup", () => {
+    const input = startupActions("keep my draft");
     const environment = {
       ORCA_OMP_PREFILL: "https://github.com/Teck-Lab/Teck.Monorepo/issues/651",
     };
 
-    expect(applyOrcaPrefill(input.ui, environment)).toBe(false);
-    expect(input.value()).toBe("keep my draft");
+    expect(submitOrcaIssue(input.actions, environment)).toBe(false);
+    expect(input.sent).toEqual([]);
     expect(environment.ORCA_OMP_PREFILL).toBeUndefined();
   });
 
   test("ignores a missing or blank Orca draft", () => {
-    const input = editor();
+    const input = startupActions();
 
-    expect(applyOrcaPrefill(input.ui, {})).toBe(false);
-    expect(applyOrcaPrefill(input.ui, { ORCA_OMP_PREFILL: "   " })).toBe(false);
-    expect(input.value()).toBe("");
+    expect(submitOrcaIssue(input.actions, {}, () => undefined)).toBe(false);
+    expect(
+      submitOrcaIssue(input.actions, { ORCA_OMP_PREFILL: "   " }, () => undefined),
+    ).toBe(false);
+    expect(input.sent).toEqual([]);
   });
 });
