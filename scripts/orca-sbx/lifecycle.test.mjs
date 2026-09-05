@@ -108,6 +108,7 @@ test("wake check gates on the sandbox Docker engine and Compose v2 plugin", () =
   );
   assert.ok(command.includes("Authorization: Bearer proxy-managed"));
   assert.ok(command.includes("test -x /home/agent/.local/bin/orca-runtime-check"));
+  assert.ok(command.includes("test -w /home/agent/.omp/run"));
   assert.ok(command.includes('git config --global --bool commit.gpgsign'));
   assert.ok(command.includes("/home/agent/.local/bin/orca-gpg"));
   assert.ok(command.includes("--detach-sign"));

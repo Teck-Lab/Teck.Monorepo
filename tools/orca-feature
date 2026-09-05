@@ -139,6 +139,63 @@ function requireWorkerCommits(root: string, parentBranch: string, workerBranch: 
   for (const commit of commits) requireVerifiedGpgCommit(root, commit, `worker commit on ${workerBranch}`);
 }
 
+function rejectOmpIntegration(parentRoot: string, beforeCommit: string, reason: string): never {
+  const rollback = git(["reset", "--hard", beforeCommit], parentRoot, false);
+  const rollbackFailure =
+    rollback.exitCode === 0
+      ? isClean(parentRoot)
+        ? ""
+        : " Rollback left uncommitted changes in the parent checkout."
+      : ` Rollback failed: ${rollback.stderr.trim() || rollback.stdout.trim()}`;
+  throw new FlowError(`OMP commit agent did not produce an acceptable integration commit: ${reason}.${rollbackFailure}`);
+}
+
+function commitIntegrationWithOmp(state: FeatureState, entry: WorktreeEntry): string {
+  const beforeCommit = git(["rev-parse", "HEAD"], state.parentRoot).stdout.trim();
+  const expectedTree = git(["write-tree"], state.parentRoot).stdout.trim();
+  const context = [
+    `Create exactly one signed Conventional Commit for the staged squash of reviewed sub-issue #${entry.issue} "${entry.title}"`,
+    `into parent issue #${state.parentIssue} "${state.parentTitle}".`,
+    "Keep every staged file in one commit. Do not edit files, split the commit, update changelogs, or push.",
+  ].join(" ");
+  let result: CommandResult;
+  try {
+    result = run(["omp", "commit", "--no-changelog", "--context", context], state.parentRoot, false);
+  } catch (error) {
+    rejectOmpIntegration(
+      state.parentRoot,
+      beforeCommit,
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+  if (result.exitCode !== 0) {
+    const detail = [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
+    rejectOmpIntegration(state.parentRoot, beforeCommit, detail || `exit code ${result.exitCode}`);
+  }
+
+  const commits = git(["rev-list", "--reverse", `${beforeCommit}..HEAD`], state.parentRoot).stdout
+    .split("\n")
+    .filter(Boolean);
+  if (commits.length !== 1) {
+    rejectOmpIntegration(state.parentRoot, beforeCommit, `expected one commit, received ${commits.length}`);
+  }
+
+  const integratedCommit = commits[0];
+  const actualTree = git(["rev-parse", `${integratedCommit}^{tree}`], state.parentRoot).stdout.trim();
+  if (actualTree !== expectedTree) {
+    rejectOmpIntegration(state.parentRoot, beforeCommit, "committed tree differs from the reviewed staged squash");
+  }
+  try {
+    requireVerifiedGpgCommit(state.parentRoot, integratedCommit, "OMP integration commit");
+  } catch (error) {
+    rejectOmpIntegration(state.parentRoot, beforeCommit, error instanceof Error ? error.message : String(error));
+  }
+  if (!isClean(state.parentRoot)) {
+    rejectOmpIntegration(state.parentRoot, beforeCommit, "parent checkout is dirty after commit");
+  }
+  return integratedCommit;
+}
+
 function githubRepository(root: string): string {
   const url = git(["remote", "get-url", "origin"], root).stdout.trim();
   const match = /(?:github\.com[/:])([^/]+\/[^/]+?)(?:\.git)?$/.exec(url);
@@ -371,15 +428,13 @@ function integrate(options: ParsedOptions): void {
   }
 
   requireWorkerCommits(root, state.parentBranch, entry.branch);
-  const message = option(options, "--message") ?? `feat(${state.parentSlug}): integrate #${issue} ${entry.slug}`;
   const merge = git(["merge", "--squash", entry.branch], state.parentRoot, false);
   if (merge.exitCode !== 0) {
     throw new FlowError(`merge stopped before integration completed; resolve or abort it in the parent checkout:\n${merge.stderr.trim() || merge.stdout.trim()}`);
   }
-  git(["commit", "-S", "-m", message], state.parentRoot);
-  requireVerifiedGpgCommit(root, git(["rev-parse", "HEAD"], state.parentRoot).stdout.trim(), "integration commit");
+  const integratedCommit = commitIntegrationWithOmp(state, entry);
   entry.status = "integrated";
-  entry.integratedCommit = git(["rev-parse", "HEAD"], state.parentRoot).stdout.trim();
+  entry.integratedCommit = integratedCommit;
   saveState(root, state);
   console.log(`Integrated #${issue} as ${entry.integratedCommit}`);
 }

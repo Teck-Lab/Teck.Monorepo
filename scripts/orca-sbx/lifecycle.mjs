@@ -192,6 +192,7 @@ export function wakeCheckCommand() {
     "test -r /home/agent/.omp/agent/config.yml",
     "test -r /home/agent/.omp/agent/models.yml",
     "test -r /home/agent/.omp/agent/RULES.md",
+    "test -w /home/agent/.omp/run",
     'test "${OMNIROUTE_API_KEY:-}" = proxy-managed',
     "omp --version >/dev/null",
     "docker info >/dev/null",
@@ -229,15 +230,19 @@ function wakeAndVerify(name) {
 }
 
 function removeCustomSecret(name) {
-  run("sbx", [
-    "secret",
-    "rm",
-    "--sandbox",
-    name,
-    "--placeholder",
-    "proxy-managed",
-    "--force",
-  ]);
+  run(
+    "sbx",
+    [
+      "secret",
+      "rm",
+      "--sandbox",
+      name,
+      "--placeholder",
+      "proxy-managed",
+      "--force",
+    ],
+    { capture: true },
+  );
 }
 
 function installSigningKey(name, armoredKey) {
@@ -325,7 +330,7 @@ function create() {
     installSigningKey(name, configuredSigningPrivateKey());
 
     const ompRoot = `${projectRoot}/.omp`;
-    const command = `set -eu; install -d -o 1000 -g 1000 /home/agent/.omp/agent; ln -sfn ${shellQuote(`${ompRoot}/config.yml`)} /home/agent/.omp/agent/config.yml; ln -sfn ${shellQuote(`${ompRoot}/models.yml`)} /home/agent/.omp/agent/models.yml; ln -sfn ${shellQuote(`${ompRoot}/RULES.md`)} /home/agent/.omp/agent/RULES.md`;
+    const command = `set -eu; install -d -o 1000 -g 1000 /home/agent/.omp /home/agent/.omp/agent /home/agent/.omp/run; ln -sfn ${shellQuote(`${ompRoot}/config.yml`)} /home/agent/.omp/agent/config.yml; ln -sfn ${shellQuote(`${ompRoot}/models.yml`)} /home/agent/.omp/agent/models.yml; ln -sfn ${shellQuote(`${ompRoot}/RULES.md`)} /home/agent/.omp/agent/RULES.md`;
     run("sbx", ["exec", "-u", "0", name, "sh", "-lc", command], { capture: true });
     wakeAndVerify(name);
     emit(recipeResult(name, projectRoot));

@@ -13,7 +13,7 @@ environment:
 
 setup:
   install:
-    - command: install -d -o 1000 -g 1000 /home/agent/.omp/agent /home/agent/.local/bin
+    - command: install -d -o 1000 -g 1000 /home/agent/.omp /home/agent/.omp/agent /home/agent/.omp/run /home/agent/.local/bin
       user: "0"
       description: Prepare writable OMP state
   files:
