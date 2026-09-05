@@ -7,6 +7,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Shared, testable credential write path (locked ACL + atomic rotation).
+. (Join-Path $PSScriptRoot 'omniroute-credential.ps1')
 $modelsUrl = 'https://omniroute.tecklab.dk/v1/models'
 $credentialDir = Join-Path $env:USERPROFILE '.config\teck'
 $credentialFile = Join-Path $credentialDir 'omniroute.env'
@@ -58,23 +60,11 @@ try {
     }
 
     Write-Host '[CONFIGURE] Writing host-only credential'
-    New-Item -ItemType Directory -Path $credentialDir -Force | Out-Null
-    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-    [System.IO.File]::WriteAllText($credentialFile, "OMNIROUTE_API_KEY=$key" + [Environment]::NewLine, $utf8NoBom)
-
-    # The credential is host-only: drop inherited ACLs and grant the current
-    # user read access so no other local account can read the key.
-    $account = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-    $previousPreference = $ErrorActionPreference
-    try {
-        $ErrorActionPreference = 'Continue'
-        & icacls $credentialFile /inheritance:r /grant:r "$account`:(R)" 2>&1 | Out-Null
-    } finally {
-        $ErrorActionPreference = $previousPreference
-    }
-    if ($LASTEXITCODE -ne 0) {
-        throw 'Failed to restrict the host credential file ACLs.'
-    }
+    # Staged, atomic, ACL-locked write shared with the behavioral check:
+    # inherited access removed; current user keeps Modify for future
+    # rotations; the key is never placed on a command line or in logs; an
+    # interrupted run leaves the previous credential intact.
+    Set-OmniRouteCredentialFile -Path $credentialFile -ApiKey $key
 
     Write-Host '[PASS] Host OmniRoute credential configured' -ForegroundColor Green
     Write-Host 'Sandbox lifecycle reads this file on every create. Re-run this script after rotating the key, then recreate existing sandboxes.'

@@ -43,8 +43,9 @@ such as a `Teck.Paseo/.env` next to this repository.
 
 Provision the default host credential file once per Windows machine. The
 script securely prompts for the key, verifies it against the public OmniRoute
-endpoint, and writes it to `%USERPROFILE%\.config\teck\omniroute.env` with
-ACLs restricted to the current user:
+endpoint, and writes it to `%USERPROFILE%\.config\teck\omniroute.env` with a
+locked ACL: inherited access is removed and only the current user (read and
+write) plus the SYSTEM and Administrators principals can access the file:
 
 ```powershell
 .\scripts\orca-sbx\setup-host.ps1
@@ -58,10 +59,13 @@ reference with the 1Password CLI at setup time:
   -SecretRef 'op://Teck/OmniRoute/api-key'
 ```
 
-The script always replaces the file, so re-run it after rotating the key, then
-recreate already-existing sandboxes. The file is the default host credential
-source; `OMNIROUTE_API_KEY` and `ORCA_OMNIROUTE_ENV_FILE` take precedence when
-set, and the lifecycle never consults any other location.
+Re-run the script after rotating the key, then recreate already-existing
+sandboxes. Every run replaces the file through a staged, atomic write - the
+current user always keeps write access, an interrupted run leaves the
+previous credential intact, and an existing file locked read-only by an older
+setup-host.ps1 is repaired automatically. The file is the default host
+credential source; `OMNIROUTE_API_KEY` and `ORCA_OMNIROUTE_ENV_FILE` take
+precedence when set, and the lifecycle never consults any other location.
 
 Docker's managed SSH block lives in `%USERPROFILE%\.ssh\config` and routes
 `*.sbx` through the local `sbx ssh proxy` command. Start Orca with the system
