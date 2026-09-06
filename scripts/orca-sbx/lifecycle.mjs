@@ -178,7 +178,7 @@ export function configuredSigningPrivateKey({ homeDir = homedir() } = {}) {
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
   }
-  if (!value?.includes("-----BEGIN PGP PRIVATE KEY BLOCK-----")) {
+  if (!value?.startsWith("-----BEGIN PGP ") || !value.includes("PRIVATE KEY BLOCK-----")) {
     throw new Error(
       `Dedicated sandbox GPG key not found in ${path}; run scripts/orca-sbx/setup-signing.ps1 on the Windows host`,
     );
