@@ -1,0 +1,6 @@
+{
+  "repository": "https://github.com/mattjohnson/orca-sbx-recipes",
+  "commit": "5f7d147c88827cd0919dd7f6d5d146525bda7b05",
+  "license": "MIT",
+  "adaptation": "Windows Node lifecycle plus Teck OMP, OmniRoute, and GPG provisioning"
+}

@@ -1,0 +1,15 @@
+{
+  "manifestVersion": 1,
+  "id": "teck-sbx-recipes",
+  "publisher": "teck-lab",
+  "name": "Teck Docker Sandbox Recipes",
+  "version": "0.1.0",
+  "description": "Windows project-shared Docker Sandbox recipe with Teck OMP, OmniRoute, and GPG provisioning.",
+  "repository": "https://github.com/Teck-Lab/Teck.Monorepo",
+  "engines": { "orca": ">=1.4.0" },
+  "pluginApi": 1,
+  "contributes": {
+    "vmRecipes": [{ "path": "recipes/teck-sbx-project-sandbox.json" }]
+  },
+  "capabilities": []
+}
