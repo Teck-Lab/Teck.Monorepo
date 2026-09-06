@@ -3,9 +3,9 @@
 #
 # 1. changed-mode SAST target selection drops tracked git symlinks (mode 120000)
 #    whose targets may resolve outside the Docker /src mount.
-# 2. --staged mode mounts a linked git worktree and its common git directory at
-#    their original absolute paths so Gitleaks protect --staged can read the
-#    staged index.
+# 2. --staged mode mounts linked worktree and common Git metadata at stable
+#    container paths so host-native absolute paths remain valid.
+# 3. Podman can run scans directly without a Docker alias.
 set -euo pipefail
 
 # Fixture commits must not depend on a developer's global signing setup.
@@ -56,6 +56,11 @@ echo "PASS: stubbed docker"
 exit 0
 DOCKER
   chmod +x "$bin_dir/docker"
+}
+
+install_fake_podman() {
+  install_fake_docker "$@"
+  mv "$1/docker" "$1/podman"
 }
 
 # Copy the production script into $1/tools and run it with mode $2.
@@ -114,9 +119,8 @@ test_changed_mode_excludes_symlinks() {
   echo "PASS: changed mode excludes tracked symlinks"
 }
 
-# ------------------------------------------------------------------ test 2 ----
-# --staged mode must mount a linked worktree and its common git directory at
-# their original absolute paths, with source/report under the worktree.
+# --staged mode must mount a linked worktree and its common Git directory at
+# stable container paths and explicitly identify the worktree Git metadata.
 test_staged_linked_worktree_mounts() {
   local test_dir="$FIXTURE/worktree"
   mkdir -p "$test_dir"
@@ -149,18 +153,39 @@ test_staged_linked_worktree_mounts() {
 
   [ -f "$test_dir/gitleaks_calls.log" ] || fail "Gitleaks was not invoked in --staged mode"
 
-  grep -qF -- "-v $test_dir/wt:$test_dir/wt" "$test_dir/gitleaks_calls.log" \
-    || fail "linked worktree not mounted at original absolute path"
-  grep -qF -- "-v $test_dir/repo.git/worktrees/wt:$test_dir/repo.git/worktrees/wt:ro" "$test_dir/gitleaks_calls.log" \
-    || fail "worktree-specific git directory not mounted read-only at original absolute path"
-  grep -qF -- "-v $test_dir/repo.git:$test_dir/repo.git:ro" "$test_dir/gitleaks_calls.log" \
-    || fail "common git directory not mounted read-only at original absolute path"
-  grep -qF -- "--source=$test_dir/wt" "$test_dir/gitleaks_calls.log" \
-    || fail "--source not set to original worktree path"
-  grep -qF -- "--report-path=$test_dir/wt/.security/gitleaks.json" "$test_dir/gitleaks_calls.log" \
-    || fail "report path not under original worktree path"
+  grep -qF -- "-v $test_dir/wt:/repo" "$test_dir/gitleaks_calls.log" \
+    || fail "linked worktree not mounted at /repo"
+  grep -qF -- "-v $test_dir/repo.git:/git-common:ro" "$test_dir/gitleaks_calls.log" \
+    || fail "common Git directory not mounted at /git-common"
+  grep -qF -- "-e GIT_DIR=/git-common/worktrees/wt" "$test_dir/gitleaks_calls.log" \
+    || fail "worktree Git directory not configured"
+  grep -qF -- "-e GIT_WORK_TREE=/repo" "$test_dir/gitleaks_calls.log" \
+    || fail "worktree path not configured"
+  grep -qF -- "--source=/repo" "$test_dir/gitleaks_calls.log" \
+    || fail "--source not set to /repo"
+  grep -qF -- "--report-path=/repo/.security/gitleaks.json" "$test_dir/gitleaks_calls.log" \
+    || fail "report path not under /repo"
 
   echo "PASS: --staged mounts linked worktree and common git directory"
+}
+
+test_podman_runs_without_docker_alias() {
+  local test_dir="$FIXTURE/podman"
+  mkdir -p "$test_dir"
+  cd "$test_dir"
+  git init --quiet
+  git config user.email "test@example.com"
+  git config user.name "Test"
+  printf 'base\n' > base.txt
+  git add base.txt
+  git commit --quiet -m "base"
+
+  install_fake_podman "$test_dir/bin" "$test_dir"
+  SECURITY_SCAN_RUNTIME=podman run_scanner "$test_dir" "--secrets"
+
+  [ -f "$test_dir/gitleaks_calls.log" ] || fail "Podman did not run Gitleaks"
+  [ ! -e "$test_dir/bin/docker" ] || fail "Podman test unexpectedly provided Docker"
+  echo "PASS: Podman runs scans without a Docker alias"
 }
 
 create_remote_checkout() {
@@ -515,6 +540,7 @@ test_trivy_uses_official_database_repository() {
 # --------------------------------------------------------------------- run ----
 test_changed_mode_excludes_symlinks
 test_staged_linked_worktree_mounts
+test_podman_runs_without_docker_alias
 test_pre_push_scopes_single_ref
 test_pre_push_scopes_multiple_refs
 test_pre_push_skips_deletion_only_update
