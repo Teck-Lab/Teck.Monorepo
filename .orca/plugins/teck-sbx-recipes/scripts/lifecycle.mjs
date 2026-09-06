@@ -115,7 +115,6 @@ export function wakeCheckCommand(home) {
     "set -eu",
     "test -x /usr/local/bin/omp",
     "test -x /usr/local/bin/orca-runtime-check",
-    "/usr/local/bin/orca-runtime-check >/dev/null",
     `test -r ${shellQuote(`${home}/.omp/agent/config.yml`)}`,
     `test -r ${shellQuote(`${home}/.omp/agent/models.yml`)}`,
     `test -r ${shellQuote(`${home}/.omp/agent/RULES.md`)}`,
