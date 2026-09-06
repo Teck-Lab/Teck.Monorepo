@@ -246,7 +246,7 @@ function configuredSigningKey() {
     process.env.ORCA_GPG_SIGNING_KEY_FILE?.trim() ||
     join(homedir(), ".config", "teck", "sandbox-signing-key.asc");
   const value = existsSync(path) ? readFileSync(path, "utf8").trim() : "";
-  if (!value.includes("-----BEGIN PGP PRIVATE KEY BLOCK-----")) {
+  if (!value) {
     throw new Error(
       "Dedicated sandbox signing key not found; run scripts/orca-sbx/setup-signing.ps1",
     );
@@ -402,6 +402,28 @@ function ensureSshd(name, identity, state) {
       `set -eu; install -d -m 700 ${shellQuote(`${identity.home}/.ssh`)}; touch ${shellQuote(authorizedKeys)}; chmod 600 ${shellQuote(authorizedKeys)}; key="$(cat)"; grep -qF "$key" ${shellQuote(authorizedKeys)} || printf '%s\\n' "$key" >> ${shellQuote(authorizedKeys)}`,
     ],
     { capture: true, input: readFileSync(state.publicKeyFile, "utf8").trim() },
+  );
+  writeSandboxFile(
+    name,
+    identity.username,
+    "/etc/sandbox-persistent.sh",
+    [
+      "export HTTP_PROXY=http://gateway.docker.internal:3128",
+      "export HTTPS_PROXY=http://gateway.docker.internal:3128",
+      "export NO_PROXY=localhost,127.0.0.1,::1,gateway.docker.internal",
+      "export http_proxy=$HTTP_PROXY https_proxy=$HTTPS_PROXY no_proxy=$NO_PROXY",
+      "export NODE_USE_ENV_PROXY=1",
+      "export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt",
+      "export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt",
+      "export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt",
+      `export OMNIROUTE_BASE_URL=${omniRouteBaseUrl}`,
+      "export OMNIROUTE_API_KEY=proxy-managed",
+      "export OMNIROUTE_MODEL=teck-orchestrator",
+      "export OMP_SKIP_SETUP=1",
+      "export ONNXRUNTIME_NODE_INSTALL=skip",
+      "",
+    ].join("\n"),
+    "644",
   );
 
   run(

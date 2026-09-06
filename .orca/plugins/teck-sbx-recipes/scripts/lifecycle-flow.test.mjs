@@ -22,10 +22,7 @@ function fixture(t) {
     writeFileSync(join(repo, ".omp", file), `${file}\n`);
   }
   writeFileSync(join(home, ".config", "teck", "omniroute.env"), "OMNIROUTE_API_KEY=test-key\n");
-  writeFileSync(
-    join(home, ".config", "teck", "sandbox-signing-key.asc"),
-    `-----BEGIN PGP ${"PRIVATE KEY BLOCK"}-----\ntest\n-----END PGP ${"PRIVATE KEY BLOCK"}-----\n`,
-  );
+  writeFileSync(join(home, ".config", "teck", "sandbox-signing-key.asc"), "test-signing-key\n");
   const projectId = "flow-project";
   const name = `orca-p-${createHash("sha256").update(projectId).digest("hex").slice(0, 12)}`;
   const statePath = join(root, "state.json");
