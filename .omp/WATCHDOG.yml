@@ -4,7 +4,7 @@ instructions: |
 advisors:
   - name: Architecture
     enabled: true
-    model: omniroute/teck-orchestrator
+    model: omniroute/teck-advisor
     tools: [read, grep, glob]
     instructions: |
       Watch module boundaries, dependency direction, and public API growth.
@@ -12,7 +12,7 @@ advisors:
 
   - name: Security
     enabled: true
-    model: omniroute/teck-orchestrator
+    model: omniroute/teck-advisor
     tools: [read, grep, glob]
     instructions: |
       Trace untrusted input through authentication, tenant isolation, storage, and rendering.

@@ -2,19 +2,21 @@ modelRoles:
   default: omniroute/teck-orchestrator
   plan: omniroute/teck-orchestrator
   slow: omniroute/teck-orchestrator
-  advisor: omniroute/teck-orchestrator
+  advisor: omniroute/teck-advisor
   vision: omniroute/teck-orchestrator
   task: omniroute/teck-executor
   designer: omniroute/teck-executor
-  smol: omniroute/omniroute/teck-fast
-  tiny: omniroute/omniroute/teck-fast
-  commit: omniroute/omniroute/teck-fast
+  smol: omniroute/teck-fast-tool
+  tiny: omniroute/teck-fast-tool
+  commit: omniroute/teck-fast-text
 advisor:
   enabled: true
 enabledModels:
   - omniroute/teck-orchestrator
+  - omniroute/teck-advisor
   - omniroute/teck-executor
-  - omniroute/omniroute/teck-fast
+  - omniroute/teck-fast-tool
+  - omniroute/teck-fast-text
 cycleOrder:
   - smol
   - default
@@ -29,4 +31,4 @@ providers:
     omniroute: 4
 task:
   isolation:
-    mode: none
+    enabled: false

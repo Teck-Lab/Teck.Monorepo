@@ -9,11 +9,19 @@ providers:
         name: Orchestrator
         contextWindow: 700000
         maxTokens: 32768
+      - id: teck-advisor
+        name: Advisor
+        contextWindow: 700000
+        maxTokens: 32768
       - id: teck-executor
         name: Executor
         contextWindow: 500000
         maxTokens: 32768
-      - id: omniroute/teck-fast
-        name: Fast
+      - id: teck-fast-tool
+        name: Fast Tool
+        contextWindow: 250000
+        maxTokens: 32768
+      - id: teck-fast-text
+        name: Fast Text
         contextWindow: 250000
         maxTokens: 32768
