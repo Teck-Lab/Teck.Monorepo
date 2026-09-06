@@ -187,7 +187,7 @@ test_podman_runs_without_docker_alias() {
 
   install_fake_podman "$test_dir/bin" "$test_dir"
   for command in bash dirname git mkdir tail; do
-    ln -s "$(command -v "$command")" "$test_dir/bin/$command"
+    cp "$(command -v "$command")" "$test_dir/bin/$command"
   done
   SECURITY_SCAN_TEST_PATH="$test_dir/bin" run_scanner "$test_dir" "--secrets"
   grep -q '/podman ' "$test_dir/container_calls.log" || fail "Podman was not auto-selected"
