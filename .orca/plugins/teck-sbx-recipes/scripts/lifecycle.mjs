@@ -636,6 +636,15 @@ function provisionTeck(name, identity, projectRoot, repoRoot) {
 function emit(result) {
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
+function verifyRuntime(name, identity) {
+  run(
+    "sbx",
+    ["exec", "-u", identity.username, name, "sh", "-lc", wakeCheckCommand(identity.home)],
+    {
+      capture: true,
+    },
+  );
+}
 
 function create() {
   if (process.platform !== "win32") throw new Error("This Teck plugin lifecycle requires Windows");
@@ -679,6 +688,7 @@ function create() {
     };
     reconcileKnownHost(connection.port, readFileSync(state.hostPublicKeyFile, "utf8"));
     ensureKeepalive(name, state);
+    verifyRuntime(name, identity);
     emit(recipeResult(name, projectRoot, connection));
   } catch (error) {
     if (created && process.env.ORCA_SBX_KEEP_FAILED !== "1") {
@@ -720,6 +730,7 @@ function resume() {
     };
     reconcileKnownHost(connection.port, readFileSync(state.hostPublicKeyFile, "utf8"));
     ensureKeepalive(resourceId, state);
+    verifyRuntime(resourceId, identity);
     emit(recipeResult(resourceId, projectRoot, connection));
   } finally {
     release();
