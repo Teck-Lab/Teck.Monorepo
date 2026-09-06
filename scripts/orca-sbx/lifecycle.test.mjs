@@ -8,6 +8,7 @@ import {
   configuredApiKey,
   configuredSigningPrivateKey,
   customSecretTargetHosts,
+  gitIdentityCommand,
   ompProvisionCommand,
   parseSandboxIdentity,
   recipeResult,
@@ -110,6 +111,14 @@ test("runtime checker installation uses a privileged sandbox exec", () => {
     "/home/agent/.local/bin/orca-runtime-check",
     "/usr/local/bin/orca-runtime-check",
   ]);
+});
+
+test("sandbox git identity mirrors the host author", () => {
+  const command = gitIdentityCommand("Jacob O'Neil", "jacob@example.com");
+  assert.ok(command.includes(`git config --global user.name 'Jacob O'"'"'Neil'`));
+  assert.ok(command.includes("git config --global user.email 'jacob@example.com'"));
+  assert.ok(command.includes('test -n "$(git config --global user.name)"'));
+  assert.ok(command.includes('test -n "$(git config --global user.email)"'));
 });
 
 test("effective sandbox identity accepts root and rejects unsafe paths", () => {

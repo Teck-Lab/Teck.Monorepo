@@ -248,6 +248,15 @@ function removeCustomSecret(name) {
   });
 }
 
+export function gitIdentityCommand(name, email) {
+  const commands = ["set -eu"];
+  if (name) commands.push(`git config --global user.name ${shellQuote(name)}`);
+  if (email) commands.push(`git config --global user.email ${shellQuote(email)}`);
+  commands.push('test -n "$(git config --global user.name)"');
+  commands.push('test -n "$(git config --global user.email)"');
+  return commands.join("; ");
+}
+
 export function runtimeCheckInstallArgs(name) {
   return [
     "exec",
@@ -368,6 +377,13 @@ function create() {
 
     const identity = resolveSandboxIdentity(name);
     installSigningKey(name, configuredSigningPrivateKey(), identity);
+    const gitName = run("git", ["config", "--global", "user.name"], { capture: true }).trim();
+    const gitEmail = run("git", ["config", "--global", "user.email"], { capture: true }).trim();
+    run(
+      "sbx",
+      ["exec", "-u", identity.username, name, "sh", "-lc", gitIdentityCommand(gitName, gitEmail)],
+      { capture: true },
+    );
 
     run("sbx", runtimeCheckInstallArgs(name), { capture: true });
     run(
