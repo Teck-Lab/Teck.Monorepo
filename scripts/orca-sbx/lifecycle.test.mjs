@@ -83,13 +83,13 @@ test("Docker Sandbox version gate requires the supported 0.39 line", () => {
   assert.equal(supportsSbxVersion("unknown"), false);
 });
 
-
 test("SSH result preserves Orca default checkout ownership", () => {
   const result = recipeResult("orca-example-1", "/c/repo");
   assert.equal(result.schemaVersion, 1);
   assert.equal(result.connection.type, "ssh");
   assert.equal(result.connection.projectRoot, "/c/repo");
   assert.equal(result.connection.target.host, "orca-example-1.sbx");
+  assert.equal(result.connection.target.username, "agent");
   assert.equal(result.checkoutMode, undefined);
   assert.equal(result.pairingCode, undefined);
 });
@@ -109,7 +109,7 @@ test("wake check gates on the sandbox Docker engine and Compose v2 plugin", () =
   assert.ok(command.includes("Authorization: Bearer proxy-managed"));
   assert.ok(command.includes("test -x /home/agent/.local/bin/orca-runtime-check"));
   assert.ok(command.includes("test -w /home/agent/.omp/run"));
-  assert.ok(command.includes('git config --global --bool commit.gpgsign'));
+  assert.ok(command.includes("git config --global --bool commit.gpgsign"));
   assert.ok(command.includes("/home/agent/.local/bin/orca-gpg"));
   assert.ok(command.includes("--detach-sign"));
   assert.ok(!command.includes("host.docker.internal"));

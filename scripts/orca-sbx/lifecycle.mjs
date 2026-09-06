@@ -43,7 +43,7 @@ export function recipeResult(name, projectRoot) {
         label: `Docker Sandbox: ${name}`,
         host: `${name}.sbx`,
         port: 22,
-        username: "_default_user_",
+        username: "agent",
       },
     },
     userData: { provider: "docker-sandbox", resourceId: name, projectRoot },
@@ -230,19 +230,9 @@ function wakeAndVerify(name) {
 }
 
 function removeCustomSecret(name) {
-  run(
-    "sbx",
-    [
-      "secret",
-      "rm",
-      "--sandbox",
-      name,
-      "--placeholder",
-      "proxy-managed",
-      "--force",
-    ],
-    { capture: true },
-  );
+  run("sbx", ["secret", "rm", "--sandbox", name, "--placeholder", "proxy-managed", "--force"], {
+    capture: true,
+  });
 }
 
 function installSigningKey(name, armoredKey) {

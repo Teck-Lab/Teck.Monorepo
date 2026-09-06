@@ -1,3 +1,4 @@
+setupVersion: 2
 modelRoles:
   default: omniroute/teck-orchestrator
   plan: omniroute/teck-orchestrator
