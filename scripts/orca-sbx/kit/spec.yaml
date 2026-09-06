@@ -13,9 +13,9 @@ environment:
 
 setup:
   install:
-    - command: set -e; command -v g++ >/dev/null 2>&1 || (apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*); command -v g++; install -d -o 1000 -g 1000 /home/agent/.omp /home/agent/.omp/agent /home/agent/.omp/run /home/agent/.local/bin
+    - command: set -e; command -v g++ >/dev/null 2>&1 || (apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*); command -v g++
       user: "0"
-      description: Ensure relay build prerequisites and prepare writable OMP state
+      description: Ensure relay build prerequisites
   files:
     - path: /home/agent/.local/bin/orca-runtime-check
       mode: "0755"
@@ -44,11 +44,11 @@ setup:
         "$cli" skills get orchestration >/dev/null
         "$cli" orchestration run-list --json >/dev/null
         test "$(git config --global --bool commit.gpgsign)" = true
-        test -x /home/agent/.local/bin/orca-gpg
+        test -x "$HOME/.local/bin/orca-gpg"
         signing_key="$(git config --global user.signingkey)"
         test -n "$signing_key"
         printf 'teck-sandbox-runtime-signing-check' |
-          /home/agent/.local/bin/orca-gpg --batch --pinentry-mode loopback \
+          "$HOME/.local/bin/orca-gpg" --batch --pinentry-mode loopback \
             --passphrase '' --yes --local-user "$signing_key" \
             --output /dev/null --detach-sign
         printf 'GPG commit signing available with %s\n' "$signing_key" >&2
