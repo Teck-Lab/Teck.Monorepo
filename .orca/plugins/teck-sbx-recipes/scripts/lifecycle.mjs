@@ -413,7 +413,7 @@ function ensureSshd(name, identity, state) {
       name,
       "sh",
       "-lc",
-      `pgrep -x sshd >/dev/null 2>&1 || /usr/sbin/sshd -E /tmp/orca-sshd.log -p ${sshPort} -o HostKey=/etc/ssh/ssh_host_ed25519_key`,
+      `set -eu; pid="$(pgrep -xo sshd || true)"; if test -n "$pid" && ! tr '\\0' ' ' < "/proc/$pid/cmdline" | grep -qF 'SetEnv=OMP_SKIP_SETUP=1'; then kill "$pid"; attempt=0; while kill -0 "$pid" 2>/dev/null; do attempt=$((attempt + 1)); test "$attempt" -lt 50; sleep 0.1; done; fi; pgrep -x sshd >/dev/null 2>&1 || /usr/sbin/sshd -E /tmp/orca-sshd.log -p ${sshPort} -o HostKey=/etc/ssh/ssh_host_ed25519_key -o 'SetEnv=OMP_SKIP_SETUP=1 OMNIROUTE_API_KEY=proxy-managed OMNIROUTE_BASE_URL=${omniRouteBaseUrl} OMNIROUTE_MODEL=teck-orchestrator ONNXRUNTIME_NODE_INSTALL=skip'`,
     ],
     { capture: true },
   );
