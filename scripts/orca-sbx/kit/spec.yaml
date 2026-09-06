@@ -13,7 +13,7 @@ environment:
 
 setup:
   install:
-    - command: set -e; command -v g++ >/dev/null 2>&1 || (apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*); command -v g++
+    - command: set -e; command -v g++ >/dev/null 2>&1 || (apt-get -o DPkg::Lock::Timeout=300 update && DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*); command -v g++
       user: "0"
       description: Ensure relay build prerequisites
   files:

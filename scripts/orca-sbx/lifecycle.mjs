@@ -248,6 +248,20 @@ function removeCustomSecret(name) {
   });
 }
 
+export function runtimeCheckInstallArgs(name) {
+  return [
+    "exec",
+    "-u",
+    "0",
+    name,
+    "install",
+    "-m",
+    "755",
+    "/home/agent/.local/bin/orca-runtime-check",
+    "/usr/local/bin/orca-runtime-check",
+  ];
+}
+
 export function signingInstallCommand(identity) {
   const signingHome = `${identity.home}/.gnupg-orca-signing`;
   const localBin = `${identity.home}/.local/bin`;
@@ -355,21 +369,7 @@ function create() {
     const identity = resolveSandboxIdentity(name);
     installSigningKey(name, configuredSigningPrivateKey(), identity);
 
-    run(
-      "sbx",
-      [
-        "exec",
-        "-u",
-        "0",
-        name,
-        "install",
-        "-m",
-        "755",
-        "/home/agent/.local/bin/orca-runtime-check",
-        "/usr/local/bin/orca-runtime-check",
-      ],
-      { capture: true },
-    );
+    run("sbx", runtimeCheckInstallArgs(name), { capture: true });
     run(
       "sbx",
       [

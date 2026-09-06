@@ -13,6 +13,7 @@ import {
   recipeResult,
   redactSensitive,
   remoteWindowsPath,
+  runtimeCheckInstallArgs,
   sandboxName,
   shellQuote,
   signingInstallCommand,
@@ -95,6 +96,20 @@ test("SSH result preserves Orca default checkout ownership", () => {
   assert.equal(result.connection.target.username, "_default_user_");
   assert.equal(result.checkoutMode, undefined);
   assert.equal(result.pairingCode, undefined);
+});
+
+test("runtime checker installation uses a privileged sandbox exec", () => {
+  assert.deepEqual(runtimeCheckInstallArgs("orca-example-1"), [
+    "exec",
+    "-u",
+    "0",
+    "orca-example-1",
+    "install",
+    "-m",
+    "755",
+    "/home/agent/.local/bin/orca-runtime-check",
+    "/usr/local/bin/orca-runtime-check",
+  ]);
 });
 
 test("effective sandbox identity accepts root and rejects unsafe paths", () => {
