@@ -246,7 +246,7 @@ function configuredSigningKey() {
     process.env.ORCA_GPG_SIGNING_KEY_FILE?.trim() ||
     join(homedir(), ".config", "teck", "sandbox-signing-key.asc");
   const value = existsSync(path) ? readFileSync(path, "utf8").trim() : "";
-  if (!value) {
+  if (!value?.startsWith("-----BEGIN PGP ") || !value.includes("PRIVATE KEY BLOCK-----")) {
     throw new Error(
       "Dedicated sandbox signing key not found; run scripts/orca-sbx/setup-signing.ps1",
     );
