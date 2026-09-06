@@ -8,11 +8,16 @@ import {
   configuredApiKey,
   configuredSigningPrivateKey,
   customSecretTargetHosts,
+  gitIdentityCommand,
+  ompProvisionCommand,
+  parseSandboxIdentity,
   recipeResult,
   redactSensitive,
   remoteWindowsPath,
+  runtimeCheckInstallArgs,
   sandboxName,
   shellQuote,
+  signingInstallCommand,
   supportsSbxVersion,
   wakeCheckCommand,
 } from "./lifecycle.mjs";
@@ -83,23 +88,58 @@ test("Docker Sandbox version gate requires the supported 0.39 line", () => {
   assert.equal(supportsSbxVersion("unknown"), false);
 });
 
-
 test("SSH result preserves Orca default checkout ownership", () => {
   const result = recipeResult("orca-example-1", "/c/repo");
   assert.equal(result.schemaVersion, 1);
   assert.equal(result.connection.type, "ssh");
   assert.equal(result.connection.projectRoot, "/c/repo");
   assert.equal(result.connection.target.host, "orca-example-1.sbx");
+  assert.equal(result.connection.target.username, "_default_user_");
   assert.equal(result.checkoutMode, undefined);
   assert.equal(result.pairingCode, undefined);
+});
+
+test("runtime checker installation uses a privileged sandbox exec", () => {
+  assert.deepEqual(runtimeCheckInstallArgs("orca-example-1"), [
+    "exec",
+    "-u",
+    "0",
+    "orca-example-1",
+    "install",
+    "-m",
+    "755",
+    "/home/agent/.local/bin/orca-runtime-check",
+    "/usr/local/bin/orca-runtime-check",
+  ]);
+});
+
+test("sandbox git identity mirrors the host author", () => {
+  const command = gitIdentityCommand("Jacob O'Neil", "jacob@example.com");
+  assert.ok(command.includes(`git config --global user.name 'Jacob O'"'"'Neil'`));
+  assert.ok(command.includes("git config --global user.email 'jacob@example.com'"));
+  assert.ok(command.includes('test -n "$(git config --global user.name)"'));
+  assert.ok(command.includes('test -n "$(git config --global user.email)"'));
+});
+
+test("effective sandbox identity accepts root and rejects unsafe paths", () => {
+  assert.deepEqual(parseSandboxIdentity("root\r\n", "/root\r\n"), {
+    username: "root",
+    home: "/root",
+  });
+  assert.deepEqual(parseSandboxIdentity("agent\n", "/home/agent/\n"), {
+    username: "agent",
+    home: "/home/agent",
+  });
+  assert.throws(() => parseSandboxIdentity("root;id", "/root"), /invalid default username/);
+  assert.throws(() => parseSandboxIdentity("root", "/root;id"), /invalid default home/);
 });
 
 test("custom secret is proxy-injected only for the public OmniRoute host", () => {
   assert.deepEqual(customSecretTargetHosts(), ["omniroute.tecklab.dk"]);
 });
 
-test("wake check gates on the sandbox Docker engine and Compose v2 plugin", () => {
-  const command = wakeCheckCommand();
+test("wake check uses the resolved sandbox home", () => {
+  const command = wakeCheckCommand("/root");
   assert.ok(command.includes("docker info >/dev/null"));
   assert.ok(command.includes("docker compose version >/dev/null"));
   assert.ok(!command.includes("docker-compose"));
@@ -107,15 +147,29 @@ test("wake check gates on the sandbox Docker engine and Compose v2 plugin", () =
     command.split(/\s+/).some((token) => token === "https://omniroute.tecklab.dk/v1/models"),
   );
   assert.ok(command.includes("Authorization: Bearer proxy-managed"));
-  assert.ok(command.includes("test -x /home/agent/.local/bin/orca-runtime-check"));
-  assert.ok(command.includes("test -w /home/agent/.omp/run"));
-  assert.ok(command.includes('git config --global --bool commit.gpgsign'));
-  assert.ok(command.includes("/home/agent/.local/bin/orca-gpg"));
+  assert.ok(command.includes("test -x '/usr/local/bin/orca-runtime-check'"));
+  assert.ok(command.includes("test -w '/root/.omp/run'"));
+  assert.ok(command.includes("git config --global --bool commit.gpgsign"));
+  assert.ok(command.includes("'/root/.local/bin/orca-gpg'"));
   assert.ok(command.includes("--detach-sign"));
+  assert.ok(!command.includes("/home/agent/.omp"));
   assert.ok(!command.includes("host.docker.internal"));
   assert.ok(!command.includes("localhost"));
   assert.ok(!command.includes("20128"));
   assert.ok(!command.includes("podman"));
+});
+
+test("OMP and signing provisioning use the same effective home", () => {
+  const identity = { username: "root", home: "/root" };
+  const ompCommand = ompProvisionCommand("/c/repo", identity);
+  const signingCommand = signingInstallCommand(identity);
+  assert.ok(ompCommand.includes("'/root/.omp/agent/config.yml'"));
+  assert.ok(ompCommand.includes("'/root/.omp/agent/models.yml'"));
+  assert.ok(ompCommand.includes("'/root/.omp/agent/RULES.md'"));
+  assert.ok(ompCommand.includes("test -x '/usr/local/bin/orca-runtime-check'"));
+  assert.ok(signingCommand.includes("'/root/.gnupg-orca-signing'"));
+  assert.ok(signingCommand.includes("'/root/.local/bin/orca-gpg'"));
+  assert.ok(!signingCommand.includes("/home/agent"));
 });
 
 test("sandbox signing key defaults to the protected host credential path", (t) => {

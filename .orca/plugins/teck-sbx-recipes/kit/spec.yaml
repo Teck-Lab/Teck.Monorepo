@@ -1,8 +1,8 @@
 schemaVersion: "2"
 kind: mixin
-name: orca-omp-worker
-displayName: Orca OMP worker
-description: Adds the writable OMP home used by Orca-managed Docker Sandboxes.
+name: teck-orca-omp-worker
+displayName: Teck Orca OMP worker
+description: Adds the Teck OMP runtime checker and network policy.
 
 environment:
   variables:
@@ -10,12 +10,9 @@ environment:
     OMNIROUTE_API_KEY: proxy-managed
     OMNIROUTE_MODEL: teck-orchestrator
     ONNXRUNTIME_NODE_INSTALL: skip
+    OMP_SKIP_SETUP: "1"
 
 setup:
-  install:
-    - command: set -e; command -v g++ >/dev/null 2>&1 || (apt-get -o DPkg::Lock::Timeout=300 update && DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*); command -v g++
-      user: "0"
-      description: Ensure relay build prerequisites
   files:
     - path: /home/agent/.local/bin/orca-runtime-check
       mode: "0755"
@@ -54,10 +51,11 @@ setup:
         printf 'GPG commit signing available with %s\n' "$signing_key" >&2
         printf 'Orca orchestration runtime available via %s\n' "$cli" >&2
 
-
 permissions:
   network:
     allow:
       - omniroute.tecklab.dk:443
       - github.com:443
       - api.github.com:443
+      - archive.ubuntu.com:80
+      - security.ubuntu.com:80

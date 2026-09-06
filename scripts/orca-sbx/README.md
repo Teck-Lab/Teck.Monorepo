@@ -156,7 +156,7 @@ After Orca attaches over SSH and opens the parent OMP coordinator, its first
 runtime check is:
 
 ```sh
-/home/agent/.local/bin/orca-runtime-check
+/usr/local/bin/orca-runtime-check
 ```
 
 This fails unless the attached environment can reach the Orca runtime, load
