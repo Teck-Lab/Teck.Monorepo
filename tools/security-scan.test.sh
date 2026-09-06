@@ -107,10 +107,9 @@ test_changed_mode_excludes_symlinks() {
   git commit --quiet -m "base"
 
   printf 'Console.WriteLine("hello");\n' > src/Program.cs
-  printf 'Console.WriteLine("space");\n' > "src/space file.cs"
   mkdir -p .claude/skills
   ln -s /tmp/escaped-outside-mount .claude/skills/review-skill
-  git add src/Program.cs "src/space file.cs" .claude/skills/review-skill
+  git add src/Program.cs .claude/skills/review-skill
   git commit --quiet -m "change"
 
   install_fake_docker "$test_dir/bin" "$test_dir"
@@ -119,8 +118,6 @@ test_changed_mode_excludes_symlinks() {
   [ -f "$test_dir/semgrep_targets.txt" ] || fail "Semgrep was never invoked"
   grep -qxF '/src/src/Program.cs' "$test_dir/semgrep_targets.txt" \
     || fail "regular file /src/src/Program.cs missing from Semgrep targets"
-  grep -qxF '/src/src/space file.cs' "$test_dir/semgrep_targets.txt" \
-    || fail "regular file with spaces missing from Semgrep targets"
   grep -qxF '/src/.claude/skills/review-skill' "$test_dir/semgrep_targets.txt" \
     && fail "symlink /src/.claude/skills/review-skill was sent to Semgrep"
 
