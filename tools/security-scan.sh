@@ -225,12 +225,11 @@ if [ "$MODE" = "changed" ] || [ "$MODE" = "pre-push" ]; then
   # Collect changed paths but keep only regular tracked files (modes 100644/100755).
   # Symlinks (120000) and other git objects must not be passed to Semgrep because
   # their targets may resolve outside the Docker /src mount and fail the scan.
-  mapfile -t CHANGED < <(
-    {
-      repo_git diff --name-only --diff-filter=ACMR "$BASE_REF"...HEAD 2>/dev/null
-      repo_git diff --name-only --diff-filter=ACMR HEAD 2>/dev/null
-    } | sort -u | grep -v '^$'
-  )
+  mapfile -t CHANGED < <(repo_git diff --raw --diff-filter=ACMR "$BASE_REF"...HEAD 2>/dev/null;
+                         repo_git diff --raw --diff-filter=ACMR HEAD 2>/dev/null)
+  mapfile -t CHANGED < <(printf '%s\n' "${CHANGED[@]}" | \
+    awk -F'\t' 'NF>=2 {split($1,a," "); m=a[2]; if (m=="100644" || m=="100755") { gsub(/^"|"$/,"",$NF); print $NF }}' | \
+    sort -u | grep -v '^$')
   if [ "${#CHANGED[@]}" -eq 0 ]; then
     echo "no changed files vs $BASE_REF — skipping SAST (use --all to force)"
     SEMGREP_TARGET=""
