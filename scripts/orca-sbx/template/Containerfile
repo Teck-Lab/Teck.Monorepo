@@ -10,6 +10,11 @@ USER root
 ENV ONNXRUNTIME_NODE_INSTALL=skip \
     DEBIAN_FRONTEND=noninteractive
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/* \
+    && command -v g++
+
 RUN npm install --global --no-audit --no-fund "bun@${BUN_VERSION}" \
     && npm install --global --no-audit --no-fund "@oh-my-pi/pi-coding-agent@${OMP_VERSION}" \
     && global_bin="$(npm prefix --global)/bin" \

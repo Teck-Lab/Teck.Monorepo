@@ -12,12 +12,34 @@
 #   ./tools/security-scan.sh --staged   # gitleaks on staged changes (pre-commit hook)
 #   ./tools/security-scan.sh --pre-push # gitleaks on refs introduced by a push (pre-push hook)
 #
-# Exit codes: 0 = clean, 1 = findings, 2 = could not run (docker/network).
+# Exit codes: 0 = clean, 1 = findings, 2 = could not run (container runtime/network).
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="$REPO_ROOT/.security"
 BASE_REF="${SECURITY_SCAN_BASE:-origin/main}"
+
+GIT_COMMAND=(git)
+GIT_REPO_ROOT="$REPO_ROOT"
+if ! git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1 \
+  && command -v git.exe >/dev/null 2>&1 \
+  && command -v wslpath >/dev/null 2>&1; then
+  GIT_COMMAND=(git.exe)
+  GIT_REPO_ROOT="$(wslpath -w "$REPO_ROOT")"
+fi
+
+repo_git() {
+  "${GIT_COMMAND[@]}" -C "$GIT_REPO_ROOT" "$@"
+}
+
+container_mount_source() {
+  local path="$1"
+  if [[ "$path" =~ ^[A-Za-z]:[/\\] ]] && command -v wslpath >/dev/null 2>&1; then
+    wslpath -u "$path"
+  else
+    printf '%s\n' "$path"
+  fi
+}
 
 # Versions pinned to CI. Semgrep 1.97.0 + these three configs come straight from
 # .github/workflows/security-scans.yml — keep them in sync or local != CI.
@@ -106,7 +128,22 @@ if [ "$MODE" = "pre-push" ]; then
   fi
 fi
 
-command -v docker >/dev/null 2>&1 || { echo "ERROR: docker not available"; exit 2; }
+if command -v docker >/dev/null 2>&1; then
+  CONTAINER_RUNTIME=docker
+elif command -v podman >/dev/null 2>&1; then
+  CONTAINER_RUNTIME=podman
+else
+  echo "ERROR: neither docker nor podman is available"
+  exit 2
+fi
+
+run_container() {
+  if [ "$CONTAINER_RUNTIME" = podman ]; then
+    MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' podman "$@"
+  else
+    docker "$@"
+  fi
+}
 mkdir -p "$OUT_DIR"
 FAILED=0
 
@@ -120,20 +157,24 @@ echo "=============================================="
 echo
 echo "--- [1] Gitleaks: secret detection ---"
 
-# Linked worktrees use a gitfile (.git is a file). The gitfile and the
-# worktree-specific Git metadata point to absolute paths outside the source
-# tree, so Gitleaks inside Docker needs the worktree and both Git directories
-# mounted at their original absolute paths.
+# Linked worktrees may contain host-native absolute paths (for example C:/...)
+# that Linux Git cannot resolve. Mount the worktree and common Git directory at
+# stable container paths, then point scanner Git commands at that metadata.
 GITLEAKS_SOURCE="/repo"
 GITLEAKS_REPORT="/repo/.security/gitleaks.json"
 GITLEAKS_MOUNTS=(-v "$REPO_ROOT:/repo")
+GITLEAKS_GIT_ENV=()
 if [ -f "$REPO_ROOT/.git" ]; then
-  GITDIR=$(git -C "$REPO_ROOT" rev-parse --git-dir 2>/dev/null) || GITDIR=""
-  COMMONDIR=$(git -C "$REPO_ROOT" rev-parse --git-common-dir 2>/dev/null) || COMMONDIR=""
+  GITDIR=$(repo_git rev-parse --absolute-git-dir 2>/dev/null) || GITDIR=""
+  COMMONDIR=$(repo_git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || COMMONDIR=""
   if [ -n "$GITDIR" ] && [ -n "$COMMONDIR" ] && [ "$GITDIR" != "$COMMONDIR" ]; then
-    GITLEAKS_SOURCE="$REPO_ROOT"
-    GITLEAKS_REPORT="$REPO_ROOT/.security/gitleaks.json"
-    GITLEAKS_MOUNTS=(-v "$REPO_ROOT:$REPO_ROOT" -v "$GITDIR:$GITDIR:ro" -v "$COMMONDIR:$COMMONDIR:ro")
+    GITDIR_SOURCE=$(container_mount_source "$GITDIR")
+    COMMONDIR_SOURCE=$(container_mount_source "$COMMONDIR")
+    GITDIR_RELATIVE="${GITDIR_SOURCE#"$COMMONDIR_SOURCE"/}"
+    [ "$GITDIR_RELATIVE" != "$GITDIR_SOURCE" ] \
+      || { echo "ERROR: invalid linked worktree Git metadata" >&2; exit 2; }
+    GITLEAKS_MOUNTS=(-v "$REPO_ROOT:/repo" -v "$COMMONDIR_SOURCE:/git-common:ro")
+    GITLEAKS_GIT_ENV=(-e "GIT_DIR=/git-common/$GITDIR_RELATIVE" -e "GIT_WORK_TREE=/repo")
   fi
 fi
 
@@ -144,14 +185,14 @@ GITLEAKS_OPTIONS=(--source="$GITLEAKS_SOURCE" --redact --no-banner
 if [ "$MODE" = "staged" ]; then
   GITLEAKS_CMD=(protect --staged)
 elif [ "$MODE" = "pre-push" ]; then
-  git -C "$REPO_ROOT" rev-parse --verify --quiet "${BASE_REF}^{commit}" >/dev/null \
+  repo_git rev-parse --verify --quiet "${BASE_REF}^{commit}" >/dev/null \
     || { echo "ERROR: cannot resolve origin/main; run 'git fetch origin main'" >&2; exit 2; }
 
   GITLEAKS_RANGES=()
   for update in "${PRE_PUSH_UPDATES[@]}"; do
     read -r local_ref local_sha remote_ref remote_sha <<< "$update"
     [ "$local_sha" = "$ZERO_SHA" ] && continue
-    git -C "$REPO_ROOT" rev-parse --verify --quiet "${local_sha}^{commit}" >/dev/null \
+    repo_git rev-parse --verify --quiet "${local_sha}^{commit}" >/dev/null \
       || { echo "ERROR: cannot resolve pushed commit $local_sha" >&2; exit 2; }
     GITLEAKS_RANGES+=("${BASE_REF}..${local_sha}")
   done
@@ -159,7 +200,7 @@ elif [ "$MODE" = "pre-push" ]; then
   GITLEAKS_OPTIONS+=(--log-opts="${GITLEAKS_RANGES[*]}")
 fi
 
-if docker run --rm "${GITLEAKS_MOUNTS[@]}" "$GITLEAKS_IMAGE" \
+if run_container run --rm "${GITLEAKS_MOUNTS[@]}" "${GITLEAKS_GIT_ENV[@]}" "$GITLEAKS_IMAGE" \
      "${GITLEAKS_CMD[@]}" "${GITLEAKS_OPTIONS[@]}" 2>&1 | tail -20; then
   echo "PASS: no secrets detected"
 else
@@ -174,18 +215,18 @@ echo "--- [2] Semgrep SAST (${SEMGREP_IMAGE##*:}) ---"
 SEMGREP_ROOT="/src"
 SEMGREP_WORKDIR="/src"
 SEMGREP_MOUNTS=(-v "$REPO_ROOT:/src")
-if [ -f "$REPO_ROOT/.git" ] && [ -n "${GITDIR:-}" ] && [ -n "${COMMONDIR:-}" ] && [ "$GITDIR" != "$COMMONDIR" ]; then
-  SEMGREP_ROOT="$REPO_ROOT"
-  SEMGREP_WORKDIR="$REPO_ROOT"
-  SEMGREP_MOUNTS=(-v "$REPO_ROOT:$REPO_ROOT" -v "$GITDIR:$GITDIR:ro" -v "$COMMONDIR:$COMMONDIR:ro")
+SEMGREP_GIT_ENV=()
+if [ -f "$REPO_ROOT/.git" ] && [ -n "${GITDIR_RELATIVE:-}" ]; then
+  SEMGREP_MOUNTS=(-v "$REPO_ROOT:/src" -v "$COMMONDIR_SOURCE:/git-common:ro")
+  SEMGREP_GIT_ENV=(-e "GIT_DIR=/git-common/$GITDIR_RELATIVE" -e "GIT_WORK_TREE=/src")
 fi
 SEMGREP_TARGET="$SEMGREP_ROOT"
 if [ "$MODE" = "changed" ] || [ "$MODE" = "pre-push" ]; then
   # Collect changed paths but keep only regular tracked files (modes 100644/100755).
   # Symlinks (120000) and other git objects must not be passed to Semgrep because
   # their targets may resolve outside the Docker /src mount and fail the scan.
-  mapfile -t CHANGED < <(git -C "$REPO_ROOT" diff --raw --diff-filter=ACMR "$BASE_REF"...HEAD 2>/dev/null;
-                         git -C "$REPO_ROOT" diff --raw --diff-filter=ACMR HEAD 2>/dev/null)
+  mapfile -t CHANGED < <(repo_git diff --raw --diff-filter=ACMR "$BASE_REF"...HEAD 2>/dev/null;
+                         repo_git diff --raw --diff-filter=ACMR HEAD 2>/dev/null)
   mapfile -t CHANGED < <(printf '%s\n' "${CHANGED[@]}" | \
     awk -F'\t' 'NF>=2 {split($1,a," "); m=a[2]; if (m=="100644" || m=="100755") { gsub(/^"|"$/,"",$NF); print $NF }}' | \
     sort -u | grep -v '^$')
@@ -200,7 +241,7 @@ fi
 
 if [ -n "$SEMGREP_TARGET" ]; then
   # shellcheck disable=SC2086
-  if docker run --rm "${SEMGREP_MOUNTS[@]}" -w "$SEMGREP_WORKDIR" "$SEMGREP_IMAGE" \
+  if run_container run --rm "${SEMGREP_MOUNTS[@]}" "${SEMGREP_GIT_ENV[@]}" -w "$SEMGREP_WORKDIR" "$SEMGREP_IMAGE" \
        semgrep "${SEMGREP_CONFIGS[@]}" --error --quiet \
        --sarif --output "$SEMGREP_ROOT/.security/semgrep.sarif" $SEMGREP_TARGET 2>&1 | tail -30; then
     echo "PASS: no Semgrep findings"
@@ -217,7 +258,7 @@ echo "--- [3] Trivy: dependency vulnerabilities ---"
 # skip agent worktrees/runtime caches (.claude/.omx) and regenerable build
 # outputs (bin/obj), whose stale lock files/deps.json would otherwise report
 # versions CI never sees.
-if docker run --rm -v "$REPO_ROOT:/src" "$TRIVY_IMAGE" \
+if run_container run --rm -v "$REPO_ROOT:/src" "$TRIVY_IMAGE" \
      fs --db-repository "$TRIVY_DB_REPOSITORY" \
      --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --quiet \
      --skip-dirs "/src/.claude" --skip-dirs "/src/.omx" \
