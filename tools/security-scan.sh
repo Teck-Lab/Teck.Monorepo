@@ -220,30 +220,39 @@ if [ -f "$REPO_ROOT/.git" ] && [ -n "${GITDIR_RELATIVE:-}" ]; then
   SEMGREP_MOUNTS=(-v "$REPO_ROOT:/src" -v "$COMMONDIR_SOURCE:/git-common:ro")
   SEMGREP_GIT_ENV=(-e "GIT_DIR=/git-common/$GITDIR_RELATIVE" -e "GIT_WORK_TREE=/src")
 fi
-SEMGREP_TARGET="$SEMGREP_ROOT"
+SEMGREP_TARGETS=("$SEMGREP_ROOT")
 if [ "$MODE" = "changed" ] || [ "$MODE" = "pre-push" ]; then
-  # Collect changed paths but keep only regular tracked files (modes 100644/100755).
-  # Symlinks (120000) and other git objects must not be passed to Semgrep because
-  # their targets may resolve outside the Docker /src mount and fail the scan.
-  mapfile -t CHANGED < <(repo_git diff --raw --diff-filter=ACMR "$BASE_REF"...HEAD 2>/dev/null;
-                         repo_git diff --raw --diff-filter=ACMR HEAD 2>/dev/null)
-  mapfile -t CHANGED < <(printf '%s\n' "${CHANGED[@]}" | \
-    awk -F'\t' 'NF>=2 {split($1,a," "); m=a[2]; if (m=="100644" || m=="100755") { gsub(/^"|"$/,"",$NF); print $NF }}' | \
-    sort -u | grep -v '^$')
+  # Collect NUL-delimited paths, then keep only regular tracked files.
+  # This preserves whitespace and excludes symlinks (mode 120000), whose
+  # targets may resolve outside the Docker /src mount.
+  mapfile -d '' -t CANDIDATES < <(
+    {
+      repo_git diff --name-only -z --diff-filter=ACMR "$BASE_REF"...HEAD 2>/dev/null
+      repo_git diff --name-only -z --diff-filter=ACMR HEAD 2>/dev/null
+    } | sort -zu
+  )
+  CHANGED=()
+  for path in "${CANDIDATES[@]}"; do
+    entry="$(repo_git ls-files -s -- "$path")"
+    mode="${entry%% *}"
+    if [ "$mode" = "100644" ] || [ "$mode" = "100755" ]; then
+      CHANGED+=("$path")
+    fi
+  done
   if [ "${#CHANGED[@]}" -eq 0 ]; then
     echo "no changed files vs $BASE_REF — skipping SAST (use --all to force)"
-    SEMGREP_TARGET=""
+    SEMGREP_TARGETS=()
   else
     echo "scanning ${#CHANGED[@]} changed file(s) vs $BASE_REF"
-    SEMGREP_TARGET="$(printf "$SEMGREP_ROOT/%s " "${CHANGED[@]}")"
+    SEMGREP_TARGETS=()
+    for path in "${CHANGED[@]}"; do SEMGREP_TARGETS+=("$SEMGREP_ROOT/$path"); done
   fi
 fi
 
-if [ -n "$SEMGREP_TARGET" ]; then
-  # shellcheck disable=SC2086
+if [ "${#SEMGREP_TARGETS[@]}" -gt 0 ]; then
   if run_container run --rm "${SEMGREP_MOUNTS[@]}" "${SEMGREP_GIT_ENV[@]}" -w "$SEMGREP_WORKDIR" "$SEMGREP_IMAGE" \
        semgrep "${SEMGREP_CONFIGS[@]}" --error --quiet \
-       --sarif --output "$SEMGREP_ROOT/.security/semgrep.sarif" $SEMGREP_TARGET 2>&1 | tail -30; then
+       --sarif --output "$SEMGREP_ROOT/.security/semgrep.sarif" "${SEMGREP_TARGETS[@]}" 2>&1 | tail -30; then
     echo "PASS: no Semgrep findings"
   else
     echo "FAIL: Semgrep findings -> .security/semgrep.sarif (CI uploads SARIF to GitHub Code Scanning)"
