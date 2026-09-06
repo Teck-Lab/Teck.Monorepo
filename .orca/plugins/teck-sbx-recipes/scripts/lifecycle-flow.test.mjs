@@ -126,6 +126,20 @@ test("actual suspend and resume preserve and repair the shared sandbox", (t) => 
   assert.ok(resumeCalls.some((call) => call.includes("sshd -E /tmp/orca-sshd.log -p 2222")));
   assert.equal(readState(context).exists, true);
 });
+test("lifecycle payload cannot target another project sandbox", (t) => {
+  const context = fixture(t);
+  const payload = JSON.stringify({
+    userData: {
+      provider: "teck-docker-sandbox",
+      resourceId: "orca-p-000000000000",
+    },
+  });
+  const resumed = runAction(context, "resume", payload);
+  assert.equal(resumed.status, 1);
+  assert.match(resumed.stderr, /does not belong to the current Orca project/);
+  assert.equal(readState(context).calls.length, 0);
+});
+
 test("actual destroy keeps siblings and removes the final project sandbox", (t) => {
   const context = fixture(t);
   const created = runAction(context, "create");

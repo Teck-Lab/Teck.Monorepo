@@ -206,16 +206,19 @@ function required(name) {
   if (!value) throw new Error(`${name} is required by the Teck sandbox recipe`);
   return value;
 }
-
 function readPayload() {
   const raw = readFileSync(0, "utf8");
   if (!raw.trim()) throw new Error("Orca lifecycle payload was empty");
   const payload = JSON.parse(raw);
   const userData = payload.recipeResult?.userData ?? payload.userData;
-  if (!/^orca-p-[0-9a-f]{12}$/.test(userData?.resourceId ?? "")) {
-    throw new Error("Lifecycle payload has no valid project sandbox id");
+  if (userData?.provider !== "teck-docker-sandbox") {
+    throw new Error("Lifecycle payload is not owned by the Teck Docker Sandbox provider");
   }
-  return { resourceId: userData.resourceId, projectRoot: userData.projectRoot };
+  const expectedResourceId = sandboxName(required("ORCA_PROJECT_ID"));
+  if (userData.resourceId !== expectedResourceId) {
+    throw new Error("Lifecycle payload does not belong to the current Orca project");
+  }
+  return { resourceId: userData.resourceId };
 }
 
 function configuredApiKey() {
