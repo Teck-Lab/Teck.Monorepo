@@ -128,15 +128,7 @@ if [ "$MODE" = "pre-push" ]; then
   fi
 fi
 
-if [ -n "${SECURITY_SCAN_RUNTIME:-}" ]; then
-  [ "$SECURITY_SCAN_RUNTIME" = docker ] || [ "$SECURITY_SCAN_RUNTIME" = podman ] || {
-    echo "ERROR: SECURITY_SCAN_RUNTIME must be docker or podman"
-    exit 2
-  }
-  command -v "$SECURITY_SCAN_RUNTIME" >/dev/null 2>&1 \
-    || { echo "ERROR: $SECURITY_SCAN_RUNTIME not available"; exit 2; }
-  CONTAINER_RUNTIME="$SECURITY_SCAN_RUNTIME"
-elif command -v docker >/dev/null 2>&1; then
+if command -v docker >/dev/null 2>&1; then
   CONTAINER_RUNTIME=docker
 elif command -v podman >/dev/null 2>&1; then
   CONTAINER_RUNTIME=podman

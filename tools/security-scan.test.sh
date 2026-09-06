@@ -21,17 +21,18 @@ trap "rm -rf '$FIXTURE'" EXIT
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-# Install a fake docker binary at $1 that records invocations under $2.
-install_fake_docker() {
-  local bin_dir="$1"
-  local log_dir="$2"
+# Install a fake container runtime at $1 that records invocations under $2.
+install_fake_runtime() {
+  local runtime="$1"
+  local bin_dir="$2"
+  local log_dir="$3"
   export TEST_LOG_DIR="$log_dir"
   mkdir -p "$bin_dir"
-  cat > "$bin_dir/docker" <<'DOCKER'
+  cat > "$bin_dir/$runtime" <<'RUNTIME'
 #!/usr/bin/env bash
 set -e
 # Record every invocation for diagnostics.
-echo "$*" >> "$TEST_LOG_DIR/docker_calls.log"
+echo "$0 $*" >> "$TEST_LOG_DIR/container_calls.log"
 
 # Capture Semgrep target paths.
 if [[ "$*" == *semgrep/semgrep:* ]]; then
@@ -52,15 +53,18 @@ if [[ "$*" == *aquasec/trivy:* ]]; then
   echo "$*" >> "$TEST_LOG_DIR/trivy_calls.log"
 fi
 
-echo "PASS: stubbed docker"
+echo "PASS: stubbed container runtime"
 exit 0
-DOCKER
-  chmod +x "$bin_dir/docker"
+RUNTIME
+  chmod +x "$bin_dir/$runtime"
+}
+
+install_fake_docker() {
+  install_fake_runtime docker "$@"
 }
 
 install_fake_podman() {
-  install_fake_docker "$@"
-  mv "$1/docker" "$1/podman"
+  install_fake_runtime podman "$@"
 }
 
 # Copy the production script into $1/tools and run it with mode $2.
@@ -70,15 +74,16 @@ run_scanner() {
   local updates="${3:-}"
   local script_path="$fixture/tools/security-scan.sh"
   local status
+  local scanner_path="${SECURITY_SCAN_TEST_PATH:-$fixture/bin:$PATH}"
   mkdir -p "$fixture/tools"
   cp "$REAL_SCRIPT" "$script_path"
 
   set +e
   if [ "${3+set}" = "set" ]; then
     { [ -n "$updates" ] && printf '%s' "$updates"; } \
-      | PATH="$fixture/bin:$PATH" bash "$script_path" ${mode:+$mode} > "$fixture/run.log" 2>&1
+      | PATH="$scanner_path" bash "$script_path" ${mode:+$mode} > "$fixture/run.log" 2>&1
   else
-    PATH="$fixture/bin:$PATH" bash "$script_path" ${mode:+$mode} > "$fixture/run.log" 2>&1
+    PATH="$scanner_path" bash "$script_path" ${mode:+$mode} > "$fixture/run.log" 2>&1
   fi
   status=$?
   set -e
@@ -181,8 +186,11 @@ test_podman_runs_without_docker_alias() {
   git commit --quiet -m "base"
 
   install_fake_podman "$test_dir/bin" "$test_dir"
-  SECURITY_SCAN_RUNTIME=podman run_scanner "$test_dir" "--secrets"
-
+  for command in bash dirname git mkdir tail; do
+    ln -s "$(command -v "$command")" "$test_dir/bin/$command"
+  done
+  SECURITY_SCAN_TEST_PATH="$test_dir/bin" run_scanner "$test_dir" "--secrets"
+  grep -q '/podman ' "$test_dir/container_calls.log" || fail "Podman was not auto-selected"
   [ -f "$test_dir/gitleaks_calls.log" ] || fail "Podman did not run Gitleaks"
   [ ! -e "$test_dir/bin/docker" ] || fail "Podman test unexpectedly provided Docker"
   echo "PASS: Podman runs scans without a Docker alias"
