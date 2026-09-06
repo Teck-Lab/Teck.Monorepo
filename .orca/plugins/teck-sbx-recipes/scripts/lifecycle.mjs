@@ -690,8 +690,8 @@ function create() {
       port: ensurePublishedPort(name),
     };
     reconcileKnownHost(connection.port, readFileSync(state.hostPublicKeyFile, "utf8"));
-    ensureKeepalive(name, state);
     verifyRuntime(name, identity);
+    ensureKeepalive(name, state);
     emit(recipeResult(name, projectRoot, connection));
   } catch (error) {
     if (created && process.env.ORCA_SBX_KEEP_FAILED !== "1") {
@@ -732,8 +732,8 @@ function resume() {
       port: ensurePublishedPort(resourceId),
     };
     reconcileKnownHost(connection.port, readFileSync(state.hostPublicKeyFile, "utf8"));
-    ensureKeepalive(resourceId, state);
     verifyRuntime(resourceId, identity);
+    ensureKeepalive(resourceId, state);
     emit(recipeResult(resourceId, projectRoot, connection));
   } finally {
     release();
