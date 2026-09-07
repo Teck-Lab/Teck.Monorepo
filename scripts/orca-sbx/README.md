@@ -53,7 +53,7 @@ such as a `Teck.Paseo/.env` next to this repository.
   `winget install -h Docker.sbx`
 - `sbx login` and `sbx setup ssh` completed
 - Windows OpenSSH client and Node.js 22 or newer
-- access to `ghcr.io/teck-lab/paseo-worker:omp18.0.4-bun1.4.0-dotnet10.0.300`
+- access to `ghcr.io/teck-lab/orca-sandbox-template:omp18.0.4-bun1.4.0-dotnet10.0.300`
 - outbound HTTPS access to `https://omniroute.tecklab.dk/v1`; `/v1/models`
   returns `401` without the key
 - `OMNIROUTE_API_KEY` set in the environment, `ORCA_OMNIROUTE_ENV_FILE`
