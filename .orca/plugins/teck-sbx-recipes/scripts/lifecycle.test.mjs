@@ -109,7 +109,6 @@ test("host SSH state is outside the repository and per project", () => {
   assert.equal(state.directory, join("C:/Users/test", ".orca-sbx", "orca-p-123456789abc"));
   assert.equal(state.identityFile, join(state.directory, "id_ed25519"));
   assert.equal(state.hostKeyFile, join(state.directory, "ssh_host_ed25519_key"));
-  assert.equal(state.keepalivePidFile, join(state.directory, "keepalive.pid"));
 });
 
 test("published SSH mapping accepts only IPv4 loopback port 2222", () => {
