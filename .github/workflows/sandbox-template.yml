@@ -1,0 +1,74 @@
+name: Sandbox Template
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/orca-sbx/template/**
+      - global.json
+      - nx.json
+      - package.json
+      - bun.lock
+      - .github/workflows/sandbox-template.yml
+  push:
+    branches: [main]
+    paths:
+      - scripts/orca-sbx/template/**
+      - global.json
+      - nx.json
+      - package.json
+      - bun.lock
+      - .github/workflows/sandbox-template.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sandbox-template-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Build and validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - name: Set up Podman
+        run: sudo apt-get update && sudo apt-get install -y podman
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build and smoke-test template
+        run: bunx nx test orca-sandbox-template
+
+  publish:
+    name: Publish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - name: Set up Podman
+        run: sudo apt-get update && sudo apt-get install -y podman
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build, smoke-test, and publish template
+        run: bunx nx publish orca-sandbox-template

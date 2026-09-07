@@ -21,6 +21,11 @@ OmniRoute key and registers a sandbox-scoped custom secret that Docker's
 proxy injects only for `omniroute.tecklab.dk`; command failures are redacted.
 The sandbox receives only the `proxy-managed` sentinel; the real key is never
 written to the sandbox, repo, recipe JSON, or lifecycle logs.
+The `orca-sandbox-template` Nx project owns image build, smoke test, and publish
+targets. `.github/workflows/sandbox-template.yml` validates the image in pull
+requests and publishes it with the workflow `GITHUB_TOKEN` after the change
+lands on `main`; no developer token or manual image publication is required.
+
 
 The direct SSH target keeps Orca's remote relay available for 24 hours after a
 desktop disconnect, allowing ordinary Orca restarts to reattach without
@@ -48,7 +53,7 @@ such as a `Teck.Paseo/.env` next to this repository.
   `winget install -h Docker.sbx`
 - `sbx login` and `sbx setup ssh` completed
 - Windows OpenSSH client and Node.js 22 or newer
-- access to `ghcr.io/teck-lab/paseo-worker:omp18.0.4-bun1.4.0`
+- access to `ghcr.io/teck-lab/paseo-worker:omp18.0.4-bun1.4.0-dotnet10.0.300`
 - outbound HTTPS access to `https://omniroute.tecklab.dk/v1`; `/v1/models`
   returns `401` without the key
 - `OMNIROUTE_API_KEY` set in the environment, `ORCA_OMNIROUTE_ENV_FILE`
