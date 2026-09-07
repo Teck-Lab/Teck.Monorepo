@@ -59,3 +59,5 @@ permissions:
       - api.github.com:443
       - archive.ubuntu.com:80
       - security.ubuntu.com:80
+      - semgrep.dev:443
+      - registry.semgrep.dev:443

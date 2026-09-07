@@ -1,0 +1,36 @@
+{
+  "name": "orca-sandbox-template",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "tags": ["scope:infrastructure", "type:container"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default", "{workspaceRoot}/global.json"],
+      "outputs": [],
+      "options": {
+        "cwd": "{workspaceRoot}",
+        "command": "podman build --file scripts/orca-sbx/template/Containerfile --tag ghcr.io/teck-lab/paseo-worker:omp18.0.4-bun1.4.0-dotnet10.0.300 ."
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build"],
+      "cache": false,
+      "options": {
+        "cwd": "{workspaceRoot}",
+        "command": "podman run --rm --volume ./scripts/orca-sbx/template/smoke-test.sh:/tmp/smoke-test.sh:ro ghcr.io/teck-lab/paseo-worker:omp18.0.4-bun1.4.0-dotnet10.0.300 sh /tmp/smoke-test.sh"
+      }
+    },
+    "publish": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["test"],
+      "cache": false,
+      "options": {
+        "cwd": "{workspaceRoot}",
+        "command": "podman push ghcr.io/teck-lab/paseo-worker:omp18.0.4-bun1.4.0-dotnet10.0.300"
+      }
+    }
+  }
+}

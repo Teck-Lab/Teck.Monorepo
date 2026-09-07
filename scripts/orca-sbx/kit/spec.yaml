@@ -61,3 +61,5 @@ permissions:
       - omniroute.tecklab.dk:443
       - github.com:443
       - api.github.com:443
+      - semgrep.dev:443
+      - registry.semgrep.dev:443
