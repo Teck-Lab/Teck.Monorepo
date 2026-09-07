@@ -138,6 +138,7 @@ test("recipe emits direct TCP SSH with persistent identity", () => {
   assert.equal(result.connection.target.port, 31234);
   assert.equal(result.connection.target.username, "root");
   assert.equal(result.connection.target.identitiesOnly, true);
+  assert.equal(result.connection.target.relayGracePeriodSeconds, 86400);
   assert.equal(result.connection.projectRoot, "/root/project");
 });
 

@@ -103,6 +103,7 @@ export function recipeResult(name, projectRoot, connection) {
         username: connection.username,
         identityFile: connection.identityFile,
         identitiesOnly: true,
+        relayGracePeriodSeconds: 86400,
       },
     },
     userData: { provider: "teck-docker-sandbox", resourceId: name, projectRoot },
