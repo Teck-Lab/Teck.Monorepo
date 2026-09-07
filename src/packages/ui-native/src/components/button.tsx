@@ -1,5 +1,5 @@
 import * as Slot from "@rn-primitives/slot";
-import { type VariantProps, cva } from "class-variance-authority";
+import { cva, type VariantProps } from "class-variance-authority";
 import * as React from "react";
 import { Pressable, Text } from "react-native";
 import { cn } from "../lib/utils";
@@ -44,4 +44,4 @@ const Button = React.forwardRef<React.ElementRef<typeof Pressable>, ButtonProps>
 );
 Button.displayName = "Button";
 
-export { Button, buttonVariants, buttonTextVariants };
+export { Button, buttonTextVariants, buttonVariants };
