@@ -9,9 +9,9 @@ sandbox. Orca connects through Docker's managed `<name>.sbx` SSH
 `ProxyCommand` and retains schema-version-1, linked-worktree checkout
 ownership because the recipe intentionally omits `checkoutMode`.
 
-OMP and Bun are installed by the checked-in sandbox template at
-`scripts/orca-sbx/template/Containerfile`. The lifecycle's pinned
-`defaultImage` is the published build; `ORCA_SBX_IMAGE` can override that
+OMP, Bun, and the repository-pinned .NET SDK are installed by the checked-in
+sandbox template at `scripts/orca-sbx/template/Containerfile`. The lifecycle's
+pinned `defaultImage` is the published build; `ORCA_SBX_IMAGE` can override that
 reference for another published build. The separate kit under
 `scripts/orca-sbx/kit/` applies runtime files and network policy.
 Its canonical non-secret configuration is committed under `.omp/` and linked
@@ -21,6 +21,10 @@ OmniRoute key and registers a sandbox-scoped custom secret that Docker's
 proxy injects only for `omniroute.tecklab.dk`; command failures are redacted.
 The sandbox receives only the `proxy-managed` sentinel; the real key is never
 written to the sandbox, repo, recipe JSON, or lifecycle logs.
+
+The direct SSH target keeps Orca's remote relay available for 24 hours after a
+desktop disconnect, allowing ordinary Orca restarts to reattach without
+recreating the sandbox connection.
 
 When Orca starts OMP in a workspace created from a linked issue, the project
 extension at `.omp/extensions/orca-prefill.ts` uses Orca's
@@ -54,6 +58,34 @@ such as a `Teck.Paseo/.env` next to this repository.
   `user.signingkey`, `gpg.program`, and `commit.gpgsign=true`
 - GitHub CLI authenticated with `admin:gpg_key` while registering the dedicated
   sandbox signing key
+- Docker Sandbox GitHub service secret configured from the host CLI:
+  `sbx secret set github --command 'gh auth token'`
+
+## GitHub authentication
+
+Docker Sandboxes handles GitHub authentication through its host-side credential
+proxy. Configure the global `github` service once on the Windows host:
+
+```powershell
+sbx secret set github --command 'gh auth token'
+```
+
+The stored value is global for future sandboxes. The daemon resolves the token
+from the authenticated host `gh` CLI and refreshes its cache periodically. The
+sandbox sees only the `proxy-managed` sentinel; the real token stays on the
+host. For an already-running sandbox, scope the same service directly:
+
+```powershell
+sbx secret set github --sandbox <sandbox-name> --command 'gh auth token'
+```
+
+GitHub Container Registry authentication is separate from GitHub API/Git
+authentication. Private `ghcr.io` templates require a registry credential:
+
+```powershell
+gh auth token | sbx secret set --all-sandboxes --registry ghcr.io `
+  --username <github-username> --password-stdin
+```
 
 ## One-time host credential setup
 

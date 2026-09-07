@@ -2,7 +2,7 @@
 
 Repository-local Windows adaptation of `mattjohnson/orca-sbx-recipes`, pinned in `UPSTREAM.json`.
 
-The recipe creates one Docker Sandbox per `ORCA_PROJECT_ID`, clones the Teck project once onto the VM disk, exposes a private `sshd` on a deterministic loopback port, and reuses that sandbox for every Orca worktree in the project. It adds Teck OMP configuration, the OmniRoute proxy-managed secret, the dedicated sandbox GPG key, and the Orca runtime check.
+The recipe creates one Docker Sandbox per `ORCA_PROJECT_ID`, clones the Teck project once onto the VM disk, exposes a private `sshd` on a deterministic loopback port, and reuses that sandbox for every Orca worktree in the project. Its base image includes OMP, Bun, and the repository-pinned .NET SDK. It adds Teck OMP configuration, the OmniRoute proxy-managed secret, the dedicated sandbox GPG key, and the Orca runtime check.
 
 ## Build
 
