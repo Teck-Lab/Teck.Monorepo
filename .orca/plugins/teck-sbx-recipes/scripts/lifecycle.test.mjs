@@ -120,8 +120,17 @@ test("project keepalive runs under Task Scheduler and restarts at logon", () => 
   );
   const script = keepaliveTaskScript("orca-p-123456789abc");
   assert.ok(script.includes("New-ScheduledTaskTrigger -AtLogOn"));
-  assert.ok(script.includes("exec '+$name+' sleep infinity"));
+  assert.ok(script.includes("-WindowStyle Hidden"));
+  assert.ok(script.includes("-Execute 'powershell.exe'"));
+  assert.ok(script.includes("exec '''+$name+''' sleep infinity"));
+  assert.ok(script.includes("Unregister-ScheduledTask"));
   assert.ok(script.includes("Start-ScheduledTask -TaskName $task"));
+});
+
+test("legacy visible keepalive tasks are replaced", () => {
+  const script = keepaliveTaskScript("orca-p-123456789abc");
+  assert.ok(script.includes("$current.Actions.Execute -ne 'powershell.exe'"));
+  assert.ok(script.includes("$current.Actions.Arguments -notmatch 'WindowStyle Hidden'"));
 });
 
 test("published SSH mapping accepts only IPv4 loopback port 2222", () => {
