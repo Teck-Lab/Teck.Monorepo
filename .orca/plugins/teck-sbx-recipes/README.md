@@ -4,6 +4,12 @@ Repository-local Windows adaptation of `mattjohnson/orca-sbx-recipes`, pinned in
 
 The recipe creates one Docker Sandbox per `ORCA_PROJECT_ID`, clones the Teck project once onto the VM disk, exposes a private `sshd` on a deterministic loopback port, and reuses that sandbox for every Orca worktree in the project. Its base image includes OMP, Bun, and the repository-pinned .NET SDK. It adds Teck OMP configuration, the OmniRoute proxy-managed secret, the dedicated sandbox GPG key, and the Orca runtime check.
 
+The plugin starts `sandboxd` when a lifecycle action runs. It also owns one
+Windows Task Scheduler keepalive per project sandbox. That task starts at
+Windows logon and runs `sbx exec <sandbox> sleep infinity`, so both the daemon
+and shared project VM are available when Orca restores workspaces after a PC
+restart. Destroy removes the task when the last project worktree is gone.
+
 ## Build
 
 ```powershell

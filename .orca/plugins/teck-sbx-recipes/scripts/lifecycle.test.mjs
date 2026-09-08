@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   deterministicPort,
   gitAuthorConfigArgs,
+  keepaliveTaskScript,
   parseIdentity,
   parsePublishedPort,
   recipeResult,
@@ -14,6 +15,7 @@ import {
   requiredTeckPaths,
   sandboxName,
   sandboxState,
+  scheduledTaskName,
   signingCommand,
   sshdPrerequisiteCommand,
   teckConfigPaths,
@@ -109,6 +111,17 @@ test("host SSH state is outside the repository and per project", () => {
   assert.equal(state.directory, join("C:/Users/test", ".orca-sbx", "orca-p-123456789abc"));
   assert.equal(state.identityFile, join(state.directory, "id_ed25519"));
   assert.equal(state.hostKeyFile, join(state.directory, "ssh_host_ed25519_key"));
+});
+
+test("project keepalive runs under Task Scheduler and restarts at logon", () => {
+  assert.equal(
+    scheduledTaskName("orca-p-123456789abc"),
+    "Teck Docker Sandbox Keepalive orca-p-123456789abc",
+  );
+  const script = keepaliveTaskScript("orca-p-123456789abc");
+  assert.ok(script.includes("New-ScheduledTaskTrigger -AtLogOn"));
+  assert.ok(script.includes("exec '+$name+' sleep infinity"));
+  assert.ok(script.includes("Start-ScheduledTask -TaskName $task"));
 });
 
 test("published SSH mapping accepts only IPv4 loopback port 2222", () => {
