@@ -30,6 +30,66 @@ const commandScripts =
       }
     : {};
 
+export function scheduledTaskName(name) {
+  return `Teck Docker Sandbox Keepalive ${name}`;
+}
+
+function wakeSandbox(name) {
+  run("sbx", ["exec", name, "true"], { capture: true });
+}
+
+function ensureDaemon() {
+  let status = execute("sbx", ["daemon", "status"], { capture: true });
+  if (!status.error && status.status === 0) return;
+  const started = execute("sbx", ["daemon", "start", "--detach"], { capture: true });
+  if (started.error)
+    throw new Error(`Docker Sandbox daemon could not start: ${started.error.message}`);
+  if (started.status !== 0) {
+    const detail = (started.stderr || started.stdout || "").trim();
+    throw new Error(
+      `Docker Sandbox daemon failed to start with exit code ${started.status}${detail ? `: ${detail}` : ""}`,
+    );
+  }
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    status = execute("sbx", ["daemon", "status"], { capture: true });
+    if (!status.error && status.status === 0) return;
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200);
+  }
+  throw new Error("Docker Sandbox daemon did not become ready after starting");
+}
+
+export function keepaliveTaskScript(name) {
+  const task = scheduledTaskName(name);
+  return [
+    "$ErrorActionPreference='Stop'",
+    `$name='${name}'`,
+    `$task='${task}'`,
+    "$sbx=(Get-Command sbx.exe).Source",
+    "$current=Get-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue",
+    "if(-not $current){",
+    "$action=New-ScheduledTaskAction -Execute $sbx -Argument ('exec '+$name+' sleep infinity')",
+    "$trigger=New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME",
+    "$principal=New-ScheduledTaskPrincipal -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited",
+    "$settings=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)",
+    "Register-ScheduledTask -TaskName $task -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Keeps an Orca Docker Sandbox project VM running.' -Force|Out-Null",
+    "$current=Get-ScheduledTask -TaskName $task",
+    "}",
+    "if($current.State -ne 'Running'){Start-ScheduledTask -TaskName $task}",
+  ].join(";");
+}
+
+function ensureKeepalive(name) {
+  if (process.env.NODE_ENV === "test") return;
+  const script = keepaliveTaskScript(name);
+  run("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { capture: true });
+}
+
+function removeKeepalive(name) {
+  if (process.env.NODE_ENV === "test") return;
+  const script = `$task='${scheduledTaskName(name)}';if(Get-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue){Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue;Unregister-ScheduledTask -TaskName $task -Confirm:$false}`;
+  run("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { capture: true });
+}
+
 export function sandboxName(projectId) {
   if (!projectId?.trim()) throw new Error("ORCA_PROJECT_ID is required by the Teck sandbox recipe");
   const hash = createHash("sha256").update(projectId.trim()).digest("hex").slice(0, 12);
@@ -641,6 +701,7 @@ function verifyRuntime(name, identity) {
 }
 
 function create() {
+  ensureDaemon();
   if (process.platform !== "win32") throw new Error("This Teck plugin lifecycle requires Windows");
   run("sbx", ["version"], { capture: true });
   const repoRoot = resolve(required("ORCA_REPO_PATH"));
@@ -667,9 +728,8 @@ function create() {
         state.workspace,
       ]);
       created = true;
-    } else {
-      run("sbx", ["exec", name, "true"], { capture: true });
     }
+    wakeSandbox(name);
     configureSecret(name);
     const identity = resolveIdentity(name);
     const projectRoot = ensureProjectClone(name, identity, repoRoot);
@@ -681,11 +741,13 @@ function create() {
       port: ensurePublishedPort(name),
     };
     reconcileKnownHost(connection.port, readFileSync(state.hostPublicKeyFile, "utf8"));
+    ensureKeepalive(name);
     verifyRuntime(name, identity);
     emit(recipeResult(name, projectRoot, connection));
   } catch (error) {
     if (created && process.env.ORCA_SBX_KEEP_FAILED !== "1") {
       try {
+        removeKeepalive(name);
         run("sbx", ["rm", "--force", name]);
       } catch (cleanupError) {
         log(`[WARN] cleanup failed: ${cleanupError.message}`);
@@ -701,17 +763,20 @@ function create() {
 
 function suspend() {
   const { resourceId } = readPayload();
+  ensureDaemon();
   log(`[SUSPEND] ${resourceId}: shared project sandbox remains active`);
 }
 
 function resume() {
   const { resourceId } = readPayload();
+  ensureDaemon();
   const state = ensureHostState(resourceId);
   const release = acquireLock(state);
   try {
     if (!sandboxExists(resourceId))
       throw new Error(`Shared sandbox ${resourceId} no longer exists`);
-    run("sbx", ["exec", resourceId, "true"], { capture: true });
+    ensureKeepalive(resourceId);
+    wakeSandbox(resourceId);
     const identity = resolveIdentity(resourceId);
     const projectRoot = `${identity.home}/project`;
     ensureSshd(resourceId, identity, state);
@@ -730,11 +795,13 @@ function resume() {
 
 function destroy() {
   const { resourceId } = readPayload();
+  ensureDaemon();
   const state = sandboxState(resourceId);
   mkdirSync(state.directory, { recursive: true });
   const release = acquireLock(state);
   try {
     if (!sandboxExists(resourceId)) {
+      removeKeepalive(resourceId);
       rmSync(state.directory, { recursive: true, force: true });
       return;
     }
@@ -754,6 +821,7 @@ function destroy() {
       log(`[DESTROY] ${resourceId}: ${worktrees.length - 1} sibling workspace(s) remain`);
       return;
     }
+    removeKeepalive(resourceId);
     run(
       "sbx",
       ["secret", "rm", "--sandbox", resourceId, "--placeholder", "proxy-managed", "--force"],
