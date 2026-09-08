@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
@@ -45,7 +45,6 @@ export function sandboxState(name, homeDir = homedir()) {
     publicKeyFile: join(directory, "id_ed25519.pub"),
     hostKeyFile: join(directory, "ssh_host_ed25519_key"),
     hostPublicKeyFile: join(directory, "ssh_host_ed25519_key.pub"),
-    keepalivePidFile: join(directory, "keepalive.pid"),
     lockDirectory: `${directory}.lock`,
   };
 }
@@ -499,38 +498,6 @@ export function reconcileKnownHost(port, publicKey, homeDir = homedir()) {
   }
 }
 
-function spawnResolved(command, args, options) {
-  const resolved = resolveCommand(command, args);
-  return spawn(resolved.command, resolved.args, options);
-}
-
-function ensureKeepalive(name, state) {
-  if (existsSync(state.keepalivePidFile)) {
-    const pid = Number(readFileSync(state.keepalivePidFile, "utf8"));
-    if (Number.isSafeInteger(pid) && processAlive(pid)) return;
-  }
-  const child = spawnResolved("sbx", ["exec", name, "sleep", "2147483647"], {
-    detached: true,
-    stdio: "ignore",
-    windowsHide: true,
-  });
-  child.unref();
-  writeFileSync(state.keepalivePidFile, String(child.pid));
-}
-
-function stopKeepalive(state) {
-  if (!existsSync(state.keepalivePidFile)) return;
-  const pid = Number(readFileSync(state.keepalivePidFile, "utf8"));
-  if (Number.isSafeInteger(pid) && processAlive(pid)) {
-    try {
-      process.kill(pid);
-    } catch {
-      // The process exited after the liveness check.
-    }
-  }
-  rmSync(state.keepalivePidFile, { force: true });
-}
-
 function configureSecret(name) {
   const key = configuredApiKey();
   run("sbx", ["secret", "rm", "--sandbox", name, "--placeholder", "proxy-managed", "--force"], {
@@ -714,12 +681,10 @@ function create() {
       port: ensurePublishedPort(name),
     };
     reconcileKnownHost(connection.port, readFileSync(state.hostPublicKeyFile, "utf8"));
-    ensureKeepalive(name, state);
     verifyRuntime(name, identity);
     emit(recipeResult(name, projectRoot, connection));
   } catch (error) {
     if (created && process.env.ORCA_SBX_KEEP_FAILED !== "1") {
-      stopKeepalive(state);
       try {
         run("sbx", ["rm", "--force", name]);
       } catch (cleanupError) {
@@ -756,7 +721,6 @@ function resume() {
       port: ensurePublishedPort(resourceId),
     };
     reconcileKnownHost(connection.port, readFileSync(state.hostPublicKeyFile, "utf8"));
-    ensureKeepalive(resourceId, state);
     verifyRuntime(resourceId, identity);
     emit(recipeResult(resourceId, projectRoot, connection));
   } finally {
@@ -771,7 +735,6 @@ function destroy() {
   const release = acquireLock(state);
   try {
     if (!sandboxExists(resourceId)) {
-      stopKeepalive(state);
       rmSync(state.directory, { recursive: true, force: true });
       return;
     }
@@ -791,7 +754,6 @@ function destroy() {
       log(`[DESTROY] ${resourceId}: ${worktrees.length - 1} sibling workspace(s) remain`);
       return;
     }
-    stopKeepalive(state);
     run(
       "sbx",
       ["secret", "rm", "--sandbox", resourceId, "--placeholder", "proxy-managed", "--force"],
