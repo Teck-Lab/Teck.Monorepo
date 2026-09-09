@@ -66,14 +66,12 @@ export function keepaliveTaskScript(name) {
     `$task='${task}'`,
     "$sbx=(Get-Command sbx.exe).Source",
     "$current=Get-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue",
-    "if(-not $current){",
-    "$action=New-ScheduledTaskAction -Execute $sbx -Argument ('exec '+$name+' sleep infinity')",
+    `$action=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -NonInteractive -WindowStyle Hidden -Command "& '''+$sbx+''' exec '''+$name+''' sleep infinity"')`,
     "$trigger=New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME",
     "$principal=New-ScheduledTaskPrincipal -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited",
     "$settings=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)",
-    "Register-ScheduledTask -TaskName $task -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Keeps an Orca Docker Sandbox project VM running.' -Force|Out-Null",
-    "$current=Get-ScheduledTask -TaskName $task",
-    "}",
+    "if($current -and ($current.Actions.Execute -ne 'powershell.exe' -or $current.Actions.Arguments -notmatch 'WindowStyle Hidden')){Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue;Unregister-ScheduledTask -TaskName $task -Confirm:$false;$current=$null}",
+    "if(-not $current){Register-ScheduledTask -TaskName $task -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Keeps an Orca Docker Sandbox project VM running without a visible console.' -Force|Out-Null;$current=Get-ScheduledTask -TaskName $task}",
     "if($current.State -ne 'Running'){Start-ScheduledTask -TaskName $task}",
   ].join(";");
 }
