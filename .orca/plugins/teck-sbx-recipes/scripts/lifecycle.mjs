@@ -21,6 +21,10 @@ const defaultImage =
   "ghcr.io/teck-lab/orca-sandbox-template:omp18.0.4-bun1.4.0-dotnet10.0.300-chrome153";
 const omniRouteHost = "omniroute.tecklab.dk";
 const omniRouteBaseUrl = `https://${omniRouteHost}/v1`;
+const searxngHost = "search.tecklab.dk";
+const crawl4aiHost = "reader.tecklab.dk";
+const searxngPlaceholder = "proxy-managed-searxng";
+const crawl4aiPlaceholder = "proxy-managed-crawl4ai";
 const sshPort = 2222;
 const orchestrationSkill = join(pluginRoot, "skills", "orchestration", "SKILL.md");
 const commandScripts =
@@ -68,11 +72,11 @@ export function keepaliveTaskScript(name) {
     `$task='${task}'`,
     "$sbx=(Get-Command sbx.exe).Source",
     "$current=Get-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue",
-    `$action=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -NonInteractive -WindowStyle Hidden -Command "& '''+$sbx+''' exec '''+$name+''' sleep infinity"')`,
+    `$action=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -NonInteractive -WindowStyle Hidden -Command "& '''+$sbx+''' exec -u 0 '''+$name+''' sh -lc ''install -d -m 755 /run/sshd; pgrep -x sshd >/dev/null 2>&1 || /usr/sbin/sshd -E /tmp/orca-sshd.log -p ${sshPort} -o HostKey=/etc/ssh/ssh_host_ed25519_key; exec sleep infinity''"')`,
     "$trigger=New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME",
     "$principal=New-ScheduledTaskPrincipal -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited",
     "$settings=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)",
-    "if($current -and ($current.Actions.Execute -ne 'powershell.exe' -or $current.Actions.Arguments -notmatch 'WindowStyle Hidden')){Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue;Unregister-ScheduledTask -TaskName $task -Confirm:$false;$current=$null}",
+    "if($current -and ($current.Actions.Execute -ne 'powershell.exe' -or $current.Actions.Arguments -notmatch 'WindowStyle Hidden' -or $current.Actions.Arguments -notmatch 'pgrep -x sshd')){Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue;Unregister-ScheduledTask -TaskName $task -Confirm:$false;$current=$null}",
     "if(-not $current){Register-ScheduledTask -TaskName $task -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Keeps an Orca Docker Sandbox project VM running without a visible console.' -Force|Out-Null;$current=Get-ScheduledTask -TaskName $task}",
     "if($current.State -ne 'Running'){Start-ScheduledTask -TaskName $task}",
   ].join(";");
@@ -175,10 +179,14 @@ export function wakeCheckCommand(home) {
   return [
     "set -eu",
     "test -x /usr/local/bin/omp",
+    `test -r ${shellQuote(`${home}/.omp/agent/mcp.json`)}`,
     "test -x /usr/local/bin/orca-runtime-check",
     `test -r ${shellQuote(`${home}/.omp/agent/config.yml`)}`,
     `test -r ${shellQuote(`${home}/.omp/agent/models.yml`)}`,
     `test -r ${shellQuote(`${home}/.omp/agent/RULES.md`)}`,
+    `test "\${SEARXNG_ENDPOINT:-}" = https://${searxngHost}`,
+    `test "\${SEARXNG_TOKEN:-}" = ${searxngPlaceholder}`,
+    `test "\${CRAWL4AI_MCP_TOKEN:-}" = ${crawl4aiPlaceholder}`,
     `test -w ${shellQuote(`${home}/.omp/run`)}`,
     `test "\${OMNIROUTE_API_KEY:-}" = proxy-managed`,
     "omp --version >/dev/null",
@@ -193,6 +201,7 @@ export function wakeCheckCommand(home) {
     "typescript-language-server --version >/dev/null",
     "tsc --version >/dev/null",
     "csharp-ls --version >/dev/null",
+    "next-devtools-mcp --help >/dev/null",
     `curl -fsS -H 'Authorization: Bearer proxy-managed' ${omniRouteBaseUrl}/models >/dev/null`,
     'test -n "$(git config --global user.name)"',
     'test -n "$(git config --global user.email)"',
@@ -291,24 +300,42 @@ function readPayload() {
   return { resourceId: userData.resourceId };
 }
 
-function configuredApiKey() {
-  if (process.env.OMNIROUTE_API_KEY?.trim()) return process.env.OMNIROUTE_API_KEY.trim();
+function configuredCredential(envName, fileOverride, defaultFile, setupScript) {
+  if (process.env[envName]?.trim()) return process.env[envName].trim();
   const candidates = [
-    process.env.ORCA_OMNIROUTE_ENV_FILE?.trim(),
-    join(homedir(), ".config", "teck", "omniroute.env"),
+    process.env[fileOverride]?.trim(),
+    join(homedir(), ".config", "teck", defaultFile),
   ].filter(Boolean);
   for (const path of candidates) {
     if (!existsSync(path)) continue;
     const line = readFileSync(path, "utf8")
       .split(/\r?\n/)
-      .find((value) => /^\s*OMNIROUTE_API_KEY=/.test(value));
+      .find((value) => new RegExp(`^\\s*${envName}=`).test(value));
     const value = line
-      ?.replace(/^\s*OMNIROUTE_API_KEY=/, "")
+      ?.replace(new RegExp(`^\\s*${envName}=`), "")
       .trim()
       .replace(/^(['"])(.*)\1$/, "$2");
     if (value && !value.startsWith("change-me")) return value;
   }
-  throw new Error("OmniRoute key not found; run scripts/orca-sbx/setup-host.ps1");
+  throw new Error(`${envName} not found; run ${setupScript}`);
+}
+
+function configuredApiKey() {
+  return configuredCredential(
+    "OMNIROUTE_API_KEY",
+    "ORCA_OMNIROUTE_ENV_FILE",
+    "omniroute.env",
+    "scripts/orca-sbx/setup-host.ps1",
+  );
+}
+
+function configuredWebServiceToken(envName) {
+  return configuredCredential(
+    envName,
+    "ORCA_WEB_SERVICES_ENV_FILE",
+    "web-services.env",
+    "scripts/orca-sbx/setup-web-services.ps1",
+  );
 }
 
 function configuredSigningKey() {
@@ -491,6 +518,9 @@ function ensureSshd(name, identity, state) {
       "export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt",
       `export OMNIROUTE_BASE_URL=${omniRouteBaseUrl}`,
       "export OMNIROUTE_API_KEY=proxy-managed",
+      `export SEARXNG_ENDPOINT=https://${searxngHost}`,
+      `export SEARXNG_TOKEN=${searxngPlaceholder}`,
+      `export CRAWL4AI_MCP_TOKEN=${crawl4aiPlaceholder}`,
       "export OMNIROUTE_MODEL=teck-orchestrator",
       "export OMP_SKIP_SETUP=1",
       "export ONNXRUNTIME_NODE_INSTALL=skip",
@@ -570,9 +600,8 @@ export function reconcileKnownHost(port, publicKey, homeDir = homedir()) {
   }
 }
 
-function configureSecret(name) {
-  const key = configuredApiKey();
-  run("sbx", ["secret", "rm", "--sandbox", name, "--placeholder", "proxy-managed", "--force"], {
+function configureCustomSecret(name, { host, env, placeholder, value }) {
+  run("sbx", ["secret", "rm", "--sandbox", name, "--placeholder", placeholder, "--force"], {
     capture: true,
   });
   run(
@@ -583,20 +612,41 @@ function configureSecret(name) {
       "--sandbox",
       name,
       "--host",
-      omniRouteHost,
+      host,
       "--env",
-      "OMNIROUTE_API_KEY",
+      env,
       "--placeholder",
-      "proxy-managed",
+      placeholder,
       "--value",
-      key,
+      value,
     ],
-    { capture: true, sensitive: [key] },
+    { capture: true, sensitive: [value] },
   );
 }
 
+function configureSecrets(name) {
+  configureCustomSecret(name, {
+    host: omniRouteHost,
+    env: "OMNIROUTE_API_KEY",
+    placeholder: "proxy-managed",
+    value: configuredApiKey(),
+  });
+  configureCustomSecret(name, {
+    host: searxngHost,
+    env: "SEARXNG_TOKEN",
+    placeholder: searxngPlaceholder,
+    value: configuredWebServiceToken("SEARXNG_TOKEN"),
+  });
+  configureCustomSecret(name, {
+    host: crawl4aiHost,
+    env: "CRAWL4AI_MCP_TOKEN",
+    placeholder: crawl4aiPlaceholder,
+    value: configuredWebServiceToken("CRAWL4AI_MCP_TOKEN"),
+  });
+}
+
 export function requiredTeckPaths() {
-  return [".omp/config.yml", ".omp/models.yml", ".omp/RULES.md", ".omp/lsp.json"];
+  return [".omp/config.yml", ".omp/models.yml", ".omp/RULES.md", ".omp/mcp.json", ".omp/lsp.json"];
 }
 
 export function bundledSkillPaths(identity) {
@@ -637,7 +687,7 @@ function ensureProjectClone(name, identity, repoRoot) {
 
 export function teckConfigPaths(identity, projectRoot) {
   const targetRoot = `${identity.home}/.omp/agent`;
-  return ["config.yml", "models.yml", "RULES.md", "lsp.json"].map((file) => ({
+  return ["config.yml", "models.yml", "RULES.md", "mcp.json", "lsp.json"].map((file) => ({
     source: `${projectRoot}/.omp/${file}`,
     destination: `${targetRoot}/${file}`,
   }));
@@ -759,7 +809,7 @@ function create() {
       created = true;
     }
     wakeSandbox(name);
-    configureSecret(name);
+    configureSecrets(name);
     const identity = resolveIdentity(name);
     const projectRoot = ensureProjectClone(name, identity, repoRoot);
     provisionTeck(name, identity, projectRoot, repoRoot);
@@ -804,8 +854,9 @@ function resume() {
   try {
     if (!sandboxExists(resourceId))
       throw new Error(`Shared sandbox ${resourceId} no longer exists`);
-    ensureKeepalive(resourceId);
     wakeSandbox(resourceId);
+    configureSecrets(resourceId);
+    ensureKeepalive(resourceId);
     const identity = resolveIdentity(resourceId);
     const projectRoot = `${identity.home}/project`;
     ensureSshd(resourceId, identity, state);
@@ -851,13 +902,15 @@ function destroy() {
       return;
     }
     removeKeepalive(resourceId);
-    run(
-      "sbx",
-      ["secret", "rm", "--sandbox", resourceId, "--placeholder", "proxy-managed", "--force"],
-      {
-        capture: true,
-      },
-    );
+    for (const placeholder of ["proxy-managed", searxngPlaceholder, crawl4aiPlaceholder]) {
+      run(
+        "sbx",
+        ["secret", "rm", "--sandbox", resourceId, "--placeholder", placeholder, "--force"],
+        {
+          capture: true,
+        },
+      );
+    }
     run("sbx", ["rm", "--force", resourceId]);
     rmSync(state.directory, { recursive: true, force: true });
   } finally {

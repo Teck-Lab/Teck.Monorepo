@@ -59,6 +59,10 @@ such as a `Teck.Paseo/.env` next to this repository.
 - `OMNIROUTE_API_KEY` set in the environment, `ORCA_OMNIROUTE_ENV_FILE`
   pointing at a host-only env file, or the default host credential file
   `%USERPROFILE%\.config\teck\omniroute.env` containing the key
+- `SEARXNG_TOKEN` and `CRAWL4AI_MCP_TOKEN` set in the environment,
+  `ORCA_WEB_SERVICES_ENV_FILE` pointing at a host-only env file, or the default
+  `%USERPROFILE%\.config\teck\web-services.env` created by
+  `scripts/orca-sbx/setup-web-services.ps1`
 - Gpg4win with a working personal signing key configured through
   `user.signingkey`, `gpg.program`, and `commit.gpgsign=true`
 - GitHub CLI authenticated with `admin:gpg_key` while registering the dedicated
@@ -125,6 +129,22 @@ previous credential intact, and an existing file locked read-only by an older
 setup-host.ps1 is repaired automatically. The file is the default host
 credential source; `OMNIROUTE_API_KEY` and `ORCA_OMNIROUTE_ENV_FILE` take
 precedence when set, and the lifecycle never consults any other location.
+
+## Self-hosted search and reader setup
+
+Configure the self-hosted search and reader credentials once per Windows host:
+
+```powershell
+.\scripts\orca-sbx\setup-web-services.ps1 `
+  -SearXngTokenRef 'op://Teck/SearXNG/token' `
+  -Crawl4AiTokenRef 'op://Teck/Crawl4AI/token'
+```
+
+OMP uses `https://search.tecklab.dk` through its native SearXNG provider and
+connects to Crawl4AI over MCP at `https://reader.tecklab.dk/mcp/sse`. Both
+tokens remain on the Windows host; Docker Sandbox injects them only for their
+matching service host. The sandbox network allowlist contains only those
+service endpoints, not arbitrary documentation sites.
 
 ## GPG commit signing setup
 

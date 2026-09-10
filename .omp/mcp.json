@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/can1357/oh-my-pi/main/packages/coding-agent/src/config/mcp-schema.json",
+  "mcpServers": {
+    "crawl4ai": {
+      "type": "sse",
+      "url": "https://reader.tecklab.dk/mcp/sse",
+      "headers": {
+        "Authorization": "Bearer ${CRAWL4AI_MCP_TOKEN}"
+      },
+      "timeout": 120000
+    },
+    "next-devtools": {
+      "command": "next-devtools-mcp",
+      "args": [],
+      "timeout": 120000
+    }
+  }
+}

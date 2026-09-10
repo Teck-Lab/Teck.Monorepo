@@ -30,6 +30,8 @@ retry:
   maxDelayMs: 30000
   modelFallback: false
 providers:
+  webSearchOrder:
+    - searxng
   maxInFlightRequests:
     omniroute: 4
 task:

@@ -2,6 +2,7 @@
 
 - At the start of every Orca-attached coordinator session, run `/usr/local/bin/orca-runtime-check` before any orchestration mutation. It must verify the attached Orca runtime, the version-matched orchestration skill, and the orchestration CLI surface.
 - After that check passes, read `skill://orchestration` before using Orca orchestration commands. If either step fails, report the missing SSH-attached capability as a blocker; do not replace it with OMP subagents.
+- Use OMP's native `web_search` tool for discovery; the sandbox routes it through self-hosted SearXNG. Use the `crawl4ai` MCP `md` tool to retrieve arbitrary external pages, and its `crawl`, `screenshot`, or `execute_js` tools only when the task requires those capabilities. Do not bypass the controlled services with direct arbitrary-site access.
 - The parent OMP session is the feature coordinator. It coordinates through Orca and does not implement feature code in the parent worktree.
 - Orca owns all editable child worktrees, task lineage, terminals, and lifecycle operations.
 - Delegate editing, testing, research, and review through visible Orca orchestration Tasks and supervised workers.

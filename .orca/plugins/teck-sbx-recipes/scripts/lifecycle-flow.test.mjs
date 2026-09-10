@@ -18,10 +18,14 @@ function fixture(t) {
   mkdirSync(join(repo, ".omp"), { recursive: true });
   mkdirSync(bin, { recursive: true });
   writeFileSync(join(repo, "package.json"), '{"name":"teck-platform"}');
-  for (const file of ["config.yml", "models.yml", "RULES.md", "lsp.json"]) {
+  for (const file of ["config.yml", "models.yml", "RULES.md", "mcp.json", "lsp.json"]) {
     writeFileSync(join(repo, ".omp", file), `${file}\n`);
   }
   writeFileSync(join(home, ".config", "teck", "omniroute.env"), "OMNIROUTE_API_KEY=test-key\n");
+  writeFileSync(
+    join(home, ".config", "teck", "web-services.env"),
+    "SEARXNG_TOKEN=test-search-token\nCRAWL4AI_MCP_TOKEN=test-reader-token\n",
+  );
   writeFileSync(
     join(home, ".config", "teck", "sandbox-signing-key.asc"),
     [
@@ -118,7 +122,21 @@ test("actual create action creates once and reuses the same project sandbox", (t
   assert.equal(current.clones, 1);
   assert.ok(current.calls.some((call) => call.includes("sshd -E /tmp/orca-sshd.log -p 2222")));
   assert.ok(current.calls.some((call) => call.startsWith("ports ")));
-  assert.ok(current.calls.some((call) => call.includes("secret set-custom")));
+  assert.ok(
+    current.calls.some(
+      (call) => call.includes("secret set-custom") && call.includes("omniroute.tecklab.dk"),
+    ),
+  );
+  assert.ok(
+    current.calls.some(
+      (call) => call.includes("secret set-custom") && call.includes("search.tecklab.dk"),
+    ),
+  );
+  assert.ok(
+    current.calls.some(
+      (call) => call.includes("secret set-custom") && call.includes("reader.tecklab.dk"),
+    ),
+  );
   assert.ok(current.calls.some((call) => call.includes("skills/orchestration/SKILL.md")));
 });
 test("actual suspend and resume preserve and repair the shared sandbox", (t) => {
@@ -134,6 +152,16 @@ test("actual suspend and resume preserve and repair the shared sandbox", (t) => 
   const resumeCalls = readState(context).calls.slice(beforeResume);
   assert.ok(resumeCalls.some((call) => call.includes("exec orca-p-") && call.endsWith(" true")));
   assert.ok(resumeCalls.some((call) => call.includes("sshd -E /tmp/orca-sshd.log -p 2222")));
+  assert.ok(
+    resumeCalls.some(
+      (call) => call.includes("secret set-custom") && call.includes("search.tecklab.dk"),
+    ),
+  );
+  assert.ok(
+    resumeCalls.some(
+      (call) => call.includes("secret set-custom") && call.includes("reader.tecklab.dk"),
+    ),
+  );
   assert.equal(readState(context).exists, true);
 });
 test("lifecycle payload cannot target another project sandbox", (t) => {
@@ -169,5 +197,17 @@ test("actual destroy keeps siblings and removes the final project sandbox", (t) 
   assert.equal(removed.exists, false);
   assert.equal(removed.removes, 1);
   assert.ok(removed.calls.some((call) => call.includes("worktree prune")));
-  assert.ok(removed.calls.some((call) => call.includes("secret rm")));
+  assert.ok(
+    removed.calls.some((call) => call.includes("secret rm") && call.includes("proxy-managed")),
+  );
+  assert.ok(
+    removed.calls.some(
+      (call) => call.includes("secret rm") && call.includes("proxy-managed-searxng"),
+    ),
+  );
+  assert.ok(
+    removed.calls.some(
+      (call) => call.includes("secret rm") && call.includes("proxy-managed-crawl4ai"),
+    ),
+  );
 });
