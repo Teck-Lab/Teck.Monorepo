@@ -12,3 +12,4 @@
 - Use `omniroute/teck-executor` for implementation and substantial review, and `omniroute/teck-fast-tool` for bounded lightweight work.
 - Every authored commit, including executor checkpoints and coordinator integration commits, must carry a valid GPG signature. Missing signing capability is a blocker; never bypass it.
 - Merge a completed child branch into its parent feature branch only after its checks and review pass, then let Orca remove the child workspace.
+- Use OMP's native `web_search` tool for discovery; the sandbox routes it through self-hosted SearXNG. Use the `crawl4ai` MCP `md` tool to retrieve arbitrary external pages through the authenticated reader when direct `read` cannot deliver.

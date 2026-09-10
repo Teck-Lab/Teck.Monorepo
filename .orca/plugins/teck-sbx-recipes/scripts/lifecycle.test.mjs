@@ -57,7 +57,7 @@ test("canonical OMP config suppresses onboarding", () => {
   assert.match(kit, /^ {4}OMP_SKIP_SETUP: "1"$/m);
   assert.match(kit, /^ {4}SEARXNG_ENDPOINT: https:\/\/search\.tecklab\.dk$/m);
   assert.match(kit, /^ {4}SEARXNG_TOKEN: proxy-managed-searxng$/m);
-  assert.match(kit, /^ {4}CRAWL4AI_MCP_TOKEN: proxy-managed-crawl4ai$/m);
+  assert.match(kit, /^ {4}CRAWL4AI_API_TOKEN: proxy-managed-crawl4ai$/m);
   assert.match(kit, /^ {6}- search\.tecklab\.dk:443$/m);
   assert.match(kit, /^ {6}- reader\.tecklab\.dk:443$/m);
   const mcp = JSON.parse(
@@ -65,7 +65,7 @@ test("canonical OMP config suppresses onboarding", () => {
   );
   assert.equal(mcp.mcpServers.crawl4ai.type, "sse");
   assert.equal(mcp.mcpServers.crawl4ai.url, "https://reader.tecklab.dk/mcp/sse");
-  assert.equal(mcp.mcpServers.crawl4ai.headers.Authorization, "Bearer $" + "{CRAWL4AI_MCP_TOKEN}");
+  assert.equal(mcp.mcpServers.crawl4ai.headers.Authorization, "Bearer $" + "{CRAWL4AI_API_TOKEN}");
   assert.equal(mcp.mcpServers["next-devtools"].command, "next-devtools-mcp");
   assert.deepEqual(mcp.mcpServers["next-devtools"].args, []);
 });
@@ -204,7 +204,7 @@ test("identity and Teck checks use the effective home", () => {
   assert.ok(wake.includes("/root/.local/bin/orca-gpg"));
   assert.ok(wake.includes("/usr/local/bin/orca-runtime-check"));
   assert.ok(wake.includes("/root/.omp/agent/mcp.json"));
-  assert.ok(wake.includes("CRAWL4AI_MCP_TOKEN"));
+  assert.ok(wake.includes("CRAWL4AI_API_TOKEN"));
   assert.ok(wake.includes("next-devtools-mcp --help"));
   assert.ok(wake.includes("SEARXNG_TOKEN"));
   const signing = signingCommand({ username: "root", home: "/root" });

@@ -59,10 +59,9 @@ such as a `Teck.Paseo/.env` next to this repository.
 - `OMNIROUTE_API_KEY` set in the environment, `ORCA_OMNIROUTE_ENV_FILE`
   pointing at a host-only env file, or the default host credential file
   `%USERPROFILE%\.config\teck\omniroute.env` containing the key
-- `SEARXNG_TOKEN` and `CRAWL4AI_MCP_TOKEN` set in the environment,
-  `ORCA_WEB_SERVICES_ENV_FILE` pointing at a host-only env file, or the default
-  `%USERPROFILE%\.config\teck\web-services.env` created by
-  `scripts/orca-sbx/setup-web-services.ps1`
+- Docker Sandbox global custom secrets for `search.tecklab.dk` and
+  `reader.tecklab.dk`, exposing `SEARXNG_TOKEN=proxy-managed-searxng` and
+  `CRAWL4AI_API_TOKEN=proxy-managed-crawl4ai` inside every sandbox
 - Gpg4win with a working personal signing key configured through
   `user.signingkey`, `gpg.program`, and `commit.gpgsign=true`
 - GitHub CLI authenticated with `admin:gpg_key` while registering the dedicated
@@ -132,19 +131,21 @@ precedence when set, and the lifecycle never consults any other location.
 
 ## Self-hosted search and reader setup
 
-Configure the self-hosted search and reader credentials once per Windows host:
+Configure the two bearer tokens once through Docker Sandbox. Docker stores the
+real values on the host and injects only the placeholders into sandboxes:
 
 ```powershell
-.\scripts\orca-sbx\setup-web-services.ps1 `
-  -SearXngTokenRef 'op://Teck/SearXNG/token' `
-  -Crawl4AiTokenRef 'op://Teck/Crawl4AI/token'
+sbx secret set-custom --host search.tecklab.dk --env SEARXNG_TOKEN `
+  --placeholder proxy-managed-searxng --value <searxng-token>
+sbx secret set-custom --host reader.tecklab.dk --env CRAWL4AI_API_TOKEN `
+  --placeholder proxy-managed-crawl4ai --value <crawl4ai-token>
 ```
 
 OMP uses `https://search.tecklab.dk` through its native SearXNG provider and
-connects to Crawl4AI over MCP at `https://reader.tecklab.dk/mcp/sse`. Both
-tokens remain on the Windows host; Docker Sandbox injects them only for their
-matching service host. The sandbox network allowlist contains only those
-service endpoints, not arbitrary documentation sites.
+connects to Crawl4AI over MCP at `https://reader.tecklab.dk/mcp/sse`. The
+global Docker Sandbox secrets apply to current and future sandboxes. Its proxy
+replaces each placeholder only for the configured host; the real tokens never
+enter the sandbox.
 
 ## GPG commit signing setup
 

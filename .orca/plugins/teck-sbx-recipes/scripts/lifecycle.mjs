@@ -22,7 +22,7 @@ const defaultImage =
 const omniRouteHost = "omniroute.tecklab.dk";
 const omniRouteBaseUrl = `https://${omniRouteHost}/v1`;
 const searxngHost = "search.tecklab.dk";
-const crawl4aiHost = "reader.tecklab.dk";
+
 const searxngPlaceholder = "proxy-managed-searxng";
 const crawl4aiPlaceholder = "proxy-managed-crawl4ai";
 const sshPort = 2222;
@@ -186,7 +186,7 @@ export function wakeCheckCommand(home) {
     `test -r ${shellQuote(`${home}/.omp/agent/RULES.md`)}`,
     `test "\${SEARXNG_ENDPOINT:-}" = https://${searxngHost}`,
     `test "\${SEARXNG_TOKEN:-}" = ${searxngPlaceholder}`,
-    `test "\${CRAWL4AI_MCP_TOKEN:-}" = ${crawl4aiPlaceholder}`,
+    `test "\${CRAWL4AI_API_TOKEN:-}" = ${crawl4aiPlaceholder}`,
     `test -w ${shellQuote(`${home}/.omp/run`)}`,
     `test "\${OMNIROUTE_API_KEY:-}" = proxy-managed`,
     "omp --version >/dev/null",
@@ -300,42 +300,24 @@ function readPayload() {
   return { resourceId: userData.resourceId };
 }
 
-function configuredCredential(envName, fileOverride, defaultFile, setupScript) {
-  if (process.env[envName]?.trim()) return process.env[envName].trim();
+function configuredApiKey() {
+  if (process.env.OMNIROUTE_API_KEY?.trim()) return process.env.OMNIROUTE_API_KEY.trim();
   const candidates = [
-    process.env[fileOverride]?.trim(),
-    join(homedir(), ".config", "teck", defaultFile),
+    process.env.ORCA_OMNIROUTE_ENV_FILE?.trim(),
+    join(homedir(), ".config", "teck", "omniroute.env"),
   ].filter(Boolean);
   for (const path of candidates) {
     if (!existsSync(path)) continue;
     const line = readFileSync(path, "utf8")
       .split(/\r?\n/)
-      .find((value) => new RegExp(`^\\s*${envName}=`).test(value));
+      .find((value) => /^\s*OMNIROUTE_API_KEY=/.test(value));
     const value = line
-      ?.replace(new RegExp(`^\\s*${envName}=`), "")
+      ?.replace(/^\s*OMNIROUTE_API_KEY=/, "")
       .trim()
       .replace(/^(['"])(.*)\1$/, "$2");
     if (value && !value.startsWith("change-me")) return value;
   }
-  throw new Error(`${envName} not found; run ${setupScript}`);
-}
-
-function configuredApiKey() {
-  return configuredCredential(
-    "OMNIROUTE_API_KEY",
-    "ORCA_OMNIROUTE_ENV_FILE",
-    "omniroute.env",
-    "scripts/orca-sbx/setup-host.ps1",
-  );
-}
-
-function configuredWebServiceToken(envName) {
-  return configuredCredential(
-    envName,
-    "ORCA_WEB_SERVICES_ENV_FILE",
-    "web-services.env",
-    "scripts/orca-sbx/setup-web-services.ps1",
-  );
+  throw new Error("OmniRoute key not found; run scripts/orca-sbx/setup-host.ps1");
 }
 
 function configuredSigningKey() {
@@ -520,7 +502,7 @@ function ensureSshd(name, identity, state) {
       "export OMNIROUTE_API_KEY=proxy-managed",
       `export SEARXNG_ENDPOINT=https://${searxngHost}`,
       `export SEARXNG_TOKEN=${searxngPlaceholder}`,
-      `export CRAWL4AI_MCP_TOKEN=${crawl4aiPlaceholder}`,
+      `export CRAWL4AI_API_TOKEN=${crawl4aiPlaceholder}`,
       "export OMNIROUTE_MODEL=teck-orchestrator",
       "export OMP_SKIP_SETUP=1",
       "export ONNXRUNTIME_NODE_INSTALL=skip",
@@ -600,8 +582,9 @@ export function reconcileKnownHost(port, publicKey, homeDir = homedir()) {
   }
 }
 
-function configureCustomSecret(name, { host, env, placeholder, value }) {
-  run("sbx", ["secret", "rm", "--sandbox", name, "--placeholder", placeholder, "--force"], {
+function configureSecret(name) {
+  const key = configuredApiKey();
+  run("sbx", ["secret", "rm", "--sandbox", name, "--placeholder", "proxy-managed", "--force"], {
     capture: true,
   });
   run(
@@ -612,37 +595,16 @@ function configureCustomSecret(name, { host, env, placeholder, value }) {
       "--sandbox",
       name,
       "--host",
-      host,
+      omniRouteHost,
       "--env",
-      env,
+      "OMNIROUTE_API_KEY",
       "--placeholder",
-      placeholder,
+      "proxy-managed",
       "--value",
-      value,
+      key,
     ],
-    { capture: true, sensitive: [value] },
+    { capture: true, sensitive: [key] },
   );
-}
-
-function configureSecrets(name) {
-  configureCustomSecret(name, {
-    host: omniRouteHost,
-    env: "OMNIROUTE_API_KEY",
-    placeholder: "proxy-managed",
-    value: configuredApiKey(),
-  });
-  configureCustomSecret(name, {
-    host: searxngHost,
-    env: "SEARXNG_TOKEN",
-    placeholder: searxngPlaceholder,
-    value: configuredWebServiceToken("SEARXNG_TOKEN"),
-  });
-  configureCustomSecret(name, {
-    host: crawl4aiHost,
-    env: "CRAWL4AI_MCP_TOKEN",
-    placeholder: crawl4aiPlaceholder,
-    value: configuredWebServiceToken("CRAWL4AI_MCP_TOKEN"),
-  });
 }
 
 export function requiredTeckPaths() {
@@ -809,7 +771,7 @@ function create() {
       created = true;
     }
     wakeSandbox(name);
-    configureSecrets(name);
+    configureSecret(name);
     const identity = resolveIdentity(name);
     const projectRoot = ensureProjectClone(name, identity, repoRoot);
     provisionTeck(name, identity, projectRoot, repoRoot);
@@ -855,7 +817,7 @@ function resume() {
     if (!sandboxExists(resourceId))
       throw new Error(`Shared sandbox ${resourceId} no longer exists`);
     wakeSandbox(resourceId);
-    configureSecrets(resourceId);
+    configureSecret(resourceId);
     ensureKeepalive(resourceId);
     const identity = resolveIdentity(resourceId);
     const projectRoot = `${identity.home}/project`;
@@ -902,15 +864,13 @@ function destroy() {
       return;
     }
     removeKeepalive(resourceId);
-    for (const placeholder of ["proxy-managed", searxngPlaceholder, crawl4aiPlaceholder]) {
-      run(
-        "sbx",
-        ["secret", "rm", "--sandbox", resourceId, "--placeholder", placeholder, "--force"],
-        {
-          capture: true,
-        },
-      );
-    }
+    run(
+      "sbx",
+      ["secret", "rm", "--sandbox", resourceId, "--placeholder", "proxy-managed", "--force"],
+      {
+        capture: true,
+      },
+    );
     run("sbx", ["rm", "--force", resourceId]);
     rmSync(state.directory, { recursive: true, force: true });
   } finally {
