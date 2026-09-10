@@ -10,7 +10,7 @@ test "$(typescript-language-server --version)" = "4.4.1"
 test "$(tsc --version)" = "Version 5.9.3"
 test "$(google-chrome-stable --version | awk '{print $3}')" = "153.0.8010.36"
 test -r "$HOME/.omp/agent/skills/orchestration/SKILL.md"
-grep -q '^name: orchestration$' "$HOME/.omp/agent/skills/orchestration/SKILL.md"
+tr -d '\r' < "$HOME/.omp/agent/skills/orchestration/SKILL.md" | grep -q '^name: orchestration$'
 google-chrome-stable --headless --no-sandbox --disable-gpu \
   --dump-dom 'data:text/html,<title>omp-browser-ready</title>' 2>/dev/null |
   grep -q omp-browser-ready
