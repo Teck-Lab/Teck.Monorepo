@@ -18,7 +18,7 @@ function fixture(t) {
   mkdirSync(join(repo, ".omp"), { recursive: true });
   mkdirSync(bin, { recursive: true });
   writeFileSync(join(repo, "package.json"), '{"name":"teck-platform"}');
-  for (const file of ["config.yml", "models.yml", "RULES.md", "mcp.json"]) {
+  for (const file of ["config.yml", "models.yml", "RULES.md", "mcp.json", "lsp.json"]) {
     writeFileSync(join(repo, ".omp", file), `${file}\n`);
   }
   writeFileSync(join(home, ".config", "teck", "omniroute.env"), "OMNIROUTE_API_KEY=test-key\n");
@@ -56,10 +56,15 @@ function fixture(t) {
   const installed = join(root, "installed");
   mkdirSync(join(installed, "scripts"), { recursive: true });
   mkdirSync(join(installed, "kit"));
+  mkdirSync(join(installed, "skills", "orchestration"), { recursive: true });
   copyFileSync(source, join(installed, "scripts", "lifecycle.mjs"));
   writeFileSync(
     join(installed, "kit", "spec.yaml"),
     "schemaVersion: '2'\nkind: mixin\nname: test\n",
+  );
+  writeFileSync(
+    join(installed, "skills", "orchestration", "SKILL.md"),
+    "---\nname: orchestration\ndescription: Test orchestration skill.\n---\n",
   );
   return {
     home,
@@ -132,6 +137,7 @@ test("actual create action creates once and reuses the same project sandbox", (t
       (call) => call.includes("secret set-custom") && call.includes("reader.tecklab.dk"),
     ),
   );
+  assert.ok(current.calls.some((call) => call.includes("skills/orchestration/SKILL.md")));
 });
 test("actual suspend and resume preserve and repair the shared sandbox", (t) => {
   const context = fixture(t);
