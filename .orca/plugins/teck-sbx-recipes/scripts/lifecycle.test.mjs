@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import {
+  bundledSkillPaths,
   deterministicPort,
   gitAuthorConfigArgs,
   keepaliveTaskScript,
@@ -62,9 +63,13 @@ test("sshd prerequisites wait for Docker's startup apt job", () => {
   assert.ok(command.includes("DPkg::Lock::Timeout=300"));
   assert.ok(command.includes("openssh-server"));
 });
-
 test("Teck recipe requires committed OMP configuration", () => {
-  assert.deepEqual(requiredTeckPaths(), [".omp/config.yml", ".omp/models.yml", ".omp/RULES.md"]);
+  assert.deepEqual(requiredTeckPaths(), [
+    ".omp/config.yml",
+    ".omp/models.yml",
+    ".omp/RULES.md",
+    ".omp/lsp.json",
+  ]);
 });
 
 test("Teck repository validation rejects missing and wrong package identity", (t) => {
@@ -111,6 +116,18 @@ test("host SSH state is outside the repository and per project", () => {
   assert.equal(state.directory, join("C:/Users/test", ".orca-sbx", "orca-p-123456789abc"));
   assert.equal(state.identityFile, join(state.directory, "id_ed25519"));
   assert.equal(state.hostKeyFile, join(state.directory, "ssh_host_ed25519_key"));
+});
+
+test("plugin provisions the bundled orchestration skill into OMP", () => {
+  const [skill] = bundledSkillPaths({ home: "/root" });
+  assert.equal(skill.destination, "/root/.omp/agent/skills/orchestration/SKILL.md");
+  assert.ok(skill.source.endsWith(join("skills", "orchestration", "SKILL.md")));
+  assert.match(readFileSync(skill.source, "utf8"), /^name: orchestration$/m);
+  assert.ok(wakeCheckCommand("/root").includes("/root/.omp/agent/skills/orchestration/SKILL.md"));
+  const wake = wakeCheckCommand("/root");
+  assert.ok(wake.includes("PUPPETEER_EXECUTABLE_PATH"));
+  assert.ok(wake.includes("PUPPETEER_PROXY"));
+  assert.ok(wake.includes("google-chrome-stable --version"));
 });
 
 test("project keepalive runs under Task Scheduler and restarts at logon", () => {
@@ -180,6 +197,7 @@ test("Teck provisioning reads cloned config and sets sandbox author", () => {
     { source: "/root/project/.omp/config.yml", destination: "/root/.omp/agent/config.yml" },
     { source: "/root/project/.omp/models.yml", destination: "/root/.omp/agent/models.yml" },
     { source: "/root/project/.omp/RULES.md", destination: "/root/.omp/agent/RULES.md" },
+    { source: "/root/project/.omp/lsp.json", destination: "/root/.omp/agent/lsp.json" },
   ]);
   assert.deepEqual(gitAuthorConfigArgs("orca-p-123456789abc", identity, "user.name", "Test User"), [
     "exec",
