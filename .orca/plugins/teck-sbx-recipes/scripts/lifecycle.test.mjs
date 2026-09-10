@@ -6,9 +6,11 @@ import test from "node:test";
 
 import {
   bundledSkillPaths,
+  csharpLsInstallCommand,
   deterministicPort,
   gitAuthorConfigArgs,
   keepaliveTaskScript,
+  nodeToolchainRepairCommand,
   parseIdentity,
   parsePublishedPort,
   recipeResult,
@@ -75,6 +77,17 @@ test("sshd prerequisites wait for Docker's startup apt job", () => {
   assert.ok(command.includes("DPkg::Lock::Timeout=300"));
   assert.ok(command.includes("openssh-server"));
 });
+test("toolchain repair reconciles stale sandbox images", () => {
+  const nodeCommand = nodeToolchainRepairCommand();
+  assert.ok(nodeCommand.includes("typescript-language-server@4.4.1"));
+  assert.ok(nodeCommand.includes("typescript@5.9.3"));
+  assert.ok(nodeCommand.includes("next-devtools-mcp@0.4.0"));
+  assert.ok(nodeCommand.includes('ln -sf "$global_bin/$tool" "/usr/local/bin/$tool"'));
+  const csharpCommand = csharpLsInstallCommand();
+  assert.ok(csharpCommand.includes("cat > /tmp/csharp-ls.0.27.0.nupkg"));
+  assert.ok(csharpCommand.includes("--add-source /tmp --no-cache"));
+});
+
 test("Teck recipe requires committed OMP configuration", () => {
   assert.deepEqual(requiredTeckPaths(), [
     ".omp/config.yml",

@@ -12,6 +12,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { get } from "node:https";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -19,6 +20,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const pluginRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const defaultImage =
   "ghcr.io/teck-lab/orca-sandbox-template:omp18.0.4-bun1.4.0-dotnet10.0.300-chrome153";
+const csharpLsPackageUrl =
+  "https://api.nuget.org/v3-flatcontainer/csharp-ls/0.27.0/csharp-ls.0.27.0.nupkg";
 const omniRouteHost = "omniroute.tecklab.dk";
 const omniRouteBaseUrl = `https://${omniRouteHost}/v1`;
 const searxngHost = "search.tecklab.dk";
@@ -191,9 +194,8 @@ export function wakeCheckCommand(home) {
     `test "\${OMNIROUTE_API_KEY:-}" = proxy-managed`,
     "omp --version >/dev/null",
     "docker info >/dev/null",
-    `test -r ${shellQuote(`${home}/.omp/agent/skills/orchestration/SKILL.md`)}`,
-    `grep -q '^name: orchestration$' ${shellQuote(`${home}/.omp/agent/skills/orchestration/SKILL.md`)}`,
-    `test "$(grep -c '^name: orchestration$' ${shellQuote(`${home}/.omp/agent/skills/orchestration/SKILL.md`)})" = 1`,
+    `tr -d '\r' < ${shellQuote(`${home}/.omp/agent/skills/orchestration/SKILL.md`)} | grep -q '^name: orchestration$'`,
+    `test "$(tr -d '\r' < ${shellQuote(`${home}/.omp/agent/skills/orchestration/SKILL.md`)} | grep -c '^name: orchestration$')" = 1`,
     `test "\${PUPPETEER_EXECUTABLE_PATH:-}" = /usr/bin/google-chrome-stable`,
     `test "\${PUPPETEER_PROXY:-}" = http://gateway.docker.internal:3128`,
     `test "\${PUPPETEER_PROXY_IGNORE_CERT_ERRORS:-}" = true`,
@@ -255,6 +257,31 @@ function execute(command, args, options = {}) {
       ? [options.input === undefined ? "ignore" : "pipe", "pipe", "pipe"]
       : [options.input === undefined ? "ignore" : "pipe", 2, 2],
     input: options.input,
+  });
+}
+async function fetchBuffer(url) {
+  return await new Promise((resolvePromise, reject) => {
+    get(url, (response) => {
+      if (
+        response.statusCode &&
+        response.statusCode >= 300 &&
+        response.statusCode < 400 &&
+        response.headers.location
+      ) {
+        response.resume();
+        fetchBuffer(new URL(response.headers.location, url)).then(resolvePromise, reject);
+        return;
+      }
+      if (response.statusCode !== 200) {
+        response.resume();
+        reject(new Error(`Could not download ${url}: HTTP ${response.statusCode}`));
+        return;
+      }
+      const chunks = [];
+      response.on("data", (chunk) => chunks.push(chunk));
+      response.on("end", () => resolvePromise(Buffer.concat(chunks)));
+      response.on("error", reject);
+    }).on("error", reject);
   });
 }
 
@@ -429,6 +456,46 @@ function writeSandboxFile(name, user, destination, content, mode = "600") {
 
 export function sshdPrerequisiteCommand() {
   return "set -eu; command -v g++ >/dev/null 2>&1 && test -x /usr/sbin/sshd || { attempt=0; while pgrep -x apt-get >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1; do attempt=$((attempt + 1)); test $attempt -lt 60 || { echo 'timed out waiting for sandbox apt startup job' >&2; exit 100; }; sleep 5; done; apt-get -o DPkg::Lock::Timeout=300 update -qq; DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y -qq build-essential openssh-server; }; ssh-keygen -A; install -d -m 755 /run/sshd";
+}
+export function nodeToolchainRepairCommand() {
+  return [
+    "set -eu",
+    "export PATH=/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH",
+    "command -v npm >/dev/null",
+    'global_bin="$(npm prefix --global)/bin"',
+    'if ! command -v typescript-language-server >/dev/null || ! command -v tsc >/dev/null || ! command -v next-devtools-mcp >/dev/null; then npm install --global --no-audit --no-fund "typescript-language-server@4.4.1" "typescript@5.9.3" "next-devtools-mcp@0.4.0"; fi',
+    'for tool in typescript-language-server tsc next-devtools-mcp; do test -x "$global_bin/$tool"; ln -sf "$global_bin/$tool" "/usr/local/bin/$tool"; done',
+    "typescript-language-server --version >/dev/null",
+    "tsc --version >/dev/null",
+    "next-devtools-mcp --help >/dev/null",
+  ].join("; ");
+}
+
+export function csharpLsInstallCommand() {
+  return [
+    "set -eu",
+    "rm -rf /opt/csharp-ls",
+    "install -d -m 755 /opt/csharp-ls",
+    "cat > /tmp/csharp-ls.0.27.0.nupkg",
+    "dotnet tool install csharp-ls --tool-path /usr/local/bin --version 0.27.0 --add-source /tmp --no-cache",
+    "rm -f /tmp/csharp-ls.0.27.0.nupkg",
+    "csharp-ls --version >/dev/null",
+  ].join("; ");
+}
+
+async function ensureToolchain(name) {
+  run("sbx", ["exec", "-u", "0", name, "sh", "-lc", nodeToolchainRepairCommand()], {
+    capture: true,
+  });
+  const probe = execute("sbx", ["exec", "-u", "0", name, "csharp-ls", "--version"], {
+    capture: true,
+  });
+  if (!probe.error && probe.status === 0) return;
+  const packageBytes = await fetchBuffer(csharpLsPackageUrl);
+  run("sbx", ["exec", "-i", "-u", "0", name, "sh", "-lc", csharpLsInstallCommand()], {
+    capture: true,
+    input: packageBytes,
+  });
 }
 
 function ensureSshd(name, identity, state) {
@@ -741,7 +808,7 @@ function verifyRuntime(name, identity) {
   );
 }
 
-function create() {
+async function create() {
   ensureDaemon();
   if (process.platform !== "win32") throw new Error("This Teck plugin lifecycle requires Windows");
   run("sbx", ["version"], { capture: true });
@@ -774,6 +841,7 @@ function create() {
     configureSecret(name);
     const identity = resolveIdentity(name);
     const projectRoot = ensureProjectClone(name, identity, repoRoot);
+    await ensureToolchain(name);
     provisionTeck(name, identity, projectRoot, repoRoot);
     ensureSshd(name, identity, state);
     const connection = {
@@ -808,7 +876,7 @@ function suspend() {
   log(`[SUSPEND] ${resourceId}: shared project sandbox remains active`);
 }
 
-function resume() {
+async function resume() {
   const { resourceId } = readPayload();
   ensureDaemon();
   const state = ensureHostState(resourceId);
@@ -821,6 +889,7 @@ function resume() {
     ensureKeepalive(resourceId);
     const identity = resolveIdentity(resourceId);
     const projectRoot = `${identity.home}/project`;
+    await ensureToolchain(resourceId);
     ensureSshd(resourceId, identity, state);
     const connection = {
       username: identity.username,
@@ -883,7 +952,7 @@ const action = process.argv[2];
 if (action && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
     if (!actions[action]) throw new Error(`Unknown lifecycle action: ${action}`);
-    actions[action]();
+    await actions[action]();
   } catch (error) {
     log(`[ERROR] ${error.message}`);
     process.exitCode = 1;

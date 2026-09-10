@@ -123,6 +123,7 @@ test("actual create action creates once and reuses the same project sandbox", (t
       (call) => call.includes("secret set-custom") && call.includes("omniroute.tecklab.dk"),
     ),
   );
+  assert.ok(current.calls.some((call) => call.includes("typescript-language-server@4.4.1")));
 
   assert.ok(current.calls.some((call) => call.includes("skills/orchestration/SKILL.md")));
 });
@@ -139,6 +140,7 @@ test("actual suspend and resume preserve and repair the shared sandbox", (t) => 
   const resumeCalls = readState(context).calls.slice(beforeResume);
   assert.ok(resumeCalls.some((call) => call.includes("exec orca-p-") && call.endsWith(" true")));
   assert.ok(resumeCalls.some((call) => call.includes("sshd -E /tmp/orca-sshd.log -p 2222")));
+  assert.ok(resumeCalls.some((call) => call.includes("typescript-language-server@4.4.1")));
   assert.equal(readState(context).exists, true);
 });
 test("lifecycle payload cannot target another project sandbox", (t) => {
