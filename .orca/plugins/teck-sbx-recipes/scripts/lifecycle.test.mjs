@@ -54,8 +54,18 @@ test("canonical OMP config suppresses onboarding", () => {
   assert.match(config, /^ {2}setupWizard: false$/m);
   const kit = readFileSync(new URL("../kit/spec.yaml", import.meta.url), "utf8");
   assert.match(kit, /^ {4}OMP_SKIP_SETUP: "1"$/m);
+  assert.match(kit, /^ {4}SEARXNG_ENDPOINT: https:\/\/search\.tecklab\.dk$/m);
+  assert.match(kit, /^ {4}SEARXNG_TOKEN: proxy-managed-searxng$/m);
+  assert.match(kit, /^ {4}CRAWL4AI_MCP_TOKEN: proxy-managed-crawl4ai$/m);
+  assert.match(kit, /^ {6}- search\.tecklab\.dk:443$/m);
+  assert.match(kit, /^ {6}- reader\.tecklab\.dk:443$/m);
+  const mcp = JSON.parse(
+    readFileSync(new URL("../../../../.omp/mcp.json", import.meta.url), "utf8"),
+  );
+  assert.equal(mcp.mcpServers.crawl4ai.type, "sse");
+  assert.equal(mcp.mcpServers.crawl4ai.url, "https://reader.tecklab.dk/mcp/sse");
+  assert.equal(mcp.mcpServers.crawl4ai.headers.Authorization, "Bearer $" + "{CRAWL4AI_MCP_TOKEN}");
 });
-
 test("sshd prerequisites wait for Docker's startup apt job", () => {
   const command = sshdPrerequisiteCommand();
   assert.ok(command.includes("timed out waiting for sandbox apt startup job"));
@@ -64,7 +74,12 @@ test("sshd prerequisites wait for Docker's startup apt job", () => {
 });
 
 test("Teck recipe requires committed OMP configuration", () => {
-  assert.deepEqual(requiredTeckPaths(), [".omp/config.yml", ".omp/models.yml", ".omp/RULES.md"]);
+  assert.deepEqual(requiredTeckPaths(), [
+    ".omp/config.yml",
+    ".omp/models.yml",
+    ".omp/RULES.md",
+    ".omp/mcp.json",
+  ]);
 });
 
 test("Teck repository validation rejects missing and wrong package identity", (t) => {
@@ -122,7 +137,10 @@ test("project keepalive runs under Task Scheduler and restarts at logon", () => 
   assert.ok(script.includes("New-ScheduledTaskTrigger -AtLogOn"));
   assert.ok(script.includes("-WindowStyle Hidden"));
   assert.ok(script.includes("-Execute 'powershell.exe'"));
-  assert.ok(script.includes("exec '''+$name+''' sleep infinity"));
+  assert.ok(script.includes("exec -u 0 '''+$name+''' sh -lc"));
+  assert.ok(script.includes("install -d -m 755 /run/sshd"));
+  assert.ok(script.includes("pgrep -x sshd"));
+  assert.ok(script.includes("exec sleep infinity"));
   assert.ok(script.includes("Unregister-ScheduledTask"));
   assert.ok(script.includes("Start-ScheduledTask -TaskName $task"));
 });
@@ -131,6 +149,7 @@ test("legacy visible keepalive tasks are replaced", () => {
   const script = keepaliveTaskScript("orca-p-123456789abc");
   assert.ok(script.includes("$current.Actions.Execute -ne 'powershell.exe'"));
   assert.ok(script.includes("$current.Actions.Arguments -notmatch 'WindowStyle Hidden'"));
+  assert.ok(script.includes("$current.Actions.Arguments -notmatch 'pgrep -x sshd'"));
 });
 
 test("published SSH mapping accepts only IPv4 loopback port 2222", () => {
@@ -169,6 +188,9 @@ test("identity and Teck checks use the effective home", () => {
   assert.ok(wake.includes("/root/.omp/agent/models.yml"));
   assert.ok(wake.includes("/root/.local/bin/orca-gpg"));
   assert.ok(wake.includes("/usr/local/bin/orca-runtime-check"));
+  assert.ok(wake.includes("/root/.omp/agent/mcp.json"));
+  assert.ok(wake.includes("CRAWL4AI_MCP_TOKEN"));
+  assert.ok(wake.includes("SEARXNG_TOKEN"));
   const signing = signingCommand({ username: "root", home: "/root" });
   assert.ok(signing.includes("/root/.gnupg-orca-signing"));
   assert.ok(!signing.includes("/home/agent"));
@@ -180,6 +202,7 @@ test("Teck provisioning reads cloned config and sets sandbox author", () => {
     { source: "/root/project/.omp/config.yml", destination: "/root/.omp/agent/config.yml" },
     { source: "/root/project/.omp/models.yml", destination: "/root/.omp/agent/models.yml" },
     { source: "/root/project/.omp/RULES.md", destination: "/root/.omp/agent/RULES.md" },
+    { source: "/root/project/.omp/mcp.json", destination: "/root/.omp/agent/mcp.json" },
   ]);
   assert.deepEqual(gitAuthorConfigArgs("orca-p-123456789abc", identity, "user.name", "Test User"), [
     "exec",

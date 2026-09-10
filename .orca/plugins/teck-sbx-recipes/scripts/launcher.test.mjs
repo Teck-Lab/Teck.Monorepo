@@ -49,6 +49,8 @@ test("generated commands launch the validated installed plugin copy with stdin",
     const { recipe, result } = runRecipe(appData, action);
     assert.equal(result.status, 0, result.stderr);
     assert.ok(recipe[action].length < 7000);
+    assert.ok(!recipe[action].includes("EncodedCommand"));
+    assert.ok(recipe[action].includes("scripts\\lifecycle.mjs"));
     assert.equal(result.stdout.trimEnd(), `${action}:C:\\unrelated\\repo:{"payload":true}`);
   }
 });

@@ -28,8 +28,8 @@ const command = (action) => {
     "$exitCode=$LASTEXITCODE",
     "if($null -eq $exitCode){exit 1}else{exit $exitCode}",
   ].join(";");
-  const encoded = Buffer.from(script, "utf16le").toString("base64");
-  return `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${encoded}`;
+  const commandText = script.replace(/([&|<>^])/g, "^$1");
+  return `powershell.exe -NoProfile -NonInteractive -Command ${commandText}`;
 };
 const recipe = {
   schemaVersion: 1,
