@@ -8,6 +8,11 @@
         "Authorization": "Bearer ${CRAWL4AI_MCP_TOKEN}"
       },
       "timeout": 120000
+    },
+    "next-devtools": {
+      "command": "next-devtools-mcp",
+      "args": [],
+      "timeout": 120000
     }
   }
 }

@@ -66,6 +66,8 @@ test("canonical OMP config suppresses onboarding", () => {
   assert.equal(mcp.mcpServers.crawl4ai.type, "sse");
   assert.equal(mcp.mcpServers.crawl4ai.url, "https://reader.tecklab.dk/mcp/sse");
   assert.equal(mcp.mcpServers.crawl4ai.headers.Authorization, "Bearer $" + "{CRAWL4AI_MCP_TOKEN}");
+  assert.equal(mcp.mcpServers["next-devtools"].command, "next-devtools-mcp");
+  assert.deepEqual(mcp.mcpServers["next-devtools"].args, []);
 });
 test("sshd prerequisites wait for Docker's startup apt job", () => {
   const command = sshdPrerequisiteCommand();
@@ -203,6 +205,7 @@ test("identity and Teck checks use the effective home", () => {
   assert.ok(wake.includes("/usr/local/bin/orca-runtime-check"));
   assert.ok(wake.includes("/root/.omp/agent/mcp.json"));
   assert.ok(wake.includes("CRAWL4AI_MCP_TOKEN"));
+  assert.ok(wake.includes("next-devtools-mcp --help"));
   assert.ok(wake.includes("SEARXNG_TOKEN"));
   const signing = signingCommand({ username: "root", home: "/root" });
   assert.ok(signing.includes("/root/.gnupg-orca-signing"));

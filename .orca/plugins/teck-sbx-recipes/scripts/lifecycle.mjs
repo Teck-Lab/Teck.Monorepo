@@ -201,6 +201,7 @@ export function wakeCheckCommand(home) {
     "typescript-language-server --version >/dev/null",
     "tsc --version >/dev/null",
     "csharp-ls --version >/dev/null",
+    "next-devtools-mcp --help >/dev/null",
     `curl -fsS -H 'Authorization: Bearer proxy-managed' ${omniRouteBaseUrl}/models >/dev/null`,
     'test -n "$(git config --global user.name)"',
     'test -n "$(git config --global user.email)"',

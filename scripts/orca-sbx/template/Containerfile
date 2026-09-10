@@ -6,6 +6,7 @@ FROM ${SANDBOX_BASE_IMAGE}
 ARG BUN_VERSION=1.4.0
 ARG OMP_VERSION=18.0.4
 ARG TYPESCRIPT_LANGUAGE_SERVER_VERSION=4.4.1
+ARG NEXT_DEVTOOLS_MCP_VERSION=0.4.0
 ARG CSHARP_LS_VERSION=0.27.0
 ARG DOTNET_SDK_VERSION=10.0.300
 ARG DOTNET_INSTALL_SHA256=082f7685e156738a1b2e2ed8381a621870d4ce8e8c59278034556f05c186eb2e
@@ -36,17 +37,18 @@ RUN apt-get update \
 
 RUN npm install --global --no-audit --no-fund "bun@${BUN_VERSION}" \
     && npm install --global --no-audit --no-fund "@oh-my-pi/pi-coding-agent@${OMP_VERSION}" \
-    && npm install --global --no-audit --no-fund "typescript-language-server@${TYPESCRIPT_LANGUAGE_SERVER_VERSION}" "typescript@5.9.3" \
+    && npm install --global --no-audit --no-fund "typescript-language-server@${TYPESCRIPT_LANGUAGE_SERVER_VERSION}" "typescript@5.9.3" "next-devtools-mcp@${NEXT_DEVTOOLS_MCP_VERSION}" \
     && global_bin="$(npm prefix --global)/bin" \
     && test -x "${global_bin}/bun" \
     && test -x "${global_bin}/bunx" \
     && test -x "${global_bin}/omp" \
     && test -x "${global_bin}/typescript-language-server" \
     && test -x "${global_bin}/tsc" \
+    && test -x "${global_bin}/next-devtools-mcp" \
     && ln -sf "${global_bin}/bun" /usr/local/bin/bun \
     && ln -sf "${global_bin}/bunx" /usr/local/bin/bunx \
     && ln -sf "${global_bin}/omp" /usr/local/bin/omp \
-    && npm list --global --depth=0 "bun@${BUN_VERSION}" "@oh-my-pi/pi-coding-agent@${OMP_VERSION}" "typescript-language-server@${TYPESCRIPT_LANGUAGE_SERVER_VERSION}" "typescript@5.9.3" \
+    && npm list --global --depth=0 "bun@${BUN_VERSION}" "@oh-my-pi/pi-coding-agent@${OMP_VERSION}" "typescript-language-server@${TYPESCRIPT_LANGUAGE_SERVER_VERSION}" "typescript@5.9.3" "next-devtools-mcp@${NEXT_DEVTOOLS_MCP_VERSION}" \
     && command -v git \
     && command -v gpg \
     && test "$(dotnet --version)" = "${DOTNET_SDK_VERSION}" \
@@ -54,7 +56,8 @@ RUN npm install --global --no-audit --no-fund "bun@${BUN_VERSION}" \
     && command -v bunx \
     && command -v omp \
     && command -v typescript-language-server \
-    && command -v tsc
+    && command -v tsc \
+    && command -v next-devtools-mcp
 
 RUN dotnet tool install csharp-ls --tool-path /usr/local/bin --version "${CSHARP_LS_VERSION}" \
     && csharp-ls --version | grep -q "csharp-ls, ${CSHARP_LS_VERSION}"
