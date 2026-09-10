@@ -17,10 +17,12 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const pluginRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const defaultImage = "ghcr.io/teck-lab/orca-sandbox-template:omp18.0.4-bun1.4.0-dotnet10.0.300";
+const defaultImage =
+  "ghcr.io/teck-lab/orca-sandbox-template:omp18.0.4-bun1.4.0-dotnet10.0.300-chrome153";
 const omniRouteHost = "omniroute.tecklab.dk";
 const omniRouteBaseUrl = `https://${omniRouteHost}/v1`;
 const sshPort = 2222;
+const orchestrationSkill = join(pluginRoot, "skills", "orchestration", "SKILL.md");
 const commandScripts =
   process.env.NODE_ENV === "test"
     ? {
@@ -178,10 +180,19 @@ export function wakeCheckCommand(home) {
     `test -r ${shellQuote(`${home}/.omp/agent/models.yml`)}`,
     `test -r ${shellQuote(`${home}/.omp/agent/RULES.md`)}`,
     `test -w ${shellQuote(`${home}/.omp/run`)}`,
-    'test "${OMNIROUTE_API_KEY:-}" = proxy-managed',
+    `test "\${OMNIROUTE_API_KEY:-}" = proxy-managed`,
     "omp --version >/dev/null",
     "docker info >/dev/null",
-    "docker compose version >/dev/null",
+    `test -r ${shellQuote(`${home}/.omp/agent/skills/orchestration/SKILL.md`)}`,
+    `grep -q '^name: orchestration$' ${shellQuote(`${home}/.omp/agent/skills/orchestration/SKILL.md`)}`,
+    `test "$(grep -c '^name: orchestration$' ${shellQuote(`${home}/.omp/agent/skills/orchestration/SKILL.md`)})" = 1`,
+    `test "\${PUPPETEER_EXECUTABLE_PATH:-}" = /usr/bin/google-chrome-stable`,
+    `test "\${PUPPETEER_PROXY:-}" = http://gateway.docker.internal:3128`,
+    `test "\${PUPPETEER_PROXY_IGNORE_CERT_ERRORS:-}" = true`,
+    "google-chrome-stable --version >/dev/null",
+    "typescript-language-server --version >/dev/null",
+    "tsc --version >/dev/null",
+    "csharp-ls --version >/dev/null",
     `curl -fsS -H 'Authorization: Bearer proxy-managed' ${omniRouteBaseUrl}/models >/dev/null`,
     'test -n "$(git config --global user.name)"',
     'test -n "$(git config --global user.email)"',
@@ -468,6 +479,9 @@ function ensureSshd(name, identity, state) {
     "/etc/sandbox-persistent.sh",
     [
       "export HTTP_PROXY=http://gateway.docker.internal:3128",
+      "export PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable",
+      "export PUPPETEER_PROXY=http://gateway.docker.internal:3128",
+      "export PUPPETEER_PROXY_IGNORE_CERT_ERRORS=true",
       "export HTTPS_PROXY=http://gateway.docker.internal:3128",
       "export NO_PROXY=localhost,127.0.0.1,::1,gateway.docker.internal",
       "export http_proxy=$HTTP_PROXY https_proxy=$HTTPS_PROXY no_proxy=$NO_PROXY",
@@ -582,7 +596,16 @@ function configureSecret(name) {
 }
 
 export function requiredTeckPaths() {
-  return [".omp/config.yml", ".omp/models.yml", ".omp/RULES.md"];
+  return [".omp/config.yml", ".omp/models.yml", ".omp/RULES.md", ".omp/lsp.json"];
+}
+
+export function bundledSkillPaths(identity) {
+  return [
+    {
+      source: orchestrationSkill,
+      destination: `${identity.home}/.omp/agent/skills/orchestration/SKILL.md`,
+    },
+  ];
 }
 
 export function validateTeckRepo(repoRoot) {
@@ -595,7 +618,6 @@ export function validateTeckRepo(repoRoot) {
   const missing = requiredTeckPaths().filter((path) => !existsSync(join(repoRoot, path)));
   if (missing.length > 0) throw new Error(`Teck sandbox recipe is missing: ${missing.join(", ")}`);
 }
-
 function ensureProjectClone(name, identity, repoRoot) {
   const projectRoot = `${identity.home}/project`;
   const probe = execute("sbx", ["exec", name, "test", "-d", `${projectRoot}/.git`], {
@@ -615,7 +637,7 @@ function ensureProjectClone(name, identity, repoRoot) {
 
 export function teckConfigPaths(identity, projectRoot) {
   const targetRoot = `${identity.home}/.omp/agent`;
-  return ["config.yml", "models.yml", "RULES.md"].map((file) => ({
+  return ["config.yml", "models.yml", "RULES.md", "lsp.json"].map((file) => ({
     source: `${projectRoot}/.omp/${file}`,
     destination: `${targetRoot}/${file}`,
   }));
@@ -637,7 +659,7 @@ function provisionTeck(name, identity, projectRoot, repoRoot) {
       name,
       "sh",
       "-lc",
-      `set -eu; install -d -m 700 ${shellQuote(ompAgent)} ${shellQuote(`${identity.home}/.omp/run`)} ${shellQuote(`${identity.home}/.local/bin`)}`,
+      `set -eu; install -d -m 700 ${shellQuote(ompAgent)} ${shellQuote(`${ompAgent}/skills/orchestration`)} ${shellQuote(`${identity.home}/.omp/run`)} ${shellQuote(`${identity.home}/.local/bin`)}`,
     ],
     { capture: true },
   );
@@ -648,6 +670,15 @@ function provisionTeck(name, identity, projectRoot, repoRoot) {
       identity.username,
       path.destination,
       readFileSync(join(repoRoot, ".omp", file), "utf8"),
+      "600",
+    );
+  }
+  for (const path of bundledSkillPaths(identity)) {
+    writeSandboxFile(
+      name,
+      identity.username,
+      path.destination,
+      readFileSync(path.source, "utf8"),
       "600",
     );
   }

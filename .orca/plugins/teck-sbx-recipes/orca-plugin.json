@@ -9,7 +9,8 @@
   "engines": { "orca": ">=1.4.0" },
   "pluginApi": 1,
   "contributes": {
-    "vmRecipes": [{ "path": "recipes/teck-sbx-project-sandbox.json" }]
+    "vmRecipes": [{ "path": "recipes/teck-sbx-project-sandbox.json" }],
+    "skills": [{ "path": "skills", "providers": ["agent-skills"] }]
   },
   "capabilities": []
 }

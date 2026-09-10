@@ -5,8 +5,12 @@ FROM ${SANDBOX_BASE_IMAGE}
 
 ARG BUN_VERSION=1.4.0
 ARG OMP_VERSION=18.0.4
+ARG TYPESCRIPT_LANGUAGE_SERVER_VERSION=4.4.1
+ARG CSHARP_LS_VERSION=0.27.0
 ARG DOTNET_SDK_VERSION=10.0.300
 ARG DOTNET_INSTALL_SHA256=082f7685e156738a1b2e2ed8381a621870d4ce8e8c59278034556f05c186eb2e
+ARG GOOGLE_CHROME_VERSION=153.0.8010.36-1
+ARG GOOGLE_CHROME_SHA256=9bb44e33031c2f2857cf36b4343051a12f93058e4b781e3c76313df87f6c8d32
 
 USER root
 ENV ONNXRUNTIME_NODE_INSTALL=skip \
@@ -14,6 +18,11 @@ ENV ONNXRUNTIME_NODE_INSTALL=skip \
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential ca-certificates curl \
+    && chrome_deb="google-chrome-stable_${GOOGLE_CHROME_VERSION}_amd64.deb" \
+    && curl --fail --show-error --silent --location "https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/${chrome_deb}" -o "/tmp/${chrome_deb}" \
+    && echo "${GOOGLE_CHROME_SHA256}  /tmp/${chrome_deb}" | sha256sum --check \
+    && apt-get install -y --no-install-recommends "/tmp/${chrome_deb}" \
+    && rm -f "/tmp/${chrome_deb}" \
     && curl --fail --show-error --silent --location https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
     && echo "${DOTNET_INSTALL_SHA256}  /tmp/dotnet-install.sh" | sha256sum --check \
     && chmod 0755 /tmp/dotnet-install.sh \
@@ -22,24 +31,33 @@ RUN apt-get update \
     && rm -f /tmp/dotnet-install.sh \
     && rm -rf /var/lib/apt/lists/* \
     && command -v g++ \
+    && test "$(google-chrome-stable --version | awk '{print $3}')" = "${GOOGLE_CHROME_VERSION%-1}" \
     && test "$(dotnet --version)" = "${DOTNET_SDK_VERSION}"
 
 RUN npm install --global --no-audit --no-fund "bun@${BUN_VERSION}" \
     && npm install --global --no-audit --no-fund "@oh-my-pi/pi-coding-agent@${OMP_VERSION}" \
+    && npm install --global --no-audit --no-fund "typescript-language-server@${TYPESCRIPT_LANGUAGE_SERVER_VERSION}" "typescript@5.9.3" \
     && global_bin="$(npm prefix --global)/bin" \
     && test -x "${global_bin}/bun" \
     && test -x "${global_bin}/bunx" \
     && test -x "${global_bin}/omp" \
+    && test -x "${global_bin}/typescript-language-server" \
+    && test -x "${global_bin}/tsc" \
     && ln -sf "${global_bin}/bun" /usr/local/bin/bun \
     && ln -sf "${global_bin}/bunx" /usr/local/bin/bunx \
     && ln -sf "${global_bin}/omp" /usr/local/bin/omp \
-    && npm list --global --depth=0 "bun@${BUN_VERSION}" "@oh-my-pi/pi-coding-agent@${OMP_VERSION}" \
+    && npm list --global --depth=0 "bun@${BUN_VERSION}" "@oh-my-pi/pi-coding-agent@${OMP_VERSION}" "typescript-language-server@${TYPESCRIPT_LANGUAGE_SERVER_VERSION}" "typescript@5.9.3" \
     && command -v git \
     && command -v gpg \
     && test "$(dotnet --version)" = "${DOTNET_SDK_VERSION}" \
     && command -v bun \
     && command -v bunx \
-    && command -v omp
+    && command -v omp \
+    && command -v typescript-language-server \
+    && command -v tsc
+
+RUN dotnet tool install csharp-ls --tool-path /usr/local/bin --version "${CSHARP_LS_VERSION}" \
+    && csharp-ls --version | grep -q "csharp-ls, ${CSHARP_LS_VERSION}"
 
 LABEL org.opencontainers.image.source="https://github.com/Teck-Lab/Teck.Monorepo" \
       org.opencontainers.image.title="Teck Orca OMP sandbox template"

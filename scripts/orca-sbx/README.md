@@ -53,7 +53,7 @@ such as a `Teck.Paseo/.env` next to this repository.
   `winget install -h Docker.sbx`
 - `sbx login` and `sbx setup ssh` completed
 - Windows OpenSSH client and Node.js 22 or newer
-- access to `ghcr.io/teck-lab/orca-sandbox-template:omp18.0.4-bun1.4.0-dotnet10.0.300`
+- access to `ghcr.io/teck-lab/orca-sandbox-template:omp18.0.4-bun1.4.0-dotnet10.0.300-chrome153`
 - outbound HTTPS access to `https://omniroute.tecklab.dk/v1`; `/v1/models`
   returns `401` without the key
 - `OMNIROUTE_API_KEY` set in the environment, `ORCA_OMNIROUTE_ENV_FILE`
@@ -65,6 +65,12 @@ such as a `Teck.Paseo/.env` next to this repository.
   sandbox signing key
 - Docker Sandbox GitHub service secret configured from the host CLI:
   `sbx secret set github --command 'gh auth token'`
+
+The published template also contains pinned Google Chrome for OMP's built-in
+Puppeteer browser tool. The project-shared plugin provisions its bundled,
+version-matched orchestration discovery stub into
+`~/.omp/agent/skills/orchestration/SKILL.md` on every create, so deleting and
+recreating the sandbox does not lose either capability.
 
 ## GitHub authentication
 
