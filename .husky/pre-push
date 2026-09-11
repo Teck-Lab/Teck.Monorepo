@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
-# Pre-push gate: Gitleaks scans only the refs this push introduces; Semgrep
-# and Trivy retain the changed-files local security scan. CI remains the
-# authoritative full-history Gitleaks gate.
+# Commit policy is checked locally without spawning containers. Security,
+# dependency, and image scanners run in CI.
 
-./tools/security-scan.sh --pre-push || {
-  echo "pre-push: security scan failed — see .security/ for reports" >&2
+range="${1:-origin/main}..HEAD"
+bunx commitlint --from "${range%..HEAD}" --to HEAD || {
+  echo "pre-push: commit messages must follow Conventional Commits" >&2
   exit 1
 }

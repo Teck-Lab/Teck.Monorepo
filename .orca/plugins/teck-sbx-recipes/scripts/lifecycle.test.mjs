@@ -9,6 +9,9 @@ import {
   csharpLsInstallCommand,
   deterministicPort,
   gitAuthorConfigArgs,
+  githubMcpAuthorized,
+  githubMcpRegistration,
+  githubMcpRegistrationMatches,
   keepaliveTaskScript,
   nodeToolchainRepairCommand,
   parseIdentity,
@@ -84,6 +87,24 @@ test("toolchain repair reconciles stale sandbox images", () => {
   assert.ok(csharpCommand.includes("--add-source /tmp --no-cache"));
 });
 
+test("GitHub MCP uses the hosted GitHub App gateway registration", () => {
+  assert.deepEqual(githubMcpRegistration(), {
+    name: "github",
+    type: "remote",
+    url: "https://api.githubcopilot.com/mcp/",
+  });
+  assert.equal(
+    githubMcpRegistrationMatches(
+      "Name:      github\nType:      remote\nURL:       https://api.githubcopilot.com/mcp/\nTransport: streamable-http\n",
+    ),
+    true,
+  );
+  assert.equal(githubMcpRegistrationMatches("Name: github\nType: local\n"), false);
+  assert.equal(githubMcpAuthorized('[{"server_name":"github","status":"authorized"}]'), true);
+  assert.equal(githubMcpAuthorized('[{"server_name":"github","status":"unauthorized"}]'), false);
+  assert.equal(githubMcpAuthorized("not-json"), false);
+});
+
 test("Teck recipe requires committed OMP configuration", () => {
   assert.deepEqual(requiredTeckPaths(), [
     ".omp/config.yml",
@@ -91,6 +112,7 @@ test("Teck recipe requires committed OMP configuration", () => {
     ".omp/RULES.md",
     ".omp/mcp.json",
     ".omp/lsp.json",
+    ".omp/scripts/github-mcp-check.mjs",
   ]);
 });
 
@@ -107,7 +129,7 @@ test("Teck repository validation rejects every missing OMP asset", () => {
     const repo = mkdtempSync(join(tmpdir(), "teck-plugin-repo-"));
     try {
       writeFileSync(join(repo, "package.json"), '{"name":"teck-platform"}');
-      mkdirSync(join(repo, ".omp"));
+      mkdirSync(join(repo, ".omp", "scripts"), { recursive: true });
       for (const path of requiredTeckPaths()) {
         if (path !== omitted) writeFileSync(join(repo, path), "ok");
       }
@@ -122,7 +144,7 @@ test("Teck repository validation accepts the expected project", (t) => {
   const repo = mkdtempSync(join(tmpdir(), "teck-plugin-repo-"));
   t.after(() => rmSync(repo, { recursive: true, force: true }));
   writeFileSync(join(repo, "package.json"), '{"name":"teck-platform"}');
-  mkdirSync(join(repo, ".omp"));
+  mkdirSync(join(repo, ".omp", "scripts"), { recursive: true });
   for (const path of requiredTeckPaths()) writeFileSync(join(repo, path), "ok");
   assert.doesNotThrow(() => validateTeckRepo(repo));
 });
@@ -215,6 +237,8 @@ test("identity and Teck checks use the effective home", () => {
   assert.ok(wake.includes("/root/.omp/agent/mcp.json"));
   assert.ok(wake.includes("OMNIROUTE_RESEARCH_ENABLED"));
   assert.ok(wake.includes("next-devtools-mcp --help"));
+  assert.ok(wake.includes("MCP_GATEWAY_URL"));
+  assert.ok(wake.includes("github-mcp-check.mjs"));
   const signing = signingCommand({ username: "root", home: "/root" });
   assert.ok(signing.includes("/root/.gnupg-orca-signing"));
   assert.ok(!signing.includes("/home/agent"));
