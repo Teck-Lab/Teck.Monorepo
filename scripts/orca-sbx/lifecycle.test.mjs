@@ -8,6 +8,8 @@ import {
   configuredApiKey,
   configuredSigningPrivateKey,
   customSecretTargetHosts,
+  githubMcpAuthorized,
+  githubMcpRegistrationMatches,
   gitIdentityCommand,
   ompProvisionCommand,
   parseSandboxIdentity,
@@ -138,6 +140,18 @@ test("custom secret is proxy-injected only for the public OmniRoute host", () =>
   assert.deepEqual(customSecretTargetHosts(), ["omniroute.tecklab.dk"]);
 });
 
+test("GitHub MCP uses the authorized hosted gateway registration", () => {
+  assert.equal(
+    githubMcpRegistrationMatches(
+      "Name:      github\nType:      remote\nURL:       https://api.githubcopilot.com/mcp/\n",
+    ),
+    true,
+  );
+  assert.equal(githubMcpRegistrationMatches("Name: github\nType: local\n"), false);
+  assert.equal(githubMcpAuthorized('[{"server_name":"github","status":"authorized"}]'), true);
+  assert.equal(githubMcpAuthorized('[{"server_name":"github","status":"unauthorized"}]'), false);
+});
+
 test("wake check uses the resolved sandbox home", () => {
   const command = wakeCheckCommand("/root");
   assert.ok(command.includes("docker info >/dev/null"));
@@ -153,6 +167,8 @@ test("wake check uses the resolved sandbox home", () => {
   assert.ok(command.includes("'/root/.local/bin/orca-gpg'"));
   assert.ok(command.includes("--detach-sign"));
   assert.ok(!command.includes("/home/agent/.omp"));
+  assert.ok(command.includes("MCP_GATEWAY_URL"));
+  assert.ok(command.includes("github-mcp-check.mjs"));
   assert.ok(!command.includes("host.docker.internal"));
   assert.ok(!command.includes("localhost"));
   assert.ok(!command.includes("20128"));
@@ -166,6 +182,9 @@ test("OMP and signing provisioning use the same effective home", () => {
   assert.ok(ompCommand.includes("'/root/.omp/agent/config.yml'"));
   assert.ok(ompCommand.includes("'/root/.omp/agent/models.yml'"));
   assert.ok(ompCommand.includes("'/root/.omp/agent/RULES.md'"));
+  assert.ok(ompCommand.includes("'/root/.omp/agent/mcp.json'"));
+  assert.ok(ompCommand.includes("'/root/.omp/agent/lsp.json'"));
+  assert.ok(ompCommand.includes("'/root/.omp/agent/github-mcp-check.mjs'"));
   assert.ok(ompCommand.includes("test -x '/usr/local/bin/orca-runtime-check'"));
   assert.ok(signingCommand.includes("'/root/.gnupg-orca-signing'"));
   assert.ok(signingCommand.includes("'/root/.local/bin/orca-gpg'"));

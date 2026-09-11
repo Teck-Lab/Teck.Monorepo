@@ -26,6 +26,11 @@ const omniRouteHost = "omniroute.tecklab.dk";
 const omniRouteBaseUrl = `https://${omniRouteHost}/v1`;
 const sshPort = 2222;
 const orchestrationSkill = join(pluginRoot, "skills", "orchestration", "SKILL.md");
+const githubMcp = {
+  name: "github",
+  type: "remote",
+  url: "https://api.githubcopilot.com/mcp/",
+};
 const commandScripts =
   process.env.NODE_ENV === "test"
     ? {
@@ -186,6 +191,8 @@ export function wakeCheckCommand(home) {
     `test "\${OMNIROUTE_RESEARCH_ENABLED:-}" = 1`,
     `test -w ${shellQuote(`${home}/.omp/run`)}`,
     `test "\${OMNIROUTE_API_KEY:-}" = proxy-managed`,
+    `test "\${TECK_SANDBOX_MCP_ENABLED:-}" = true`,
+    `test -n "\${MCP_GATEWAY_URL:-}"`,
     "omp --version >/dev/null",
     "docker info >/dev/null",
     `tr -d '\r' < ${shellQuote(`${home}/.omp/agent/skills/orchestration/SKILL.md`)} | grep -q '^name: orchestration$'`,
@@ -198,6 +205,7 @@ export function wakeCheckCommand(home) {
     "tsc --version >/dev/null",
     "csharp-ls --version >/dev/null",
     "next-devtools-mcp --help >/dev/null",
+    `node ${shellQuote(`${home}/.omp/agent/github-mcp-check.mjs`)}`,
     `curl -fsS -H 'Authorization: Bearer proxy-managed' ${omniRouteBaseUrl}/models >/dev/null`,
     'test -n "$(git config --global user.name)"',
     'test -n "$(git config --global user.email)"',
@@ -299,6 +307,61 @@ function runOptional(command, args) {
   const result = execute(command, args, { capture: true });
   if (result.error) throw result.error;
   return result.status === 0 ? result.stdout.trim() : "";
+}
+
+export function githubMcpRegistration() {
+  return { ...githubMcp };
+}
+
+export function githubMcpRegistrationMatches(output) {
+  const field = (name) => new RegExp(`^${name}:\\s+(.+)$`, "m").exec(output)?.[1]?.trim();
+  return (
+    field("Name") === githubMcp.name &&
+    field("Type") === githubMcp.type &&
+    field("URL") === githubMcp.url
+  );
+}
+
+export function githubMcpAuthorized(output) {
+  try {
+    const statuses = JSON.parse(output);
+    return statuses.some(
+      (entry) => entry.server_name === githubMcp.name && entry.status === "authorized",
+    );
+  } catch {
+    return false;
+  }
+}
+
+function ensureGithubMcpHostRegistration() {
+  const registration = execute("sbx", ["mcp", "inspect", githubMcp.name], { capture: true });
+  if (
+    registration.error ||
+    registration.status !== 0 ||
+    !githubMcpRegistrationMatches(registration.stdout)
+  ) {
+    throw new Error(
+      `Docker Sandbox MCP server ${githubMcp.name} is missing or stale; run scripts/orca-sbx/setup-github-mcp.ps1`,
+    );
+  }
+  const authorization = execute(
+    "sbx",
+    ["mcp", "auth", "status", githubMcp.name, "--format", "json"],
+    { capture: true },
+  );
+  if (
+    authorization.error ||
+    authorization.status !== 0 ||
+    !githubMcpAuthorized(authorization.stdout)
+  ) {
+    throw new Error(
+      "Docker Sandbox GitHub MCP is unauthorized; run scripts/orca-sbx/setup-github-mcp.ps1",
+    );
+  }
+}
+
+function loadGithubMcp(name) {
+  run("sbx", ["mcp", "load", githubMcp.name, "--sandbox", name], { capture: true });
 }
 
 function required(name) {
@@ -667,7 +730,14 @@ function configureSecret(name) {
 }
 
 export function requiredTeckPaths() {
-  return [".omp/config.yml", ".omp/models.yml", ".omp/RULES.md", ".omp/mcp.json", ".omp/lsp.json"];
+  return [
+    ".omp/config.yml",
+    ".omp/models.yml",
+    ".omp/RULES.md",
+    ".omp/mcp.json",
+    ".omp/lsp.json",
+    ".omp/scripts/github-mcp-check.mjs",
+  ];
 }
 
 export function bundledSkillPaths(identity) {
@@ -714,6 +784,15 @@ export function teckConfigPaths(identity, projectRoot) {
   }));
 }
 
+export function teckScriptPaths(identity, projectRoot) {
+  return [
+    {
+      source: `${projectRoot}/.omp/scripts/github-mcp-check.mjs`,
+      destination: `${identity.home}/.omp/agent/github-mcp-check.mjs`,
+    },
+  ];
+}
+
 export function gitAuthorConfigArgs(name, identity, key, value) {
   if (!value) throw new Error(`Host Git ${key} is missing`);
   return ["exec", "-u", identity.username, name, "git", "config", "--global", key, value];
@@ -742,6 +821,15 @@ function provisionTeck(name, identity, projectRoot, repoRoot) {
       path.destination,
       readFileSync(join(repoRoot, ".omp", file), "utf8"),
       "600",
+    );
+  }
+  for (const path of teckScriptPaths(identity, projectRoot)) {
+    writeSandboxFile(
+      name,
+      identity.username,
+      path.destination,
+      readFileSync(join(repoRoot, ".omp", "scripts", "github-mcp-check.mjs"), "utf8"),
+      "700",
     );
   }
   for (const path of bundledSkillPaths(identity)) {
@@ -804,6 +892,7 @@ async function create() {
   ensureDaemon();
   if (process.platform !== "win32") throw new Error("This Teck plugin lifecycle requires Windows");
   run("sbx", ["version"], { capture: true });
+  ensureGithubMcpHostRegistration();
   const repoRoot = resolve(required("ORCA_REPO_PATH"));
   validateTeckRepo(repoRoot);
   const name = sandboxName(required("ORCA_PROJECT_ID"));
@@ -820,6 +909,8 @@ async function create() {
         process.env.ORCA_SBX_CPUS || "4",
         "--memory",
         process.env.ORCA_SBX_MEMORY || "4g",
+        "--static-mcp",
+        githubMcp.name,
         "--kit",
         pluginKitPath(),
         "--template",
@@ -830,6 +921,7 @@ async function create() {
       created = true;
     }
     wakeSandbox(name);
+    if (!created) loadGithubMcp(name);
     configureSecret(name);
     const identity = resolveIdentity(name);
     const projectRoot = ensureProjectClone(name, identity, repoRoot);
@@ -871,12 +963,14 @@ function suspend() {
 async function resume() {
   const { resourceId } = readPayload();
   ensureDaemon();
+  ensureGithubMcpHostRegistration();
   const state = ensureHostState(resourceId);
   const release = acquireLock(state);
   try {
     if (!sandboxExists(resourceId))
       throw new Error(`Shared sandbox ${resourceId} no longer exists`);
     wakeSandbox(resourceId);
+    loadGithubMcp(resourceId);
     configureSecret(resourceId);
     ensureKeepalive(resourceId);
     const identity = resolveIdentity(resourceId);

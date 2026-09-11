@@ -11,6 +11,11 @@ const defaultImage = "ghcr.io/teck-lab/orca-sandbox-template:omp18.0.4-bun1.4.0-
 
 const omniRouteHost = "omniroute.tecklab.dk";
 const omniRouteBaseUrl = `https://${omniRouteHost}/v1`;
+const githubMcp = {
+  name: "github",
+  type: "remote",
+  url: "https://api.githubcopilot.com/mcp/",
+};
 
 export function sandboxName(recipeId, instanceId) {
   const clean = (value) =>
@@ -198,6 +203,47 @@ export function customSecretTargetHosts() {
   return [omniRouteHost];
 }
 
+export function githubMcpRegistrationMatches(output) {
+  const field = (name) => new RegExp(`^${name}:\\s+(.+)$`, "m").exec(output)?.[1]?.trim();
+  return (
+    field("Name") === githubMcp.name &&
+    field("Type") === githubMcp.type &&
+    field("URL") === githubMcp.url
+  );
+}
+
+export function githubMcpAuthorized(output) {
+  try {
+    const statuses = JSON.parse(output);
+    return statuses.some(
+      (entry) => entry.server_name === githubMcp.name && entry.status === "authorized",
+    );
+  } catch {
+    return false;
+  }
+}
+
+function ensureGithubMcpHostRegistration() {
+  const registration = run("sbx", ["mcp", "inspect", githubMcp.name], { capture: true });
+  if (!githubMcpRegistrationMatches(registration)) {
+    throw new Error(
+      `Docker Sandbox MCP server ${githubMcp.name} is missing or stale; run scripts/orca-sbx/setup-github-mcp.ps1`,
+    );
+  }
+  const authorization = run("sbx", ["mcp", "auth", "status", githubMcp.name, "--format", "json"], {
+    capture: true,
+  });
+  if (!githubMcpAuthorized(authorization)) {
+    throw new Error(
+      "Docker Sandbox GitHub MCP is unauthorized; run scripts/orca-sbx/setup-github-mcp.ps1",
+    );
+  }
+}
+
+function loadGithubMcp(name) {
+  run("sbx", ["mcp", "load", githubMcp.name, "--sandbox", name], { capture: true });
+}
+
 export function wakeCheckCommand(home = "/home/agent") {
   const ompAgentDir = `${home}/.omp/agent`;
   const ompRunDir = `${home}/.omp/run`;
@@ -210,12 +256,16 @@ export function wakeCheckCommand(home = "/home/agent") {
     `test -r ${shellQuote(`${ompAgentDir}/config.yml`)}`,
     `test -r ${shellQuote(`${ompAgentDir}/models.yml`)}`,
     `test -r ${shellQuote(`${ompAgentDir}/RULES.md`)}`,
+    `test -r ${shellQuote(`${ompAgentDir}/mcp.json`)}`,
+    `test "\${TECK_SANDBOX_MCP_ENABLED:-}" = true`,
+    `test -n "\${MCP_GATEWAY_URL:-}"`,
+    `test "\${OMNIROUTE_API_KEY:-}" = proxy-managed`,
     `test -w ${shellQuote(ompRunDir)}`,
-    'test "${OMNIROUTE_API_KEY:-}" = proxy-managed',
     "omp --version >/dev/null",
     "docker info >/dev/null",
     "docker compose version >/dev/null",
     `curl -fsS -H 'Authorization: Bearer proxy-managed' ${omniRouteBaseUrl}/models >/dev/null`,
+    `node ${shellQuote(`${ompAgentDir}/github-mcp-check.mjs`)}`,
     'test "$(git config --global --bool commit.gpgsign)" = true',
     `test -x ${shellQuote(gpgProgram)}`,
     'test -n "$(git config --global user.signingkey)"',
@@ -313,6 +363,9 @@ export function ompProvisionCommand(projectRoot, identity) {
     `ln -sfn ${shellQuote(`${ompRoot}/config.yml`)} ${shellQuote(`${ompHome}/agent/config.yml`)}`,
     `ln -sfn ${shellQuote(`${ompRoot}/models.yml`)} ${shellQuote(`${ompHome}/agent/models.yml`)}`,
     `ln -sfn ${shellQuote(`${ompRoot}/RULES.md`)} ${shellQuote(`${ompHome}/agent/RULES.md`)}`,
+    `ln -sfn ${shellQuote(`${ompRoot}/mcp.json`)} ${shellQuote(`${ompHome}/agent/mcp.json`)}`,
+    `ln -sfn ${shellQuote(`${ompRoot}/lsp.json`)} ${shellQuote(`${ompHome}/agent/lsp.json`)}`,
+    `ln -sfn ${shellQuote(`${ompRoot}/scripts/github-mcp-check.mjs`)} ${shellQuote(`${ompHome}/agent/github-mcp-check.mjs`)}`,
     "test -x '/usr/local/bin/orca-runtime-check'",
   ].join("; ");
 }
@@ -325,6 +378,7 @@ function create() {
   if (process.platform !== "win32")
     throw new Error("local-docker-sandbox must run on the Windows host that owns Docker Sandboxes");
   verifyHostPrerequisites();
+  ensureGithubMcpHostRegistration();
   const repoRoot = resolve(required("ORCA_REPO_PATH"));
   const name = sandboxName(process.env.ORCA_RECIPE_ID, required("ORCA_VM_INSTANCE_ID"));
   const projectRoot = remoteWindowsPath(repoRoot);
@@ -341,6 +395,8 @@ function create() {
         process.env.ORCA_SBX_CPUS || "4",
         "--memory",
         process.env.ORCA_SBX_MEMORY || "4g",
+        "--static-mcp",
+        githubMcp.name,
         "--kit",
         join(scriptDir, "kit"),
         "--template",
@@ -352,6 +408,7 @@ function create() {
     } else {
       log(`[REUSE] ${name}`);
     }
+    loadGithubMcp(name);
 
     const key = configuredApiKey();
     removeCustomSecret(name);
@@ -428,6 +485,8 @@ function suspend() {
 
 function resume() {
   const { resourceId, projectRoot } = lifecyclePayload();
+  ensureGithubMcpHostRegistration();
+  loadGithubMcp(resourceId);
   if (!projectRoot) throw new Error("Lifecycle payload is missing the remote project root");
   const identity = resolveSandboxIdentity(resourceId);
   wakeAndVerify(resourceId, identity);

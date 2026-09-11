@@ -14,13 +14,15 @@ sandbox template at `scripts/orca-sbx/template/Containerfile`. The lifecycle's
 pinned `defaultImage` is the published build; `ORCA_SBX_IMAGE` can override that
 reference for another published build. The separate kit under
 `scripts/orca-sbx/kit/` applies runtime files and network policy.
-Its canonical non-secret configuration is committed under `.omp/` and linked
-into the sandbox's
-user-level OMP location during provisioning. The host lifecycle reads the
-OmniRoute key and registers a sandbox-scoped custom secret that Docker's
-proxy injects only for `omniroute.tecklab.dk`; command failures are redacted.
-The sandbox receives only the `proxy-managed` sentinel; the real key is never
-written to the sandbox, repo, recipe JSON, or lifecycle logs.
+Its canonical non-secret configuration is committed under `.omp/` and copied
+into the sandbox's user-level OMP location during provisioning. OMP connects
+to Docker Sandboxes' host-managed MCP gateway through `MCP_GATEWAY_URL`; the
+lifecycle attaches the pinned official GitHub MCP registration before the
+workspace becomes ready. The host lifecycle also reads the OmniRoute key and
+registers a sandbox-scoped custom secret that Docker's proxy injects only for
+`omniroute.tecklab.dk`; command failures are redacted. The sandbox receives
+only proxy-managed sentinels; real credentials are never written to the
+sandbox, repo, recipe JSON, or lifecycle logs.
 The `orca-sandbox-template` Nx project owns image build, smoke test, and publish
 targets. `.github/workflows/sandbox-template.yml` validates the image in pull
 requests and publishes it with the workflow `GITHUB_TOKEN` after the change
@@ -64,10 +66,10 @@ such as a `Teck.Paseo/.env` next to this repository.
   `OMNIROUTE_API_KEY`
 - Gpg4win with a working personal signing key configured through
   `user.signingkey`, `gpg.program`, and `commit.gpgsign=true`
-- GitHub CLI authenticated with `admin:gpg_key` while registering the dedicated
-  sandbox signing key
-- Docker Sandbox GitHub service secret configured from the host CLI:
-  `sbx secret set github --command 'gh auth token'`
+- GitHub CLI authenticated with `repo`, `read:org`, and `workflow` access, plus
+  `admin:gpg_key` while registering the dedicated sandbox signing key
+- host-managed GitHub MCP gateway configured once with:
+  `.\scripts\orca-sbx\setup-github-mcp.ps1`
 
 The published template also contains pinned Google Chrome for OMP's built-in
 Puppeteer browser tool. The project-shared plugin provisions its bundled,
@@ -75,23 +77,43 @@ version-matched orchestration discovery stub into
 `~/.omp/agent/skills/orchestration/SKILL.md` on every create, so deleting and
 recreating the sandbox does not lose either capability.
 
-## GitHub authentication
+## GitHub authentication and MCP
 
-Docker Sandboxes handles GitHub authentication through its host-side credential
-proxy. Configure the global `github` service once on the Windows host:
+Docker Sandboxes keeps GitHub MCP authorization on the host. Configure the
+hosted server once:
+
+1. In the GitHub App you will use, set the **Callback URL** under
+   **General → Identifying and authorizing users** to exactly
+   `http://127.0.0.1/callback`, then copy its public Client ID.
+2. Store that GitHub App's client secret interactively; never pass it in argv:
+
+   ```powershell
+   sbx secret set mcp:github.client_secret
+   ```
+
+3. Register and authorize the hosted MCP server:
+
+   ```powershell
+   .\scripts\orca-sbx\setup-github-mcp.ps1 -ClientId <GITHUB_APP_CLIENT_ID>
+   ```
+
+The setup registers `https://api.githubcopilot.com/mcp/` with the public
+GitHub App Client ID, opens GitHub authorization when needed, and verifies the
+host-side authorization state. The lifecycle attaches the registration as a
+static server to every new project sandbox and fails readiness unless the
+gateway exposes GitHub's `issue_read` tool. OMP connects only to
+`MCP_GATEWAY_URL`; no GitHub MCP process or credential exists inside the
+project sandbox.
+
+The ordinary `github` service secret remains required separately for `gh` and
+Git over HTTPS:
 
 ```powershell
-sbx secret set github --command 'gh auth token'
+sbx secret set github --command 'gh auth token' --refresh on-demand
 ```
 
-The stored value is global for future sandboxes. The daemon resolves the token
-from the authenticated host `gh` CLI and refreshes its cache periodically. The
-sandbox sees only the `proxy-managed` sentinel; the real token stays on the
-host. For an already-running sandbox, scope the same service directly:
-
-```powershell
-sbx secret set github --sandbox <sandbox-name> --command 'gh auth token'
-```
+Existing shell sandboxes created without an MCP gateway cannot be upgraded in
+place and must be recreated after authorization.
 
 GitHub Container Registry authentication is separate from GitHub API/Git
 authentication. Private `ghcr.io` templates require a registry credential:

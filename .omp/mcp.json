@@ -1,6 +1,12 @@
 {
   "$schema": "https://raw.githubusercontent.com/can1357/oh-my-pi/main/packages/coding-agent/src/config/mcp-schema.json",
   "mcpServers": {
+    "docker-sandbox": {
+      "type": "http",
+      "url": "${MCP_GATEWAY_URL:-http://127.0.0.1:1/mcp}",
+      "enabled": "${TECK_SANDBOX_MCP_ENABLED:-false}",
+      "timeout": 120000
+    },
     "next-devtools": {
       "command": "next-devtools-mcp",
       "args": [],

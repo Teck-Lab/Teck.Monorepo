@@ -12,6 +12,7 @@ environment:
     ONNXRUNTIME_NODE_INSTALL: skip
     OMP_SKIP_SETUP: "1"
     OMNIROUTE_RESEARCH_ENABLED: "1"
+    TECK_SANDBOX_MCP_ENABLED: "true"
     PUPPETEER_EXECUTABLE_PATH: /usr/bin/google-chrome-stable
     PUPPETEER_PROXY: http://gateway.docker.internal:3128
     PUPPETEER_PROXY_IGNORE_CERT_ERRORS: "true"
