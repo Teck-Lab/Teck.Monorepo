@@ -11,9 +11,7 @@ environment:
     OMNIROUTE_MODEL: teck-orchestrator
     ONNXRUNTIME_NODE_INSTALL: skip
     OMP_SKIP_SETUP: "1"
-    SEARXNG_ENDPOINT: https://search.tecklab.dk
-    SEARXNG_TOKEN: proxy-managed-searxng
-    CRAWL4AI_API_TOKEN: proxy-managed-crawl4ai
+    OMNIROUTE_RESEARCH_ENABLED: "1"
     PUPPETEER_EXECUTABLE_PATH: /usr/bin/google-chrome-stable
     PUPPETEER_PROXY: http://gateway.docker.internal:3128
     PUPPETEER_PROXY_IGNORE_CERT_ERRORS: "true"
@@ -61,8 +59,6 @@ permissions:
   network:
     allow:
       - omniroute.tecklab.dk:443
-      - search.tecklab.dk:443
-      - reader.tecklab.dk:443
       - github.com:443
       - api.github.com:443
       - archive.ubuntu.com:80

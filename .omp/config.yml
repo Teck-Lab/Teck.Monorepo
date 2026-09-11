@@ -32,6 +32,8 @@ retry:
 providers:
   webSearchOrder:
     - searxng
+    - firecrawl
+  fetch: firecrawl
   maxInFlightRequests:
     omniroute: 4
 task:

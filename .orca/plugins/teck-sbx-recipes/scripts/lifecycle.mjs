@@ -24,10 +24,6 @@ const csharpLsPackageUrl =
   "https://api.nuget.org/v3-flatcontainer/csharp-ls/0.27.0/csharp-ls.0.27.0.nupkg";
 const omniRouteHost = "omniroute.tecklab.dk";
 const omniRouteBaseUrl = `https://${omniRouteHost}/v1`;
-const searxngHost = "search.tecklab.dk";
-
-const searxngPlaceholder = "proxy-managed-searxng";
-const crawl4aiPlaceholder = "proxy-managed-crawl4ai";
 const sshPort = 2222;
 const orchestrationSkill = join(pluginRoot, "skills", "orchestration", "SKILL.md");
 const commandScripts =
@@ -187,9 +183,7 @@ export function wakeCheckCommand(home) {
     `test -r ${shellQuote(`${home}/.omp/agent/config.yml`)}`,
     `test -r ${shellQuote(`${home}/.omp/agent/models.yml`)}`,
     `test -r ${shellQuote(`${home}/.omp/agent/RULES.md`)}`,
-    `test "\${SEARXNG_ENDPOINT:-}" = https://${searxngHost}`,
-    `test "\${SEARXNG_TOKEN:-}" = ${searxngPlaceholder}`,
-    `test "\${CRAWL4AI_API_TOKEN:-}" = ${crawl4aiPlaceholder}`,
+    `test "\${OMNIROUTE_RESEARCH_ENABLED:-}" = 1`,
     `test -w ${shellQuote(`${home}/.omp/run`)}`,
     `test "\${OMNIROUTE_API_KEY:-}" = proxy-managed`,
     "omp --version >/dev/null",
@@ -567,9 +561,7 @@ function ensureSshd(name, identity, state) {
       "export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt",
       `export OMNIROUTE_BASE_URL=${omniRouteBaseUrl}`,
       "export OMNIROUTE_API_KEY=proxy-managed",
-      `export SEARXNG_ENDPOINT=https://${searxngHost}`,
-      `export SEARXNG_TOKEN=${searxngPlaceholder}`,
-      `export CRAWL4AI_API_TOKEN=${crawl4aiPlaceholder}`,
+      "export OMNIROUTE_RESEARCH_ENABLED=1",
       "export OMNIROUTE_MODEL=teck-orchestrator",
       "export OMP_SKIP_SETUP=1",
       "export ONNXRUNTIME_NODE_INSTALL=skip",
