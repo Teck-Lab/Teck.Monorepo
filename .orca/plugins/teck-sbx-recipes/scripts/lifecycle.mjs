@@ -221,7 +221,7 @@ export function wakeCheckCommand(home) {
     "typescript-language-server --version >/dev/null",
     "tsc --version >/dev/null",
     "csharp-ls --version >/dev/null",
-    "next-devtools-mcp --help >/dev/null",
+    "NPM_CONFIG_PREFIX=/usr/local/share/npm-global npm list --global --depth=0 next-devtools-mcp@0.4.0 >/dev/null",
     `node ${shellQuote(`${home}/.omp/agent/github-mcp-check.mjs`)}`,
     `curl -fsS -H 'Authorization: Bearer proxy-managed' ${omniRouteBaseUrl}/models >/dev/null`,
     'test -n "$(git config --global user.name)"',
@@ -516,7 +516,7 @@ export function nodeToolchainRepairCommand() {
     'for tool in typescript-language-server tsc next-devtools-mcp; do test -x "$global_bin/$tool"; ln -sf "$global_bin/$tool" "/usr/local/bin/$tool"; done',
     "typescript-language-server --version >/dev/null",
     "tsc --version >/dev/null",
-    "next-devtools-mcp --help >/dev/null",
+    "NPM_CONFIG_PREFIX=/usr/local/share/npm-global npm list --global --depth=0 next-devtools-mcp@0.4.0 >/dev/null",
   ].join("; ");
 }
 

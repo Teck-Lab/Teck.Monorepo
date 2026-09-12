@@ -93,6 +93,12 @@ test("toolchain repair reconciles stale sandbox images", () => {
   assert.ok(nodeCommand.includes("typescript-language-server@4.4.1"));
   assert.ok(nodeCommand.includes("typescript@5.9.3"));
   assert.ok(nodeCommand.includes("next-devtools-mcp@0.4.0"));
+  assert.ok(
+    nodeCommand.includes(
+      "NPM_CONFIG_PREFIX=/usr/local/share/npm-global npm list --global --depth=0 next-devtools-mcp@0.4.0",
+    ),
+  );
+  assert.ok(!nodeCommand.includes("next-devtools-mcp --help"));
   assert.ok(nodeCommand.includes('ln -sf "$global_bin/$tool" "/usr/local/bin/$tool"'));
   const csharpCommand = csharpLsInstallCommand();
   assert.ok(csharpCommand.includes("cat > /tmp/csharp-ls.0.27.0.nupkg"));
@@ -258,7 +264,12 @@ test("identity and Teck checks use the effective home", () => {
   assert.ok(wake.includes("/usr/local/bin/orca-runtime-check"));
   assert.ok(wake.includes("/root/.omp/agent/mcp.json"));
   assert.ok(wake.includes("OMNIROUTE_RESEARCH_ENABLED"));
-  assert.ok(wake.includes("next-devtools-mcp --help"));
+  assert.ok(
+    wake.includes(
+      "NPM_CONFIG_PREFIX=/usr/local/share/npm-global npm list --global --depth=0 next-devtools-mcp@0.4.0",
+    ),
+  );
+  assert.ok(!wake.includes("next-devtools-mcp --help"));
   assert.ok(wake.includes("MCP_GATEWAY_URL"));
   assert.ok(wake.includes("github-mcp-check.mjs"));
   const signing = signingCommand({ username: "root", home: "/root" });
