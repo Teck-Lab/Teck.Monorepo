@@ -59,6 +59,10 @@ function fixture(t) {
     join(bin, "ssh-keygen-stub.mjs"),
     `import{writeFileSync}from'node:fs';const a=process.argv.slice(2);if(a.includes('-f')&&a.includes('-t')){const f=a[a.indexOf('-f')+1];writeFileSync(f,'client-private');writeFileSync(f+'.pub','ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIClient')}else if(a.includes('-R'))process.exit(0);`,
   );
+  writeFileSync(
+    join(bin, "ssh-stub.mjs"),
+    `import{readFileSync,writeFileSync}from'node:fs';const a=process.argv.slice(2),p=process.env.STUB_STATE,s=JSON.parse(readFileSync(p));s.calls.push('ssh '+a.join(' '));if(!a.join(' ').includes('github-mcp-check.mjs'))process.exit(1);s.sshReady=true;writeFileSync(p,JSON.stringify(s));`,
+  );
   const installed = join(root, "installed");
   mkdirSync(join(installed, "scripts"), { recursive: true });
   mkdirSync(join(installed, "kit"));
@@ -87,6 +91,7 @@ function fixture(t) {
       NODE_ENV: "test",
       ORCA_SBX_SCRIPT: join(bin, "sbx-stub.mjs"),
       ORCA_GIT_SCRIPT: join(bin, "git-stub.mjs"),
+      ORCA_SSH_SCRIPT: join(bin, "ssh-stub.mjs"),
       ORCA_SSH_KEYGEN_SCRIPT: join(bin, "ssh-keygen-stub.mjs"),
       ORCA_PROJECT_ID: projectId,
       ORCA_GPG_SIGNING_KEY_FILE: join(home, ".config", "teck", "sandbox-signing-key.asc"),
@@ -138,6 +143,8 @@ test("actual create action creates once and reuses the same project sandbox", (t
   );
   assert.ok(current.calls.some((call) => call.includes("typescript-language-server@4.4.1")));
   assert.ok(current.calls.some((call) => call.includes("mcp load github")));
+  assert.ok(current.calls.some((call) => call.startsWith("ssh ")));
+  assert.equal(current.sshReady, true);
   assert.ok(current.calls.some((call) => call.includes("github-mcp-check.mjs")));
 
   assert.ok(current.calls.some((call) => call.includes("skills/orchestration/SKILL.md")));
@@ -156,6 +163,7 @@ test("actual suspend and resume preserve and repair the shared sandbox", (t) => 
   assert.ok(resumeCalls.some((call) => call.includes("exec orca-p-") && call.endsWith(" true")));
   assert.ok(resumeCalls.some((call) => call.includes("mcp load github")));
   assert.ok(resumeCalls.some((call) => call.includes("github-mcp-check.mjs")));
+  assert.ok(resumeCalls.some((call) => call.startsWith("ssh ")));
   assert.ok(resumeCalls.some((call) => call.includes("sshd -E /tmp/orca-sshd.log -p 2222")));
   assert.ok(resumeCalls.some((call) => call.includes("typescript-language-server@4.4.1")));
   assert.equal(readState(context).exists, true);
