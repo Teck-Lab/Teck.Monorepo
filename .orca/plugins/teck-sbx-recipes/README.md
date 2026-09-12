@@ -27,7 +27,7 @@ Reinstall the local plugin after changing the manifest or generated recipe. Retr
 
 Before creating a workspace, configure the GitHub App callback and client
 secret, then run `scripts/orca-sbx/setup-github-mcp.ps1 -ClientId
-<GITHUB_APP_CLIENT_ID>` once on the Windows host. It authorizes GitHub's hosted MCP server through Docker Sandboxes. The
+<GITHUB_APP_CLIENT_ID>` once on the Windows host. It requests durable offline access and authorizes GitHub's hosted MCP server through Docker Sandboxes. The
 plugin never runs an MCP server inside the project sandbox; OMP connects to
 the gateway URL supplied by Docker Sandboxes.
 

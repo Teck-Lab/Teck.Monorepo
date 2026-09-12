@@ -9,7 +9,6 @@ import {
   csharpLsInstallCommand,
   deterministicPort,
   gitAuthorConfigArgs,
-  githubMcpAuthorized,
   githubMcpRegistration,
   githubMcpRegistrationMatches,
   keepaliveTaskScript,
@@ -113,9 +112,6 @@ test("GitHub MCP uses the hosted GitHub App gateway registration", () => {
     true,
   );
   assert.equal(githubMcpRegistrationMatches("Name: github\nType: local\n"), false);
-  assert.equal(githubMcpAuthorized('[{"server_name":"github","status":"authorized"}]'), true);
-  assert.equal(githubMcpAuthorized('[{"server_name":"github","status":"unauthorized"}]'), false);
-  assert.equal(githubMcpAuthorized("not-json"), false);
 });
 
 test("Teck recipe requires committed OMP configuration", () => {

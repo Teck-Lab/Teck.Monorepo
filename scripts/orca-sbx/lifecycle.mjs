@@ -212,30 +212,11 @@ export function githubMcpRegistrationMatches(output) {
   );
 }
 
-export function githubMcpAuthorized(output) {
-  try {
-    const statuses = JSON.parse(output);
-    return statuses.some(
-      (entry) => entry.server_name === githubMcp.name && entry.status === "authorized",
-    );
-  } catch {
-    return false;
-  }
-}
-
 function ensureGithubMcpHostRegistration() {
   const registration = run("sbx", ["mcp", "inspect", githubMcp.name], { capture: true });
   if (!githubMcpRegistrationMatches(registration)) {
     throw new Error(
       `Docker Sandbox MCP server ${githubMcp.name} is missing or stale; run scripts/orca-sbx/setup-github-mcp.ps1`,
-    );
-  }
-  const authorization = run("sbx", ["mcp", "auth", "status", githubMcp.name, "--format", "json"], {
-    capture: true,
-  });
-  if (!githubMcpAuthorized(authorization)) {
-    throw new Error(
-      "Docker Sandbox GitHub MCP is unauthorized; run scripts/orca-sbx/setup-github-mcp.ps1",
     );
   }
 }

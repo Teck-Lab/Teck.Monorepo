@@ -98,11 +98,12 @@ hosted server once:
    ```
 
 The setup registers `https://api.githubcopilot.com/mcp/` with the public
-GitHub App Client ID, opens GitHub authorization when needed, and verifies the
-host-side authorization state. The lifecycle attaches the registration as a
+GitHub App Client ID and explicitly requests `offline_access`. Authorization is
+a one-time machine setup; Docker refreshes the short-lived access token from
+the host-side refresh credential. The lifecycle attaches the registration as a
 static server to every new project sandbox and fails readiness unless the
-gateway exposes GitHub's `issue_read` tool. OMP connects only to
-`MCP_GATEWAY_URL`; no GitHub MCP process or credential exists inside the
+gateway exposes GitHub's `issue_read` tool.
+OMP connects only to `MCP_GATEWAY_URL`; no GitHub MCP process or credential exists inside the
 project sandbox.
 
 The ordinary `github` service secret remains required separately for `gh` and
