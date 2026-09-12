@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
@@ -85,27 +85,62 @@ export function sshdCommand() {
 
 export function keepaliveTaskScript(name) {
   const task = scheduledTaskName(name);
-  const command = sshdCommand().replaceAll("'", "''");
   return [
-    "$ErrorActionPreference='Stop'",
-    `$name='${name}'`,
     `$task='${task}'`,
-    "$sbx=(Get-Command sbx.exe).Source",
     "$current=Get-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue",
-    `$action=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -NonInteractive -WindowStyle Hidden -Command "& '''+$sbx+''' exec -u 0 '''+$name+''' sh -lc ''install -d -m 755 /run/sshd; pgrep -x sshd >/dev/null 2>&1 || ${command}; exec sleep infinity''"')`,
-    "$trigger=New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME",
-    "$principal=New-ScheduledTaskPrincipal -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited",
-    "$settings=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)",
-    "if($current -and ($current.Actions.Execute -ne 'powershell.exe' -or $current.Actions.Arguments -notmatch 'WindowStyle Hidden' -or $current.Actions.Arguments -notmatch 'SetEnv=MCP_GATEWAY_URL')){Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue;Unregister-ScheduledTask -TaskName $task -Confirm:$false;$current=$null}",
-    "if(-not $current){Register-ScheduledTask -TaskName $task -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Keeps an Orca Docker Sandbox project VM running without a visible console.' -Force|Out-Null;$current=Get-ScheduledTask -TaskName $task}",
-    "if($current.State -ne 'Running'){Start-ScheduledTask -TaskName $task}",
+    "if($current){Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue;Unregister-ScheduledTask -TaskName $task -Confirm:$false}",
+    "exit 0",
   ].join(";");
+}
+
+export function keepaliveCommand() {
+  return "umask 077; printf '%s\\n' $$ > /run/orca-sbx-keepalive.pid; trap 'rm -f /run/orca-sbx-keepalive.pid' EXIT; exec sleep infinity";
+}
+
+function keepaliveRunning(name) {
+  const result = execute(
+    "sbx",
+    [
+      "exec",
+      "-u",
+      "0",
+      name,
+      "sh",
+      "-lc",
+      'test -s /run/orca-sbx-keepalive.pid && kill -0 "$(cat /run/orca-sbx-keepalive.pid)"',
+    ],
+    { capture: true },
+  );
+  if (result.error) throw result.error;
+  return result.status === 0;
 }
 
 function ensureKeepalive(name) {
   if (process.env.NODE_ENV === "test") return;
-  const script = keepaliveTaskScript(name);
-  run("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { capture: true });
+  run("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", keepaliveTaskScript(name)], {
+    capture: true,
+  });
+  if (keepaliveRunning(name)) return;
+  const resolved = resolveCommand("sbx", [
+    "exec",
+    "-u",
+    "0",
+    name,
+    "sh",
+    "-lc",
+    keepaliveCommand(),
+  ]);
+  const child = spawn(resolved.command, resolved.args, {
+    detached: true,
+    stdio: "ignore",
+    windowsHide: true,
+  });
+  child.unref();
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+    if (keepaliveRunning(name)) return;
+  }
+  throw new Error(`Docker Sandbox keepalive did not start for ${name}`);
 }
 
 function removeKeepalive(name) {
@@ -221,7 +256,7 @@ export function wakeCheckCommand(home) {
     "typescript-language-server --version >/dev/null",
     "tsc --version >/dev/null",
     "csharp-ls --version >/dev/null",
-    "next-devtools-mcp --help >/dev/null",
+    "NPM_CONFIG_PREFIX=/usr/local/share/npm-global npm list --global --depth=0 next-devtools-mcp@0.4.0 >/dev/null",
     `node ${shellQuote(`${home}/.omp/agent/github-mcp-check.mjs`)}`,
     `curl -fsS -H 'Authorization: Bearer proxy-managed' ${omniRouteBaseUrl}/models >/dev/null`,
     'test -n "$(git config --global user.name)"',
@@ -516,7 +551,7 @@ export function nodeToolchainRepairCommand() {
     'for tool in typescript-language-server tsc next-devtools-mcp; do test -x "$global_bin/$tool"; ln -sf "$global_bin/$tool" "/usr/local/bin/$tool"; done',
     "typescript-language-server --version >/dev/null",
     "tsc --version >/dev/null",
-    "next-devtools-mcp --help >/dev/null",
+    "NPM_CONFIG_PREFIX=/usr/local/share/npm-global npm list --global --depth=0 next-devtools-mcp@0.4.0 >/dev/null",
   ].join("; ");
 }
 

@@ -11,6 +11,7 @@ import {
   gitAuthorConfigArgs,
   githubMcpRegistration,
   githubMcpRegistrationMatches,
+  keepaliveCommand,
   keepaliveTaskScript,
   nodeToolchainRepairCommand,
   parseIdentity,
@@ -93,6 +94,12 @@ test("toolchain repair reconciles stale sandbox images", () => {
   assert.ok(nodeCommand.includes("typescript-language-server@4.4.1"));
   assert.ok(nodeCommand.includes("typescript@5.9.3"));
   assert.ok(nodeCommand.includes("next-devtools-mcp@0.4.0"));
+  assert.ok(
+    nodeCommand.includes(
+      "NPM_CONFIG_PREFIX=/usr/local/share/npm-global npm list --global --depth=0 next-devtools-mcp@0.4.0",
+    ),
+  );
+  assert.ok(!nodeCommand.includes("next-devtools-mcp --help"));
   assert.ok(nodeCommand.includes('ln -sf "$global_bin/$tool" "/usr/local/bin/$tool"'));
   const csharpCommand = csharpLsInstallCommand();
   assert.ok(csharpCommand.includes("cat > /tmp/csharp-ls.0.27.0.nupkg"));
@@ -183,30 +190,19 @@ test("plugin provisions the bundled orchestration skill into OMP", () => {
   assert.ok(wake.includes("google-chrome-stable --version"));
 });
 
-test("project keepalive runs under Task Scheduler and restarts at logon", () => {
+test("project keepalive removes scheduled consoles and uses an in-sandbox pid marker", () => {
   assert.equal(
     scheduledTaskName("orca-p-123456789abc"),
     "Teck Docker Sandbox Keepalive orca-p-123456789abc",
   );
-  const script = keepaliveTaskScript("orca-p-123456789abc");
-  assert.ok(script.includes("New-ScheduledTaskTrigger -AtLogOn"));
-  assert.ok(script.includes("-WindowStyle Hidden"));
-  assert.ok(script.includes("-Execute 'powershell.exe'"));
-  assert.ok(script.includes("exec -u 0 '''+$name+''' sh -lc"));
-  assert.ok(script.includes("install -d -m 755 /run/sshd"));
-  assert.ok(script.includes("pgrep -x sshd"));
-  assert.ok(script.includes("exec sleep infinity"));
-  assert.ok(script.includes("Unregister-ScheduledTask"));
-  assert.ok(script.includes("Start-ScheduledTask -TaskName $task"));
-  assert.ok(script.includes('SetEnv="MCP_GATEWAY_URL='));
-  assert.ok(script.includes(" GH_TOKEN="));
-});
-
-test("legacy visible keepalive tasks are replaced", () => {
-  const script = keepaliveTaskScript("orca-p-123456789abc");
-  assert.ok(script.includes("$current.Actions.Execute -ne 'powershell.exe'"));
-  assert.ok(script.includes("$current.Actions.Arguments -notmatch 'WindowStyle Hidden'"));
-  assert.ok(script.includes("$current.Actions.Arguments -notmatch 'SetEnv=MCP_GATEWAY_URL'"));
+  const cleanup = keepaliveTaskScript("orca-p-123456789abc");
+  assert.ok(cleanup.includes("Unregister-ScheduledTask"));
+  assert.ok(!cleanup.includes("Register-ScheduledTask"));
+  const command = keepaliveCommand();
+  assert.ok(command.includes("/run/orca-sbx-keepalive.pid"));
+  assert.ok(command.includes("exec sleep infinity"));
+  assert.ok(!command.includes("powershell.exe"));
+  assert.ok(!command.includes("ScheduledTask"));
 });
 
 test("published SSH mapping accepts only IPv4 loopback port 2222", () => {
@@ -258,7 +254,12 @@ test("identity and Teck checks use the effective home", () => {
   assert.ok(wake.includes("/usr/local/bin/orca-runtime-check"));
   assert.ok(wake.includes("/root/.omp/agent/mcp.json"));
   assert.ok(wake.includes("OMNIROUTE_RESEARCH_ENABLED"));
-  assert.ok(wake.includes("next-devtools-mcp --help"));
+  assert.ok(
+    wake.includes(
+      "NPM_CONFIG_PREFIX=/usr/local/share/npm-global npm list --global --depth=0 next-devtools-mcp@0.4.0",
+    ),
+  );
+  assert.ok(!wake.includes("next-devtools-mcp --help"));
   assert.ok(wake.includes("MCP_GATEWAY_URL"));
   assert.ok(wake.includes("github-mcp-check.mjs"));
   const signing = signingCommand({ username: "root", home: "/root" });
