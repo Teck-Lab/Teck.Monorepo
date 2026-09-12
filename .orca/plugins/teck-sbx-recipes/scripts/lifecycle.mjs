@@ -31,11 +31,13 @@ const githubMcp = {
   type: "remote",
   url: "https://api.githubcopilot.com/mcp/",
 };
+const sshSessionEnvironment = ["MCP_GATEWAY_URL", "TECK_SANDBOX_MCP_ENABLED", "GH_TOKEN"];
 const commandScripts =
   process.env.NODE_ENV === "test"
     ? {
         sbx: process.env.ORCA_SBX_SCRIPT,
         git: process.env.ORCA_GIT_SCRIPT,
+        "ssh.exe": process.env.ORCA_SSH_SCRIPT,
         "ssh-keygen.exe": process.env.ORCA_SSH_KEYGEN_SCRIPT,
       }
     : {};
@@ -68,19 +70,33 @@ function ensureDaemon() {
   throw new Error("Docker Sandbox daemon did not become ready after starting");
 }
 
+export function sshdCommand() {
+  const forwarded = sshSessionEnvironment
+    .map((name) => `${name}=\${${name}:?${name} is missing}`)
+    .join(" ");
+  return [
+    "/usr/sbin/sshd",
+    "-E /tmp/orca-sshd.log",
+    `-p ${sshPort}`,
+    "-o HostKey=/etc/ssh/ssh_host_ed25519_key",
+    `-o SetEnv="${forwarded}"`,
+  ].join(" ");
+}
+
 export function keepaliveTaskScript(name) {
   const task = scheduledTaskName(name);
+  const command = sshdCommand().replaceAll("'", "''");
   return [
     "$ErrorActionPreference='Stop'",
     `$name='${name}'`,
     `$task='${task}'`,
     "$sbx=(Get-Command sbx.exe).Source",
     "$current=Get-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue",
-    `$action=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -NonInteractive -WindowStyle Hidden -Command "& '''+$sbx+''' exec -u 0 '''+$name+''' sh -lc ''install -d -m 755 /run/sshd; pgrep -x sshd >/dev/null 2>&1 || /usr/sbin/sshd -E /tmp/orca-sshd.log -p ${sshPort} -o HostKey=/etc/ssh/ssh_host_ed25519_key; exec sleep infinity''"')`,
+    `$action=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -NonInteractive -WindowStyle Hidden -Command "& '''+$sbx+''' exec -u 0 '''+$name+''' sh -lc ''install -d -m 755 /run/sshd; pgrep -x sshd >/dev/null 2>&1 || ${command}; exec sleep infinity''"')`,
     "$trigger=New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME",
     "$principal=New-ScheduledTaskPrincipal -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited",
     "$settings=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)",
-    "if($current -and ($current.Actions.Execute -ne 'powershell.exe' -or $current.Actions.Arguments -notmatch 'WindowStyle Hidden' -or $current.Actions.Arguments -notmatch 'pgrep -x sshd')){Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue;Unregister-ScheduledTask -TaskName $task -Confirm:$false;$current=$null}",
+    "if($current -and ($current.Actions.Execute -ne 'powershell.exe' -or $current.Actions.Arguments -notmatch 'WindowStyle Hidden' -or $current.Actions.Arguments -notmatch 'SetEnv=MCP_GATEWAY_URL')){Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue;Unregister-ScheduledTask -TaskName $task -Confirm:$false;$current=$null}",
     "if(-not $current){Register-ScheduledTask -TaskName $task -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Keeps an Orca Docker Sandbox project VM running without a visible console.' -Force|Out-Null;$current=Get-ScheduledTask -TaskName $task}",
     "if($current.State -ne 'Running'){Start-ScheduledTask -TaskName $task}",
   ].join(";");
@@ -190,6 +206,7 @@ export function wakeCheckCommand(home) {
     `test -r ${shellQuote(`${home}/.omp/agent/RULES.md`)}`,
     `test "\${OMNIROUTE_RESEARCH_ENABLED:-}" = 1`,
     `test -w ${shellQuote(`${home}/.omp/run`)}`,
+    "gh auth status >/dev/null",
     `test "\${OMNIROUTE_API_KEY:-}" = proxy-managed`,
     `test "\${TECK_SANDBOX_MCP_ENABLED:-}" = true`,
     `test -n "\${MCP_GATEWAY_URL:-}"`,
@@ -633,19 +650,8 @@ function ensureSshd(name, identity, state) {
     "644",
   );
 
-  run(
-    "sbx",
-    [
-      "exec",
-      "-u",
-      "0",
-      name,
-      "sh",
-      "-lc",
-      `pgrep -x sshd >/dev/null 2>&1 || /usr/sbin/sshd -E /tmp/orca-sshd.log -p ${sshPort} -o HostKey=/etc/ssh/ssh_host_ed25519_key`,
-    ],
-    { capture: true },
-  );
+  const restart = `pkill -x sshd >/dev/null 2>&1 || true; ${sshdCommand()}`;
+  run("sbx", ["exec", "-u", "0", name, "sh", "-lc", restart], { capture: true });
 }
 
 function currentPublishedPort(name) {
@@ -878,14 +884,27 @@ function provisionTeck(name, identity, projectRoot, repoRoot) {
 function emit(result) {
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
-function verifyRuntime(name, identity) {
-  run(
-    "sbx",
-    ["exec", "-u", identity.username, name, "sh", "-lc", wakeCheckCommand(identity.home)],
-    {
-      capture: true,
-    },
-  );
+export function sshRuntimeArgs(identity, connection) {
+  return [
+    "-i",
+    connection.identityFile,
+    "-p",
+    String(connection.port),
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "IdentitiesOnly=yes",
+    "-o",
+    "StrictHostKeyChecking=yes",
+    `${identity.username}@127.0.0.1`,
+    "sh",
+    "-lc",
+    shellQuote(wakeCheckCommand(identity.home)),
+  ];
+}
+
+function verifyRuntime(identity, connection) {
+  run("ssh.exe", sshRuntimeArgs(identity, connection), { capture: true });
 }
 
 async function create() {
@@ -935,7 +954,7 @@ async function create() {
     };
     reconcileKnownHost(connection.port, readFileSync(state.hostPublicKeyFile, "utf8"));
     ensureKeepalive(name);
-    verifyRuntime(name, identity);
+    verifyRuntime(identity, connection);
     emit(recipeResult(name, projectRoot, connection));
   } catch (error) {
     if (created && process.env.ORCA_SBX_KEEP_FAILED !== "1") {
@@ -983,7 +1002,7 @@ async function resume() {
       port: ensurePublishedPort(resourceId),
     };
     reconcileKnownHost(connection.port, readFileSync(state.hostPublicKeyFile, "utf8"));
-    verifyRuntime(resourceId, identity);
+    verifyRuntime(identity, connection);
     emit(recipeResult(resourceId, projectRoot, connection));
   } finally {
     release();

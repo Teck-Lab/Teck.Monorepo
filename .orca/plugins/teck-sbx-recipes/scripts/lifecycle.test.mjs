@@ -23,7 +23,9 @@ import {
   sandboxState,
   scheduledTaskName,
   signingCommand,
+  sshdCommand,
   sshdPrerequisiteCommand,
+  sshRuntimeArgs,
   teckConfigPaths,
   validateTeckRepo,
   wakeCheckCommand,
@@ -75,6 +77,17 @@ test("sshd prerequisites wait for Docker's startup apt job", () => {
   assert.ok(command.includes("timed out waiting for sandbox apt startup job"));
   assert.ok(command.includes("DPkg::Lock::Timeout=300"));
   assert.ok(command.includes("openssh-server"));
+});
+
+test("sshd forwards runtime-only Docker credentials into SSH sessions", () => {
+  const command = sshdCommand();
+  assert.ok(command.includes('SetEnv="MCP_GATEWAY_URL='));
+  assert.ok(command.includes("MCP_GATEWAY_URL is missing"));
+  assert.ok(command.includes(" TECK_SANDBOX_MCP_ENABLED="));
+  assert.ok(command.includes("TECK_SANDBOX_MCP_ENABLED is missing"));
+  assert.ok(command.includes(" GH_TOKEN="));
+  assert.ok(command.includes("GH_TOKEN is missing"));
+  assert.ok(!command.includes("gho_"));
 });
 test("toolchain repair reconciles stale sandbox images", () => {
   const nodeCommand = nodeToolchainRepairCommand();
@@ -189,13 +202,15 @@ test("project keepalive runs under Task Scheduler and restarts at logon", () => 
   assert.ok(script.includes("exec sleep infinity"));
   assert.ok(script.includes("Unregister-ScheduledTask"));
   assert.ok(script.includes("Start-ScheduledTask -TaskName $task"));
+  assert.ok(script.includes('SetEnv="MCP_GATEWAY_URL='));
+  assert.ok(script.includes(" GH_TOKEN="));
 });
 
 test("legacy visible keepalive tasks are replaced", () => {
   const script = keepaliveTaskScript("orca-p-123456789abc");
   assert.ok(script.includes("$current.Actions.Execute -ne 'powershell.exe'"));
   assert.ok(script.includes("$current.Actions.Arguments -notmatch 'WindowStyle Hidden'"));
-  assert.ok(script.includes("$current.Actions.Arguments -notmatch 'pgrep -x sshd'"));
+  assert.ok(script.includes("$current.Actions.Arguments -notmatch 'SetEnv=MCP_GATEWAY_URL'"));
 });
 
 test("published SSH mapping accepts only IPv4 loopback port 2222", () => {
@@ -226,6 +241,17 @@ test("recipe emits direct TCP SSH with persistent identity", () => {
   assert.equal(result.connection.target.identitiesOnly, true);
   assert.equal(result.connection.target.relayGracePeriodSeconds, 86400);
   assert.equal(result.connection.projectRoot, "/root/project");
+});
+
+test("runtime readiness uses Orca's SSH connection", () => {
+  const args = sshRuntimeArgs(
+    { username: "root", home: "/root" },
+    { port: 31234, identityFile: "C:/Users/test/.orca-sbx/id_ed25519" },
+  );
+  assert.deepEqual(args.slice(0, 4), ["-i", "C:/Users/test/.orca-sbx/id_ed25519", "-p", "31234"]);
+  assert.ok(args.includes("root@127.0.0.1"));
+  assert.ok(args.at(-1).includes("github-mcp-check.mjs"));
+  assert.ok(args.at(-1).includes("gh auth status"));
 });
 
 test("identity and Teck checks use the effective home", () => {
