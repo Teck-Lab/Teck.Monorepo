@@ -8,8 +8,8 @@
       "timeout": 120000
     },
     "next-devtools": {
-      "command": "next-devtools-mcp",
-      "args": [],
+      "command": "bunx",
+      "args": ["next-devtools-mcp@0.4.0"],
       "timeout": 120000
     }
   }

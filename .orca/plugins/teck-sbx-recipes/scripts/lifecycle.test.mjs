@@ -68,8 +68,8 @@ test("canonical OMP config suppresses onboarding", () => {
     readFileSync(new URL("../../../../.omp/mcp.json", import.meta.url), "utf8"),
   );
   assert.equal(mcp.mcpServers.crawl4ai, undefined);
-  assert.equal(mcp.mcpServers["next-devtools"].command, "next-devtools-mcp");
-  assert.deepEqual(mcp.mcpServers["next-devtools"].args, []);
+  assert.equal(mcp.mcpServers["next-devtools"].command, "bunx");
+  assert.deepEqual(mcp.mcpServers["next-devtools"].args, ["next-devtools-mcp@0.4.0"]);
 });
 test("sshd prerequisites wait for Docker's startup apt job", () => {
   const command = sshdPrerequisiteCommand();
