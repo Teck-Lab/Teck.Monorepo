@@ -11,6 +11,7 @@ import {
   gitAuthorConfigArgs,
   githubMcpRegistration,
   githubMcpRegistrationMatches,
+  keepaliveCommand,
   keepaliveTaskScript,
   nodeToolchainRepairCommand,
   parseIdentity,
@@ -189,30 +190,19 @@ test("plugin provisions the bundled orchestration skill into OMP", () => {
   assert.ok(wake.includes("google-chrome-stable --version"));
 });
 
-test("project keepalive runs under Task Scheduler and restarts at logon", () => {
+test("project keepalive removes scheduled consoles and uses an in-sandbox pid marker", () => {
   assert.equal(
     scheduledTaskName("orca-p-123456789abc"),
     "Teck Docker Sandbox Keepalive orca-p-123456789abc",
   );
-  const script = keepaliveTaskScript("orca-p-123456789abc");
-  assert.ok(script.includes("New-ScheduledTaskTrigger -AtLogOn"));
-  assert.ok(script.includes("-WindowStyle Hidden"));
-  assert.ok(script.includes("-Execute 'powershell.exe'"));
-  assert.ok(script.includes("exec -u 0 '''+$name+''' sh -lc"));
-  assert.ok(script.includes("install -d -m 755 /run/sshd"));
-  assert.ok(script.includes("pgrep -x sshd"));
-  assert.ok(script.includes("exec sleep infinity"));
-  assert.ok(script.includes("Unregister-ScheduledTask"));
-  assert.ok(script.includes("Start-ScheduledTask -TaskName $task"));
-  assert.ok(script.includes('SetEnv="MCP_GATEWAY_URL='));
-  assert.ok(script.includes(" GH_TOKEN="));
-});
-
-test("legacy visible keepalive tasks are replaced", () => {
-  const script = keepaliveTaskScript("orca-p-123456789abc");
-  assert.ok(script.includes("$current.Actions.Execute -ne 'powershell.exe'"));
-  assert.ok(script.includes("$current.Actions.Arguments -notmatch 'WindowStyle Hidden'"));
-  assert.ok(script.includes("$current.Actions.Arguments -notmatch 'SetEnv=MCP_GATEWAY_URL'"));
+  const cleanup = keepaliveTaskScript("orca-p-123456789abc");
+  assert.ok(cleanup.includes("Unregister-ScheduledTask"));
+  assert.ok(!cleanup.includes("Register-ScheduledTask"));
+  const command = keepaliveCommand();
+  assert.ok(command.includes("/run/orca-sbx-keepalive.pid"));
+  assert.ok(command.includes("exec sleep infinity"));
+  assert.ok(!command.includes("powershell.exe"));
+  assert.ok(!command.includes("ScheduledTask"));
 });
 
 test("published SSH mapping accepts only IPv4 loopback port 2222", () => {
