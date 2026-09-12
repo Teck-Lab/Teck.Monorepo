@@ -22,24 +22,17 @@ if ($LASTEXITCODE -ne 0 -or
 }
 
 $inspection = (& sbx mcp inspect $serverName 2>$null) -join "`n"
-$registrationCurrent =
-    $LASTEXITCODE -eq 0 -and
-    $inspection.Contains("Name:      $serverName") -and
-    $inspection.Contains('Type:      remote') -and
-    $inspection.Contains("URL:       $endpoint")
-
-if (-not $registrationCurrent) {
-    if (-not [string]::IsNullOrWhiteSpace($inspection)) {
-        & sbx mcp rm $serverName | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            throw 'Docker Sandboxes could not replace the hosted GitHub MCP registration.'
-        }
-    }
-    Write-Host '[CONFIGURE] Registering GitHub hosted MCP with the GitHub App client'
-    & sbx mcp add $serverName --url $endpoint --client-id $clientIdValue --skip-auth
+if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($inspection)) {
+    & sbx mcp rm $serverName | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        throw 'Docker Sandboxes could not register GitHub hosted MCP.'
+        throw 'Docker Sandboxes could not update the hosted GitHub MCP registration.'
     }
+}
+
+Write-Host '[CONFIGURE] Registering GitHub hosted MCP with durable offline access'
+& sbx mcp add $serverName --url $endpoint --client-id $clientIdValue --scope offline_access --skip-auth
+if ($LASTEXITCODE -ne 0) {
+    throw 'Docker Sandboxes could not register GitHub hosted MCP.'
 }
 
 $status = (& sbx mcp auth status $serverName --format json) -join ''
@@ -48,8 +41,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 $authorization = $status | ConvertFrom-Json
 if ($authorization[0].status -ne 'authorized') {
-    Write-Host '[AUTHORIZE] Opening GitHub App authorization'
-    & sbx mcp auth $serverName --verbose
+    Write-Host '[AUTHORIZE] Opening one-time GitHub App authorization'
+    & sbx mcp auth $serverName --scope offline_access --verbose
     if ($LASTEXITCODE -ne 0) {
         throw 'GitHub App authorization failed.'
     }

@@ -8,7 +8,6 @@ import {
   configuredApiKey,
   configuredSigningPrivateKey,
   customSecretTargetHosts,
-  githubMcpAuthorized,
   githubMcpRegistrationMatches,
   gitIdentityCommand,
   ompProvisionCommand,
@@ -148,8 +147,6 @@ test("GitHub MCP uses the authorized hosted gateway registration", () => {
     true,
   );
   assert.equal(githubMcpRegistrationMatches("Name: github\nType: local\n"), false);
-  assert.equal(githubMcpAuthorized('[{"server_name":"github","status":"authorized"}]'), true);
-  assert.equal(githubMcpAuthorized('[{"server_name":"github","status":"unauthorized"}]'), false);
 });
 
 test("wake check uses the resolved sandbox home", () => {
