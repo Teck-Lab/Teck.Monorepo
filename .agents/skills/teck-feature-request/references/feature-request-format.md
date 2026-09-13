@@ -36,7 +36,7 @@ other issues. Write "None identified" when empty.>
 <Authentication, authorization, tenant isolation, secrets, payments, privacy,
 or data-handling needs. Write "N/A" only after considering each category.>
 
-## Ready for Orca
+## Ready for Paseo
 
 - [x] The product outcome, scope, exclusions, and acceptance criteria are clear
   enough for an engineering agent to begin planning.

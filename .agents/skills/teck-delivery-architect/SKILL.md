@@ -1,93 +1,36 @@
 ---
 name: teck-delivery-architect
-description: Produce a read-only, implementation-ready delivery manifest for a Teck parent GitHub issue assigned through an Orca architecture Dispatch. Use after product intake and before any executable sub-issues or Orca implementation Tasks exist. May run as a dedicated Claude Opus 5/high or Codex Sol/high worker; maps code boundaries and expected files, drafts coherent GitHub sub-issues and fine-grained Orca member Tasks, defines dependencies, review units, Luna/Terra routing, validation, and materialization data without mutating GitHub, Git, Orca, or code.
+description: Produce a read-only, implementation-ready delivery manifest for a Teck parent GitHub issue assigned to a Paseo architecture agent. Use after product intake and before executable sub-issues or implementation agents exist. Map code boundaries, coherent review units, dependencies, model routing, and validation without mutating GitHub, Git, Paseo, or code.
 ---
 
 # Teck delivery architect
 
-Act only as the dedicated architect for the injected Orca Task. In Codex, load
-the OMX `planner` role. Read the parent issue, complete GitHub graph, repository
-rules, relevant code, tests, context/ADRs, and the feature-flow delegation and
-convergence contracts.
+Act only as the dedicated architect for the Paseo assignment. Read the parent
+issue, GitHub dependency graph, repository rules, relevant code and tests, ADRs,
+and `teck-feature-flow`.
 
-Produce one immutable `delivery-manifest-result-v1` containing:
+Produce one immutable delivery manifest containing:
 
 - the technical approach and repository constraints;
-- coherent GitHub sub-issue drafts with readable titles and complete Scope,
-  Acceptance criteria, Validation, and Constraints sections; each sub-issue is
-  one review unit and owns one direct child worktree beneath the feature
-  worktree;
-- fine-grained Orca member Task contracts nested under their owning sub-issue,
-  without creating GitHub sub-sub-issues for mechanical implementation fragments;
-- expected files and directory/code boundaries per member, plus a narrow
-  allowed-expansion rule and escalation boundary;
-- exact dependency direction, execution waves, resource ownership, and overlap
-  risks for files, generated output, databases, ports, and mutable services;
-- execution mode and model route for every member;
-- Terra/high consolidation only when a unit has multiple member commits or
-  otherwise needs semantic integration;
-- one combined Sol/high review per coherent unit and whole-feature Sol/high QA;
-- validation proportional to product-code, build-config, agent-workflow, or
-  docs-research work; and
+- coherent GitHub sub-issue drafts with `Scope`, `Acceptance criteria`,
+  `Validation`, and `Constraints` sections;
+- expected files, allowed expansion, and escalation boundaries;
+- dependency direction, execution waves, and overlap risks;
+- one canonical Paseo worktree per sub-issue, with sibling worktrees only for
+  substantial resource-disjoint work;
+- `omniroute/teck-executor` for semantic implementation and
+  `omniroute/teck-fast-tool` for exact mechanical work;
+- targeted validation per worker, one independent combined review per
+  sub-issue, and whole-feature QA; and
 - unresolved owner decisions, or none.
 
-Use `shared-durable`, `parallel-child`, or `consolidation` execution modes.
-`parallel-child` is valid only for substantial, resource-disjoint member work
-whose expected speedup exceeds integration cost. Place it exactly one level
-beneath the canonical sub-issue worktree, define how its accepted commit returns
-to that worktree, and require combined review only after integration. Never plan
-deeper descendants or provider-native ephemeral helpers. Define the logical
-parent Task, readable Task/worker display name, and exact
-main-feature/sub-issue/member worktree lineage for every planned Task so the
-coordinator can apply the agent-visibility gate.
+Require TDD for changed behavior, defects, domain logic, APIs, and security
+contracts. Permit validation-only work only when a meaningful failing test
+cannot exist, and record the reason.
 
-Read and apply the feature-flow test-driven-development contract. Assign every
-executor member `tdd` or `required-validation-only` and name its behavioral or
-validation boundary. Require TDD for behavior, defects, domain logic, APIs, and
-security contracts. Permit validation-only only when a meaningful red test
-cannot exist, with a concrete reason; convenience and time are invalid reasons.
+Keep each sub-issue independently understandable, implementable, and
+reviewable. Preserve real prerequisite order as GitHub `blocked_by`
+relationships, reject cycles, and avoid serializing independent work.
 
-Route explicit, pattern-following, mechanically bounded members to Luna/xhigh.
-Route semantic, coupled, uncertain, debugging, security, tenancy, persistence,
-concurrency, or consolidation work to Terra/high. A Luna ambiguity or failed
-attempt escalates the same Orca Task through a fresh Terra/high Dispatch; it
-never creates a duplicate Task or GitHub issue.
-
-Size members by cognitive and semantic scope, never an arbitrary file-count
-cap. Every member owns one independently understandable, implementable, and
-verifiable outcome with one coherent reasoning context and focused validation.
-Repetitive edits across many files may remain Luna work when the pattern and
-result are explicit; a two-file change belongs on Terra when it changes
-architecture, security, tenancy, persistence, concurrency, or a public
-contract. Split a member when it contains unrelated acceptance criteria,
-independently failing behaviors, multiple separable boundaries, or validation
-that depends on most of the feature being complete.
-
-Expected files are planning evidence and overlap guards, not quotas. If
-execution discovers a new semantic boundary or a second separable outcome, the
-worker stops for coordinator rerouting: split the remaining outcome into a new
-approved member or retry the same inherently coupled Task on Terra/high. Never
-split mechanically repetitive work merely to satisfy a file number.
-
-Preserve real prerequisite order whenever scope is split. Within one GitHub
-sub-issue, express prerequisites as Orca member-Task dependencies. Across
-separate coherent sub-issues, draft native GitHub `blocked_by` relationships and
-the identical Orca Task dependencies. State direction semantically (`A waits
-for B` means A is blocked by B), reject cycles, and include the blocked issue
-number plus the blocker's numeric GitHub database ID required by the dependency
-API. Never serialize independent work merely because it was discovered in
-sequence. Identify the initial executable frontier and every transition so the
-coordinator can dispatch newly unblocked work immediately after accepting and
-integrating its blocker.
-
-Default to seven or fewer executable sub-issues and dependency depth four. A
-GitHub sub-issue is a human-readable coherent subfeature/review unit with one
-direct child worktree; Orca member Tasks are smaller sequential execution
-slices within it. Exceed the budgets or create a GitHub sub-sub-issue only when
-independently deliverable product scope requires it, with explicit
-justification.
-
-Do not edit code, Git, GitHub, Orca state, worktrees, or issue bodies. Do not
-delegate. The parent coordinator materializes the exact manifest only after a
-fresh independent CLEAN review of its digest. Send `worker_done` exactly once
-with the injected Task and Dispatch identity and report path.
+Do not edit code, Git, GitHub, Paseo state, workspaces, or issue bodies. Do not
+delegate. The coordinator materializes the reviewed manifest.

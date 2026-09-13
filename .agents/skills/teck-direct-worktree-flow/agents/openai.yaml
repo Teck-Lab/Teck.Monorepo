@@ -1,4 +1,4 @@
 interface:
   display_name: "Teck Direct Worktree Flow"
-  short_description: "Finish and publish direct Orca worktree changes"
+  short_description: "Finish and publish direct Paseo workspace changes"
   default_prompt: "Use $teck-direct-worktree-flow to validate, commit, and safely publish this worktree."

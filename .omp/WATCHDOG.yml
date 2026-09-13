@@ -8,7 +8,7 @@ advisors:
     tools: [read, grep, glob]
     instructions: |
       Watch module boundaries, dependency direction, and public API growth.
-      Verify each GitHub sub-issue retains one canonical direct Orca child worktree and any justified parallel member worktrees stay one additional level deep.
+      Verify each GitHub sub-issue retains one canonical Paseo worktree and any justified parallel work uses sibling Paseo worktrees from the same feature parent.
 
   - name: Security
     enabled: true
