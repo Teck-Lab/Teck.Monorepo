@@ -144,6 +144,23 @@ function loadWorkspaceConfig(workspacePath) {
   return config;
 }
 
+function runtimeDescriptor(workspacePath, gitContext, config = loadWorkspaceConfig(workspacePath)) {
+  const omniRouteBaseUrl =
+    process.env.TECK_OMNIROUTE_BASE_URL || config.omniRouteBaseUrl || defaultOmniRouteBaseUrl;
+  const parsedOmniRouteUrl = new URL(omniRouteBaseUrl);
+  if (!["http:", "https:"].includes(parsedOmniRouteUrl.protocol)) {
+    throw new Error(`Unsupported OmniRoute URL: ${omniRouteBaseUrl}`);
+  }
+  return {
+    schemaVersion: 1,
+    sandboxName: sandboxName(workspacePath),
+    workspacePath,
+    remoteWorkspacePath: remoteWorkspacePath(workspacePath),
+    remoteGitDir: remoteWorkspacePath(gitContext.gitDir),
+    omniRouteBaseUrl,
+  };
+}
+
 function configuredApiKey() {
   if (process.env.OMNIROUTE_API_KEY?.trim()) return process.env.OMNIROUTE_API_KEY.trim();
   const candidates = [
@@ -186,6 +203,7 @@ function ensureDaemon() {
 function listSandboxes() {
   const attempts = 6;
   let lastResult;
+  let restartedHungDaemon = false;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const result = execute("sbx", ["ls", "--quiet"], { capture: true });
     if (result.error) throw result.error;
@@ -193,6 +211,11 @@ function listSandboxes() {
     lastResult = result;
 
     const detail = String(result.stderr || result.stdout || "");
+    const daemonIsHung = /remained running but did not respond/i.test(detail);
+    if (daemonIsHung && !restartedHungDaemon) {
+      run("sbx", ["daemon", "restart"], { capture: true });
+      restartedHungDaemon = true;
+    }
     const daemonIsStarting = /sandboxd|docker_kaname_sandboxd|timeout after \d+s/i.test(detail);
     if (!daemonIsStarting || attempt + 1 >= attempts) break;
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
@@ -430,7 +453,8 @@ function ensureSandbox(workspacePath, options = {}) {
   const gitContext = resolveGitContext(workspacePath);
   ensureDaemon();
   const config = loadWorkspaceConfig(workspacePath);
-  const name = sandboxName(workspacePath);
+  const descriptor = runtimeDescriptor(workspacePath, gitContext, config);
+  const name = descriptor.sandboxName;
   const release = acquireLock(name);
   let created = false;
   try {
@@ -472,12 +496,8 @@ function ensureSandbox(workspacePath, options = {}) {
     }
     run("sbx", ["exec", name, "true"], { capture: true });
     const apiKey = configuredApiKey();
-    const omniRouteBaseUrl =
-      process.env.TECK_OMNIROUTE_BASE_URL || config.omniRouteBaseUrl || defaultOmniRouteBaseUrl;
+    const { omniRouteBaseUrl } = descriptor;
     const parsedOmniRouteUrl = new URL(omniRouteBaseUrl);
-    if (!["http:", "https:"].includes(parsedOmniRouteUrl.protocol)) {
-      throw new Error(`Unsupported OmniRoute URL: ${omniRouteBaseUrl}`);
-    }
     const omniRouteHost = parsedOmniRouteUrl.hostname;
     run("sbx", ["secret", "rm", "--sandbox", name, "--placeholder", "proxy-managed", "--force"], {
       capture: true,
@@ -503,14 +523,7 @@ function ensureSandbox(workspacePath, options = {}) {
     syncOmpConfiguration(name, workspacePath, omniRouteBaseUrl);
     syncGitConfiguration(name, workspacePath);
     verifyRuntime(name, workspacePath, gitContext);
-    return {
-      schemaVersion: 1,
-      sandboxName: name,
-      workspacePath,
-      remoteWorkspacePath: remoteWorkspacePath(workspacePath),
-      remoteGitDir: remoteWorkspacePath(gitContext.gitDir),
-      omniRouteBaseUrl,
-    };
+    return descriptor;
   } catch (error) {
     if (created && process.env.TECK_PASEO_KEEP_FAILED !== "1") {
       try {
@@ -520,6 +533,25 @@ function ensureSandbox(workspacePath, options = {}) {
       }
     }
     throw error;
+  } finally {
+    release();
+  }
+}
+
+function attachSandbox(workspacePath) {
+  validateWorkspace(workspacePath);
+  const gitContext = resolveGitContext(workspacePath);
+  ensureDaemon();
+  const descriptor = runtimeDescriptor(workspacePath, gitContext);
+  const release = acquireLock(descriptor.sandboxName);
+  try {
+    if (!sandboxExists(descriptor.sandboxName)) {
+      throw new Error(
+        `Sandbox ${descriptor.sandboxName} is missing; the Paseo worktree setup did not complete`,
+      );
+    }
+    run("sbx", ["exec", descriptor.sandboxName, "true"], { capture: true });
+    return descriptor;
   } finally {
     release();
   }
@@ -554,6 +586,7 @@ function parseArguments(argv) {
 export function runLifecycle(argv = process.argv.slice(2)) {
   const { action, workspacePath, recreate } = parseArguments(argv);
   if (action === "ensure") return ensureSandbox(workspacePath, { recreate });
+  if (action === "attach") return attachSandbox(workspacePath);
   if (action === "destroy") return destroySandbox(workspacePath);
   if (action === "name") {
     return {
@@ -563,7 +596,9 @@ export function runLifecycle(argv = process.argv.slice(2)) {
       remoteWorkspacePath: remoteWorkspacePath(workspacePath),
     };
   }
-  throw new Error("Usage: lifecycle.mjs <ensure|destroy|name> [--workspace PATH] [--recreate]");
+  throw new Error(
+    "Usage: lifecycle.mjs <ensure|attach|destroy|name> [--workspace PATH] [--recreate]",
+  );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
