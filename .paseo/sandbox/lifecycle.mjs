@@ -183,8 +183,29 @@ function ensureDaemon() {
   throw new Error("Docker Sandbox daemon did not become ready");
 }
 
+function listSandboxes() {
+  const attempts = 6;
+  let lastResult;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const result = execute("sbx", ["ls", "--quiet"], { capture: true });
+    if (result.error) throw result.error;
+    if (result.status === 0) return result.stdout;
+    lastResult = result;
+
+    const detail = String(result.stderr || result.stdout || "");
+    const daemonIsStarting = /sandboxd|docker_kaname_sandboxd|timeout after \d+s/i.test(detail);
+    if (!daemonIsStarting || attempt + 1 >= attempts) break;
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
+  }
+
+  const detail = String(lastResult?.stderr || lastResult?.stdout || "").trim();
+  throw new Error(
+    `sbx ls --quiet failed with exit code ${lastResult?.status}${detail ? `: ${detail}` : ""}`,
+  );
+}
+
 function sandboxExists(name) {
-  return run("sbx", ["ls", "--quiet"], { capture: true })
+  return listSandboxes()
     .split(/\r?\n/)
     .map((value) => value.trim())
     .includes(name);
