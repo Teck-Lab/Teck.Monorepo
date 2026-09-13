@@ -94,6 +94,37 @@ export function remoteWorkspacePath(workspacePath, platform = process.platform) 
   return `/${match[1].toLowerCase()}${suffix ? `/${suffix}` : ""}`;
 }
 
+export function resolveGitContext(workspacePath) {
+  const marker = join(workspacePath, ".git");
+  if (!existsSync(marker)) throw new Error(`Workspace has no .git metadata: ${workspacePath}`);
+  if (!readFileIfRegular(marker)) {
+    return {
+      commonGitDir: marker,
+      gitDir: marker,
+      workTree: workspacePath,
+    };
+  }
+
+  const markerContents = readFileSync(marker, "utf8").trim();
+  const gitDirValue = /^gitdir:\s*(.+)$/i.exec(markerContents)?.[1]?.trim();
+  if (!gitDirValue) throw new Error(`Invalid git worktree marker: ${marker}`);
+  const gitDir = resolve(workspacePath, gitDirValue);
+  const commonDirMarker = join(gitDir, "commondir");
+  const commonGitDir = existsSync(commonDirMarker)
+    ? resolve(gitDir, readFileSync(commonDirMarker, "utf8").trim())
+    : gitDir;
+  return { commonGitDir, gitDir, workTree: workspacePath };
+}
+
+function readFileIfRegular(path) {
+  try {
+    return readFileSync(path, "utf8");
+  } catch (error) {
+    if (["EISDIR", "EACCES", "EPERM"].includes(error?.code)) return undefined;
+    throw error;
+  }
+}
+
 export function parseEnvValue(contents, key) {
   const expression = new RegExp(`^\\s*${key}=`, "m");
   const line = contents.split(/\r?\n/).find((value) => expression.test(value));
@@ -113,12 +144,11 @@ function loadWorkspaceConfig(workspacePath) {
   return config;
 }
 
-function configuredApiKey(workspacePath) {
+function configuredApiKey() {
   if (process.env.OMNIROUTE_API_KEY?.trim()) return process.env.OMNIROUTE_API_KEY.trim();
   const candidates = [
     process.env.TECK_OMNIROUTE_ENV_FILE?.trim(),
     join(homedir(), ".config", "teck", "omniroute.env"),
-    join(dirname(workspacePath), "Teck.Paseo", ".env"),
   ].filter(Boolean);
   for (const path of candidates) {
     if (!existsSync(path)) continue;
@@ -298,13 +328,37 @@ function syncGitConfiguration(name, workspacePath) {
   if (authorName)
     run(
       "sbx",
-      ["exec", "-u", "agent", name, "git", "config", "--global", "user.name", authorName],
+      [
+        "exec",
+        "-u",
+        "agent",
+        name,
+        "git",
+        "-C",
+        "/tmp",
+        "config",
+        "--global",
+        "user.name",
+        authorName,
+      ],
       { capture: true },
     );
   if (authorEmail)
     run(
       "sbx",
-      ["exec", "-u", "agent", name, "git", "config", "--global", "user.email", authorEmail],
+      [
+        "exec",
+        "-u",
+        "agent",
+        name,
+        "git",
+        "-C",
+        "/tmp",
+        "config",
+        "--global",
+        "user.email",
+        authorEmail,
+      ],
       { capture: true },
     );
 
@@ -314,6 +368,7 @@ function syncGitConfiguration(name, workspacePath) {
   const gpgProgram = "/home/agent/.local/bin/paseo-gpg";
   const command = [
     "set -eu",
+    "cd /tmp",
     `rm -rf ${signingHome}`,
     `install -d -m 700 ${signingHome} /home/agent/.local/bin`,
     `gpg --batch --homedir ${signingHome} --import`,
@@ -332,8 +387,9 @@ function syncGitConfiguration(name, workspacePath) {
   });
 }
 
-function verifyRuntime(name, workspacePath) {
+function verifyRuntime(name, workspacePath, gitContext) {
   const remotePath = remoteWorkspacePath(workspacePath);
+  const remoteGitDir = remoteWorkspacePath(gitContext.gitDir);
   const command = [
     "set -eu",
     "test -x /usr/local/bin/omp",
@@ -343,12 +399,14 @@ function verifyRuntime(name, workspacePath) {
     "test -r /home/agent/.omp/agent/RULES.md",
     `test -d ${shellQuote(remotePath)}`,
     "/usr/local/bin/omp --version >/dev/null",
+    `GIT_DIR=${shellQuote(remoteGitDir)} GIT_WORK_TREE=${shellQuote(remotePath)} git status --porcelain=v1 >/dev/null`,
   ].join("; ");
   run("sbx", ["exec", "-u", "agent", name, "sh", "-lc", command], { capture: true });
 }
 
 function ensureSandbox(workspacePath, options = {}) {
   validateWorkspace(workspacePath);
+  const gitContext = resolveGitContext(workspacePath);
   ensureDaemon();
   const config = loadWorkspaceConfig(workspacePath);
   const name = sandboxName(workspacePath);
@@ -367,6 +425,13 @@ function ensureSandbox(workspacePath, options = {}) {
       if (!existsSync(join(kitPath, "spec.yaml")))
         throw new Error(`Sandbox kit is missing: ${kitPath}`);
       log(`[CREATE] ${name} (${cpus} CPU, ${memory}) -> ${workspacePath}`);
+      const workspaceMounts = [workspacePath];
+      if (
+        normalizeWorkspacePath(gitContext.commonGitDir) !==
+        normalizeWorkspacePath(join(workspacePath, ".git"))
+      ) {
+        workspaceMounts.push(gitContext.commonGitDir);
+      }
       run("sbx", [
         "create",
         "--name",
@@ -380,12 +445,12 @@ function ensureSandbox(workspacePath, options = {}) {
         "--template",
         image,
         "shell",
-        workspacePath,
+        ...workspaceMounts,
       ]);
       created = true;
     }
     run("sbx", ["exec", name, "true"], { capture: true });
-    const apiKey = configuredApiKey(workspacePath);
+    const apiKey = configuredApiKey();
     const omniRouteBaseUrl =
       process.env.TECK_OMNIROUTE_BASE_URL || config.omniRouteBaseUrl || defaultOmniRouteBaseUrl;
     const parsedOmniRouteUrl = new URL(omniRouteBaseUrl);
@@ -416,12 +481,13 @@ function ensureSandbox(workspacePath, options = {}) {
     );
     syncOmpConfiguration(name, workspacePath, omniRouteBaseUrl);
     syncGitConfiguration(name, workspacePath);
-    verifyRuntime(name, workspacePath);
+    verifyRuntime(name, workspacePath, gitContext);
     return {
       schemaVersion: 1,
       sandboxName: name,
       workspacePath,
       remoteWorkspacePath: remoteWorkspacePath(workspacePath),
+      remoteGitDir: remoteWorkspacePath(gitContext.gitDir),
       omniRouteBaseUrl,
     };
   } catch (error) {
