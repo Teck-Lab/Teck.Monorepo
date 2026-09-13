@@ -7,7 +7,8 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const defaultImage = "ghcr.io/teck-lab/paseo-worker:omp18.0.4-bun1.4.0-dotnet10.0.300-chrome153";
+const defaultImage =
+  "ghcr.io/teck-lab/teck-paseo/paseo-worker:omp18.0.4-bun1.4.0-dotnet10.0.300-chrome153";
 const defaultOmniRouteBaseUrl = "https://omniroute.tecklab.dk/v1";
 const requiredOmpFiles = ["config.yml", "models.yml", "RULES.md", "mcp.json", "lsp.json"];
 const commandScripts =
