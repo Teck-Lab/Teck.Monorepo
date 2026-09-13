@@ -15,93 +15,78 @@ known scope.
 The router applies Matt Pocock's `grilling` and `domain-modeling` together for
 ordinary codebase-aware discovery. It loads `wayfinder` itself only when
 unresolved product decisions genuinely require more than one agent session;
-Wayfinder maps and children are decision records, never Orca implementation
-Tasks. When discovery is complete, the router drafts the brief automatically;
+Wayfinder maps and children are decision records, never implementation tasks.
+When discovery is complete, the router drafts the brief automatically;
 never tell the user to issue another command or choose an internal skill.
 
 When discovery needs delegated research, codebase investigation, or a
-prototype, use one native Orca discovery Run and visible Orca Tasks/Dispatches
-as defined by `teck-feature-request`. Do not use hidden Claude/Codex subagents.
-Keep human decisions and synthesis in the discovery coordinator, supervise
-every worker in the foreground until reconciled, and close that Run after the
-approved parent issue is created. Engineering uses a later, separate Run.
+prototype, use visible Paseo workspaces and agents as defined by
+`teck-feature-request`. Keep human decisions and synthesis in the discovery
+coordinator, supervise every worker until reconciled, and archive disposable
+workspaces after the approved parent issue is created.
 
 The router may publish exactly one GitHub parent issue only after the human
 explicitly approves the exact title and body. It must not create an engineering
-plan, executable decomposition, engineering Dispatch, product branch or code,
-or PR. Orca engineering begins only when the approved issue is subsequently
-assigned or the user explicitly requests delivery.
+plan, executable decomposition, engineering agent, product branch or code,
+or PR. Engineering begins only when the approved issue is subsequently assigned
+or the user explicitly requests delivery.
 
 Matt's `handoff` skill is limited to compressing an unfinished discovery
-conversation. Active Orca coordinator or worker ownership transfers use the
-durable `teck-feature-flow` handoff contract instead.
+conversation. Active coordinator and worker ownership remains visible in Paseo.
 
-## Orca issue routing
+## Paseo issue routing
 
-Prefer Claude Code `claude-opus-5`/high as the parent coordinator. Fall back to
-Codex `gpt-5.6-sol`/high only when Claude/model availability,
-authentication/capacity, effective-model verification, or startup fails.
-Orca's default-agent setting owns the initial launch; this repository owns the
-acceptance and fallback contract. Never allow both coordinators to remain live.
+Use OMP `omniroute/teck-orchestrator` as the parent coordinator. Paseo's native
+OMP provider supplies its session, approvals, subagent timeline, and scoped
+host tools.
 
-When Orca starts either coordinator with a GitHub issue URL matching
+When Paseo starts a coordinator with a GitHub issue URL matching
 `https://github.com/Teck-Lab/Teck.Monorepo/issues/<number>`, treat it as parent
-feature intake. Load and follow the `teck-feature-flow` skill and its referenced
-workflow, then load the version-matched Orca orchestration guide before running
-orchestration commands. Act as the coordinator; do not implement, plan, or
-review the feature directly in the parent worktree and do not replace Orca
-Dispatches with untracked subagents. Orca owns durable coordination and
-worktrees. Dedicated native workers own planning, plan review, leaf
-execution, coherent review-unit review, and whole-feature QA. Supporting Tasks
-do not receive standalone review. Oh My Codex may supply role and skill
-guidance inside a Codex worker, but must not create a second worktree, tmux,
-team, or lifecycle system.
+feature intake. Load and follow `teck-feature-flow`. Act as the coordinator; do
+not implement, plan, or review the feature directly in the parent worktree.
+Dedicated Paseo agents own planning, plan review, leaf execution, coherent
+review-unit review, and whole-feature QA.
 
-Every delegated agent must be launched through Orca orchestration with its own
-verified terminal/tab and correct Task/worktree lineage beneath the main
-feature. This includes research, testing, debugging, and independent checking
-helpers. Never use provider-native Claude/Codex subagents for engineering
-delivery; apply the feature-flow agent-visibility receipt and layout gate.
+Before delegated work may edit files, call Paseo `create_workspace` with
+worktree isolation, then call `create_agent` in the returned workspace. Every
+editing, testing, debugging, and substantial review worker must have a visible
+Paseo session. Supervise it through completion notifications and with
+`get_agent_status`, `get_agent_activity`, and `send_agent_prompt` until it
+settles.
 
-Each executable GitHub sub-issue owns exactly one canonical direct Orca child
-worktree beneath the main feature worktree. Its ordinary Tasks run sequentially
-there. The approved manifest may place substantial, disjoint member Tasks in
-parallel worktrees one additional level beneath that sub-issue worktree when the
-speedup exceeds integration cost. The coordinator integrates those branches
-back into the canonical sub-issue worktree before one combined review. Never
-share editable worktrees across sub-issues or create deeper descendants.
-Dependency-unblocked, resource-safe sub-issues may also run concurrently in
-their separate direct child worktrees.
+Each executable GitHub sub-issue owns exactly one canonical Paseo worktree from
+the main feature branch. Ordinary tasks run sequentially there. The approved
+manifest may place substantial, disjoint tasks in sibling worktrees when the
+speedup exceeds integration cost. Integrate those branches into the canonical
+sub-issue worktree before one combined review. Never share editable worktrees
+across sub-issues.
 
 Persist prerequisite ordering as native GitHub issue dependencies and mirror it
-in Orca Task `--deps`; prose, comments, and labels never count as blockers. Use
+in the coordinator ledger; prose, comments, and labels never count as blockers. Use
 GitHub MCP for graph reads and supported issue mutations. Because its current
 surface cannot mutate dependencies, add `A waits for B` through the GitHub REST
 issue-dependency endpoint for A's `blocked_by` collection using B's numeric
 database ID, then re-read `blockedBy` and `blocking` through GraphQL or MCP.
-Remove and verify both GitHub and Orca edges only after B is accepted and
-integrated.
+Remove and verify the dependency only after B is accepted and integrated.
 
-After dispatching any supervised worker, the parent coordinator must keep its
-current turn alive in Orca's foreground rolling `check --wait` loop until every
-expected Dispatch settles. A timeout, empty Delivery, progress checkpoint, or
-still-running worker is never permission to return a final response or rely on
-a later idle-pointer wake-up.
+After starting a supervised worker, the parent coordinator must keep its current
+turn alive until every expected agent settles. A progress checkpoint or
+still-running worker is not a completion state.
 
 Assignment of a parent issue gives its coordinator outcome ownership through
 the final PR, including every dependency required to unblock that issue.
-Ownership means a provably live coordinator/Dispatch now; old Runs, comments,
-attempts, branches, worktrees, partial artifacts, and completed or abandoned
-Dispatches are evidence to reconcile, not owners. When a required blocker is
+Ownership means a provably live coordinator and agent now; old sessions,
+comments, attempts, branches, worktrees, partial artifacts, and completed or
+abandoned agents are evidence to reconcile, not owners. When a required blocker is
 unowned—even when it belongs to another parent or is partly implemented—the
 assigned coordinator must claim/recover it, finish or repair it, independently
 review and integrate it, release the dependency, and immediately continue the
 newly unblocked work. Cross-parent placement, partial work, and historical
 ownership are never external-state stopping conditions.
 
-An explicit Orca worker Dispatch takes precedence over the parent-intake rule.
-Remain within the assigned child worktree and follow the role and completion
-contract supplied by that Dispatch.
+An explicit Paseo worker assignment takes precedence over the parent-intake
+rule. Remain within the assigned worktree and follow the role and completion
+contract supplied by that assignment.
 
 ## Shared agent skills
 

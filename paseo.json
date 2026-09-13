@@ -1,0 +1,6 @@
+{
+  "worktree": {
+    "setup": ["node .paseo/sandbox/lifecycle.mjs ensure"],
+    "teardown": ["node .paseo/sandbox/lifecycle.mjs destroy"]
+  }
+}

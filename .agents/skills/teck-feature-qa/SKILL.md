@@ -1,6 +1,6 @@
 ---
 name: teck-feature-qa
-description: Perform final read-only QA of an integrated Teck parent feature through a dedicated Orca Dispatch. Use after all reviewed leaves are integrated and before the parent PR is marked ready for human review.
+description: Perform final read-only QA of an integrated Teck parent feature through a dedicated Paseo agent. Use after all reviewed leaves are integrated and before the parent PR is marked ready for human review.
 ---
 
 # Feature QA
@@ -14,8 +14,8 @@ browser tooling when applicable.
 Bind the verdict to the exact integrated parent SHA, published PR head/base when
 present, and approved plan digest. Any change invalidates the verdict.
 
-Read and apply the feature-flow delegation and review-convergence contracts.
-QA verifies the frozen parent contract and cannot add acceptance criteria or
+Read and apply the `teck-feature-flow` contract. QA verifies the frozen parent
+contract and cannot add acceptance criteria or
 reopen implementation preferences without new reproducible evidence.
 
 Verify end-to-end acceptance, regression coverage, security, integration
@@ -28,8 +28,8 @@ Confirm reviewed units carry accepted development-mode evidence, but do not
 repeat their TDD loops. QA independently validates integrated acceptance and is
 never a substitute for member-level TDD or required validation.
 
-Do not edit, commit, fix findings, mutate GitHub or Orca, approve missing
+Do not edit, commit, fix findings, mutate GitHub or Paseo, approve missing
 required evidence, or infer a PR. Return CLEAN when no blocking defect or
 bounded omission remains. The coordinator reuses finding state and applies the
-bounded repair limits before rerunning whole-feature QA. Send exactly one
-`worker_done` with a clear clean or findings-present verdict.
+bounded repair limits before rerunning whole-feature QA. Return one clear clean
+or findings-present verdict.

@@ -1,13 +1,13 @@
 ---
 name: teck-direct-worktree-flow
-description: Complete and publish work performed directly by a native coding agent in an ordinary Orca worktree without an orchestration Run. Use for a manually assigned branch, issue, Dependabot PR, CI repair, or one-off change that must be validated, committed, pushed through the authenticated GitHub CLI, or attached to an existing PR. Do not use for sub-issues dispatched through the orchestrated teck-feature-flow.
+description: Complete and publish work performed directly by a native coding agent in an ordinary Paseo workspace outside the coordinated feature flow. Use for a manually assigned branch, issue, Dependabot PR, CI repair, or one-off change that must be validated, committed, pushed through the authenticated GitHub CLI, or attached to an existing PR. Do not use for sub-issues delegated through teck-feature-flow.
 ---
 
 # Teck direct worktree flow
 
-Own the direct worktree from implementation through publication. No Orca
-coordinator or `worker_done` lifecycle exists unless the session explicitly
-received an orchestration Dispatch.
+Own the direct workspace from implementation through publication. A feature
+coordinator lifecycle exists only when the session explicitly received a Paseo
+assignment from one.
 
 ## Implement and checkpoint
 
