@@ -7,7 +7,7 @@ import { pathToFileURL } from "node:url";
 import test from "node:test";
 import { shouldRemoveFailedSandbox, validateWorkspace } from "./lifecycle.mjs";
 
-const ompFiles = ["config.yml", "models.yml", "RULES.md", "mcp.json", "lsp.json"];
+const ompFiles = ["config.yml", "models.yml", "RULES.md"];
 
 function cleanGitEnvironment() {
   const env = { ...process.env };
@@ -44,16 +44,17 @@ test("rejects a non-Git directory", (t) => {
   assert.throws(() => validateWorkspace(fixture(t, { git: false })), /git/i);
 });
 
-test("reports missing sandbox prerequisites", (t) => {
+test("reports missing core sandbox prerequisites", (t) => {
   const root = fixture(t);
   rmSync(join(root, ".paseo", "sandbox", "kit", "spec.yaml"));
-  rmSync(join(root, ".omp", "mcp.json"));
+  rmSync(join(root, ".omp", "models.yml"));
   assert.throws(() => validateWorkspace(root), (error) => {
     assert.match(error.message, /spec\.yaml/);
-    assert.match(error.message, /mcp\.json/);
+    assert.match(error.message, /models\.yml/);
     return true;
   });
 });
+
 
 test("rejects a non-object sandbox config", (t) => {
   assert.throws(() => validateWorkspace(fixture(t, { config: "[]" })), /Invalid sandbox config/);

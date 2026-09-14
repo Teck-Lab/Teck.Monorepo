@@ -10,7 +10,8 @@ import { pathToFileURL } from "node:url";
 const defaultImage =
   "ghcr.io/teck-lab/teck-paseo/paseo-worker:omp18.0.4-bun1.4.0-dotnet10.0.300-chrome153";
 const defaultOmniRouteBaseUrl = "https://omniroute.tecklab.dk/v1";
-const requiredOmpFiles = ["config.yml", "models.yml", "RULES.md", "mcp.json", "lsp.json"];
+const requiredOmpFiles = ["config.yml", "models.yml", "RULES.md"];
+const optionalOmpFiles = ["mcp.json", "lsp.json", "WATCHDOG.yml"];
 const commandScripts =
   process.env.NODE_ENV === "test"
     ? {
@@ -333,7 +334,7 @@ function syncOmpConfiguration(name, workspacePath, omniRouteBaseUrl) {
     ],
     { capture: true },
   );
-  for (const file of [...requiredOmpFiles, "WATCHDOG.yml"]) {
+  for (const file of [...requiredOmpFiles, ...optionalOmpFiles]) {
     const source = join(ompRoot, file);
     if (existsSync(source)) {
       const contents = readFileSync(source, "utf8");

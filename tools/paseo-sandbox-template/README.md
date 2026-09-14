@@ -58,7 +58,7 @@ node .paseo/sandbox/lifecycle.mjs destroy
 `destroy` removes the matching Docker Sandbox. Either command may be run manually from the repository root for diagnosis.
 Additional diagnostic actions are available: `attach` verifies the sandbox exists and returns its runtime descriptor, while `name` returns the deterministic sandbox identity without creating it.
 
-The template starts with empty MCP and LSP registries. Customize `.omp/RULES.md`, `.omp/mcp.json`, and `.omp/lsp.json` after copying.
+The lifecycle requires only `.omp/config.yml`, `.omp/models.yml`, and `.omp/RULES.md`. The template also supplies empty optional MCP and LSP registries so they are ready for repository-specific tooling; `WATCHDOG.yml` is optional as well. Customize these files after copying.
 
 ## Optional overrides
 
