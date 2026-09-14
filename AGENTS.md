@@ -40,6 +40,11 @@ Use OMP `omniroute/teck-orchestrator` as the parent coordinator. Paseo's native
 OMP provider supplies its session, approvals, subagent timeline, and scoped
 host tools.
 
+Every Paseo agent for this project must use the `omp` provider with an
+`omniroute/*` model. Never create direct `codex`, `claude`, `copilot`,
+`opencode`, or `pi` agents, including as fallbacks when an OMP worker fails.
+
+
 When Paseo starts a coordinator with a GitHub issue URL matching
 `https://github.com/Teck-Lab/Teck.Monorepo/issues/<number>`, treat it as parent
 feature intake. Load and follow `teck-feature-flow`. Act as the coordinator; do

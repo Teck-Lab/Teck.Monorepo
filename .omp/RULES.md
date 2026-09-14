@@ -1,6 +1,7 @@
 # Paseo workspace ownership
 
 - Paseo's native OMP adapter supplies approvals, session history, provider-managed subagent timelines, and caller-scoped Paseo host tools. Use those tools for workspace and agent lifecycle operations.
+- Every Paseo agent for this project must use the `omp` provider with an `omniroute/*` model. Never create direct `codex`, `claude`, `copilot`, `opencode`, or `pi` agents, including as fallbacks when an OMP worker fails.
 - The parent OMP session coordinates the feature. It does not implement feature code in the parent workspace.
 - Before delegating work that may edit files, call Paseo `create_workspace` with worktree isolation. Branch from the parent feature branch, then launch the worker in the returned workspace with `create_agent` and `omp/omniroute/teck-executor`.
 - Every editing, testing, debugging, and substantial review worker must have a visible Paseo session. Supervise it through completion notifications and with `get_agent_status`, `get_agent_activity`, and `send_agent_prompt` until it settles.

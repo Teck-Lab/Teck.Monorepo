@@ -14,6 +14,7 @@
     "affected:all": "nx affected -t build test lint typecheck",
     "test:agent-lifecycle": "node --test .github/scripts/agent-lifecycle.test.mjs",
     "test:security-intake": "node --test .github/scripts/security-alert-intake.test.mjs .github/scripts/dependabot-pr-link.test.mjs",
+    "test:paseo-sandbox": "node --test .paseo/sandbox/lifecycle.test.mjs",
     "graph": "nx graph",
     "release:dry": "nx release --dry-run",
     "release": "nx release --yes",

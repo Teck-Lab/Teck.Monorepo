@@ -1,0 +1,6 @@
+{
+  "image": "ghcr.io/teck-lab/teck-paseo/paseo-worker:omp18.0.4-bun1.4.0-dotnet10.0.300-chrome153",
+  "cpus": 4,
+  "memory": "4g",
+  "omniRouteBaseUrl": "https://omniroute.tecklab.dk/v1"
+}
