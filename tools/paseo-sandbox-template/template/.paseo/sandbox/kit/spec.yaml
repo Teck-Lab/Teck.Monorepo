@@ -1,0 +1,30 @@
+schemaVersion: "2"
+kind: mixin
+name: paseo-omp-worker
+displayName: Paseo OMP worker
+description: Adds the runtime environment used by Paseo's native OMP provider.
+
+environment:
+  variables:
+    OMNIROUTE_BASE_URL: https://omniroute.tecklab.dk/v1
+    OMNIROUTE_API_KEY: proxy-managed
+    OMNIROUTE_MODEL: teck-orchestrator
+    OMNIROUTE_RESEARCH_ENABLED: "1"
+    OMP_SKIP_SETUP: "1"
+    ONNXRUNTIME_NODE_INSTALL: skip
+    PUPPETEER_EXECUTABLE_PATH: /usr/bin/google-chrome-stable
+    PUPPETEER_PROXY: http://gateway.docker.internal:3128
+    PUPPETEER_PROXY_IGNORE_CERT_ERRORS: "true"
+
+setup:
+  install:
+    - command: install -d -o 1000 -g 1000 /home/agent/.omp/agent /home/agent/.omp/run /home/agent/.local/bin && chown -R 1000:1000 /home/agent/.omp /home/agent/.local
+      user: "0"
+      description: Prepare writable OMP state
+
+permissions:
+  network:
+    allow:
+      - omniroute.tecklab.dk:443
+      - github.com:443
+      - api.github.com:443
