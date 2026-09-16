@@ -1,0 +1,40 @@
+name: respond-to-pr-comment
+on: github.pull_request_comment_created
+max_runtime: 1h
+filters:
+  repo: Teck-Lab/Teck.Monorepo
+  contains: "@teck-agent"
+  from_users: [CaptainPowerTurtle]
+steps:
+  - id: respond
+    environment: teck-sandbox
+    max_runtime: 30m
+    idle_timeout: 5m
+    agent: teck-orchestrator
+    github:
+      connection: teck-lab-github
+      repositories: [Teck-Lab/Teck.Monorepo]
+      permissions:
+        contents: read
+        pull_requests: write
+    prompt:
+      - text: |
+          You are a coordinator agent for Teck.Monorepo.
+
+          Respond to the pull-request comment that mentioned `@teck-agent`.
+          The comment may ask a question, request a status update, or ask you to delegate to another agent.
+
+          Teck rules:
+          - Read AGENTS.md and repository context before acting.
+          - Do not push code unless explicitly asked.
+          - If asked to implement something, suggest adding the `agent:implement` label instead of doing it inline.
+          - If asked to review, suggest adding the `agent:review` label instead.
+          - Keep responses concise and evidence-first.
+
+          Comment context:
+          ${{ paseo.context }}
+
+          User request:
+          ${{ paseo.prompt }}
+
+          Call hub.finish_execution when done.
