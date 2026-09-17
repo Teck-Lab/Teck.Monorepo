@@ -7,7 +7,8 @@ ARG BUN_VERSION=1.4.0
 ARG OMP_VERSION=18.0.4
 ARG TYPESCRIPT_LANGUAGE_SERVER_VERSION=4.4.1
 ARG NEXT_DEVTOOLS_MCP_VERSION=0.4.0
-ARG CSHARP_LS_VERSION=0.27.0
+ARG OMNISHARP_VERSION=1.40.0
+ARG MARKSMAN_VERSION=2026-02-08
 ARG DOTNET_SDK_VERSION=10.0.300
 ARG DOTNET_INSTALL_SHA256=082f7685e156738a1b2e2ed8381a621870d4ce8e8c59278034556f05c186eb2e
 ARG GOOGLE_CHROME_VERSION=153.0.8010.36-1
@@ -34,10 +35,16 @@ RUN apt-get update \
     && command -v g++ \
     && test "$(google-chrome-stable --version | awk '{print $3}')" = "${GOOGLE_CHROME_VERSION%-1}" \
     && test "$(dotnet --version)" = "${DOTNET_SDK_VERSION}"
-
 RUN npm install --global --no-audit --no-fund "bun@${BUN_VERSION}" \
     && npm install --global --no-audit --no-fund "@oh-my-pi/pi-coding-agent@${OMP_VERSION}" \
-    && npm install --global --no-audit --no-fund "typescript-language-server@${TYPESCRIPT_LANGUAGE_SERVER_VERSION}" "typescript@5.9.3" "next-devtools-mcp@${NEXT_DEVTOOLS_MCP_VERSION}" \
+    && npm install --global --no-audit --no-fund \
+         "typescript-language-server@${TYPESCRIPT_LANGUAGE_SERVER_VERSION}" \
+         "typescript@5.9.3" \
+         "next-devtools-mcp@${NEXT_DEVTOOLS_MCP_VERSION}" \
+         "vscode-langservers-extracted" \
+         "yaml-language-server" \
+         "bash-language-server" \
+         "dockerfile-language-server-nodejs" \
     && global_bin="$(npm prefix --global)/bin" \
     && test -x "${global_bin}/bun" \
     && test -x "${global_bin}/bunx" \
@@ -45,10 +52,23 @@ RUN npm install --global --no-audit --no-fund "bun@${BUN_VERSION}" \
     && test -x "${global_bin}/typescript-language-server" \
     && test -x "${global_bin}/tsc" \
     && test -x "${global_bin}/next-devtools-mcp" \
+    && test -x "${global_bin}/vscode-json-language-server" \
+    && test -x "${global_bin}/yaml-language-server" \
+    && test -x "${global_bin}/bash-language-server" \
+    && test -x "${global_bin}/docker-langserver" \
     && ln -sf "${global_bin}/bun" /usr/local/bin/bun \
     && ln -sf "${global_bin}/bunx" /usr/local/bin/bunx \
     && ln -sf "${global_bin}/omp" /usr/local/bin/omp \
-    && npm list --global --depth=0 "bun@${BUN_VERSION}" "@oh-my-pi/pi-coding-agent@${OMP_VERSION}" "typescript-language-server@${TYPESCRIPT_LANGUAGE_SERVER_VERSION}" "typescript@5.9.3" "next-devtools-mcp@${NEXT_DEVTOOLS_MCP_VERSION}" \
+    && npm list --global --depth=0 \
+         "bun@${BUN_VERSION}" \
+         "@oh-my-pi/pi-coding-agent@${OMP_VERSION}" \
+         "typescript-language-server@${TYPESCRIPT_LANGUAGE_SERVER_VERSION}" \
+         "typescript@5.9.3" \
+         "next-devtools-mcp@${NEXT_DEVTOOLS_MCP_VERSION}" \
+         "vscode-langservers-extracted" \
+         "yaml-language-server" \
+         "bash-language-server" \
+         "dockerfile-language-server-nodejs" \
     && command -v git \
     && command -v gpg \
     && test "$(dotnet --version)" = "${DOTNET_SDK_VERSION}" \
@@ -57,10 +77,33 @@ RUN npm install --global --no-audit --no-fund "bun@${BUN_VERSION}" \
     && command -v omp \
     && command -v typescript-language-server \
     && command -v tsc \
-    && command -v next-devtools-mcp
+    && command -v next-devtools-mcp \
+    && command -v vscode-json-language-server \
+    && command -v yaml-language-server \
+    && command -v bash-language-server \
+    && command -v docker-langserver
 
-RUN dotnet tool install csharp-ls --tool-path /usr/local/bin --version "${CSHARP_LS_VERSION}" \
-    && csharp-ls --version | grep -q "csharp-ls, ${CSHARP_LS_VERSION}"
+# OmniSharp (C#) and Marksman (Markdown) are downloaded as pinned release binaries.
+# Architecture selection supports both amd64 and arm64 sandbox hosts.
+RUN arch="$(dpkg --print-architecture)" \
+    && case "$arch" in \
+         amd64) omni_arch="x64"; marksman_arch="x64"; omni_sha="a5c68aed11a4f51c1e815cfc6dbefe30d7f302297b826370e32403546b57da65"; marksman_sha="be5098e8213219269c47fc0d916a66fa31ce0602ec967475c722260aabf26087" ;; \
+         arm64) omni_arch="arm64"; marksman_arch="arm64"; omni_sha="e82abcb5fbf5b5b696ed6bfaa14d473668ea14866e549b082daf7f7cc396e061"; marksman_sha="db8e124527f7f8048e3e6c91821b9c52ef173d92c01e47d221bf1337afd962fb" ;; \
+         *) echo "unsupported architecture for LSP servers: $arch" >&2; exit 1 ;; \
+       esac \
+    && omni_archive="omnisharp-linux-${omni_arch}-net10.0.tar.gz" \
+    && curl --fail --show-error --silent --location "https://github.com/OmniSharp/omnisharp-roslyn/releases/download/v${OMNISHARP_VERSION}/${omni_archive}" -o "/tmp/${omni_archive}" \
+    && echo "${omni_sha}  /tmp/${omni_archive}" | sha256sum --check \
+    && mkdir -p /usr/local/lib/omnisharp \
+    && tar -xzf "/tmp/${omni_archive}" -C /usr/local/lib/omnisharp \
+    && ln -sf /usr/local/lib/omnisharp/OmniSharp /usr/local/bin/omnisharp \
+    && rm -f "/tmp/${omni_archive}" \
+    && curl --fail --show-error --silent --location "https://github.com/artempyanykh/marksman/releases/download/${MARKSMAN_VERSION}/marksman-linux-${marksman_arch}" -o /tmp/marksman \
+    && echo "${marksman_sha}  /tmp/marksman" | sha256sum --check \
+    && install -m 0755 /tmp/marksman /usr/local/bin/marksman \
+    && rm -f /tmp/marksman \
+    && test -x /usr/local/bin/omnisharp \
+    && marksman --version
 
 LABEL org.opencontainers.image.source="https://github.com/Teck-Lab/Teck.Monorepo" \
       org.opencontainers.image.title="Teck Orca OMP sandbox template"
