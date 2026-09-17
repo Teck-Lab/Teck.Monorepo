@@ -8,7 +8,7 @@ This is a repository-neutral template for Teck's OMP and OmniRoute runtime. It d
 - Standalone Docker Sandboxes CLI and daemon, with `sbx` available on the Paseo daemon process's `PATH`.
 - Git and Node.js on the daemon's `PATH`.
 - Access to the configured worker image and OmniRoute endpoint.
-- An OmniRoute credential supplied through `OMNIROUTE_API_KEY`, the file named by `PASEO_OMNIROUTE_ENV_FILE`, or `~/.config/paseo/omniroute.env` containing `OMNIROUTE_API_KEY=<value>`.
+- **One-time host setup:** copy `.paseo/omp-wrapper-bootstrap.ps1` from this template to `C:\Users\<you>\.paseo\omp-wrapper-bootstrap.ps1` and point Paseo's OMP provider at it. Paseo has no per-repo provider command, so this single host file finds the repo-local `scripts\omp-wrapper.ps1` at runtime.
 
 ## Copy into a repository
 
@@ -29,6 +29,48 @@ Copy-Item -Recurse -Force .\template\.paseo $destination
 ```
 
 Commit the copied files so every Paseo worktree receives the integration.
+
+## One-time host setup
+
+Paseo provider commands are global: every repo shares the same `agents.providers.omp.command` in `~/.paseo/config.json`. This template ships two wrapper pieces so you still only copy repo-local files once:
+
+1. **Repo-local wrapper** (copied into every repository):
+   - `scripts/omp-wrapper.ps1`
+   - Finds `.paseo\\sandbox\\lifecycle.mjs` by walking up from the current directory.
+   - Attaches the Docker Sandbox and starts OMP inside it.
+   - No hard-coded repo paths.
+
+2. **Host bootstrap** (placed once on your machine):
+   - Copy `.paseo/omp-wrapper-bootstrap.ps1` to `C:\\Users\\<you>\\.paseo\\omp-wrapper-bootstrap.ps1`.
+   - Point Paseo's OMP provider at it:
+
+     ```json
+     {
+       "agents": {
+         "providers": {
+           "omp": {
+             "enabled": true,
+             "command": [
+               "C:\\\\Windows\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe",
+               "-NoLogo",
+               "-NoProfile",
+               "-NonInteractive",
+               "-File",
+               "C:\\\\Users\\\\<you>\\\\.paseo\\\\omp-wrapper-bootstrap.ps1"
+             ],
+             "models": [
+               { "id": "omniroute/teck-orchestrator", "label": "Orchestrator", "isDefault": true }
+             ]
+           }
+         }
+       }
+     }
+     ```
+
+   - The bootstrap locates `<cwd>\\scripts\\omp-wrapper.ps1` and forwards all arguments.
+   - Replace `<you>` with your Windows username. Do not edit the bootstrap after copying.
+
+If `scripts\\omp-wrapper.ps1` is missing from a repository, the bootstrap fails with a clear message telling you to copy the `scripts` folder from this template.
 
 ## Organization-specific values
 

@@ -6,11 +6,41 @@
       "fileTypes": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
       "rootMarkers": ["package.json", "tsconfig.json", "jsconfig.json"]
     },
-    "csharp-ls": {
-      "command": "csharp-ls",
+    "omnisharp": {
+      "command": "omnisharp",
       "args": [],
       "fileTypes": [".cs", ".csx"],
       "rootMarkers": ["*.sln", "*.csproj", ".git"]
+    },
+    "vscode-json-language-server": {
+      "command": "vscode-json-language-server",
+      "args": ["--stdio"],
+      "fileTypes": [".json"],
+      "rootMarkers": ["package.json", ".git"]
+    },
+    "yamlls": {
+      "command": "yaml-language-server",
+      "args": ["--stdio"],
+      "fileTypes": [".yaml", ".yml"],
+      "rootMarkers": [".git"]
+    },
+    "bashls": {
+      "command": "bash-language-server",
+      "args": ["start"],
+      "fileTypes": [".sh", ".bash"],
+      "rootMarkers": [".git"]
+    },
+    "dockerls": {
+      "command": "docker-langserver",
+      "args": ["--stdio"],
+      "fileTypes": ["Dockerfile", ".dockerfile"],
+      "rootMarkers": [".git"]
+    },
+    "marksman": {
+      "command": "marksman",
+      "args": [],
+      "fileTypes": [".md", ".markdown"],
+      "rootMarkers": [".git"]
     }
   }
 }
