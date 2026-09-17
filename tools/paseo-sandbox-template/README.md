@@ -33,10 +33,10 @@ Commit the copied files so every Paseo worktree receives the integration.
 
 ## One-time host setup
 
-Paseo provider commands are global: every repo shares the same `agents.providers.omp.command` in `~/.paseo/config.json`. The template ships a repo-local wrapper at `scripts\omp-wrapper.ps1`, but Paseo's static command array cannot point to a different path per repository. Place the host bootstrap once on your machine so each repo's wrapper is discovered at runtime.
+Paseo provider commands are global: every repo shares the same `agents.providers.omp.command` in `~/.paseo/config.json`. The template ships a repo-local wrapper at `.paseo\scripts\omp-wrapper.ps1`, but Paseo's static command array cannot point to a different path per repository. Place the host bootstrap once on your machine so each repo's wrapper is discovered at runtime.
 
 1. **Repo-local wrapper** (copied into every repository):
-   - `scripts/omp-wrapper.ps1`
+   - `.paseo/scripts/omp-wrapper.ps1`
    - Finds `.paseo\sandbox\lifecycle.mjs` by walking up from the current directory.
    - Attaches the Docker Sandbox and starts OMP inside it.
    - No hard-coded repo paths.
@@ -68,10 +68,10 @@ Paseo provider commands are global: every repo shares the same `agents.providers
      }
      ```
 
-   - The bootstrap locates `<cwd>\scripts\omp-wrapper.ps1` and forwards all arguments.
+   - The bootstrap locates `<cwd>\.paseo\scripts\omp-wrapper.ps1` and forwards all arguments.
    - Replace `<you>` with your Windows username. Do not edit the bootstrap after copying.
 
-If `scripts\omp-wrapper.ps1` is missing from a repository, the bootstrap fails with a clear message telling you to copy the `scripts` folder from this template.
+If `.paseo\scripts\omp-wrapper.ps1` is missing from a repository, the bootstrap fails with a clear message telling you to copy the `.paseo` folder from this template.
 
 ## Organization-specific values
 
