@@ -1,0 +1,25 @@
+environments:
+  teck-sandbox:
+    kind: daemon
+    daemon: desktop-t9ts32p
+    cwd: "C:\\Users\\jacob\\Documents\\Repos\\Teck.Monorepo"
+    worktree:
+      mode: branch-off
+      newBranch: hub-${{ paseo.execution.id }}
+      base: origin/main
+
+agents:
+  teck-advisor:
+    provider: omp
+    model: omniroute/teck-advisor
+    mode: bypassPermissions
+
+  teck-executor:
+    provider: omp
+    model: omniroute/teck-executor
+    mode: bypassPermissions
+
+  teck-orchestrator:
+    provider: omp
+    model: omniroute/teck-orchestrator
+    mode: bypassPermissions

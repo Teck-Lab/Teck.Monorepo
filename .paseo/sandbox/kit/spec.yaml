@@ -30,3 +30,14 @@ permissions:
       - api.github.com:443
       - semgrep.dev:443
       - registry.semgrep.dev:443
+
+credentials:
+  - service: github
+    apiKey:
+      name: GH_TOKEN
+      proxyManaged: true
+      inject:
+        - domain: api.github.com
+          scheme: bearer
+        - domain: github.com
+          scheme: bearer

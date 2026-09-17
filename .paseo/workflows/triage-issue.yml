@@ -1,0 +1,38 @@
+name: triage-issue
+on: github.issue_created
+max_runtime: 30m
+filters:
+  repo: Teck-Lab/Teck.Monorepo
+  from_users: [CaptainPowerTurtle]
+steps:
+  - id: triage
+    environment: teck-sandbox
+    max_runtime: 10m
+    idle_timeout: 2m
+    agent: teck-advisor
+    github:
+      connection: teck-lab-github
+      repositories: [Teck-Lab/Teck.Monorepo]
+      permissions:
+        issues: write
+    prompt:
+      - text: |
+          You are a triage agent for the Teck.Monorepo project.
+
+          Read the new issue and add appropriate labels using `gh issue edit <number> --add-label ...`.
+          Do not make code changes. Do not push branches. Do not open pull requests.
+
+          Teck label conventions:
+          - Area: commerce, operations, content, gateway, web, shared, infrastructure
+          - Type: bug, feature, tech-debt, security, docs, refactor
+          - Agent state: agent:triage, agent:implement, agent:review (only when ready for an agent)
+
+          After labeling, leave a short comment summarizing the triage decision.
+
+          Issue context:
+          ${{ paseo.context }}
+
+          User request:
+          ${{ paseo.prompt }}
+
+          Call hub.finish_execution when done.

@@ -1,0 +1,43 @@
+name: review-pull-request
+on: github.pull_request_label_added
+max_runtime: 2h
+filters:
+  repo: Teck-Lab/Teck.Monorepo
+  label: agent:review
+  from_users: [CaptainPowerTurtle]
+steps:
+  - id: review
+    environment: teck-sandbox
+    max_runtime: 90m
+    idle_timeout: 10m
+    agent: teck-advisor
+    github:
+      connection: teck-lab-github
+      repositories: [Teck-Lab/Teck.Monorepo]
+      permissions:
+        contents: read
+        pull_requests: write
+    prompt:
+      - text: |
+          You are a code review agent for Teck.Monorepo.
+
+          Review the pull request that was just labeled `agent:review`.
+          You are already running inside a Paseo worktree. Fetch the PR branch, inspect the diff, and submit your review with `gh pr review`.
+
+          Review focus:
+          - Correctness and maintainability six months out.
+          - Compliance with AGENTS.md and repository conventions.
+          - Conventional commits and GPG-signed commits.
+          - No tags created, no `nx release` from feature branch.
+          - Architecture-test and security boundaries.
+
+          Do not push commits unless the PR author explicitly requests it in the issue body or a comment.
+          Leave review comments and an overall review (approve/request changes/comment) via `gh`.
+
+          PR context:
+          ${{ paseo.context }}
+
+          User request:
+          ${{ paseo.prompt }}
+
+          Call hub.finish_execution when done.
