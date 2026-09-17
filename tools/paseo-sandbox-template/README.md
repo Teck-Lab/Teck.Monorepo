@@ -9,6 +9,7 @@ This is a repository-neutral template for Teck's OMP and OmniRoute runtime. It d
 - Git and Node.js on the daemon's `PATH`.
 - Access to the configured worker image and OmniRoute endpoint.
 - **One-time host setup:** copy `.paseo/omp-wrapper-bootstrap.ps1` from this template to `C:\Users\<you>\.paseo\omp-wrapper-bootstrap.ps1` and point Paseo's OMP provider at it. Paseo has no per-repo provider command, so this single host file finds the repo-local `scripts\omp-wrapper.ps1` at runtime.
+- **GitHub credentials:** configure Docker Sandbox to inject a real GitHub token so `gh` works inside the sandbox (see the *GitHub CLI credentials* section below).
 
 ## Copy into a repository
 
@@ -69,6 +70,23 @@ Paseo provider commands are global: every repo shares the same `agents.providers
 
    - The bootstrap locates `<cwd>\\scripts\\omp-wrapper.ps1` and forwards all arguments.
    - Replace `<you>` with your Windows username. Do not edit the bootstrap after copying.
+
+
+## GitHub CLI credentials
+
+Docker Sandbox can expose GitHub credentials as proxy-managed sentinels (for example, `GITHUB_TOKEN=proxy-managed`). Those sentinels are only useful for outbound HTTP requests that the host proxy intercepts and rewrites; the `gh` CLI cannot authenticate with a sentinel value.
+
+To make `gh` work inside every sandbox, configure Docker Sandbox to inject the real token dynamically. Run once on the host for each machine where you use sandboxes:
+
+```powershell
+sbx secret set github --command 'gh auth token'
+# or, if you store the token elsewhere:
+# sbx secret set github --command 'cat C:\path\to\token.txt'
+```
+
+This makes `GITHUB_TOKEN` and `GH_TOKEN` inside the sandbox contain the actual token. The repo-local wrapper then writes that token into `~/.config/gh/hosts.yml` before every OMP session, so `gh` stays authenticated even after tokens rotate.
+
+If you do not configure a real token, `gh` commands will fail, but the wrapper still initializes `~/.config/gh/config.yml` with `version: 1` to avoid the multi-account migration error that requires `dbus-launch`.
 
 If `scripts\\omp-wrapper.ps1` is missing from a repository, the bootstrap fails with a clear message telling you to copy the `scripts` folder from this template.
 
