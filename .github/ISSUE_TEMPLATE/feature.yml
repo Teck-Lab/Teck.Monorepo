@@ -1,13 +1,12 @@
 name: Feature
-description: Define an implementation-ready product or platform feature for Orca.
+description: Propose a product or platform capability for Paperclip discovery and planning.
 title: "feat: "
-labels:
-  - "agent:ready"
+type: Feature
 body:
   - type: markdown
     attributes:
       value: |
-        This issue enters the Orca queue when submitted. Describe the outcome and constraints clearly enough for an agent to plan the work.
+        This issue enters Paperclip intake when submitted. Describe the outcome and constraints clearly enough for product discovery and planning.
 
   - type: textarea
     id: outcome
@@ -112,7 +111,7 @@ body:
   - type: checkboxes
     id: readiness
     attributes:
-      label: Ready for Orca
+      label: Ready for intake
       options:
         - label: The scope and acceptance criteria are sufficient for an agent to begin planning.
           required: true

@@ -20,19 +20,17 @@ concurrency:
 
 jobs:
   synchronize:
-    name: Synchronize alerts with issues and Teck Scrum
+    name: Forward sanitized alerts to Paperclip
     runs-on: ubuntu-latest
     steps:
       - name: Mint GitHub App token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ vars.TECK_AUTOMATION_APP_ID }}
+          client-id: ${{ vars.TECK_AUTOMATION_APP_ID }}
           private-key: ${{ secrets.TECK_AUTOMATION_APP_PRIVATE_KEY }}
           owner: Teck-Lab
           repositories: Teck.Monorepo
-          permission-issues: write
-          permission-organization-projects: write
           permission-secret-scanning-alerts: read
           permission-security-events: read
           permission-vulnerability-alerts: read
@@ -40,8 +38,10 @@ jobs:
       - name: Checkout security intake policy
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Synchronize security alerts
+      - name: Forward sanitized security snapshot
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          PAPERCLIP_SECURITY_WEBHOOK_URL: ${{ secrets.PAPERCLIP_SECURITY_WEBHOOK_URL }}
+          PAPERCLIP_SECURITY_WEBHOOK_SECRET: ${{ secrets.PAPERCLIP_SECURITY_WEBHOOK_SECRET }}
           SECURITY_INTAKE_DRY_RUN: ${{ inputs['dry-run'] || 'false' }}
         run: node .github/scripts/security-alert-intake.mjs

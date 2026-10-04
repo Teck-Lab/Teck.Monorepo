@@ -1,0 +1,169 @@
+name: Paperclip Issue Relationships
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Native relationship operation
+        required: true
+        type: choice
+        options:
+          - add
+          - remove
+      issue-number:
+        description: Teck.Monorepo issue number
+        required: true
+        type: string
+      related-repository:
+        description: Repository containing the related issue
+        required: true
+        type: choice
+        options:
+          - Teck.Monorepo
+          - Teck.Terraform
+          - Teck.GitOps
+      related-issue-number:
+        description: Related issue number
+        required: true
+        type: string
+
+run-name: >-
+  Paperclip ${{ inputs.operation }} relation
+  Teck.Monorepo#${{ inputs.issue-number }}
+  to Teck-Lab/${{ inputs.related-repository }}#${{ inputs.related-issue-number }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paperclip-issue-relationship-${{ inputs.issue-number }}
+  cancel-in-progress: false
+
+jobs:
+  synchronize:
+    name: Synchronize native relates-to relationship
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate requested relationship
+        shell: bash
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue-number }}
+          RELATED_REPOSITORY: ${{ inputs.related-repository }}
+          RELATED_ISSUE_NUMBER: ${{ inputs.related-issue-number }}
+        run: |
+          set -euo pipefail
+          [[ "$ISSUE_NUMBER" =~ ^[1-9][0-9]*$ ]]
+          [[ "$RELATED_ISSUE_NUMBER" =~ ^[1-9][0-9]*$ ]]
+
+          case "$RELATED_REPOSITORY" in
+            Teck.Monorepo|Teck.Terraform|Teck.GitOps) ;;
+            *) exit 1 ;;
+          esac
+
+          if [[ "$RELATED_REPOSITORY" == "Teck.Monorepo" && "$ISSUE_NUMBER" == "$RELATED_ISSUE_NUMBER" ]]; then
+            echo "An issue cannot relate to itself." >&2
+            exit 1
+          fi
+
+      - name: Mint repository-scoped GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.TECK_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.TECK_AUTOMATION_APP_PRIVATE_KEY }}
+          owner: Teck-Lab
+          repositories: Teck.Monorepo,Teck.Terraform,Teck.GitOps
+          permission-issues: write
+
+      - name: Apply and verify native relationship
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          OPERATION: ${{ inputs.operation }}
+          ISSUE_NUMBER: ${{ inputs.issue-number }}
+          RELATED_REPOSITORY: ${{ inputs.related-repository }}
+          RELATED_ISSUE_NUMBER: ${{ inputs.related-issue-number }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          api_version="2026-03-10"
+          target_repository="Teck-Lab/$RELATED_REPOSITORY"
+
+          gh api \
+            --header "X-GitHub-Api-Version: $api_version" \
+            "repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER" \
+            --silent
+
+          related_issue_id="$(
+            gh api \
+              --header "X-GitHub-Api-Version: $api_version" \
+              "repos/$target_repository/issues/$RELATED_ISSUE_NUMBER" \
+              --jq '.id'
+          )"
+          [[ "$related_issue_id" =~ ^[1-9][0-9]*$ ]]
+
+          relationship_id="$(
+            gh api \
+              --header "X-GitHub-Api-Version: $api_version" \
+              --paginate \
+              "repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER/relates_to" \
+              --jq ".[] | select(.id == $related_issue_id) | .id" |
+              head -n 1
+          )"
+
+          case "$OPERATION" in
+            add)
+              if [[ -z "$relationship_id" ]]; then
+                gh api \
+                  --method POST \
+                  --header "X-GitHub-Api-Version: $api_version" \
+                  "repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER/relates_to" \
+                  -F "issue_id=$related_issue_id" \
+                  --silent
+              fi
+              expected="present"
+              ;;
+            remove)
+              if [[ -n "$relationship_id" ]]; then
+                gh api \
+                  --method DELETE \
+                  --header "X-GitHub-Api-Version: $api_version" \
+                  "repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER/relates_to/$related_issue_id" \
+                  --silent
+              fi
+              expected="absent"
+              ;;
+            *)
+              echo "Unsupported operation: $OPERATION" >&2
+              exit 1
+              ;;
+          esac
+
+          verified_id="$(
+            gh api \
+              --header "X-GitHub-Api-Version: $api_version" \
+              --paginate \
+              "repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER/relates_to" \
+              --jq ".[] | select(.id == $related_issue_id) | .id" |
+              head -n 1
+          )"
+
+          if [[ "$expected" == "present" && -z "$verified_id" ]]; then
+            echo "The related issue was not present after the add operation." >&2
+            exit 1
+          fi
+          if [[ "$expected" == "absent" && -n "$verified_id" ]]; then
+            echo "The related issue remained present after the remove operation." >&2
+            exit 1
+          fi
+
+          {
+            echo "### Paperclip issue relationship"
+            echo
+            echo "- Operation: $OPERATION"
+            echo "- Source: $SOURCE_REPOSITORY#$ISSUE_NUMBER"
+            echo "- Related: $target_repository#$RELATED_ISSUE_NUMBER"
+            echo "- Verified state: $expected"
+          } >> "$GITHUB_STEP_SUMMARY"

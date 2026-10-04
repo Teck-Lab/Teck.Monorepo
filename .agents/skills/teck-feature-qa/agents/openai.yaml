@@ -1,4 +1,0 @@
-interface:
-  display_name: "teck-feature-qa"
-  short_description: "Paseo QA agent role contract"
-  default_prompt: "Use this role contract for the assigned Paseo QA pass."
