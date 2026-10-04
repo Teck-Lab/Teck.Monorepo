@@ -10,13 +10,13 @@
 # build). Each field:
 #   group        - release/business group (commerce, gateway, ...)
 #   service      - service directory name (order, public, ...)
-#   product      - service key/suffix used to construct the per-service `semgrep-${product}` GitHub
-#                  Code Scanning SARIF category and the Nx release group name. Equal to the service,
-#                  except gateway sub-services are prefixed (gateway-public) because "public"/"internal" are ambiguous on their own.
+#   product      - service key/suffix used to construct the per-service
+#                  `semgrep-${product}` GitHub Code Scanning SARIF category.
+#                  Equal to the service except gateway sub-services are prefixed.
 #   nxProject    - nx project name of the Host (Order.Host, Gateway.Public, ...)
 #   projectPath  - path to the Host csproj (build target for the image)
 #   scanPath     - directory the source scanners target for this service
-#   releaseGroup - fixed release group used to version related service images
+#   releaseGroup - stable service grouping used for cache and scan metadata
 #
 # Keys are camelCase because GitHub Actions matrix access (matrix.scanPath) parses
 # hyphens as subtraction; the reusable workflow maps them onto its hyphenated inputs.
@@ -54,18 +54,17 @@ while IFS= read -r svcdir; do
     product="$service"
   fi
 
-  # Product names are the default release groups; operations is deliberately
-  # the only fixed multi-service group.
+  # Product names are the default service groups; operations is deliberately
+  # one fixed multi-service group.
   release_group="$product"
   if [ "$group" = "operations" ]; then
     release_group="operations"
   fi
 
-  # baseVersion = the next release version for this service: the highest existing
-  # <releaseGroup>@X.Y.Z tag with the patch bumped, or 0.1.0 before the first release.
-  # Lanes append a prerelease suffix (e.g. -rc.N) to it; GA uses the nx-computed one.
-  latest=$(git tag -l "${release_group}@*" 2>/dev/null \
-    | sed "s/^${release_group}@//" \
+  # baseVersion is used only by ephemeral feature previews. Stable releases
+  # use the group-specific version resolved by Nx Version Plans.
+  latest=$(git tag -l "${release_group}@v*" 2>/dev/null \
+    | sed "s/^${release_group}@v//" \
     | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)
   if [ -z "$latest" ]; then
     base="0.1.0"

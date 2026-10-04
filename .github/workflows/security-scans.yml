@@ -13,7 +13,7 @@ on:
 # sbom/frontend), dependency-review gates PRs on new HIGH+ dependencies.
 # Gitleaks is the repo-wide secrets hard gate and stays CI-fail-only.
 # Per-service topology (see .github/scripts/discover-services.sh):
-#   code-scanning category = nx release group = the `product` field.
+#   code-scanning category = the `product` field; release groups can be shared.
 # No external security services or secrets are required.
 permissions:
   contents: read

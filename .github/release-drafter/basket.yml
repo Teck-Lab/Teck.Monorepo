@@ -1,0 +1,6 @@
+_extends: release-drafter-base.yml
+tag-prefix: 'basket@v'
+include-paths:
+  - 'src/services/commerce/basket/**'
+  - 'src/shared/**'
+  - 'deploy/**'

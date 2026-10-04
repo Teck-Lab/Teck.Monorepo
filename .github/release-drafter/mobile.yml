@@ -1,0 +1,5 @@
+_extends: release-drafter-base.yml
+tag-prefix: 'mobile@v'
+include-paths:
+  - 'src/apps/mobile/**'
+  - 'src/packages/**'

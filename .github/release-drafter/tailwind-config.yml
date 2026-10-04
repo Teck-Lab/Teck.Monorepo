@@ -1,0 +1,4 @@
+_extends: release-drafter-base.yml
+tag-prefix: 'tailwind-config@v'
+include-paths:
+  - 'src/packages/tailwind-config/**'

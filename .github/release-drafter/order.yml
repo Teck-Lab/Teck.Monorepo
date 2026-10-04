@@ -1,0 +1,6 @@
+_extends: release-drafter-base.yml
+tag-prefix: 'order@v'
+include-paths:
+  - 'src/services/commerce/order/**'
+  - 'src/shared/**'
+  - 'deploy/**'
