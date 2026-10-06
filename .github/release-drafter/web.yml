@@ -1,0 +1,5 @@
+_extends: release-drafter-base.yml
+tag-prefix: 'web@v'
+include-paths:
+  - 'src/apps/web/**'
+  - 'src/packages/**'

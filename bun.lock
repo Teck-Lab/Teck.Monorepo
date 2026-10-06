@@ -99,6 +99,10 @@
       "name": "@teck/tailwind-config",
       "version": "0.0.1",
     },
+    "src/packages/ui": {
+      "name": "@teck/ui",
+      "version": "0.0.1",
+    },
     "src/packages/ui-native": {
       "name": "@teck/ui-native",
       "version": "0.0.1",
@@ -1166,6 +1170,8 @@
     "@teck/mobile": ["@teck/mobile@workspace:src/apps/mobile"],
 
     "@teck/tailwind-config": ["@teck/tailwind-config@workspace:src/packages/tailwind-config"],
+
+    "@teck/ui": ["@teck/ui@workspace:src/packages/ui"],
 
     "@teck/ui-native": ["@teck/ui-native@workspace:src/packages/ui-native"],
 

@@ -1,0 +1,4 @@
+_extends: release-drafter-base.yml
+tag-prefix: 'ui@v'
+include-paths:
+  - 'src/packages/ui/**'

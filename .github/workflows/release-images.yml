@@ -1,0 +1,232 @@
+name: Release Images
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: release-images-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    name: Prepare release candidates
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'release/nx' &&
+      contains(github.event.pull_request.labels.*.name, 'autorelease: pending')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      has-services: ${{ steps.plan.outputs.has-services }}
+      release-matrix: ${{ steps.plan.outputs.release-matrix }}
+      service-matrix: ${{ steps.plan.outputs.service-matrix }}
+      services: ${{ steps.plan.outputs.services }}
+      source-sha: ${{ steps.plan.outputs.source-sha }}
+
+    steps:
+      - name: Check out release state
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          path: release-state
+
+      - name: Check out immutable candidate source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          path: source
+
+      - name: Build the candidate matrices
+        id: plan
+        working-directory: source
+        shell: bash
+        env:
+          MANIFEST: ../release-state/.nx/releases/manifest.json
+        run: |
+          set -euo pipefail
+          test -s "$MANIFEST"
+
+          source_sha=$(jq -er '.sourceSha' "$MANIFEST")
+          test "$source_sha" = "${{ github.event.pull_request.base.sha }}"
+
+          releases=$(jq -c '.releases' "$MANIFEST")
+          services=$(./.github/scripts/discover-services.sh)
+          service_matrix=$(jq -nc \
+            --arg sourceSha "$source_sha" \
+            --argjson releases "$releases" \
+            --argjson services "$services" '
+              {include: [
+                $services[] as $service |
+                $releases[] |
+                select(.releaseGroup == $service.releaseGroup) |
+                $service + {
+                  releaseName: .name,
+                  stableVersion: .version,
+                  candidateVersion: (.version + "-canary." + $sourceSha),
+                  sourceSha: $sourceSha
+                }
+              ]}
+            ')
+          release_matrix=$(jq -nc \
+            --arg sourceSha "$source_sha" \
+            --argjson releases "$releases" '
+              {include: [
+                $releases[] |
+                . + {
+                  candidateVersion: (.version + "-canary." + $sourceSha),
+                  candidateTag: ("canary/" + .name + "@v" + .version + "-canary." + $sourceSha)
+                }
+              ]}
+            ')
+
+          count=$(jq '.include | length' <<< "$service_matrix")
+          {
+            echo "has-services=$([[ $count -gt 0 ]] && echo true || echo false)"
+            echo "source-sha=$source_sha"
+            echo "service-matrix=$(jq -c . <<< "$service_matrix")"
+            echo "release-matrix=$(jq -c . <<< "$release_matrix")"
+            echo "services=$(jq -c '.include' <<< "$service_matrix")"
+          } >> "$GITHUB_OUTPUT"
+
+          echo 'Release candidates:'
+          jq -r '.include[] | "- \(.releaseName): \(.candidateVersion)"' <<< "$release_matrix"
+          echo 'Container builds:'
+          jq -r 'if (.include | length) == 0 then "- none" else .include[] | "- \(.product): \(.candidateVersion)" end' <<< "$service_matrix"
+
+  build-candidate:
+    name: Candidate ${{ matrix.product }}
+    needs: prepare
+    if: needs.prepare.outputs.has-services == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.service-matrix) }}
+    permissions:
+      actions: write
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      security-events: write
+    uses: ./.github/workflows/reusable-build-sign-sbom.yml
+    with:
+      service-group: ${{ matrix.group }}
+      service-name: ${{ matrix.service }}
+      release-group: ${{ matrix.releaseName }}
+      nx-project: ${{ matrix.nxProject }}
+      project-path: ${{ matrix.projectPath }}
+      version: ${{ matrix.candidateVersion }}
+      artifact-version: ${{ matrix.stableVersion }}
+      source-ref: ${{ matrix.sourceSha }}
+      publish-mode: release
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-aliases:
+    name: Move canary image aliases
+    needs: [prepare, build-candidate]
+    if: >-
+      always() &&
+      needs.prepare.result == 'success' &&
+      needs.prepare.outputs.has-services == 'true' &&
+      needs.build-candidate.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f00e # v4.3.0
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Verify candidates and move aliases
+        shell: bash
+        env:
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          SERVICES: ${{ needs.prepare.outputs.services }}
+        run: |
+          set -euo pipefail
+          owner=$(printf '%s' "$REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
+          jq -c '.[]' <<< "$SERVICES" | while IFS= read -r service; do
+            image="ghcr.io/$owner/teck-monorepo/$(jq -r '.group' <<< "$service")/$(jq -r '.service' <<< "$service")"
+            version=$(jq -r '.candidateVersion' <<< "$service")
+            docker buildx imagetools inspect "$image:$version" >/dev/null
+            docker buildx imagetools create --prefer-index=false --tag "$image:canary" "$image:$version"
+          done
+
+  prerelease:
+    name: Publish ${{ matrix.name }} canary
+    needs: [prepare, build-candidate]
+    if: >-
+      always() &&
+      needs.prepare.result == 'success' &&
+      (needs.prepare.outputs.has-services != 'true' || needs.build-candidate.result == 'success')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.release-matrix) }}
+    permissions:
+      contents: write
+      pull-requests: read
+
+    steps:
+      - name: Mint the Teck Automation GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.TECK_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.TECK_AUTOMATION_APP_PRIVATE_KEY }}
+          owner: Teck-Lab
+          repositories: Teck.Monorepo
+          permission-contents: write
+          permission-pull-requests: read
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Read the Nx changelog
+        id: notes
+        shell: bash
+        env:
+          NOTES_FILE: ${{ matrix.notesFile }}
+        run: |
+          delimiter="NX_NOTES_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
+          {
+            echo "value<<$delimiter"
+            cat "$NOTES_FILE"
+            echo
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish the immutable canary prerelease
+        uses: release-drafter/release-drafter@72967cdc98ddd3160f1fc3dff619de365e137dd0 # v7.8.0
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-name: ${{ matrix.configName }}
+          name: '${{ matrix.name }} v${{ matrix.candidateVersion }}'
+          tag: ${{ matrix.candidateTag }}
+          version: ${{ matrix.candidateVersion }}
+          from: ${{ matrix.previousTag }}
+          commitish: ${{ needs.prepare.outputs.source-sha }}
+          header: ${{ steps.notes.outputs.value }}
+          publish: true
+          prerelease: true
+          prerelease-identifier: 'canary.${{ needs.prepare.outputs.source-sha }}'
+          latest: false

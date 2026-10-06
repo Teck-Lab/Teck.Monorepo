@@ -12,12 +12,12 @@
     "affected:lint": "nx affected -t lint",
     "affected:typecheck": "nx affected -t typecheck",
     "affected:all": "nx affected -t build test lint typecheck",
-    "test:agent-lifecycle": "node --test .github/scripts/agent-lifecycle.test.mjs",
-    "test:security-intake": "node --test .github/scripts/security-alert-intake.test.mjs .github/scripts/dependabot-pr-link.test.mjs",
-    "test:paseo-sandbox": "node --test .paseo/sandbox/lifecycle.test.mjs",
+    "test:security-intake": "node --test .github/scripts/security-alert-intake.test.mjs",
     "graph": "nx graph",
-    "release:dry": "nx release --dry-run",
-    "release": "nx release --yes",
+    "release:plan": "nx release plan",
+    "release:plan:check": "nx release plan:check",
+    "release:prepare": "node .github/scripts/prepare-release.mjs",
+    "release:prepare:dry": "node .github/scripts/prepare-release.mjs --dry-run",
     "clean": "nx reset",
     "prepare": "husky"
   },
@@ -53,7 +53,10 @@
     "typescript": "^5.7.0"
   },
   "packageManager": "bun@1.2.5",
-  "workspaces": ["src/apps/*", "src/packages/*"],
+  "workspaces": [
+    "src/apps/*",
+    "src/packages/*"
+  ],
   "dependencies": {
     "@expo/metro-config": "~57.0.12",
     "@expo/metro-runtime": "~55.0.11",

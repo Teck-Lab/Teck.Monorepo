@@ -1,0 +1,6 @@
+_extends: release-drafter-base.yml
+tag-prefix: 'gateway-public@v'
+include-paths:
+  - 'src/services/gateway/public/**'
+  - 'src/shared/**'
+  - 'deploy/**'

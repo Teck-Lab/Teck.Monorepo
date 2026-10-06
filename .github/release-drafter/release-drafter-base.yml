@@ -1,0 +1,25 @@
+name-template: '$RESOLVED_VERSION'
+tag-template: '$RESOLVED_VERSION'
+version-template: '$MAJOR.$MINOR.$PATCH$PRERELEASE'
+change-template: '- $TITLE (#$NUMBER) @$AUTHOR'
+change-title-escapes: '\\<*_&'
+categories:
+  - title: 'Breaking changes'
+    labels: [breaking]
+    semver-increment: major
+  - title: 'Features'
+    labels: [feature, enhancement]
+    semver-increment: minor
+  - title: 'Fixes'
+    labels: [bug, fix, security]
+    semver-increment: patch
+  - title: 'Maintenance'
+    labels: [dependencies, chore, documentation]
+exclude-labels:
+  - skip-changelog
+template: |
+  $CHANGES
+
+  ## Contributors
+
+  $CONTRIBUTORS

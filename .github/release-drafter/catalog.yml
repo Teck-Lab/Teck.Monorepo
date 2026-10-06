@@ -1,0 +1,6 @@
+_extends: release-drafter-base.yml
+tag-prefix: 'catalog@v'
+include-paths:
+  - 'src/services/commerce/catalog/**'
+  - 'src/shared/**'
+  - 'deploy/**'

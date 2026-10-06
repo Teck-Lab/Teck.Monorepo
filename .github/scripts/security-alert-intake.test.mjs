@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import test from "node:test";
 import {
   applyDependabotRisk,
+  buildPaperclipSnapshot,
   componentForPath,
   fingerprint,
-  fingerprintFromBody,
-  indexExistingIssues,
-  issueBody,
+  githubSignature,
   normalizeCodeScanning,
   normalizeDependabot,
   normalizeSecretScanning,
@@ -25,33 +25,12 @@ test("normalizes security severities to board priorities", () => {
 });
 
 test("maps monorepo paths to project components", () => {
-  assert.equal(componentForPath("src/services/commerce/catalog/a.cs"), "Commerce");
+  assert.equal(
+    componentForPath("src/services/commerce/catalog/a.cs"),
+    "Commerce",
+  );
   assert.equal(componentForPath("src/apps/admin/page.tsx"), "Web");
   assert.equal(componentForPath(".github/workflows/ci.yml"), "Infrastructure");
-});
-
-test("round-trips the stable fingerprint marker", () => {
-  const finding = { source: "code-scanning", number: 42, url: "https://example.test", details: [] };
-  const body = issueBody(finding, "Teck-Lab", "Teck.Monorepo");
-  assert.equal(
-    fingerprintFromBody(body),
-    fingerprint("Teck-Lab", "Teck.Monorepo", "code-scanning", 42),
-  );
-});
-
-test("keeps the oldest issue for a fingerprint and identifies duplicates", () => {
-  const body = "<!-- teck-security-fingerprint: dependabot:Teck-Lab/Teck.Monorepo:7 -->";
-  const { existing, duplicates } = indexExistingIssues([
-    { number: 12, body },
-    { number: 8, body },
-    { number: 9, body: "without a fingerprint" },
-    { number: 10, body, pull_request: {} },
-  ]);
-  assert.equal(existing.get("dependabot:Teck-Lab/Teck.Monorepo:7").number, 8);
-  assert.deepEqual(
-    duplicates.map((issue) => issue.number),
-    [12],
-  );
 });
 
 test("normalizes code scanning without exposing API internals", () => {
@@ -59,9 +38,15 @@ test("normalizes code scanning without exposing API internals", () => {
     {
       number: 2,
       html_url: "https://example.test/2",
-      rule: { description: "SQL injection", security_severity_level: "high", id: "cs/sql" },
+      rule: {
+        description: "SQL injection",
+        security_severity_level: "high",
+        id: "cs/sql",
+      },
       tool: { name: "CodeQL" },
-      most_recent_instance: { location: { path: "src/services/commerce/order/a.cs" } },
+      most_recent_instance: {
+        location: { path: "src/services/commerce/order/a.cs" },
+      },
     },
     "Teck-Lab/Teck.Monorepo",
   );
@@ -69,7 +54,7 @@ test("normalizes code scanning without exposing API internals", () => {
   assert.equal(finding.severity, "high");
 });
 
-test("normalizes Dependabot manifests", () => {
+test("normalizes and enriches Dependabot findings", () => {
   const finding = normalizeDependabot(
     {
       number: 3,
@@ -87,26 +72,73 @@ test("normalizes Dependabot manifests", () => {
     },
     "Teck-Lab/Teck.Monorepo",
   );
+  applyDependabotRisk(
+    finding,
+    new Map([["CVE-2026-1234", 0.75]]),
+    new Set(["CVE-2026-1234"]),
+  );
   assert.equal(finding.component, "Web");
   assert.equal(finding.severity, "critical");
-  applyDependabotRisk(finding, new Map([["CVE-2026-1234", 0.75]]), new Set(["CVE-2026-1234"]));
   assert.equal(finding.epss, 0.75);
   assert.equal(finding.kev, true);
 });
 
-test("secret issues are sanitized and require restricted alert review", () => {
+test("secret findings and the Paperclip snapshot omit the detected secret", () => {
   const finding = normalizeSecretScanning(
     {
       number: 4,
       html_url: "https://example.test/4",
       secret: "must-not-leak",
+      locations_url: "https://api.example.test/restricted-location",
       secret_type_display_name: "API token",
       validity: "active",
     },
     "Teck-Lab/Teck.Monorepo",
   );
-  const body = issueBody(finding, "Teck-Lab", "Teck.Monorepo");
-  assert.equal(body.includes("must-not-leak"), false);
-  assert.match(body, /intentionally omitted/);
-  assert.equal(finding.severity, "critical");
+  const snapshot = buildPaperclipSnapshot(
+    "Teck-Lab",
+    "Teck.Monorepo",
+    [finding],
+    new Set(["secret-scanning"]),
+    "2026-10-04T00:00:00.000Z",
+  );
+  const serialized = JSON.stringify(snapshot);
+  assert.equal(serialized.includes("must-not-leak"), false);
+  assert.equal(serialized.includes("restricted-location"), false);
+  assert.equal(snapshot.findings[0].requiresHumanInput, true);
+  assert.equal(
+    snapshot.findings[0].id,
+    fingerprint("Teck-Lab", "Teck.Monorepo", "secret-scanning", 4),
+  );
+});
+
+test("builds a deterministic authoritative snapshot and GitHub HMAC", () => {
+  const snapshot = buildPaperclipSnapshot(
+    "Teck-Lab",
+    "Teck.Monorepo",
+    [
+      {
+        source: "code-scanning",
+        number: 42,
+        severity: "high",
+        component: "Platform",
+        title: "Finding",
+        url: "https://example.test/42",
+        details: ["Rule: example"],
+      },
+    ],
+    new Set(["secret-scanning", "code-scanning"]),
+    "2026-10-04T00:00:00.000Z",
+  );
+  assert.equal(snapshot.schema, "teck/security-alert-snapshot/v1");
+  assert.equal(snapshot.authoritativeSnapshot, true);
+  assert.deepEqual(snapshot.availableSources, [
+    "code-scanning",
+    "secret-scanning",
+  ]);
+  const body = JSON.stringify(snapshot);
+  assert.equal(
+    githubSignature(body, "test-secret"),
+    `sha256=${createHmac("sha256", "test-secret").update(body).digest("hex")}`,
+  );
 });

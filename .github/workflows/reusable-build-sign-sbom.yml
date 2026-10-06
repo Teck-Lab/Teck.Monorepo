@@ -11,6 +11,11 @@ on:
         description: Service name (e.g. catalog)
         required: true
         type: string
+      release-group:
+        description: Release component used in image metadata; defaults to service-group
+        required: false
+        type: string
+        default: ''
       nx-project:
         description: Nx project name for the Host project
         required: true
@@ -20,9 +25,14 @@ on:
         required: true
         type: string
       version:
-        description: Version to build (e.g. 1.0.0)
+        description: Immutable image/tag version (e.g. 1.0.0-canary.<sha>)
         required: true
         type: string
+      artifact-version:
+        description: Version embedded in the built artifact; defaults to version
+        required: false
+        type: string
+        default: ''
       source-ref:
         description: Git ref to build from (defaults to refs/tags/v<version>)
         required: false
@@ -53,6 +63,7 @@ jobs:
     name: Build ${{ inputs.service-group }}/${{ inputs.service-name }}
     runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: read
       packages: write
     outputs:
@@ -66,6 +77,11 @@ jobs:
         with:
           ref: ${{ inputs.source-ref != '' && inputs.source-ref || format('refs/tags/v{0}', inputs.version) }}
 
+      - name: Resolve checked-out source
+        id: source
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Verify Containerfile template
         run: |
           test -f "deploy/Containerfile.template"
@@ -73,6 +89,9 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Expose the GitHub Actions cache to BuildKit
+        uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -85,6 +104,7 @@ jobs:
         id: image-vars
         env:
           REPOSITORY_OWNER: ${{ github.repository_owner }}
+          RELEASE_GROUP_INPUT: ${{ inputs.release-group }}
           SERVICE_GROUP: ${{ inputs.service-group }}
           SERVICE_NAME: ${{ inputs.service-name }}
           VERSION: ${{ inputs.version }}
@@ -92,6 +112,7 @@ jobs:
           STAGING_TAG_INPUT: ${{ inputs.staging-tag }}
         run: |
           REPO_OWNER_LOWER=$(printf '%s' "$REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
+          RELEASE_GROUP="${RELEASE_GROUP_INPUT:-$SERVICE_GROUP}"
           IMAGE_NAME="ghcr.io/${REPO_OWNER_LOWER}/teck-monorepo/${SERVICE_GROUP}/${SERVICE_NAME}"
           PRIMARY_TAG="$VERSION"
           STAGING_TAG=""
@@ -108,7 +129,8 @@ jobs:
             echo "image_name=$IMAGE_NAME"
             echo "primary_tag=$PRIMARY_TAG"
             echo "staging_tag=$STAGING_TAG"
-            echo "release_tag=${SERVICE_GROUP}@${VERSION}"
+            echo "release_group=$RELEASE_GROUP"
+            echo "release_tag=${RELEASE_GROUP}@v${VERSION}"
           } >> "$GITHUB_OUTPUT"
 
       # Build directly against the shared Containerfile template (this repo has no
@@ -121,11 +143,15 @@ jobs:
           IMAGE_NAME: ${{ steps.image-vars.outputs.image_name }}
           PRIMARY_TAG: ${{ steps.image-vars.outputs.primary_tag }}
           PROJECT_PATH: ${{ inputs.project-path }}
-          VERSION: ${{ inputs.version }}
+          RELEASE_GROUP: ${{ steps.image-vars.outputs.release_group }}
+          SERVICE_NAME: ${{ inputs.service-name }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          VERSION: ${{ inputs.artifact-version != '' && inputs.artifact-version || inputs.version }}
           SERVICE_GROUP: ${{ inputs.service-group }}
           PUBLISH_MODE: ${{ inputs.publish-mode }}
         run: |
           SERVICE_ASSEMBLY=$(basename "$PROJECT_PATH" .csproj)
+          CACHE_SCOPE="${SERVICE_GROUP}-${SERVICE_NAME}"
           # Always multi-arch (preview/dev clusters may be arm64). Toggle only
           # ReadyToRun (crossgen2 AOT - the slow part): on for release, off for
           # preview/prerelease so they stay fast (IL-only, JIT at runtime) while still
@@ -141,12 +167,17 @@ jobs:
             --build-arg "SERVICE_NAME=${SERVICE_ASSEMBLY}" \
             --build-arg "PROJECT_PATH=${PROJECT_PATH}" \
             --build-arg "VERSION=${VERSION}" \
+            --build-arg "SOURCE_SHA=${SOURCE_SHA}" \
             --build-arg "PUBLISH_READYTORUN=${R2R}" \
             --tag "${IMAGE_NAME}:${PRIMARY_TAG}" \
-            --tag "${IMAGE_NAME}:sha-${GITHUB_SHA::7}" \
-            --label "com.teck.release.group=${SERVICE_GROUP}" \
-            --label "com.teck.release.tag=${SERVICE_GROUP}@${VERSION}" \
-            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --tag "${IMAGE_NAME}:sha-${SOURCE_SHA::7}" \
+            --label "com.teck.release.group=${RELEASE_GROUP}" \
+            --label "com.teck.release.tag=${RELEASE_GROUP}@v${VERSION}" \
+            --label "org.opencontainers.image.revision=${SOURCE_SHA}" \
+            --cache-from "type=gha,scope=${CACHE_SCOPE},version=2" \
+            --cache-from "type=registry,ref=${IMAGE_NAME}:canary" \
+            --cache-to "type=gha,scope=${CACHE_SCOPE},mode=max,version=2,ignore-error=true,timeout=20m" \
+            --cache-to type=inline \
             --metadata-file /tmp/build-meta.json \
             --push \
             .
@@ -367,7 +398,8 @@ jobs:
     env:
       SERVICE_GROUP: ${{ inputs.service-group }}
       SERVICE_NAME: ${{ inputs.service-name }}
-      SERVICE_VERSION: ${{ inputs.version }}
+      SERVICE_VERSION: ${{ inputs.artifact-version != '' && inputs.artifact-version || inputs.version }}
+      RELEASE_GROUP: ${{ inputs.release-group != '' && inputs.release-group || inputs.service-group }}
       REPOSITORY_NAME: ${{ github.repository }}
       REPOSITORY_OWNER: ${{ github.repository_owner }}
       IMAGE_DIGEST: ${{ needs.build-and-push.outputs.digest }}
@@ -391,7 +423,7 @@ jobs:
           cat > "$VEX_FILE" <<EOF
           {
             "@context": "https://openvex.dev/ns/v0.2.0",
-            "@id": "https://github.com/${REPOSITORY_NAME}/releases/download/v${SERVICE_VERSION}/${VEX_FILE}",
+            "@id": "https://github.com/${REPOSITORY_NAME}/releases/download/${RELEASE_GROUP}@v${SERVICE_VERSION}/${VEX_FILE}",
             "author": "Teck Build System",
             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "version": "1",

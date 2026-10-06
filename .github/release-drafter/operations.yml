@@ -1,0 +1,6 @@
+_extends: release-drafter-base.yml
+tag-prefix: 'operations@v'
+include-paths:
+  - 'src/services/operations/**'
+  - 'src/shared/**'
+  - 'deploy/**'

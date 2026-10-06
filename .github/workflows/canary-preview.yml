@@ -57,6 +57,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
     permissions:
+      actions: write
       contents: read
       packages: write
       id-token: write
@@ -66,6 +67,7 @@ jobs:
     with:
       service-group: ${{ matrix.group }}
       service-name: ${{ matrix.service }}
+      release-group: ${{ matrix.releaseGroup }}
       nx-project: ${{ matrix.nxProject }}
       project-path: ${{ matrix.projectPath }}
       # Preview version is derived from the PR run number; the image tag is

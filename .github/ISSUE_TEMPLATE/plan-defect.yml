@@ -1,8 +1,7 @@
 name: Plan defect
-description: Track a gap or correction discovered during plan review as agent-ready sub-work.
+description: Track a gap or correction discovered during plan review as sub-work.
 title: "plan: "
-labels:
-  - "agent:ready"
+type: Task
 body:
   - type: input
     id: parent
@@ -90,7 +89,7 @@ body:
   - type: checkboxes
     id: readiness
     attributes:
-      label: Ready for Orca
+      label: Ready for intake
       options:
         - label: This defect can be planned or implemented independently and merged into the parent feature branch.
           required: true

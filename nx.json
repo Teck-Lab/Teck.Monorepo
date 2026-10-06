@@ -35,6 +35,8 @@
             "org.opencontainers.image.version={version}",
             "--build-arg",
             "VERSION={version}",
+            "--build-arg",
+            "SOURCE_SHA={commitSha}",
             "--tag",
             "{imageRef}:{version}",
             "--tag",
@@ -82,7 +84,13 @@
   "targetDefaults": {
     "build": {
       "dependsOn": ["restore", "^build"],
-      "cache": true
+      "cache": true,
+      "inputs": [
+        "default",
+        "^default",
+        { "env": "TECK_RELEASE_VERSION" },
+        { "env": "TECK_SOURCE_REVISION" }
+      ]
     },
     "restore": {
       "dependsOn": ["^restore"],
@@ -104,108 +112,106 @@
     },
     "docker:build": {
       "dependsOn": ["build"],
-      "cache": true
+      "cache": true,
+      "inputs": [
+        "default",
+        "^default",
+        { "env": "TECK_RELEASE_VERSION" },
+        { "env": "TECK_SOURCE_REVISION" }
+      ]
     }
   },
   "release": {
+    "versionPlans": true,
     "version": {
-      "conventionalCommits": true
+      "specifierSource": "version-plans",
+      "currentVersionResolver": "git-tag",
+      "fallbackCurrentVersionResolver": "disk",
+      "updateDependents": "always",
+      "applyPreidToDependents": true
     },
     "git": {
-      "commit": true,
-      "tag": true,
-      "commitMessage": "chore(release): publish {version}"
+      "commit": false,
+      "tag": false,
+      "stageChanges": false
     },
     "changelog": {
+      "workspaceChangelog": false,
       "projectChangelogs": {
-        "createRelease": "github",
+        "createRelease": false,
         "file": false
-      }
+      },
+      "automaticFromRef": true
     },
     "groups": {
       "operations": {
-        "projects": ["src/services/operations/*"],
+        "projects": ["src/services/operations/**/*"],
         "projectsRelationship": "fixed",
-        "releaseTag": {
-          "pattern": "operations@{version}"
+        "version": {
+          "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
         },
-        "docker": {
-          "skipVersionActions": true,
-          "registryUrl": "ghcr.io/teck-lab/teck-cloud"
-        }
+        "releaseTag": { "pattern": "operations@v{version}" }
       },
       "order": {
-        "projects": ["src/services/commerce/order/*"],
+        "projects": ["src/services/commerce/order/**/*"],
         "projectsRelationship": "fixed",
-        "releaseTag": {
-          "pattern": "order@{version}"
+        "version": {
+          "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
         },
-        "docker": {
-          "skipVersionActions": true,
-          "registryUrl": "ghcr.io/teck-lab/teck-cloud"
-        }
+        "releaseTag": { "pattern": "order@v{version}" }
       },
       "pricing": {
-        "projects": ["src/services/commerce/pricing/*"],
+        "projects": ["src/services/commerce/pricing/**/*"],
         "projectsRelationship": "fixed",
-        "releaseTag": {
-          "pattern": "pricing@{version}"
+        "version": {
+          "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
         },
-        "docker": {
-          "skipVersionActions": true,
-          "registryUrl": "ghcr.io/teck-lab/teck-cloud"
-        }
+        "releaseTag": { "pattern": "pricing@v{version}" }
       },
       "basket": {
-        "projects": ["src/services/commerce/basket/*"],
+        "projects": ["src/services/commerce/basket/**/*"],
         "projectsRelationship": "fixed",
-        "releaseTag": {
-          "pattern": "basket@{version}"
+        "version": {
+          "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
         },
-        "docker": {
-          "skipVersionActions": true,
-          "registryUrl": "ghcr.io/teck-lab/teck-cloud"
-        }
+        "releaseTag": { "pattern": "basket@v{version}" }
       },
       "catalog": {
-        "projects": ["src/services/commerce/catalog/*"],
+        "projects": ["src/services/commerce/catalog/**/*"],
         "projectsRelationship": "fixed",
-        "releaseTag": {
-          "pattern": "catalog@{version}"
+        "version": {
+          "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
         },
-        "docker": {
-          "skipVersionActions": true,
-          "registryUrl": "ghcr.io/teck-lab/teck-cloud"
-        }
+        "releaseTag": { "pattern": "catalog@v{version}" }
       },
       "customer": {
-        "projects": ["src/services/commerce/customer/*"],
+        "projects": ["src/services/commerce/customer/**/*"],
         "projectsRelationship": "fixed",
-        "releaseTag": {
-          "pattern": "customer@{version}"
+        "version": {
+          "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
         },
-        "docker": {
-          "skipVersionActions": true,
-          "registryUrl": "ghcr.io/teck-lab/teck-cloud"
-        }
+        "releaseTag": { "pattern": "customer@v{version}" }
+      },
+      "inventory": {
+        "projects": ["src/services/commerce/inventory/**/*"],
+        "projectsRelationship": "fixed",
+        "version": {
+          "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
+        },
+        "releaseTag": { "pattern": "inventory@v{version}" }
       },
       "gateway-public": {
-        "projects": ["src/services/gateway/public", "src/services/gateway/public/*"],
+        "projects": ["src/services/gateway/public", "src/services/gateway/public/**/*"],
         "projectsRelationship": "fixed",
-        "releaseTag": {
-          "pattern": "gateway-public@{version}"
+        "version": {
+          "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
         },
-        "docker": {
-          "skipVersionActions": true,
-          "registryUrl": "ghcr.io/teck-lab/teck-cloud"
-        }
+        "releaseTag": { "pattern": "gateway-public@v{version}" }
       },
       "web": {
         "projects": ["src/apps/*", "src/packages/*"],
         "projectsRelationship": "independent",
-        "releaseTag": {
-          "pattern": "{projectName}@{version}"
-        }
+        "releaseTag": { "pattern": "{projectName}@v{version}" }
       }
     }
   },

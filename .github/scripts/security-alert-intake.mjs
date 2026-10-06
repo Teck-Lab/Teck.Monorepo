@@ -1,18 +1,26 @@
+import { createHmac } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
 const configUrl = new URL("../security-intake.json", import.meta.url);
-const markerPattern = /<!-- teck-security-fingerprint: ([^\s]+) -->/;
+const payloadSchema = "teck/security-alert-snapshot/v1";
 
 export function severity(value) {
   const normalized = String(value ?? "medium").toLowerCase();
   if (normalized === "error") return "high";
   if (normalized === "warning" || normalized === "moderate") return "medium";
-  return ["low", "medium", "high", "critical"].includes(normalized) ? normalized : "medium";
+  return ["low", "medium", "high", "critical"].includes(normalized)
+    ? normalized
+    : "medium";
 }
 
 export function priorityForSeverity(value) {
-  return { low: "Low", medium: "Medium", high: "High", critical: "Urgent" }[severity(value)];
+  return {
+    low: "Low",
+    medium: "Medium",
+    high: "High",
+    critical: "Urgent",
+  }[severity(value)];
 }
 
 export function priorityForFinding(finding) {
@@ -27,7 +35,12 @@ export function componentForPath(path = "") {
   if (normalized.includes("src/services/operations/")) return "Operations";
   if (normalized.includes("src/services/content/")) return "Content";
   if (normalized.includes("src/services/gateway/")) return "Gateway";
-  if (normalized.includes("src/apps/") || normalized.includes("src/packages/")) return "Web";
+  if (
+    normalized.includes("src/apps/") ||
+    normalized.includes("src/packages/")
+  ) {
+    return "Web";
+  }
   if (normalized.includes("src/shared/")) return "Platform";
   return "Infrastructure";
 }
@@ -36,18 +49,18 @@ export function fingerprint(owner, repo, source, number) {
   return `${source}:${owner}/${repo}:${number}`;
 }
 
-export function fingerprintFromBody(body = "") {
-  return body.match(markerPattern)?.[1] ?? null;
-}
-
 export function normalizeCodeScanning(alert, repository) {
   const path = alert.most_recent_instance?.location?.path ?? "";
   return {
     source: "code-scanning",
     number: alert.number,
-    severity: severity(alert.rule?.security_severity_level ?? alert.rule?.severity),
+    severity: severity(
+      alert.rule?.security_severity_level ?? alert.rule?.severity,
+    ),
     component: componentForPath(path),
-    title: `[Code scanning] ${alert.rule?.description ?? alert.rule?.name ?? `Alert ${alert.number}`}`,
+    title: `[Code scanning] ${
+      alert.rule?.description ?? alert.rule?.name ?? `Alert ${alert.number}`
+    }`,
     url: alert.html_url,
     details: [
       `Tool: ${alert.tool?.name ?? "Code scanning"}`,
@@ -74,7 +87,9 @@ export function normalizeDependabot(alert, repository) {
       .filter((identifier) => identifier.type === "CVE")
       .map((identifier) => identifier.value),
     details: [
-      `Package: \`${packageName}\` (${dependency.package?.ecosystem ?? "unknown ecosystem"})`,
+      `Package: \`${packageName}\` (${
+        dependency.package?.ecosystem ?? "unknown ecosystem"
+      })`,
       manifest ? `Manifest: \`${manifest}\`` : null,
       `Advisory: ${advisory.ghsa_id ?? "unknown"}`,
       `Repository: ${repository}`,
@@ -100,7 +115,9 @@ export function normalizeSecretScanning(alert, repository) {
     title: "[Secret scanning] Credential exposure requires human response",
     url: alert.html_url,
     details: [
-      `Secret type: ${alert.secret_type_display_name ?? alert.secret_type ?? "restricted"}`,
+      `Secret type: ${
+        alert.secret_type_display_name ?? alert.secret_type ?? "restricted"
+      }`,
       `Validity: ${alert.validity ?? "unknown"}`,
       `Repository: ${repository}`,
       "Sensitive value and location details are intentionally omitted. Review the restricted alert directly.",
@@ -108,19 +125,45 @@ export function normalizeSecretScanning(alert, repository) {
   };
 }
 
-export function issueBody(finding, owner, repo) {
-  const key = fingerprint(owner, repo, finding.source, finding.number);
-  return [
-    `<!-- teck-security-fingerprint: ${key} -->`,
-    "## Security finding",
-    "",
-    `- Recommended priority: ${priorityForFinding(finding)}`,
-    ...finding.details.map((line) => `- ${line}`),
-    "",
-    `Alert: ${finding.url}`,
-    "",
-    "This issue is maintained by the security alert intake workflow. Close it only after GitHub verifies the underlying alert as resolved or dismissed.",
-  ].join("\n");
+export function buildPaperclipSnapshot(
+  owner,
+  repo,
+  findings,
+  availableSources,
+  generatedAt = new Date().toISOString(),
+) {
+  const repository = `${owner}/${repo}`;
+  return {
+    schema: payloadSchema,
+    repository,
+    generatedAt,
+    authoritativeSnapshot: true,
+    availableSources: [...availableSources].sort(),
+    findings: findings
+      .map((finding) => ({
+        id: fingerprint(owner, repo, finding.source, finding.number),
+        source: finding.source,
+        number: finding.number,
+        severity: severity(finding.severity),
+        recommendedPriority: priorityForFinding(finding),
+        component: finding.component,
+        title: finding.title,
+        url: finding.url,
+        details: [...finding.details],
+        cves: finding.source === "dependabot" ? [...(finding.cves ?? [])] : [],
+        epss:
+          finding.source === "dependabot" && Number.isFinite(finding.epss)
+            ? finding.epss
+            : null,
+        kev: finding.source === "dependabot" ? finding.kev === true : false,
+        requiresHumanInput: finding.source === "secret-scanning",
+      }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+  };
+}
+
+export function githubSignature(body, secret) {
+  return `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
 }
 
 function linkNext(value) {
@@ -134,7 +177,9 @@ export class GitHubClient {
   }
 
   async request(url, options = {}, allowed = []) {
-    const target = url.startsWith("http") ? url : `https://api.github.com${url}`;
+    const target = url.startsWith("http")
+      ? url
+      : `https://api.github.com${url}`;
     const response = await fetch(target, {
       ...options,
       headers: {
@@ -145,11 +190,16 @@ export class GitHubClient {
         ...options.headers,
       },
     });
-    if (allowed.includes(response.status)) return { skipped: true, status: response.status };
-    if (!response.ok)
+    if (allowed.includes(response.status)) {
+      return { skipped: true, status: response.status };
+    }
+    if (!response.ok) {
       throw new Error(
-        `GitHub API ${options.method ?? "GET"} ${url} failed (${response.status}): ${await response.text()}`,
+        `GitHub API ${options.method ?? "GET"} ${url} failed (${
+          response.status
+        }): ${await response.text()}`,
       );
+    }
     return {
       data: response.status === 204 ? null : await response.json(),
       headers: response.headers,
@@ -166,76 +216,6 @@ export class GitHubClient {
       url = linkNext(response.headers.get("link"));
     } while (url);
     return { data: items };
-  }
-
-  async graphql(query, variables) {
-    const response = await this.request("/graphql", {
-      method: "POST",
-      body: JSON.stringify({ query, variables }),
-    });
-    if (response.data.errors)
-      throw new Error(
-        `GitHub GraphQL failed: ${response.data.errors.map((error) => error.message).join("; ")}`,
-      );
-    return response.data.data;
-  }
-}
-
-async function syncLabels(client, owner, repo, labels) {
-  for (const label of labels) {
-    const path = `/repos/${owner}/${repo}/labels/${encodeURIComponent(label.name)}`;
-    const existing = await client.request(path, {}, [404]);
-    if (existing.skipped) {
-      await client.request(`/repos/${owner}/${repo}/labels`, {
-        method: "POST",
-        body: JSON.stringify(label),
-      });
-    } else {
-      await client.request(path, {
-        method: "PATCH",
-        body: JSON.stringify({
-          new_name: label.name,
-          color: label.color,
-          description: label.description,
-        }),
-      });
-    }
-  }
-}
-
-export function indexExistingIssues(issues) {
-  const groups = new Map();
-  for (const issue of issues.filter((candidate) => !candidate.pull_request)) {
-    const key = fingerprintFromBody(issue.body);
-    if (!key) continue;
-    const group = groups.get(key) ?? [];
-    group.push(issue);
-    groups.set(key, group);
-  }
-  const existing = new Map();
-  const duplicates = [];
-  for (const [key, group] of groups) {
-    group.sort((left, right) => left.number - right.number);
-    existing.set(key, group[0]);
-    duplicates.push(...group.slice(1));
-  }
-  return { existing, duplicates };
-}
-
-async function loadExistingIssues(client, owner, repo) {
-  const response = await client.paginate(
-    `/repos/${owner}/${repo}/issues?state=all&labels=${encodeURIComponent("security:tracked")}&per_page=100`,
-  );
-  return indexExistingIssues(response.data);
-}
-
-async function reconcileDuplicateIssues(client, owner, repo, duplicates) {
-  for (const issue of duplicates) {
-    if (issue.state === "closed") continue;
-    await client.request(`/repos/${owner}/${repo}/issues/${issue.number}`, {
-      method: "PATCH",
-      body: JSON.stringify({ state: "closed", state_reason: "not_planned" }),
-    });
   }
 }
 
@@ -270,30 +250,45 @@ async function collectFindings(client, owner, repo, config) {
       continue;
     }
     available.add(source);
-    findings.push(...response.data.map((alert) => normalize(alert, repository)));
+    findings.push(
+      ...response.data.map((alert) => normalize(alert, repository)),
+    );
   }
   return { findings, available };
 }
 
 async function enrichDependabot(findings) {
-  const dependencyFindings = findings.filter((finding) => finding.source === "dependabot");
-  const cves = [...new Set(dependencyFindings.flatMap((finding) => finding.cves ?? []))];
+  const dependencyFindings = findings.filter(
+    (finding) => finding.source === "dependabot",
+  );
+  const cves = [
+    ...new Set(dependencyFindings.flatMap((finding) => finding.cves ?? [])),
+  ];
   if (cves.length === 0) return;
   try {
     const [kevResponse, epssResponses] = await Promise.all([
-      fetch("https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"),
+      fetch(
+        "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      ),
       Promise.all(
         Array.from({ length: Math.ceil(cves.length / 100) }, (_, index) => {
           const batch = cves.slice(index * 100, (index + 1) * 100).join(",");
-          return fetch(`https://api.first.org/data/v1/epss?cve=${encodeURIComponent(batch)}`);
+          return fetch(
+            `https://api.first.org/data/v1/epss?cve=${encodeURIComponent(batch)}`,
+          );
         }),
       ),
     ]);
-    if (!kevResponse.ok || epssResponses.some((response) => !response.ok))
+    if (!kevResponse.ok || epssResponses.some((response) => !response.ok)) {
       throw new Error("risk feed returned a non-success response");
+    }
     const kev = await kevResponse.json();
-    const epss = await Promise.all(epssResponses.map((response) => response.json()));
-    const kevCves = new Set((kev.vulnerabilities ?? []).map((entry) => entry.cveID));
+    const epss = await Promise.all(
+      epssResponses.map((response) => response.json()),
+    );
+    const kevCves = new Set(
+      (kev.vulnerabilities ?? []).map((entry) => entry.cveID),
+    );
     const epssByCve = new Map(
       epss
         .flatMap((response) => response.data ?? [])
@@ -307,123 +302,26 @@ async function enrichDependabot(findings) {
   }
 }
 
-async function upsertIssue(client, owner, repo, finding, existing, config) {
-  const state = config.sources[finding.source].initialState;
-  const labels = [
-    "security",
-    "security:tracked",
-    `source:${finding.source}`,
-    `severity:${finding.severity}`,
-    state,
-    finding.kev ? "known-exploited" : null,
-  ].filter(Boolean);
-  const body = issueBody(finding, owner, repo);
-  if (!existing) {
-    const response = await client.request(`/repos/${owner}/${repo}/issues`, {
-      method: "POST",
-      body: JSON.stringify({ title: finding.title, body, labels }),
-    });
-    return response.data;
+async function postSnapshot(url, secret, snapshot) {
+  const target = new URL(url);
+  if (target.protocol !== "https:") {
+    throw new Error("PAPERCLIP_SECURITY_WEBHOOK_URL must use HTTPS");
   }
-  const lifecycle =
-    existing.state === "closed"
-      ? state
-      : existing.labels.map((label) => label.name).find((name) => name.startsWith("agent:"));
-  const preserved = existing.labels
-    .map((label) => label.name)
-    .filter(
-      (name) =>
-        !name.startsWith("severity:") &&
-        !name.startsWith("source:") &&
-        !name.startsWith("agent:") &&
-        name !== "known-exploited",
-    );
-  const response = await client.request(`/repos/${owner}/${repo}/issues/${existing.number}`, {
-    method: "PATCH",
-    body: JSON.stringify({
-      title: finding.title,
-      body,
-      state: "open",
-      labels: [
-        ...new Set(
-          [
-            ...preserved,
-            `source:${finding.source}`,
-            `severity:${finding.severity}`,
-            lifecycle ?? state,
-            finding.kev ? "known-exploited" : null,
-          ].filter(Boolean),
-        ),
-      ],
-    }),
+  const body = JSON.stringify(snapshot);
+  const response = await fetch(target, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": "teck-security-alert-intake",
+      "X-GitHub-Event": "teck_security_alert_snapshot",
+      "X-Hub-Signature-256": githubSignature(body, secret),
+    },
+    body,
   });
-  return response.data;
-}
-
-async function projectContext(client, config) {
-  const query =
-    "query($org:String!,$number:Int!){organization(login:$org){projectV2(number:$number){id fields(first:50){nodes{... on ProjectV2FieldCommon{id name dataType} ... on ProjectV2SingleSelectField{options{id name}}}}}}}";
-  const data = await client.graphql(query, {
-    org: config.project.organization,
-    number: config.project.number,
-  });
-  const project = data.organization?.projectV2;
-  if (!project)
+  if (!response.ok) {
     throw new Error(
-      `Project ${config.project.organization}#${config.project.number} was not found`,
+      `Paperclip security webhook failed (${response.status}): ${await response.text()}`,
     );
-  return project;
-}
-
-async function addToProject(client, project, issue, finding, config) {
-  const add = await client.graphql(
-    "mutation($project:ID!,$content:ID!){addProjectV2ItemById(input:{projectId:$project,contentId:$content}){item{id}}}",
-    { project: project.id, content: issue.node_id },
-  );
-  const itemId = add.addProjectV2ItemById.item.id;
-  const desired = {
-    [config.project.fields.status]:
-      config.sources[finding.source].initialState === "agent:needs-input" ? "Blocked" : "Ready",
-    [config.project.fields.workType]: "Security",
-    [config.project.fields.component]: finding.component,
-    [config.project.fields.kev]: finding.kev ? "Yes" : "No",
-    [config.project.fields.epss]: finding.epss,
-  };
-  for (const field of project.fields.nodes) {
-    const value = desired[field.name];
-    if (value === undefined) continue;
-    if (field.dataType === "NUMBER") {
-      await client.graphql(
-        "mutation($project:ID!,$item:ID!,$field:ID!,$number:Float!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{number:$number}}){projectV2Item{id}}}",
-        { project: project.id, item: itemId, field: field.id, number: value },
-      );
-      continue;
-    }
-    const option = field.options?.find(
-      (candidate) => candidate.name.toLowerCase() === String(value).toLowerCase(),
-    );
-    if (option)
-      await client.graphql(
-        "mutation($project:ID!,$item:ID!,$field:ID!,$option:String!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$option}}){projectV2Item{id}}}",
-        { project: project.id, item: itemId, field: field.id, option: option.id },
-      );
-  }
-}
-
-async function reconcileResolved(client, owner, repo, existing, active, available) {
-  for (const [key, issue] of existing) {
-    const source = key.split(":", 1)[0];
-    if (!available.has(source) || active.has(key) || issue.state === "closed") continue;
-    await client.request(`/repos/${owner}/${repo}/issues/${issue.number}/comments`, {
-      method: "POST",
-      body: JSON.stringify({
-        body: "The underlying GitHub security alert is no longer open. Closing this tracking issue after automated reconciliation.",
-      }),
-    });
-    await client.request(`/repos/${owner}/${repo}/issues/${issue.number}`, {
-      method: "PATCH",
-      body: JSON.stringify({ state: "closed", state_reason: "completed" }),
-    });
   }
 }
 
@@ -431,12 +329,20 @@ export async function run() {
   const token = process.env.GITHUB_TOKEN;
   if (!token) throw new Error("GITHUB_TOKEN is required");
   const [owner, repo] = (process.env.GITHUB_REPOSITORY ?? "").split("/");
-  if (!owner || !repo) throw new Error("GITHUB_REPOSITORY must be owner/repo");
+  if (!owner || !repo) {
+    throw new Error("GITHUB_REPOSITORY must be owner/repo");
+  }
   const config = JSON.parse(await readFile(configUrl, "utf8"));
   const client = new GitHubClient(token);
-  const { findings, available } = await collectFindings(client, owner, repo, config);
+  const { findings, available } = await collectFindings(
+    client,
+    owner,
+    repo,
+    config,
+  );
   await enrichDependabot(findings);
-  const project = await projectContext(client, config);
+  const snapshot = buildPaperclipSnapshot(owner, repo, findings, available);
+
   if (process.env.SECURITY_INTAKE_DRY_RUN === "true") {
     const summary = findings.reduce((counts, finding) => {
       counts[finding.source] = (counts[finding.source] ?? 0) + 1;
@@ -446,20 +352,10 @@ export async function run() {
       JSON.stringify(
         {
           dryRun: true,
-          project: `${config.project.organization}#${config.project.number}`,
-          availableSources: [...available].sort(),
+          schema: snapshot.schema,
+          repository: snapshot.repository,
+          availableSources: snapshot.availableSources,
           findings: summary,
-          dependabotRisk: {
-            knownExploited: findings.filter(
-              (finding) => finding.source === "dependabot" && finding.kev,
-            ).length,
-            epssAtLeast10Percent: findings.filter(
-              (finding) => finding.source === "dependabot" && (finding.epss ?? 0) >= 0.1,
-            ).length,
-            epssAtLeast50Percent: findings.filter(
-              (finding) => finding.source === "dependabot" && (finding.epss ?? 0) >= 0.5,
-            ).length,
-          },
         },
         null,
         2,
@@ -467,25 +363,26 @@ export async function run() {
     );
     return;
   }
-  await syncLabels(client, owner, repo, config.labels);
-  const { existing, duplicates } = await loadExistingIssues(client, owner, repo);
-  await reconcileDuplicateIssues(client, owner, repo, duplicates);
-  const active = new Set();
-  for (const finding of findings) {
-    const key = fingerprint(owner, repo, finding.source, finding.number);
-    active.add(key);
-    const issue = await upsertIssue(client, owner, repo, finding, existing.get(key), config);
-    await addToProject(client, project, issue, finding, config);
+
+  const webhookUrl = process.env.PAPERCLIP_SECURITY_WEBHOOK_URL;
+  const webhookSecret = process.env.PAPERCLIP_SECURITY_WEBHOOK_SECRET;
+  if (!webhookUrl || !webhookSecret) {
+    throw new Error(
+      "PAPERCLIP_SECURITY_WEBHOOK_URL and PAPERCLIP_SECURITY_WEBHOOK_SECRET are required",
+    );
   }
-  await reconcileResolved(client, owner, repo, existing, active, available);
+  await postSnapshot(webhookUrl, webhookSecret, snapshot);
   console.log(
-    `Synchronized ${findings.length} open security alert(s) into ${config.project.organization} Project #${config.project.number}.`,
+    `Forwarded ${snapshot.findings.length} sanitized open security alert(s) to Paperclip.`,
   );
 }
 
-const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : null;
-if (invokedPath === import.meta.url)
+const invokedPath = process.argv[1]
+  ? pathToFileURL(process.argv[1]).href
+  : null;
+if (invokedPath === import.meta.url) {
   run().catch((error) => {
     console.error(error);
     process.exitCode = 1;
   });
+}

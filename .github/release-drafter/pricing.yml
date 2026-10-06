@@ -1,0 +1,6 @@
+_extends: release-drafter-base.yml
+tag-prefix: 'pricing@v'
+include-paths:
+  - 'src/services/commerce/pricing/**'
+  - 'src/shared/**'
+  - 'deploy/**'
