@@ -22,6 +22,9 @@ spec:
           envFrom:
             - secretRef:
                 name: order-postgres
+          securityContext:
+            capabilities:
+              drop: [ALL]
       containers:
         - name: order-api
           image: order-api
@@ -38,6 +41,9 @@ spec:
               value: "http://+:8080"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "http://otel-collector:4317"
+          securityContext:
+            capabilities:
+              drop: [ALL]
           startupProbe:
             httpGet:
               path: /alive
