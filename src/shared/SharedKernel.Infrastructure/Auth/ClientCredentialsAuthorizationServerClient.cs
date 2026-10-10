@@ -63,7 +63,7 @@ internal sealed class ClientCredentialsAuthorizationServerClient : IAuthorizatio
         string resource,
         string scope,
         CancellationToken cancellationToken = default) =>
-        VerifyInternalAsync(resource, scope, userToken: null, cancellationToken);
+        VerifyInternalAsync(resource, scope, userToken: null, audience: null, cancellationToken);
 
     /// <inheritdoc />
     public Task<bool> VerifyAccessToResource(
@@ -71,24 +71,7 @@ internal sealed class ClientCredentialsAuthorizationServerClient : IAuthorizatio
         string scope,
         ScopesValidationMode? scopesValidationMode = null,
         CancellationToken cancellationToken = default) =>
-        VerifyInternalAsync(resource, scope, userToken: null, cancellationToken);
-
-    /// <inheritdoc />
-    public Task<bool> VerifyAccessToResource(
-        string resource,
-        string scope,
-        string accessToken,
-        CancellationToken cancellationToken = default) =>
-        VerifyInternalAsync(resource, scope, userToken: accessToken, cancellationToken);
-
-    /// <inheritdoc />
-    public Task<bool> VerifyAccessToResource(
-        string resource,
-        string scope,
-        string accessToken,
-        ScopesValidationMode? scopesValidationMode = null,
-        CancellationToken cancellationToken = default) =>
-        VerifyInternalAsync(resource, scope, userToken: accessToken, cancellationToken);
+        VerifyInternalAsync(resource, scope, userToken: null, audience: null, cancellationToken);
 
     /// <inheritdoc />
     public Task<bool> VerifyAccessToResource(
@@ -97,14 +80,31 @@ internal sealed class ClientCredentialsAuthorizationServerClient : IAuthorizatio
         ScopesValidationMode? scopesValidationMode,
         string? audience,
         CancellationToken cancellationToken = default) =>
-        VerifyInternalAsync(resource, scope, userToken: null, cancellationToken, audience);
+        VerifyInternalAsync(resource, scope, userToken: null, audience, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<bool> VerifyAccessToResource(
+        string resource,
+        string scope,
+        string accessToken,
+        CancellationToken cancellationToken = default) =>
+        VerifyInternalAsync(resource, scope, userToken: accessToken, audience: null, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<bool> VerifyAccessToResource(
+        string resource,
+        string scope,
+        string accessToken,
+        ScopesValidationMode? scopesValidationMode = null,
+        CancellationToken cancellationToken = default) =>
+        VerifyInternalAsync(resource, scope, userToken: accessToken, audience: null, cancellationToken);
 
     private async Task<bool> VerifyInternalAsync(
         string resource,
         string scope,
         string? userToken,
-        CancellationToken cancellationToken,
-        string? audience = null)
+        string? audience,
+        CancellationToken cancellationToken)
     {
         KeycloakAuthorizationServerOptions opts = _options.Value;
 
@@ -137,8 +137,8 @@ internal sealed class ClientCredentialsAuthorizationServerClient : IAuthorizatio
         }
 
         // UMA 2.0 ticket request:
-        //   Authorization: Basic base64(client_id:client_secret)  â€” resource-server authentication
-        //   subject_token=<exchanged_user_token>                   â€” requesting-party identity
+        //   Authorization: Basic base64(client_id:client_secret)  — resource-server authentication
+        //   subject_token=<exchanged_user_token>                   — requesting-party identity
         //
         // This is distinct from sending Authorization: Bearer which Keycloak would treat as
         // the resource-server PAT and reject when azp != the resource client.
