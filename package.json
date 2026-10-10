@@ -12,7 +12,7 @@
     "affected:lint": "nx affected -t lint",
     "affected:typecheck": "nx affected -t typecheck",
     "affected:all": "nx affected -t build test lint typecheck",
-    "test:security-intake": "node --test .github/scripts/security-alert-intake.test.mjs",
+    "test:issue-relationships": "node --test .github/scripts/issue-relationships.test.mjs",
     "graph": "nx graph",
     "release:plan": "nx release plan",
     "release:plan:check": "nx release plan:check",
