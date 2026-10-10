@@ -90,11 +90,21 @@ internal sealed class ClientCredentialsAuthorizationServerClient : IAuthorizatio
         CancellationToken cancellationToken = default) =>
         VerifyInternalAsync(resource, scope, userToken: accessToken, cancellationToken);
 
+    /// <inheritdoc />
+    public Task<bool> VerifyAccessToResource(
+        string resource,
+        string scope,
+        ScopesValidationMode? scopesValidationMode,
+        string? audience,
+        CancellationToken cancellationToken = default) =>
+        VerifyInternalAsync(resource, scope, userToken: null, cancellationToken, audience);
+
     private async Task<bool> VerifyInternalAsync(
         string resource,
         string scope,
         string? userToken,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? audience = null)
     {
         KeycloakAuthorizationServerOptions opts = _options.Value;
 
@@ -135,7 +145,7 @@ internal sealed class ClientCredentialsAuthorizationServerClient : IAuthorizatio
         var formData = new Dictionary<string, string>
         {
             ["grant_type"] = "urn:ietf:params:oauth:grant-type:uma-ticket",
-            ["audience"] = clientId,
+            ["audience"] = audience ?? clientId,
             ["permission"] = $"{resource}#{scope}",
             ["response_mode"] = "decision",
             ["subject_token"] = userToken,
