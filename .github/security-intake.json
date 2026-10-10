@@ -1,7 +1,0 @@
-{
-  "sources": {
-    "code-scanning": { "enabled": true },
-    "dependabot": { "enabled": true },
-    "secret-scanning": { "enabled": true }
-  }
-}
