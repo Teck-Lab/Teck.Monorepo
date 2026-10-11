@@ -56,9 +56,13 @@ inputs, so a version change cannot reuse an artifact built with stale metadata.
 ## Adding release units
 
 Backend services are discovered under `src/services/<group>/<service>`. Add
-the service projects to the appropriate Nx release group (or add a new group)
-and add the matching `.github/release-drafter/<unit>.yml` configuration. New
-Host projects are then picked up by the image matrix automatically.
+each deployable Host project to the appropriate Nx release group (or add a new
+group) and add the matching `.github/release-drafter/<unit>.yml` configuration.
+Host projects depend on their Application/Domain libraries, so changes to those
+libraries affect the Host through Nx's project graph. Fixed service groups still
+share one version; excluding library projects from release membership prevents
+service-scoped commits such as `feat(billing)` from ambiguously matching several
+release projects. New Host projects are picked up by the image matrix automatically.
 
 Node apps and packages under `src/apps/*` and `src/packages/*` are
 independently versioned by the `web` release group. Each needs a
