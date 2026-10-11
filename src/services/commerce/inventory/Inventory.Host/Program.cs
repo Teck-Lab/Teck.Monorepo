@@ -4,6 +4,7 @@ using Inventories.Host.Database;
 using Inventories.Host.Infrastructure;
 using Keycloak.AuthServices.Authentication;
 using SharedKernel.Infrastructure.Auth;
+using SharedKernel.Infrastructure.Database;
 using SharedKernel.Infrastructure.Hosting;
 using Teck.ServiceDefaults;
 
@@ -19,6 +20,10 @@ builder.Services.AddKeycloak(builder.Configuration, builder.Environment,
     builder.Configuration.GetSection("Keycloak").Get<KeycloakAuthenticationOptions>()!);
 builder.AddTeckMessaging(typeof(InventoryDbContext).Assembly, "InventoryWrite");
 var app = builder.Build();
+if (args is not ["--migrate"])
+{
+    app.ApplyLocalDatabaseMigrations<InventoryDbContext>();
+}
 app.UseTeckService();
 app.MapDefaultEndpoints();
-return await app.RunTeckServiceAsync(args);
+return await app.RunTeckServiceAsync<InventoryDbContext>(args);
