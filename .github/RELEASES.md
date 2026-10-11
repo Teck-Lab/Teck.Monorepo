@@ -18,13 +18,14 @@ and one continuously updated release pull request.
    candidate always supersedes older candidates.
 4. Release Drafter keeps one stable draft per affected release unit. The
    release PR builds deployable services on separate matrix runners and
-   publishes immutable `<version>-canary.<40-character-source-sha>` images,
-   moving `canary` aliases, and matching `canary/<unit>@v<version>-canary.<sha>`
-   GitHub prereleases. The separate `canary/` tag namespace prevents prerelease
-   tags from becoming Nx's stable-version baseline. The candidate tag identifies
-   the build under test; the artifact itself embeds the target stable version and
-   source revision so digest promotion does not leave canary metadata inside the
-   stable image.
+   publishes immutable `<version>-canary.<40-character-source-sha>` images
+   and matching `canary/<unit>@v<version>-canary.<sha>` GitHub prereleases.
+   Deployment automation can select the versioned candidate tag; no mutable
+   `:canary` image alias is published. The separate `canary/` tag namespace
+   prevents prerelease tags from becoming Nx's stable-version baseline. The
+   candidate tag identifies the build under test; the artifact itself embeds
+   the target stable version and source revision so digest promotion does not
+   leave canary metadata inside the stable image.
 5. Merging `release/nx` promotes the already-tested image manifests to
    `<version>` and `latest` without rebuilding, then Release Drafter
    publishes the existing drafts as stable `<release-unit>@v<version>`
