@@ -34,7 +34,13 @@ public sealed class NotificationResourceTests(AppHostFixture fixture)
                     : $"{name}: no state");
             }
 
-            throw new TimeoutException($"Notification did not start. Resource states: {string.Join(", ", states)}", ex);
+            var notificationLogs = app.Services.GetRequiredService<ResourceLoggerService>();
+            var startupLines = new List<string>();
+            await foreach (var batch in notificationLogs.GetAllAsync("notification"))
+            {
+                startupLines.AddRange(batch.Select(line => line.Content));
+            }
+            throw new TimeoutException($"Notification did not start. Resource states: {string.Join(", ", states)}. Process logs: {string.Join(Environment.NewLine, startupLines.TakeLast(80))}", ex);
         }
 
         using var client = app.CreateHttpClient("notification", "http");
