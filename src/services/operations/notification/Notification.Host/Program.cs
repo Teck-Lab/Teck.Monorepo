@@ -6,7 +6,6 @@ using SharedKernel.Infrastructure.Hosting;
 using Teck.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
-Console.Error.WriteLine("Notification startup: builder created");
 builder.AddServiceDefaults();
 builder.Services.AddTeckService(typeof(Program).Assembly, builder.Configuration);
 builder.AddNotificationPersistence();
@@ -14,12 +13,7 @@ builder.Services.Configure<NotificationOptions>(builder.Configuration.GetSection
 builder.Services.AddScoped<IStubEmailAcceptanceStore, StubEmailAcceptanceDbContextStore>();
 builder.Services.AddScoped<IEmailSender, StubEmailSender>();
 builder.AddTeckMessaging(typeof(NotificationDbContext).Assembly, "NotificationWrite");
-Console.Error.WriteLine("Notification startup: registrations complete");
 var app = builder.Build();
-Console.Error.WriteLine("Notification startup: app built");
 app.UseTeckService();
 app.MapDefaultEndpoints();
-Console.Error.WriteLine("Notification startup: endpoints mapped; entering host runner");
-int exitCode = await app.RunTeckServiceAsync<NotificationDbContext>(args);
-Console.Error.WriteLine($"Notification startup: host runner returned {exitCode}");
-return exitCode;
+return await app.RunTeckServiceAsync<NotificationDbContext>(args);
