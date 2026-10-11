@@ -129,7 +129,7 @@
       "updateDependents": "always",
       "git": {
         "commit": false,
-        "commitMessage": "chore(release): publish affected releases",
+        "commitMessage": "ci(release): publish affected releases",
         "tag": false,
         "stageChanges": false
       },

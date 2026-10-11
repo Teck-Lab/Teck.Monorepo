@@ -88,8 +88,8 @@ jobs:
           branch: release/nx
           base: main
           delete-branch: true
-          commit-message: 'chore(release): publish affected releases'
-          title: 'chore(release): publish affected releases'
+          commit-message: 'ci(release): publish affected releases'
+          title: 'ci(release): publish affected releases'
           body: |
             Nx generated this release PR from Conventional Commits affecting release units on `main`.
 
