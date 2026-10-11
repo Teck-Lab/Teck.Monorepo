@@ -76,7 +76,10 @@ public sealed class NotificationResourceTests(AppHostFixture fixture)
                 lines.AddRange(batch.Select(line => line.Content));
             }
 
-            throw new TimeoutException($"Notification /alive did not respond at {endpoint}; direct HTTP: {directResult}. Process logs: {string.Join(Environment.NewLine, lines.TakeLast(40))}", ex);
+            var status = app.ResourceNotifications.TryGetCurrentState("notification", out var notificationEvent)
+                ? $"{notificationEvent.Snapshot.State?.Text ?? "unknown"}, exit code {notificationEvent.Snapshot.ExitCode?.ToString() ?? "none"}"
+                : "no state";
+            throw new TimeoutException($"Notification /alive did not respond at {endpoint}; state: {status}; direct HTTP: {directResult}. Process logs: {string.Join(Environment.NewLine, lines.TakeLast(40))}", ex);
         }
 
         Assert.True(response.IsSuccessStatusCode, $"GET /alive → {(int)response.StatusCode} {response.ReasonPhrase}");
