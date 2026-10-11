@@ -1,7 +1,6 @@
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Testing;
-using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Aspire.AppHost.IntegrationTests;
@@ -34,13 +33,7 @@ public sealed class NotificationResourceTests(AppHostFixture fixture)
                     : $"{name}: no state");
             }
 
-            var notificationLogs = app.Services.GetRequiredService<ResourceLoggerService>();
-            var startupLines = new List<string>();
-            await foreach (var batch in notificationLogs.GetAllAsync("notification"))
-            {
-                startupLines.AddRange(batch.Select(line => line.Content));
-            }
-            throw new TimeoutException($"Notification did not start. Resource states: {string.Join(", ", states)}. Process logs: {string.Join(Environment.NewLine, startupLines.TakeLast(80))}", ex);
+            throw new TimeoutException($"Notification did not start. Resource states: {string.Join(", ", states)}. Process logs: {string.Join(Environment.NewLine, fixture.NotificationLogs)}", ex);
         }
 
         using var client = app.CreateHttpClient("notification", "http");
@@ -69,17 +62,11 @@ public sealed class NotificationResourceTests(AppHostFixture fixture)
                 directResult = "timed out";
             }
 
-            var lines = new List<string>();
-            var resourceLogs = app.Services.GetRequiredService<ResourceLoggerService>();
-            await foreach (var batch in resourceLogs.GetAllAsync("notification"))
-            {
-                lines.AddRange(batch.Select(line => line.Content));
-            }
-
+            var lines = fixture.NotificationLogs;
             var status = app.ResourceNotifications.TryGetCurrentState("notification", out var notificationEvent)
                 ? $"{notificationEvent.Snapshot.State?.Text ?? "unknown"}, exit code {notificationEvent.Snapshot.ExitCode?.ToString() ?? "none"}"
                 : "no state";
-            throw new TimeoutException($"Notification /alive did not respond at {endpoint}; state: {status}; direct HTTP: {directResult}. Process logs: {string.Join(Environment.NewLine, lines.TakeLast(40))}", ex);
+            throw new TimeoutException($"Notification /alive did not respond at {endpoint}; state: {status}; direct HTTP: {directResult}. Process logs: {string.Join(Environment.NewLine, lines)}", ex);
         }
 
         Assert.True(response.IsSuccessStatusCode, $"GET /alive → {(int)response.StatusCode} {response.ReasonPhrase}");
