@@ -46,40 +46,41 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Detect pending Version Plans
-        id: plans
-        shell: bash
-        run: |
-          if compgen -G '.nx/version-plans/*.md' >/dev/null; then
-            echo 'found=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'found=false' >> "$GITHUB_OUTPUT"
-            echo 'No pending Nx Version Plans; no release PR update is needed.'
-          fi
-
       - name: Resolve versions and changelogs with Nx
-        if: steps.plans.outputs.found == 'true'
+        id: release
         env:
           RELEASE_SOURCE_SHA: ${{ github.sha }}
-        run: bun run release:prepare
+        shell: bash
+        run: |
+          bun run release:prepare
+          if test -s .nx/releases/manifest.json; then
+            echo 'has-releases=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'has-releases=false' >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Export release matrix
         id: manifest
-        if: steps.plans.outputs.found == 'true'
+        if: steps.release.outputs.has-releases == 'true'
         shell: bash
         run: |
           test -s .nx/releases/manifest.json
           echo "matrix=$(jq -c '{include: .releases}' .nx/releases/manifest.json)" >> "$GITHUB_OUTPUT"
           echo 'has-releases=true' >> "$GITHUB_OUTPUT"
 
+      # Run even when there is no manifest: create-pull-request closes its existing
+      # release/nx PR when the checkout matches main, and delete-branch removes it.
       - name: Create or update the signed release PR
         id: cpr
-        if: steps.plans.outputs.found == 'true'
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ steps.app-token.outputs.token }}
@@ -87,10 +88,10 @@ jobs:
           branch: release/nx
           base: main
           delete-branch: true
-          commit-message: 'chore(release): publish planned releases'
-          title: 'chore(release): publish planned releases'
+          commit-message: 'chore(release): publish affected releases'
+          title: 'chore(release): publish affected releases'
           body: |
-            Nx generated this release PR from the Version Plans currently on `main`.
+            Nx generated this release PR from Conventional Commits affecting release units on `main`.
 
             - Package manifests are updated where the Nx ecosystem supports them.
             - .NET versions are supplied at build time and are not hard-coded into project files.

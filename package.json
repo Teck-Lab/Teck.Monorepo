@@ -14,8 +14,6 @@
     "affected:all": "nx affected -t build test lint typecheck",
     "test:issue-relationships": "node --test .github/scripts/issue-relationships.test.mjs",
     "graph": "nx graph",
-    "release:plan": "nx release plan",
-    "release:plan:check": "nx release plan:check",
     "release:prepare": "node .github/scripts/prepare-release.mjs",
     "release:prepare:dry": "node .github/scripts/prepare-release.mjs --dry-run",
     "clean": "nx reset",

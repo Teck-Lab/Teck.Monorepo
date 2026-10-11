@@ -37,11 +37,6 @@ jobs:
       - name: Derive nx affected SHAs
         uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5.0.1
 
-      - name: Require an Nx Version Plan
-        if: github.event_name == 'pull_request' && github.head_ref != 'release/nx'
-        shell: bash
-        run: bunx nx release plan:check --base="$NX_BASE" --head="$NX_HEAD"
-
       # The sibling jobs own Aspire and architecture tests. Exclude their projects here
       # so every affected test suite runs once, while Nx still builds shared dependencies.
       - name: Affected checks

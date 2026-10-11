@@ -122,18 +122,18 @@
     }
   },
   "release": {
-    "versionPlans": true,
     "version": {
-      "specifierSource": "version-plans",
+      "specifierSource": "conventional-commits",
       "currentVersionResolver": "git-tag",
       "fallbackCurrentVersionResolver": "disk",
       "updateDependents": "always",
+      "git": {
+        "commit": false,
+        "commitMessage": "chore(release): publish affected releases",
+        "tag": false,
+        "stageChanges": false
+      },
       "applyPreidToDependents": true
-    },
-    "git": {
-      "commit": false,
-      "tag": false,
-      "stageChanges": false
     },
     "changelog": {
       "workspaceChangelog": false,
@@ -142,6 +142,11 @@
         "file": false
       },
       "automaticFromRef": true
+    },
+    "conventionalCommits": {
+      "types": {
+        "chore": { "semverBump": "patch", "changelog": { "hidden": true } }
+      }
     },
     "groups": {
       "operations": {
