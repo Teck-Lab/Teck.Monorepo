@@ -1,6 +1,7 @@
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Aspire.AppHost.IntegrationTests;
@@ -37,7 +38,22 @@ public sealed class NotificationResourceTests(AppHostFixture fixture)
         }
 
         using var client = app.CreateHttpClient("notification", "http");
-        var response = await client.GetAsync(new Uri("/alive", UriKind.Relative));
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.GetAsync(new Uri("/alive", UriKind.Relative));
+        }
+        catch (TaskCanceledException ex)
+        {
+            var lines = new List<string>();
+            var resourceLogs = app.Services.GetRequiredService<ResourceLoggerService>();
+            await foreach (var batch in resourceLogs.GetAllAsync("notification"))
+            {
+                lines.AddRange(batch.Select(line => line.Content));
+            }
+
+            throw new TimeoutException($"Notification /alive did not respond. Process logs: {string.Join(Environment.NewLine, lines.TakeLast(40))}", ex);
+        }
 
         Assert.True(response.IsSuccessStatusCode, $"GET /alive → {(int)response.StatusCode} {response.ReasonPhrase}");
     }
