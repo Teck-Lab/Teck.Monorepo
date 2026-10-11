@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "sourceSha": "fa9c906fe2c819112f99099a7695bcdd00a5af38",
+  "releases": [
+    {
+      "name": "basket",
+      "releaseGroup": "basket",
+      "sourceSha": "fa9c906fe2c819112f99099a7695bcdd00a5af38",
+      "projects": [
+        "Basket.Host"
+      ],
+      "version": "0.0.1",
+      "tag": "basket@v0.0.1",
+      "previousTag": null,
+      "configName": "release-drafter/basket.yml",
+      "notesFile": ".nx/releases/notes/basket.md"
+    },
+    {
+      "name": "catalog",
+      "releaseGroup": "catalog",
+      "sourceSha": "fa9c906fe2c819112f99099a7695bcdd00a5af38",
+      "projects": [
+        "Catalog.Host"
+      ],
+      "version": "0.0.1",
+      "tag": "catalog@v0.0.1",
+      "previousTag": null,
+      "configName": "release-drafter/catalog.yml",
+      "notesFile": ".nx/releases/notes/catalog.md"
+    },
+    {
+      "name": "customer",
+      "releaseGroup": "customer",
+      "sourceSha": "fa9c906fe2c819112f99099a7695bcdd00a5af38",
+      "projects": [
+        "Customer.Host"
+      ],
+      "version": "0.0.1",
+      "tag": "customer@v0.0.1",
+      "previousTag": null,
+      "configName": "release-drafter/customer.yml",
+      "notesFile": ".nx/releases/notes/customer.md"
+    },
+    {
+      "name": "gateway-public",
+      "releaseGroup": "gateway-public",
+      "sourceSha": "fa9c906fe2c819112f99099a7695bcdd00a5af38",
+      "projects": [
+        "Gateway.Public"
+      ],
+      "version": "0.0.1",
+      "tag": "gateway-public@v0.0.1",
+      "previousTag": null,
+      "configName": "release-drafter/gateway-public.yml",
+      "notesFile": ".nx/releases/notes/gateway-public.md"
+    },
+    {
+      "name": "inventory",
+      "releaseGroup": "inventory",
+      "sourceSha": "fa9c906fe2c819112f99099a7695bcdd00a5af38",
+      "projects": [
+        "Inventory.Host"
+      ],
+      "version": "0.0.1",
+      "tag": "inventory@v0.0.1",
+      "previousTag": null,
+      "configName": "release-drafter/inventory.yml",
+      "notesFile": ".nx/releases/notes/inventory.md"
+    },
+    {
+      "name": "mobile",
+      "releaseGroup": "web",
+      "sourceSha": "fa9c906fe2c819112f99099a7695bcdd00a5af38",
+      "projects": [
+        "mobile"
+      ],
+      "version": "0.0.2",
+      "tag": "mobile@v0.0.2",
+      "previousTag": null,
+      "configName": "release-drafter/mobile.yml",
+      "notesFile": ".nx/releases/notes/mobile.md"
+    },
+    {
+      "name": "operations",
+      "releaseGroup": "operations",
+      "sourceSha": "fa9c906fe2c819112f99099a7695bcdd00a5af38",
+      "projects": [
+        "Billing.Host",
+        "Notification.Host"
+      ],
+      "version": "0.0.1",
+      "tag": "operations@v0.0.1",
+      "previousTag": null,
+      "configName": "release-drafter/operations.yml",
+      "notesFile": ".nx/releases/notes/operations.md"
+    },
+    {
+      "name": "order",
+      "releaseGroup": "order",
+      "sourceSha": "fa9c906fe2c819112f99099a7695bcdd00a5af38",
+      "projects": [
+        "Order.Host"
+      ],
+      "version": "0.0.1",
+      "tag": "order@v0.0.1",
+      "previousTag": null,
+      "configName": "release-drafter/order.yml",
+      "notesFile": ".nx/releases/notes/order.md"
+    },
+    {
+      "name": "pricing",
+      "releaseGroup": "pricing",
+      "sourceSha": "fa9c906fe2c819112f99099a7695bcdd00a5af38",
+      "projects": [
+        "Pricing.Host"
+      ],
+      "version": "0.0.1",
+      "tag": "pricing@v0.0.1",
+      "previousTag": null,
+      "configName": "release-drafter/pricing.yml",
+      "notesFile": ".nx/releases/notes/pricing.md"
+    },
+    {
+      "name": "tailwind-config",
+      "releaseGroup": "web",
+      "sourceSha": "fa9c906fe2c819112f99099a7695bcdd00a5af38",
+      "projects": [
+        "tailwind-config"
+      ],
+      "version": "0.0.2",
+      "tag": "tailwind-config@v0.0.2",
+      "previousTag": null,
+      "configName": "release-drafter/tailwind-config.yml",
+      "notesFile": ".nx/releases/notes/tailwind-config.md"
+    },
+    {
+      "name": "ui",
+      "releaseGroup": "web",
+      "sourceSha": "fa9c906fe2c819112f99099a7695bcdd00a5af38",
+      "projects": [
+        "ui"
+      ],
+      "version": "0.0.2",
+      "tag": "ui@v0.0.2",
+      "previousTag": null,
+      "configName": "release-drafter/ui.yml",
+      "notesFile": ".nx/releases/notes/ui.md"
+    },
+    {
+      "name": "ui-native",
+      "releaseGroup": "web",
+      "sourceSha": "fa9c906fe2c819112f99099a7695bcdd00a5af38",
+      "projects": [
+        "ui-native"
+      ],
+      "version": "0.0.2",
+      "tag": "ui-native@v0.0.2",
+      "previousTag": null,
+      "configName": "release-drafter/ui-native.yml",
+      "notesFile": ".nx/releases/notes/ui-native.md"
+    },
+    {
+      "name": "web",
+      "releaseGroup": "web",
+      "sourceSha": "fa9c906fe2c819112f99099a7695bcdd00a5af38",
+      "projects": [
+        "web"
+      ],
+      "version": "0.0.2",
+      "tag": "web@v0.0.2",
+      "previousTag": null,
+      "configName": "release-drafter/web.yml",
+      "notesFile": ".nx/releases/notes/web.md"
+    }
+  ]
+}
