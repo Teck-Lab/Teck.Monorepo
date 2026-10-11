@@ -45,6 +45,24 @@ public sealed class NotificationResourceTests(AppHostFixture fixture)
         }
         catch (TaskCanceledException ex)
         {
+            // Distinguish a stalled Aspire-configured client from an unreachable project endpoint.
+            var endpoint = app.GetEndpoint("notification", "http");
+            string directResult;
+            try
+            {
+                using var directClient = new HttpClient { BaseAddress = endpoint, Timeout = TimeSpan.FromSeconds(5) };
+                using var directResponse = await directClient.GetAsync(new Uri("/alive", UriKind.Relative));
+                directResult = $"HTTP {(int)directResponse.StatusCode}";
+            }
+            catch (HttpRequestException directException)
+            {
+                directResult = directException.Message;
+            }
+            catch (TaskCanceledException)
+            {
+                directResult = "timed out";
+            }
+
             var lines = new List<string>();
             var resourceLogs = app.Services.GetRequiredService<ResourceLoggerService>();
             await foreach (var batch in resourceLogs.GetAllAsync("notification"))
@@ -52,7 +70,7 @@ public sealed class NotificationResourceTests(AppHostFixture fixture)
                 lines.AddRange(batch.Select(line => line.Content));
             }
 
-            throw new TimeoutException($"Notification /alive did not respond. Process logs: {string.Join(Environment.NewLine, lines.TakeLast(40))}", ex);
+            throw new TimeoutException($"Notification /alive did not respond at {endpoint}; direct HTTP: {directResult}. Process logs: {string.Join(Environment.NewLine, lines.TakeLast(40))}", ex);
         }
 
         Assert.True(response.IsSuccessStatusCode, $"GET /alive → {(int)response.StatusCode} {response.ReasonPhrase}");
