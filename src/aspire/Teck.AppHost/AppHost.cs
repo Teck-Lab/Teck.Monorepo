@@ -112,11 +112,13 @@ builder.AddProject<Projects.Pricing_Host>("pricing")
 
 // WithHttpEndpoint registers the "http" endpoint Aspire injects into service-discovery
 // variables (services__billing__http__0, etc.) so YARP destinations like http://billing resolve.
+// billing consumes OrderPlaced over rabbitmq; kept out of the gateway's WaitFor chain so the
+// gateway smoke test's startup criteria stay independent of billing.
 builder.AddProject<Projects.Billing_Host>("billing")
     .WithHttpEndpoint(name: "http")
     .WithEnvironment("ConnectionStrings__BillingWrite", billingDb)
     .WithEnvironment("ConnectionStrings__BillingRead", billingDb)
-    .WithReference(rabbitmq).WithReference(redis).WithReference(keycloak)
+    .WithReference(rabbitmq).WithReference(keycloak)
     .WaitFor(billingDb).WaitFor(keycloak);
 
 builder.AddProject<Projects.Notification_Host>("notification")
