@@ -175,7 +175,6 @@ jobs:
             --label "com.teck.release.tag=${RELEASE_GROUP}@v${VERSION}" \
             --label "org.opencontainers.image.revision=${SOURCE_SHA}" \
             --cache-from "type=gha,scope=${CACHE_SCOPE},version=2" \
-            --cache-from "type=registry,ref=${IMAGE_NAME}:canary" \
             --cache-to "type=gha,scope=${CACHE_SCOPE},mode=max,version=2,ignore-error=true,timeout=20m" \
             --cache-to type=inline \
             --metadata-file /tmp/build-meta.json \
