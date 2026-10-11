@@ -53,7 +53,6 @@ const versionResult = await releaseVersion({
   gitCommit: false,
   gitTag: false,
   gitPush: false,
-  deleteVersionPlans: false,
 });
 
 const changelogResult = await releaseChangelog({
@@ -68,7 +67,6 @@ const changelogResult = await releaseChangelog({
   gitCommit: false,
   gitTag: false,
   gitPush: false,
-  deleteVersionPlans: !dryRun,
 });
 
 const releases = [];
@@ -153,7 +151,10 @@ for (const group of versionResult.releaseGraph.releaseGroups) {
 
 releases.sort((left, right) => left.name.localeCompare(right.name));
 if (releases.length === 0) {
-  console.log("Nx found no release units in the current Version Plans.");
+  console.log("Nx found no release units from Conventional Commits.");
+  if (!dryRun && existsSync(manifestPath)) {
+    rmSync(manifestPath);
+  }
   process.exit(0);
 }
 

@@ -96,7 +96,7 @@ jobs:
       - name: Discover services
         id: discover
         run: |
-          services=$(.github/scripts/discover-services.sh)
+          services=$(bash .github/scripts/discover-services.sh)
           count=$(echo "$services" | jq 'length')
           echo "matrix=$(echo "$services" | jq -c '{include: .}')" >> "$GITHUB_OUTPUT"
           echo "has-services=$([ "$count" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"

@@ -1,14 +1,18 @@
 # Release automation
 
-Teck.Monorepo uses trunk-based development with Nx Version Plans and one
-continuously updated release pull request.
+Teck.Monorepo uses trunk-based development, Nx Conventional Commit versioning,
+and one continuously updated release pull request.
 
-1. Every releasable pull request adds an Nx Version Plan with
-   `bun run release:plan`. The plan selects affected projects or release
-   groups, the semantic bump, and the changelog entry.
-2. After merges to `main`, Nx resolves all still-pending plans, propagates
-   dependency bumps, updates supported Node package manifests, and writes
-   `.nx/releases/manifest.json` plus group-scoped changelog notes.
+1. Merge Conventional Commits to `main`. Nx associates each commit with the
+   projects changed by that commit (using its affected-project graph), resolves
+   semantic bumps only for their release units, and propagates dependency bumps.
+   `fix` bumps patch, `feat` bumps minor, breaking changes bump major, and
+   `chore` bumps patch (including `chore(deps)`); chores are hidden from Nx
+   release notes. A `chore(deps-dev)` that affects no release unit does not bump
+   one. No per-PR Version Plan is needed.
+2. After merges to `main`, Nx updates supported Node package manifests and
+   writes `.nx/releases/manifest.json` plus group-scoped changelog notes only
+   when release units have changed.
 3. `peter-evans/create-pull-request` maintains the signed `release/nx`
    pull request. Further merges to `main` update that same PR; the newest
    candidate always supersedes older candidates.
@@ -31,8 +35,8 @@ is the approval and promotion control.
 
 ## Version ownership
 
-- Nx owns release groups, Version Plans, semantic version calculation,
-  dependency propagation, and `package.json` updates.
+- Nx owns release groups, commit-derived semantic version calculation,
+  affected-project selection, dependency propagation, and `package.json` updates.
 - Release Drafter owns draft/prerelease notes and creates the GitHub tags when
   the release PR is merged.
 - The workflow-owned `.nx/releases/manifest.json` is the immutable contract
@@ -65,9 +69,8 @@ contract.
 
 ## Useful commands
 
-- `bun run release:plan` - interactively add a Version Plan.
-- `bun run release:plan:check` - verify releasable changes have a plan.
-- `bun run release:prepare:dry` - preview versions and release units.
+- `bun x nx affected -t build test lint typecheck` - run checks only for affected projects.
+- `bun run release:prepare:dry` - preview commit-derived versions and release units.
 
 Do not run `bun run release:prepare` outside the release workflow. It is
 intended to update the managed release PR checkout.

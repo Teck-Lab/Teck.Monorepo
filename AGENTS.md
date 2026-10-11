@@ -51,16 +51,17 @@ specs/
 | web | `src/apps/*`, `src/packages/*` |
 
 `.github/scripts/discover-services.sh` derives these groups from the service
-layout. Nx Version Plans and release groups determine which independently
+layout. Nx Conventional Commits and release groups determine which independently
 versioned units are released, including dependency-driven bumps. Stable tags
 use `<release-group>@v{version}`; container images use that group's semantic
 version.
 
 ## Key rules
 
-- Never create Git tags or promote a release locally. Add an Nx Version Plan
-  with `bun run release:plan`; CI owns versioning, the release PR, tags,
-  changelogs, canary prereleases, and stable GitHub Releases.
+- Never create Git tags or promote a release locally. Use Conventional Commit
+  messages for release intent; Nx derives semantic bumps from commits affecting
+  each release unit. CI owns versioning, the release PR, tags, changelogs,
+  canary prereleases, and stable GitHub Releases.
 - Published commits must use Conventional Commit format (`type(scope): description`)
   and carry a GitHub-verified signature (GPG, SSH, or S/MIME), including commits on PR branches.
   GitHub's native `Require signed commits` ruleset rule owns signature enforcement;
