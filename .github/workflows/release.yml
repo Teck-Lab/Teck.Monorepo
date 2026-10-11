@@ -228,7 +228,7 @@ jobs:
         run: |
           set -euo pipefail
           owner=$(printf '%s' "$REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
-          services=$(./.github/scripts/discover-services.sh)
+          services=$(bash .github/scripts/discover-services.sh)
           images=$(jq -r --arg owner "$owner" --arg group "$RELEASE_GROUP" '
             .[] | select(.releaseGroup == $group) |
             "ghcr.io/\($owner)/teck-monorepo/\(.group)/\(.service)"

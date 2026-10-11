@@ -58,7 +58,7 @@ jobs:
           test "$source_sha" = "${{ github.event.pull_request.base.sha }}"
 
           releases=$(jq -c '.releases' "$MANIFEST")
-          services=$(./.github/scripts/discover-services.sh)
+          services=$(bash .github/scripts/discover-services.sh)
           service_matrix=$(jq -nc \
             --arg sourceSha "$source_sha" \
             --argjson releases "$releases" \
