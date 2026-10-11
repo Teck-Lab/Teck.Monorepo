@@ -30,7 +30,7 @@ public sealed class NotificationResourceTests(AppHostFixture fixture)
             foreach (var name in new[] { "postgres", "notificationdb", "keycloak", "rabbitmq", "notification", "gateway" })
             {
                 states.Add(app.ResourceNotifications.TryGetCurrentState(name, out var resourceEvent)
-                    ? $"{name}: {resourceEvent.Snapshot.State?.Text ?? "unknown"} ({resourceEvent.Snapshot.HealthStatus?.ToString() ?? "unknown"})"
+                    ? $"{name}: {resourceEvent.Snapshot.State?.Text ?? "unknown"} ({resourceEvent.Snapshot.HealthStatus?.ToString() ?? "unknown"}), exit code {resourceEvent.Snapshot.ExitCode?.ToString() ?? "none"}"
                     : $"{name}: no state");
             }
 
