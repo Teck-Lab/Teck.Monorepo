@@ -126,7 +126,7 @@ builder.AddProject<Projects.Notification_Host>("notification")
     .WithEnvironment("ConnectionStrings__NotificationWrite", notificationDb)
     .WithEnvironment("ConnectionStrings__NotificationRead", notificationDb)
     .WithReference(rabbitmq).WithReference(keycloak)
-    .WaitFor(notificationDb).WaitFor(keycloak).WaitFor(rabbitmq);
+    .WaitFor(notificationDb).WaitFor(keycloak);
 
 // WithHttpEndpoint registers a named "http" endpoint so Aspire can inject the correct
 // ASPNETCORE_URLS and the testing framework can resolve it via CreateHttpClient("gateway", "http").
