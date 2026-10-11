@@ -62,12 +62,14 @@ version.
   with `bun run release:plan`; CI owns versioning, the release PR, tags,
   changelogs, canary prereleases, and stable GitHub Releases.
 - Published commits must use Conventional Commit format (`type(scope): description`)
-  and carry a GitHub-verified GPG signature, including commits on PR branches.
+  and carry a GitHub-verified signature (GPG, SSH, or S/MIME), including commits on PR branches.
+  GitHub's native `Require signed commits` ruleset rule owns signature enforcement;
+  do not duplicate it with a signature-checking Actions job.
   Local checkpoint commits are optional and are not a prerequisite for publishing.
   Agents using the configured GitHub App-backed MCP publish tested file contents
   as API-created commits without needing a workspace signing key. Omit custom
   author, committer, and signature overrides and verify the returned remote SHA's
-  signature or the GPG commit-signatures CI check. An App email or App-authenticated
+  signature through GitHub's commit verification API. An App email or App-authenticated
   `git push` does not sign existing local commits.
 - Fixes and small features use the pre-commit gate, QA review, and merge without
   a preview.

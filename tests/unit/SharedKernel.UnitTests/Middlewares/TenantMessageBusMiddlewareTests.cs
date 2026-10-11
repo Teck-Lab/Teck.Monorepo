@@ -78,6 +78,7 @@ public sealed class TenantMessageBusMiddlewareTests
             Options.Create(new TeckCloudMultiTenancyOptions()));
 
         Assert.Null(TenantPropagationContext.CurrentTenantId);
+        Assert.Null(tenant.Value);
     }
 
     [Theory]
