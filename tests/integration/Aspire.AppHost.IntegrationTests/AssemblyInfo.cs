@@ -10,4 +10,4 @@ using Xunit;
 // meant several DCP/Docker stacks competing for the same cores, memory and image pulls, which
 // pushed a three-minute project past thirty minutes without finishing. Serialize the whole
 // assembly so each stack gets the runner to itself.
-[assembly: CollectionBehavior(DisableTestParallelization = true)]
+[assembly: Parallelization(Mode = ParallelMode.None)]
