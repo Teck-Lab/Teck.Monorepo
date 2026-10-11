@@ -118,7 +118,7 @@ builder.AddProject<Projects.Billing_Host>("billing")
     .WithHttpEndpoint(name: "http")
     .WithEnvironment("ConnectionStrings__BillingWrite", billingDb)
     .WithEnvironment("ConnectionStrings__BillingRead", billingDb)
-    .WithReference(rabbitmq).WithReference(keycloak)
+    .WithReference(rabbitmq).WithReference(redis).WithReference(keycloak)
     .WaitFor(billingDb).WaitFor(keycloak);
 
 builder.AddProject<Projects.Notification_Host>("notification")
