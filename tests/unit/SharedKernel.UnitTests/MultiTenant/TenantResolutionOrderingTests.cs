@@ -1,10 +1,12 @@
 using System.Security.Claims;
 using Finbuckle.MultiTenant.Abstractions;
 using Finbuckle.MultiTenant.AspNetCore;
+using Finbuckle.MultiTenant.AspNetCore.Options;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using SharedKernel.Infrastructure.Database.EFCore;
 using SharedKernel.Infrastructure.Messaging.MultiTenant;
@@ -41,7 +43,7 @@ public sealed class TenantResolutionOrderingTests
             var accessor = scope.ServiceProvider.GetRequiredService<IMultiTenantContextAccessor<TenantDetails>>();
             constructedContext = new ProbeDbContext(new DbContextOptionsBuilder<ProbeDbContext>().Options, accessor);
             return Task.CompletedTask;
-        });
+        }, Options.Create(new BypassWhenOptions()), Options.Create(new ShortCircuitWhenOptions()));
 
         await middleware.Invoke(context).ConfigureAwait(false);
 
@@ -72,7 +74,7 @@ public sealed class TenantResolutionOrderingTests
             var accessor = scope.ServiceProvider.GetRequiredService<IMultiTenantContextAccessor<TenantDetails>>();
             constructedContext = new ProbeDbContext(new DbContextOptionsBuilder<ProbeDbContext>().Options, accessor);
             return Task.CompletedTask;
-        });
+        }, Options.Create(new BypassWhenOptions()), Options.Create(new ShortCircuitWhenOptions()));
 
         await middleware.Invoke(context).ConfigureAwait(false);
 
