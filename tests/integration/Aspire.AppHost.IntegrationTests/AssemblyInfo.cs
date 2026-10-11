@@ -1,4 +1,6 @@
 using Xunit;
+using Xunit.Sdk;
+using Xunit.v3;
 
 // This assembly owns three container-heavy collections: "AppHost" boots the whole distributed
 // application (Postgres, Keycloak, RabbitMQ, Redis and every service), "LocalIdentityKeycloak"
