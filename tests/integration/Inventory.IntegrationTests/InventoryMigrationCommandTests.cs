@@ -50,8 +50,17 @@ public sealed class InventoryMigrationCommandTests(SharedTestcontainersFixture f
 
             await using var verify = new NpgsqlConnection(connection);
             await verify.OpenAsync();
-            await using var command = new NpgsqlCommand("SELECT to_regclass('\"Reservations\"') IS NOT NULL AND to_regclass('\"ReservationLines\"') IS NOT NULL AND to_regclass('\"__EFMigrationsHistory\"') IS NOT NULL", verify);
-            Assert.True((bool)(await command.ExecuteScalarAsync())!);
+            await using var command = new NpgsqlCommand("SELECT tablename FROM pg_tables WHERE schemaname = 'public'", verify);
+            await using var reader = await command.ExecuteReaderAsync();
+            var tables = new List<string>();
+            while (await reader.ReadAsync())
+            {
+                tables.Add(reader.GetString(0));
+            }
+
+            Assert.Contains("Reservations", tables);
+            Assert.Contains("ReservationLines", tables);
+            Assert.Contains("__EFMigrationsHistory", tables);
         }
         finally
         {
