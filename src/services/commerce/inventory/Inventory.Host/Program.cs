@@ -24,6 +24,7 @@ if (args is not ["--migrate"])
 {
     app.ApplyLocalDatabaseMigrations<InventoryDbContext>();
 }
+
 app.UseTeckService();
 app.MapDefaultEndpoints();
 return await app.RunTeckServiceAsync<InventoryDbContext>(args);
