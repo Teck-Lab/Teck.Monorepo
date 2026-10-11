@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using SharedKernel.Infrastructure.Messaging.MultiTenant;
 using SharedKernel.Infrastructure.MultiTenant;
@@ -25,15 +24,18 @@ public sealed class TenantMessageBusMiddleware(RequestDelegate next)
     /// Resolves one signed-claim tenant and applies it to the scoped bus for the downstream request.
     /// </summary>
     /// <param name="context">The current HTTP request context.</param>
+    /// <param name="bus">The request-scoped Wolverine message bus.</param>
     /// <param name="tenantTokenContextResolver">The trusted token-claim tenant resolver.</param>
     /// <param name="tenantOptions">The configured tenant claim names.</param>
     /// <returns>A task that completes after the downstream pipeline and bus restoration.</returns>
     public async Task InvokeAsync(
         HttpContext context,
+        IMessageBus bus,
         ITenantTokenContextResolver tenantTokenContextResolver,
         IOptions<TeckCloudMultiTenancyOptions> tenantOptions)
     {
         ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(bus);
         ArgumentNullException.ThrowIfNull(tenantTokenContextResolver);
         ArgumentNullException.ThrowIfNull(tenantOptions);
 
@@ -55,7 +57,6 @@ public sealed class TenantMessageBusMiddleware(RequestDelegate next)
             return;
         }
 
-        IMessageBus bus = context.RequestServices.GetRequiredService<IMessageBus>();
         string? previousTenantId = bus.TenantId;
         string? previousPropagationTenantId = TenantPropagationContext.CurrentTenantId;
         bus.TenantId = tenantIds[0];

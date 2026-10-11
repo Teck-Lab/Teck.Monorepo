@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Finbuckle.MultiTenant.Abstractions;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using SharedKernel.Infrastructure.Middlewares;
@@ -28,7 +27,7 @@ public sealed class TenantMessageBusMiddlewareTests
             return Task.CompletedTask;
         });
 
-        await middleware.InvokeAsync(AuthenticatedContext(bus), resolver, Options.Create(new TeckCloudMultiTenancyOptions()));
+        await middleware.InvokeAsync(AuthenticatedContext(), bus, resolver, Options.Create(new TeckCloudMultiTenancyOptions()));
 
         Assert.Equal(signedTenant, tenantObservedByNext);
         Assert.Equal("previous-tenant", tenant.Value);
@@ -73,7 +72,8 @@ public sealed class TenantMessageBusMiddlewareTests
 
         TenantPropagationContext.CurrentTenantId = null;
         await producerMiddleware.InvokeAsync(
-            AuthenticatedContext(bus),
+            AuthenticatedContext(),
+            bus,
             new StubTenantTokenContextResolver(signedTenant),
             Options.Create(new TeckCloudMultiTenancyOptions()));
 
@@ -90,11 +90,11 @@ public sealed class TenantMessageBusMiddlewareTests
         var tenant = new TenantHolder();
         IMessageBus bus = CreateBus(tenant);
         var middleware = new TenantMessageBusMiddleware(_ => Task.CompletedTask);
-        // No RequestServices: anonymous and ambiguous requests must not resolve Wolverine.
-        DefaultHttpContext context = authenticated ? AuthenticatedContextWithoutBus() : new DefaultHttpContext();
+        DefaultHttpContext context = authenticated ? AuthenticatedContext() : new DefaultHttpContext();
 
         await middleware.InvokeAsync(
             context,
+            bus,
             new StubTenantTokenContextResolver(tenantIds),
             Options.Create(new TeckCloudMultiTenancyOptions()));
 
@@ -110,18 +110,10 @@ public sealed class TenantMessageBusMiddlewareTests
         return bus;
     }
 
-    private static DefaultHttpContext AuthenticatedContextWithoutBus() => new()
+    private static DefaultHttpContext AuthenticatedContext()
     {
-        User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "test-subject")], "test")),
-    };
-
-    private static DefaultHttpContext AuthenticatedContext(IMessageBus bus)
-    {
-        var context = new DefaultHttpContext
-        {
-            RequestServices = new ServiceCollection().AddSingleton(bus).BuildServiceProvider(),
-            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "test-subject")], "test")),
-        };
+        var context = new DefaultHttpContext();
+        context.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "test-subject")], "test"));
         return context;
     }
 
