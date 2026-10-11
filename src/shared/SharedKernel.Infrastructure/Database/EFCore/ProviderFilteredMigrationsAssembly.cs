@@ -153,8 +153,12 @@ internal sealed class ProviderFilteredMigrationsAssembly : IMigrationsAssembly
         }
 
         string? fullName = typeInfo.DeclaringType?.FullName ?? typeInfo.ReflectedType?.FullName ?? typeInfo.Name;
-        return fullName.Contains($".Migrations.{_providerToken}.", StringComparison.OrdinalIgnoreCase)
-            || fullName.EndsWith($".Migrations.{_providerToken}", StringComparison.OrdinalIgnoreCase)
-            || fullName.Contains(_providerToken, StringComparison.OrdinalIgnoreCase);
+        // Only migrations explicitly scoped to a provider are filtered. Most services put
+        // their PostgreSQL migrations directly in .Migrations without a provider suffix.
+        bool isProviderSpecific = fullName.Contains(".Migrations.PostgreSQL", StringComparison.OrdinalIgnoreCase)
+            || fullName.Contains(".Migrations.SqlServer", StringComparison.OrdinalIgnoreCase)
+            || fullName.Contains(".Migrations.Sqlite", StringComparison.OrdinalIgnoreCase)
+            || fullName.Contains(".Migrations.MySQL", StringComparison.OrdinalIgnoreCase);
+        return !isProviderSpecific || fullName.Contains($".Migrations.{_providerToken}", StringComparison.OrdinalIgnoreCase);
     }
 }
