@@ -21,8 +21,7 @@ public sealed class NotificationResourceTests(AppHostFixture fixture)
             .WaitAsync(TimeSpan.FromMinutes(5));
 
         using var client = app.CreateHttpClient("notification", "http");
-        var response = await client.GetAsync(new Uri("/alive", UriKind.Relative));
-
+        using var response = await client.GetAsync(new Uri("/alive", UriKind.Relative));
         Assert.True(response.IsSuccessStatusCode, $"GET /alive → {(int)response.StatusCode} {response.ReasonPhrase}");
     }
 }

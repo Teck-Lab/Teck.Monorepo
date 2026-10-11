@@ -43,7 +43,7 @@ jobs:
         run: |
           affected=$(bunx nx show projects --affected --base="$BASE_SHA" --head="$HEAD_SHA" --json 2>/dev/null || echo "")
           [ -n "$affected" ] && export NX_AFFECTED="$affected"
-          services=$(.github/scripts/discover-services.sh)
+          services=$(bash .github/scripts/discover-services.sh)
           count=$(echo "$services" | jq 'length')
           echo "matrix=$(echo "$services" | jq -c '{include: .}')" >> "$GITHUB_OUTPUT"
           echo "has-services=$([ "$count" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"

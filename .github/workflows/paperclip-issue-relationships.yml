@@ -1,70 +1,86 @@
-name: Paperclip Issue Relationships
+name: GitHub Issue Relationships
 
 on:
   workflow_dispatch:
     inputs:
       operation:
-        description: Native relationship operation
+        description: Add or remove the selected native relationship
         required: true
         type: choice
-        options:
-          - add
-          - remove
+        options: [add, remove]
+      relationship:
+        description: Direction is from source issue to related item (see .github/ISSUE_RELATIONSHIPS.md)
+        required: true
+        default: relates-to
+        type: choice
+        options: [relates-to, blocked-by, blocking, sub-issue, parent, branch, pull-request]
+      source-repository:
+        description: Repository containing the source issue
+        required: true
+        default: Teck.Monorepo
+        type: choice
+        options: [Teck.Monorepo, Teck.Terraform, Teck.GitOps]
       issue-number:
-        description: Teck.Monorepo issue number
+        description: Source issue number (not a pull request)
         required: true
         type: string
       related-repository:
-        description: Repository containing the related issue
+        description: Repository containing the related issue, PR or branch
         required: true
+        default: Teck.Monorepo
         type: choice
-        options:
-          - Teck.Monorepo
-          - Teck.Terraform
-          - Teck.GitOps
+        options: [Teck.Monorepo, Teck.Terraform, Teck.GitOps]
       related-issue-number:
-        description: Related issue number
-        required: true
+        description: Related issue or PR number; leave blank for branch
+        required: false
+        type: string
+      branch-name:
+        description: Branch only; add creates a NEW linked branch, remove unlinks without deleting it
+        required: false
+        type: string
+      base-branch:
+        description: Branch creation only; blank uses the related repository default branch
+        required: false
         type: string
 
 run-name: >-
-  Paperclip ${{ inputs.operation }} relation
-  Teck.Monorepo#${{ inputs.issue-number }}
-  to Teck-Lab/${{ inputs.related-repository }}#${{ inputs.related-issue-number }}
+  ${{ inputs.operation }} ${{ inputs.relationship || 'relates-to' }}
+  ${{ inputs.source-repository || 'Teck.Monorepo' }}#${{ inputs.issue-number }}
 
 permissions:
   contents: read
 
+# Serialize bridge writes, including reversed/cross-repository edges.
 concurrency:
-  group: paperclip-issue-relationship-${{ inputs.issue-number }}
+  group: github-issue-relationships
   cancel-in-progress: false
+  queue: max
 
 jobs:
   synchronize:
-    name: Synchronize native relates-to relationship
+    name: Apply and verify native relationship
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
+    env:
+      OPERATION: ${{ inputs.operation }}
+      RELATIONSHIP: ${{ inputs.relationship }}
+      SOURCE_REPOSITORY: Teck-Lab/${{ inputs.source-repository || 'Teck.Monorepo' }}
+      ISSUE_NUMBER: ${{ inputs.issue-number }}
+      RELATED_REPOSITORY: ${{ inputs.related-repository }}
+      RELATED_ISSUE_NUMBER: ${{ inputs.related-issue-number }}
+      BRANCH_NAME: ${{ inputs.branch-name }}
+      BASE_BRANCH: ${{ inputs.base-branch }}
     steps:
-      - name: Validate requested relationship
-        shell: bash
-        env:
-          ISSUE_NUMBER: ${{ inputs.issue-number }}
-          RELATED_REPOSITORY: ${{ inputs.related-repository }}
-          RELATED_ISSUE_NUMBER: ${{ inputs.related-issue-number }}
+      - name: Check out trusted bridge code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Test bridge and validate inputs before minting credentials
         run: |
-          set -euo pipefail
-          [[ "$ISSUE_NUMBER" =~ ^[1-9][0-9]*$ ]]
-          [[ "$RELATED_ISSUE_NUMBER" =~ ^[1-9][0-9]*$ ]]
-
-          case "$RELATED_REPOSITORY" in
-            Teck.Monorepo|Teck.Terraform|Teck.GitOps) ;;
-            *) exit 1 ;;
-          esac
-
-          if [[ "$RELATED_REPOSITORY" == "Teck.Monorepo" && "$ISSUE_NUMBER" == "$RELATED_ISSUE_NUMBER" ]]; then
-            echo "An issue cannot relate to itself." >&2
-            exit 1
-          fi
+          node --test .github/scripts/issue-relationships.test.mjs
+          node .github/scripts/issue-relationships.mjs --validate
 
       - name: Mint repository-scoped GitHub App token
         id: app-token
@@ -75,95 +91,10 @@ jobs:
           owner: Teck-Lab
           repositories: Teck.Monorepo,Teck.Terraform,Teck.GitOps
           permission-issues: write
+          permission-contents: ${{ inputs.relationship == 'branch' && (inputs.operation == 'add' && 'write' || 'read') || '' }}
+          permission-pull-requests: ${{ inputs.relationship == 'pull-request' && 'write' || '' }}
 
       - name: Apply and verify native relationship
-        shell: bash
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          OPERATION: ${{ inputs.operation }}
-          ISSUE_NUMBER: ${{ inputs.issue-number }}
-          RELATED_REPOSITORY: ${{ inputs.related-repository }}
-          RELATED_ISSUE_NUMBER: ${{ inputs.related-issue-number }}
-          SOURCE_REPOSITORY: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-
-          api_version="2026-03-10"
-          target_repository="Teck-Lab/$RELATED_REPOSITORY"
-
-          gh api \
-            --header "X-GitHub-Api-Version: $api_version" \
-            "repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER" \
-            --silent
-
-          related_issue_id="$(
-            gh api \
-              --header "X-GitHub-Api-Version: $api_version" \
-              "repos/$target_repository/issues/$RELATED_ISSUE_NUMBER" \
-              --jq '.id'
-          )"
-          [[ "$related_issue_id" =~ ^[1-9][0-9]*$ ]]
-
-          relationship_id="$(
-            gh api \
-              --header "X-GitHub-Api-Version: $api_version" \
-              --paginate \
-              "repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER/relates_to" \
-              --jq ".[] | select(.id == $related_issue_id) | .id" |
-              head -n 1
-          )"
-
-          case "$OPERATION" in
-            add)
-              if [[ -z "$relationship_id" ]]; then
-                gh api \
-                  --method POST \
-                  --header "X-GitHub-Api-Version: $api_version" \
-                  "repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER/relates_to" \
-                  -F "issue_id=$related_issue_id" \
-                  --silent
-              fi
-              expected="present"
-              ;;
-            remove)
-              if [[ -n "$relationship_id" ]]; then
-                gh api \
-                  --method DELETE \
-                  --header "X-GitHub-Api-Version: $api_version" \
-                  "repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER/relates_to/$related_issue_id" \
-                  --silent
-              fi
-              expected="absent"
-              ;;
-            *)
-              echo "Unsupported operation: $OPERATION" >&2
-              exit 1
-              ;;
-          esac
-
-          verified_id="$(
-            gh api \
-              --header "X-GitHub-Api-Version: $api_version" \
-              --paginate \
-              "repos/$SOURCE_REPOSITORY/issues/$ISSUE_NUMBER/relates_to" \
-              --jq ".[] | select(.id == $related_issue_id) | .id" |
-              head -n 1
-          )"
-
-          if [[ "$expected" == "present" && -z "$verified_id" ]]; then
-            echo "The related issue was not present after the add operation." >&2
-            exit 1
-          fi
-          if [[ "$expected" == "absent" && -n "$verified_id" ]]; then
-            echo "The related issue remained present after the remove operation." >&2
-            exit 1
-          fi
-
-          {
-            echo "### Paperclip issue relationship"
-            echo
-            echo "- Operation: $OPERATION"
-            echo "- Source: $SOURCE_REPOSITORY#$ISSUE_NUMBER"
-            echo "- Related: $target_repository#$RELATED_ISSUE_NUMBER"
-            echo "- Verified state: $expected"
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: node .github/scripts/issue-relationships.mjs

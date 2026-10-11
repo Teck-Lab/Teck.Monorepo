@@ -25,6 +25,12 @@ concurrency:
 
 
 jobs:
+  # Reuse CodeQL instead of a second independently triggered workflow. The caller's
+  # result includes every language in its matrix, so Security Gate can depend on it.
+  codeql:
+    name: CodeQL
+    uses: ./.github/workflows/codeql.yml
+
   workflow-security:
     name: GitHub Actions security (zizmor)
     runs-on: ubuntu-latest
@@ -39,7 +45,7 @@ jobs:
           persist-credentials: false
 
       - name: Analyze GitHub Actions workflows
-        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
 
   configuration-security:
     name: IaC and configuration security (Trivy)
@@ -90,7 +96,7 @@ jobs:
       - name: Discover services
         id: discover
         run: |
-          services=$(.github/scripts/discover-services.sh)
+          services=$(bash .github/scripts/discover-services.sh)
           count=$(echo "$services" | jq 'length')
           echo "matrix=$(echo "$services" | jq -c '{include: .}')" >> "$GITHUB_OUTPUT"
           echo "has-services=$([ "$count" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
@@ -238,7 +244,7 @@ jobs:
           scanners: license
 
       - name: Upload frontend SBOM artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sbom-frontend-cyclonedx
           path: sbom-frontend.cyclonedx.json
@@ -248,3 +254,36 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: .github/scripts/submit-sbom-dependency-graph.sh sbom-frontend.cyclonedx.json sbom/frontend
+
+  security-gate:
+    name: Security Gate
+    if: always()
+    needs: [codeql, workflow-security, configuration-security, discover-services, semgrep, dependency-review, gitleaks, frontend-audit, frontend-sbom]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Require successful security jobs
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          node --input-type=module <<'NODE'
+          const jobs = JSON.parse(process.env.NEEDS_JSON);
+          const event = process.env.EVENT_NAME;
+          const expected = {
+            codeql: "success",
+            "workflow-security": "success",
+            "configuration-security": "success",
+            "discover-services": "success",
+            semgrep: jobs["discover-services"]?.outputs?.["has-services"] === "false" ? "skipped" : "success",
+            "dependency-review": event === "pull_request" ? "success" : "skipped",
+            gitleaks: "success",
+            "frontend-audit": ["schedule", "workflow_dispatch"].includes(event) ? "success" : "skipped",
+            "frontend-sbom": event === "pull_request" ? "skipped" : "success",
+          };
+          for (const [name, result] of Object.entries(expected)) {
+            const actual = jobs[name]?.result ?? "missing";
+            console.log(`${name}: ${actual} (required: ${result})`);
+            if (actual !== result) process.exitCode = 1;
+          }
+          NODE

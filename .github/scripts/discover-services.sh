@@ -62,7 +62,7 @@ while IFS= read -r svcdir; do
   fi
 
   # baseVersion is used only by ephemeral feature previews. Stable releases
-  # use the group-specific version resolved by Nx Version Plans.
+  # use the group-specific version resolved by Nx Conventional Commits.
   latest=$(git tag -l "${release_group}@v*" 2>/dev/null \
     | sed "s/^${release_group}@v//" \
     | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)

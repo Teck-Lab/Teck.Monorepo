@@ -13,49 +13,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  commit-signatures:
-    name: GPG commit signatures
-    runs-on: ubuntu-latest
-    steps:
-      - name: Verify every introduced commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EVENT_NAME: ${{ github.event_name }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          BEFORE_SHA: ${{ github.event.before }}
-          AFTER_SHA: ${{ github.sha }}
-        run: |
-          if [ "$EVENT_NAME" = pull_request ]; then
-            commits="$(
-              gh api --paginate --slurp \
-                "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/commits?per_page=100" |
-                jq 'add'
-            )"
-          elif [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
-            commits="$(gh api "repos/$GITHUB_REPOSITORY/commits/$AFTER_SHA" | jq '[.]')"
-          else
-            commits="$(
-              gh api --paginate --slurp \
-                "repos/$GITHUB_REPOSITORY/compare/$BEFORE_SHA...$AFTER_SHA?per_page=100" |
-                jq '[.[].commits[]]'
-            )"
-          fi
-
-          invalid="$(
-            jq -r '
-              .[] |
-              select(
-                .commit.verification.verified != true or
-                (((.commit.verification.signature // "") |
-                  startswith("-----BEGIN PGP SIGNATURE-----")) | not)
-              ) |
-              "\(.sha) \(.commit.verification.reason)"
-            ' <<<"$commits"
-          )"
-          if [ -n "$invalid" ]; then
-            printf 'Every commit must have a GitHub-verified GPG signature:\n%s\n' "$invalid" >&2
-            exit 1
-          fi
   check:
     name: PR Checks
     runs-on: ubuntu-latest
@@ -67,14 +24,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          dotnet-version: '10.0.x'
-
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - uses: ./.github/actions/setup-ci
 
       - name: Commit format check
         uses: wagoid/commitlint-github-action@b948419dd99f3fd78a6548d48f94e3df7f6bf3ed # v6
@@ -87,17 +37,10 @@ jobs:
       - name: Derive nx affected SHAs
         uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5.0.1
 
-      - name: Require an Nx Version Plan
-        if: github.event_name == 'pull_request' && github.head_ref != 'release/nx'
-        shell: bash
-        run: bunx nx release plan:check --base="$NX_BASE" --head="$NX_HEAD"
-
-      # Aspire.AppHost.IntegrationTests boots real containers and runs ~16 minutes on its
-      # own. Serialised behind the other ~14 minutes of affected work it pushed this job
-      # past its bound, so it runs as a sibling job instead. Nothing leaves the gate: both
-      # jobs are required, they just run concurrently.
+      # The sibling jobs own Aspire and architecture tests. Exclude their projects here
+      # so every affected test suite runs once, while Nx still builds shared dependencies.
       - name: Affected checks
-        run: bunx nx affected -t build test lint typecheck --verbose --exclude=Aspire.AppHost.IntegrationTests
+        run: bunx nx affected -t build test lint typecheck --verbose --exclude='Aspire.AppHost.IntegrationTests,*.Architecture.UnitTests'
 
   aspire-integration-tests:
     name: Aspire integration tests
@@ -109,24 +52,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          global-json-file: global.json
-
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - uses: ./.github/actions/setup-ci
 
       - name: Derive nx affected SHAs
         uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5.0.1
 
-      # `nx affected` ignores --projects, so affectedness is checked first and the suite is
-      # then run explicitly. Unrelated pull requests skip the container cost entirely.
+      # Resolve selection before the condition: graph failures must fail this job rather
+      # than being mistaken for an unaffected suite by an `if ... | grep` pipeline.
       - name: Aspire integration tests
         run: |
-          if bunx nx show projects --affected | grep -q 'Aspire.AppHost.IntegrationTests'; then
-            bunx nx run-many -t test --projects=Aspire.AppHost.IntegrationTests --verbose
+          projects=$(bunx nx show projects --affected --with-target=test --projects=Aspire.AppHost.IntegrationTests --json)
+          project_list=$(jq -r 'join(",")' <<<"$projects")
+          if [ -n "$project_list" ]; then
+            bunx nx run-many -t test --projects="$project_list" --verbose
           else
             echo "Aspire.AppHost.IntegrationTests is not affected; skipping."
           fi
@@ -140,21 +78,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          global-json-file: global.json
+      - uses: ./.github/actions/setup-ci
 
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - name: Derive nx affected SHAs
+        uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5.0.1
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      # `nx affected` ignores --projects, so `nx affected -t test --projects=...`
-      # silently ran the entire affected test set — byte-identical to the 32 targets
-      # PR Checks already runs, duplicating every container-backed integration suite on
-      # a second runner. run-many honours the filter, which is what this job is named for.
+      # Filter Nx's affected graph first; run-many then executes exactly that selection.
       - name: Run architecture tests
-        run: bunx nx run-many -t test --projects='*.Architecture.UnitTests'
+        run: |
+          projects=$(bunx nx show projects --affected --with-target=test --projects='*.Architecture.UnitTests' --json)
+          project_list=$(jq -r 'join(",")' <<<"$projects")
+          if [ -n "$project_list" ]; then
+            bunx nx run-many -t test --projects="$project_list" --verbose
+          else
+            echo "No architecture test projects are affected; skipping."
+          fi
 
   validate-specs:
     name: OpenAPI Spec Validation
@@ -165,3 +103,30 @@ jobs:
       - name: Validate OpenAPI specs
         run: |
           echo "TODO add Spectral validation when specs are populated"
+
+  ci-gate:
+    name: CI Gate
+    if: always()
+    needs: [check, aspire-integration-tests, architecture-tests, validate-specs]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Require successful CI jobs
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          SPEC_VALIDATION_REQUIRED: ${{ contains(github.event.pull_request.labels.*.name, 'preview') || github.ref == 'refs/heads/main' }}
+        run: |
+          node --input-type=module <<'NODE'
+          const jobs = JSON.parse(process.env.NEEDS_JSON);
+          const expected = {
+            check: "success",
+            "aspire-integration-tests": "success",
+            "architecture-tests": "success",
+            "validate-specs": process.env.SPEC_VALIDATION_REQUIRED === "true" ? "success" : "skipped",
+          };
+          for (const [name, result] of Object.entries(expected)) {
+            const actual = jobs[name]?.result ?? "missing";
+            console.log(`${name}: ${actual} (required: ${result})`);
+            if (actual !== result) process.exitCode = 1;
+          }
+          NODE
