@@ -57,11 +57,9 @@ jobs:
 
       - name: Resolve versions and changelogs with Nx
         id: release
-        env:
-          RELEASE_SOURCE_SHA: ${{ github.sha }}
         shell: bash
         run: |
-          bun run release:prepare
+          RELEASE_SOURCE_SHA=$(git rev-parse HEAD) bun run release:prepare
           if test -s .nx/releases/manifest.json; then
             echo 'has-releases=true' >> "$GITHUB_OUTPUT"
           else
