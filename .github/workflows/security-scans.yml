@@ -25,6 +25,12 @@ concurrency:
 
 
 jobs:
+  # Reuse CodeQL instead of a second independently triggered workflow. The caller's
+  # result includes every language in its matrix, so Security Gate can depend on it.
+  codeql:
+    name: CodeQL
+    uses: ./.github/workflows/codeql.yml
+
   workflow-security:
     name: GitHub Actions security (zizmor)
     runs-on: ubuntu-latest
@@ -248,3 +254,36 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: .github/scripts/submit-sbom-dependency-graph.sh sbom-frontend.cyclonedx.json sbom/frontend
+
+  security-gate:
+    name: Security Gate
+    if: always()
+    needs: [codeql, workflow-security, configuration-security, discover-services, semgrep, dependency-review, gitleaks, frontend-audit, frontend-sbom]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Require successful security jobs
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          node --input-type=module <<'NODE'
+          const jobs = JSON.parse(process.env.NEEDS_JSON);
+          const event = process.env.EVENT_NAME;
+          const expected = {
+            codeql: "success",
+            "workflow-security": "success",
+            "configuration-security": "success",
+            "discover-services": "success",
+            semgrep: jobs["discover-services"]?.outputs?.["has-services"] === "false" ? "skipped" : "success",
+            "dependency-review": event === "pull_request" ? "success" : "skipped",
+            gitleaks: "success",
+            "frontend-audit": ["schedule", "workflow_dispatch"].includes(event) ? "success" : "skipped",
+            "frontend-sbom": event === "pull_request" ? "skipped" : "success",
+          };
+          for (const [name, result] of Object.entries(expected)) {
+            const actual = jobs[name]?.result ?? "missing";
+            console.log(`${name}: ${actual} (required: ${result})`);
+            if (actual !== result) process.exitCode = 1;
+          }
+          NODE
