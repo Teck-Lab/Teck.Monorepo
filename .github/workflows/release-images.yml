@@ -27,6 +27,7 @@ jobs:
       release-matrix: ${{ steps.plan.outputs.release-matrix }}
       service-matrix: ${{ steps.plan.outputs.service-matrix }}
       services: ${{ steps.plan.outputs.services }}
+      source-ref: ${{ steps.plan.outputs.source-ref }}
       source-sha: ${{ steps.plan.outputs.source-sha }}
 
     steps:
@@ -90,6 +91,7 @@ jobs:
           count=$(jq '.include | length' <<< "$service_matrix")
           {
             echo "has-services=$([[ $count -gt 0 ]] && echo true || echo false)"
+            echo "source-ref=$source_sha"
             echo "source-sha=$source_sha"
             echo "service-matrix=$(jq -c . <<< "$service_matrix")"
             echo "release-matrix=$(jq -c . <<< "$release_matrix")"
@@ -100,6 +102,31 @@ jobs:
           jq -r '.include[] | "- \(.releaseName): \(.candidateVersion)"' <<< "$release_matrix"
           echo 'Container builds:'
           jq -r 'if (.include | length) == 0 then "- none" else .include[] | "- \(.product): \(.candidateVersion)" end' <<< "$service_matrix"
+
+      - name: Write expected release evidence manifest
+        env:
+          SERVICE_MATRIX: ${{ steps.plan.outputs.service-matrix }}
+          SOURCE_REF: ${{ steps.plan.outputs.source-ref }}
+          SOURCE_SHA: ${{ steps.plan.outputs.source-sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          jq -n \
+            --argjson services "$SERVICE_MATRIX" \
+            --arg sourceRef "$SOURCE_REF" \
+            --arg sourceSha "$SOURCE_SHA" \
+            --arg runId "$RUN_ID" \
+            --arg runAttempt "$RUN_ATTEMPT" \
+            '{schemaVersion: 1, run: {id: $runId, attempt: $runAttempt}, sourceRef: $sourceRef, sourceSha: $sourceSha, expected: [$services.include[] | {serviceGroup: .group, serviceName: .service, version: .candidateVersion, sourceRef: $sourceRef, sourceSha: .sourceSha}]}' \
+            > release-evidence-manifest.json
+
+      - name: Upload expected release evidence manifest
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-evidence-manifest-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-evidence-manifest.json
+          if-no-files-found: error
+          retention-days: 90
 
   build-candidate:
     name: Candidate ${{ matrix.product }}
@@ -125,6 +152,7 @@ jobs:
       version: ${{ matrix.candidateVersion }}
       artifact-version: ${{ matrix.stableVersion }}
       source-ref: ${{ matrix.sourceSha }}
+      release-evidence: true
       publish-mode: release
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}

@@ -48,6 +48,11 @@ on:
         required: false
         type: string
         default: ''
+      release-evidence:
+        description: Upload immutable image evidence for release-images manifest consumers
+        required: false
+        type: boolean
+        default: false
     secrets:
       github-token:
         description: GitHub token for authentication and release uploads
@@ -193,6 +198,38 @@ jobs:
           IMAGE_NAME: ${{ steps.image-vars.outputs.image_name }}
           IMAGE_DIGEST: ${{ steps.export-digest.outputs.digest }}
         run: echo "ref=${IMAGE_NAME}@${IMAGE_DIGEST}" >> "$GITHUB_OUTPUT"
+      - name: Write release evidence
+        if: inputs.release-evidence && inputs.publish-mode == 'release'
+        env:
+          DIGEST: ${{ steps.export-digest.outputs.digest }}
+          IMAGE_REF: ${{ steps.image-ref.outputs.ref }}
+          SERVICE_GROUP: ${{ inputs.service-group }}
+          SERVICE_NAME: ${{ inputs.service-name }}
+          SOURCE_REF: ${{ inputs.source-ref != '' && inputs.source-ref || format('refs/tags/v{0}', inputs.version) }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          VERSION: ${{ inputs.version }}
+          ARTIFACT_VERSION: ${{ inputs.artifact-version != '' && inputs.artifact-version || inputs.version }}
+        run: |
+          jq -n \
+            --arg serviceGroup "$SERVICE_GROUP" \
+            --arg serviceName "$SERVICE_NAME" \
+            --arg version "$VERSION" \
+            --arg artifactVersion "$ARTIFACT_VERSION" \
+            --arg sourceRef "$SOURCE_REF" \
+            --arg sourceSha "$SOURCE_SHA" \
+            --arg digest "$DIGEST" \
+            --arg imageRef "$IMAGE_REF" \
+            '{serviceGroup: $serviceGroup, serviceName: $serviceName, version: $version, artifactVersion: $artifactVersion, sourceRef: $sourceRef, sourceSha: $sourceSha, digest: $digest, imageRef: $imageRef}' \
+            > release-evidence.json
+
+      - name: Upload immutable release evidence
+        if: inputs.release-evidence && inputs.publish-mode == 'release'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-evidence-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.service-group }}-${{ inputs.service-name }}
+          path: release-evidence.json
+          if-no-files-found: error
+          retention-days: 90
 
   scan-vulnerabilities:
     name: Scan ${{ inputs.service-group }}/${{ inputs.service-name }} vulnerabilities
