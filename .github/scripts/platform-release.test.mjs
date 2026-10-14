@@ -418,6 +418,17 @@ test("release notes include complete versions and group-scoped change sections",
   assert.match(notes, /## order\n\n- checkout/);
   assert.doesNotMatch(notes, /## catalog/);
 });
+test("release changelogs collapse each changed component and platform section with the table visible", () => {
+  const notes = platformNotes(plan(), { order: "- checkout (#1)" }, "- platform changes");
+  const body = githubReleaseBody(plan(), notes);
+  assert.match(body.split("<details>")[0], /catalog \| 3\.0\.0/);
+  assert.match(body, /<details>\n<summary>order<\/summary>\n\n## order\n\n- checkout/);
+  assert.match(body, /<summary>Platform changes<\/summary>/);
+  assert.doesNotMatch(body, /<details open|<summary>catalog<\/summary>/);
+  assert.equal(body.match(/<details>/g)?.length, 2);
+  assert.equal(body.match(/<\/details>/g)?.length, 2);
+  assert.doesNotMatch(notes, /<details>/, "the full attachment stays plain Markdown");
+});
 test("fixed-group notes include each change once across member projects using Nx's renderer", async () => {
   const Renderer = groupChangelogRenderer(["Order.Application", "Order.Host"]);
   const changes = [
@@ -488,11 +499,16 @@ test("oversized histories keep complete linked entries for every changed compone
   assert.match(body, /## Platform changes\n\n- repair CI/);
   assert.equal(body.match(/add checkout/g)?.length, body.match(/\/pull\/123\)\)/g)?.length);
   assert.match(body, /Additional changes are listed/);
+  assert.equal(body.match(/<details>/g)?.length, 14);
+  assert.equal(body.match(/<\/details>/g)?.length, 14);
 });
 test("release bodies budget multibyte notes by UTF-8 size and preserve small releases", () => {
   const entry = "- checkout 🛒 æøå ([#123](https://github.com/test/repo/pull/123))\n";
   const small = platformNotes(plan(), { order: entry }, "- repair CI");
-  assert.equal(githubReleaseBody(plan(), small), small);
+  const smallBody = githubReleaseBody(plan(), small);
+  assert.ok(smallBody.includes(entry.trimEnd()));
+  assert.match(smallBody, /## Platform changes\n\n- repair CI/);
+  assert.doesNotMatch(smallBody, /shortened|Additional changes are listed/);
   const notes = platformNotes(
     plan(),
     { order: entry.repeat(Math.ceil(120_000 / Buffer.byteLength(entry))) },

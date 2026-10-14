@@ -111,7 +111,6 @@ export function readManifest(path = ".nx/releases/manifest.json") {
 
 export function githubReleaseBody(manifest, notes) {
   const maxBytes = 120_000;
-  if (Buffer.byteLength(notes) <= maxBytes) return notes;
   // Partition only our outer sections; Nx version/type headings stay inside
   // their component. Give each section room so one large history cannot hide
   // the remaining components or the platform changes.
@@ -127,9 +126,22 @@ export function githubReleaseBody(manifest, notes) {
   const sections = starts.length
     ? starts.map((start, index) => notes.slice(start, starts[index + 1]))
     : [notes];
+  if (!starts.length && Buffer.byteLength(notes) <= maxBytes) return notes;
+  const summaries = sections.map((section) =>
+    section.startsWith("## ") ? section.split("\n", 1)[0].slice(3) : "Changes",
+  );
+  const collapse = (section, index) =>
+    `<details>\n<summary>${summaries[index]}</summary>\n\n${section.trimEnd()}\n\n</details>`;
+  const completeBody = notes.slice(0, starts[0] ?? 0) + sections.map(collapse).join("\n\n");
+  if (Buffer.byteLength(completeBody) <= maxBytes) return completeBody;
   const prefix = `${notes.slice(0, starts[0] ?? 0)}Some sections are shortened below. The complete changelog is attached as \`release-notes.md\`.\n\n`;
+  const wrapperBytes = sections.reduce(
+    (bytes, _section, index) => bytes + Buffer.byteLength(collapse("", index)),
+    0,
+  );
   const sectionBudget = Math.floor(
-    (maxBytes - Buffer.byteLength(prefix) - (sections.length - 1) * 2) / sections.length,
+    (maxBytes - Buffer.byteLength(prefix) - wrapperBytes - (sections.length - 1) * 2) /
+      sections.length,
   );
   const suffix = "\n\n_Additional changes are listed in the attached release-notes.md._";
   return (
@@ -149,6 +161,7 @@ export function githubReleaseBody(manifest, notes) {
         // the changelog in the middle of a link or a multibyte character.
         return lines.join("\n").trimEnd() + suffix;
       })
+      .map(collapse)
       .join("\n\n")
   );
 }
