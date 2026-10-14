@@ -38,6 +38,22 @@ const digest = `sha256:${"b".repeat(64)}`;
 const otherDigest = `sha256:${"c".repeat(64)}`;
 const config = JSON.parse(readFileSync(".autorc.json", "utf8"));
 
+test("release and validation workflows pin external actions to exact commit hashes", () => {
+  for (const name of [
+    "release",
+    "canary-preview",
+    "reusable-build-sign-sbom",
+    "ci",
+    "security-scans",
+  ]) {
+    const workflow = readFileSync(`.github/workflows/${name}.yml`, "utf8");
+    for (const [, reference] of workflow.matchAll(/^\s+(?:-\s+)?uses:\s+([^\s#]+)/gm)) {
+      if (reference.startsWith("./") || reference.startsWith("$/")) continue;
+      assert.match(reference, /@[a-f0-9]{40}$/, `${name}: invalid action pin ${reference}`);
+    }
+  }
+});
+
 function nativeAuto() {
   const auto = new Auto({ quiet: true, baseBranch: "main", disableTsNode: true });
   auto.config = { ...config, labels: [...defaultLabels] };
