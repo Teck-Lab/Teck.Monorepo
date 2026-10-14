@@ -1,7 +1,9 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { Auto, determineNextVersion } from "@auto-it/core";
+import autoCore from "@auto-it/core";
 import { inc, prerelease, rcompare, valid } from "semver";
+
+const { Auto, determineNextVersion } = autoCore;
 
 export const releaseBranches = ["main", "alpha", "beta", "next"];
 export function git(...args) {
