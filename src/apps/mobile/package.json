@@ -12,7 +12,7 @@
     "expo-system-ui": "*",
     "metro-config": "*",
     "metro-resolver": "*",
-    "nativewind": "^5.0.0-preview.4",
+    "nativewind": "^5.0.0-rc.0",
     "react": "*",
     "react-native": "*",
     "react-native-css": "3.0.7",
