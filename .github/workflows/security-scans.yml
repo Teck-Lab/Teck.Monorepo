@@ -1,9 +1,9 @@
 name: Security Scans
 on:
   pull_request:
-    branches: [main]
+    branches: [main, alpha, beta, next]
   push:
-    branches: [main]
+    branches: [main, alpha, beta, next]
   schedule:
     - cron: '0 2 * * 1'
   workflow_dispatch:

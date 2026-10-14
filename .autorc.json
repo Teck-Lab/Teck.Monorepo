@@ -1,0 +1,11 @@
+{
+  "baseBranch": "main",
+  "prereleaseBranches": ["next", "beta", "alpha"],
+  "owner": "Teck-Lab",
+  "repo": "Teck.Monorepo",
+  "plugins": [
+    "git-tag",
+    ["conventional-commits", { "defaultReleaseType": "patch" }],
+    ["released", { "label": "released", "prereleaseLabel": "pre-released", "includeBotPrs": true }]
+  ]
+}

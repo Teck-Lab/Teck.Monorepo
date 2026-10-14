@@ -17,7 +17,9 @@
     "release:prepare": "node .github/scripts/prepare-release.mjs",
     "release:prepare:dry": "node .github/scripts/prepare-release.mjs --dry-run",
     "clean": "nx reset",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:release": "node --test commitlint.config.test.mjs .github/scripts/release-scopes.test.mjs .github/scripts/platform-release.test.mjs",
+    "release:publish": "node .github/scripts/publish-release.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
@@ -25,14 +27,14 @@
     "@commitlint/ensure": "21.2.3",
     "@commitlint/lint": "21.2.3",
     "@expo/cli": "~57.0.28",
-    "@nx/devkit": "latest",
+    "@nx/devkit": "23.3.0",
     "@nx/docker": "23.3.0",
-    "@nx/dotnet": "latest",
+    "@nx/dotnet": "23.3.0",
     "@nx/expo": "23.3.0",
-    "@nx/js": "latest",
-    "@nx/next": "latest",
+    "@nx/js": "23.3.0",
+    "@nx/next": "23.3.0",
     "@nx/react": "23.3.0",
-    "@nx/storybook": "latest",
+    "@nx/storybook": "23.3.0",
     "@swc-node/register": "~1.12.1",
     "@swc/cli": "~0.8.0",
     "@swc/core": "~1.16.13",
@@ -46,9 +48,15 @@
     "metro-config": "~0.87.1",
     "metro-resolver": "~0.87.1",
     "nativewind": "^5.0.0-preview.4",
-    "nx": "latest",
+    "nx": "23.3.0",
     "tailwindcss": "^4",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "@auto-it/conventional-commits": "11.3.6",
+    "@auto-it/core": "11.3.6",
+    "@auto-it/git-tag": "11.3.6",
+    "@auto-it/released": "11.3.6",
+    "semver": "7.8.5",
+    "tapable": "2.3.3"
   },
   "packageManager": "bun@1.2.5",
   "workspaces": [

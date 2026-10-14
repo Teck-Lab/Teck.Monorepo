@@ -2,7 +2,7 @@ const { VersionActions } = require("nx/release");
 
 /**
  * Nx release adapter for .NET projects whose version is supplied at build time.
- * Nx owns SemVer calculation; no csproj file is rewritten in the release PR.
+ * Nx owns SemVer calculation; resolved versions are supplied to artifact builds.
  */
 class DotnetVersionActions extends VersionActions {
   validManifestFilenames = null;

@@ -2,6 +2,10 @@ name: Reusable Build, Sign, and SBOM Generation (SLSA L3)
 
 on:
   workflow_call:
+    outputs:
+      digest:
+        description: Signed and validated container digest
+        value: ${{ jobs.build-and-push.outputs.digest }}
     inputs:
       service-group:
         description: Service group (e.g. commerce)
@@ -25,7 +29,7 @@ on:
         required: true
         type: string
       version:
-        description: Immutable image/tag version (e.g. 1.0.0-canary.<sha>)
+        description: Image/tag version for this build (e.g. 1.0.0-next.0-build.<sha>)
         required: true
         type: string
       artifact-version:
@@ -50,7 +54,7 @@ on:
         default: ''
     secrets:
       github-token:
-        description: GitHub token for authentication and release uploads
+        description: GitHub token for registry authentication and workflow artifacts
         required: true
 
 permissions:
@@ -71,6 +75,7 @@ jobs:
       image-name: ${{ steps.image-vars.outputs.image_name }}
       image-ref: ${{ steps.image-ref.outputs.ref }}
       primary-tag: ${{ steps.image-vars.outputs.primary_tag }}
+      source-sha: ${{ steps.source.outputs.sha }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -422,7 +427,7 @@ jobs:
           cat > "$VEX_FILE" <<EOF
           {
             "@context": "https://openvex.dev/ns/v0.2.0",
-            "@id": "https://github.com/${REPOSITORY_NAME}/releases/download/${RELEASE_GROUP}@v${SERVICE_VERSION}/${VEX_FILE}",
+            "@id": "https://github.com/${REPOSITORY_NAME}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}#${VEX_FILE}",
             "author": "Teck Build System",
             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "version": "1",
@@ -566,3 +571,29 @@ jobs:
             --type cyclonedx \
             --predicate "sbom-${SERVICE_GROUP}-${SERVICE_NAME}.cyclonedx.json" \
             "$IMAGE_REF"
+
+  result:
+    name: Record the signed image result
+    needs: [build-and-push, scan-vulnerabilities, sign-image, sign-sboms, generate-vex]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Write the image manifest entry
+        env:
+          IMAGE: ${{ needs.build-and-push.outputs.image-name }}
+          DIGEST: ${{ needs.build-and-push.outputs.digest }}
+          SOURCE_SHA: ${{ needs.build-and-push.outputs.source-sha }}
+          IMAGE_VERSION: ${{ inputs.version }}
+          ARTIFACT_VERSION: ${{ inputs.artifact-version != '' && inputs.artifact-version || inputs.version }}
+          PRIMARY_TAG: ${{ needs.build-and-push.outputs.primary-tag }}
+          SERVICE_GROUP: ${{ inputs.service-group }}
+          SERVICE_NAME: ${{ inputs.service-name }}
+        run: |
+          jq -n --arg image "$IMAGE" --arg digest "$DIGEST" --arg sourceSha "$SOURCE_SHA" \
+            --arg version "$IMAGE_VERSION" --arg artifactVersion "$ARTIFACT_VERSION" --arg tag "$PRIMARY_TAG" \
+            '{image:$image, digest:$digest, sourceSha:$sourceSha, version:$version, artifactVersion:$artifactVersion, tag:$tag}' \
+            > "image-${SERVICE_GROUP}-${SERVICE_NAME}.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: image-result-${{ inputs.service-group }}-${{ inputs.service-name }}
+          path: image-*.json

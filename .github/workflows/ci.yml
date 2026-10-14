@@ -1,9 +1,10 @@
 name: CI
 on:
   pull_request:
-    branches: [main]
+    branches: [main, alpha, beta, next]
+    types: [opened, synchronize, reopened, edited]
   push:
-    branches: [main]
+    branches: [main, alpha, beta, next]
 
 permissions:
   contents: read
@@ -15,6 +16,9 @@ concurrency:
 jobs:
   check:
     name: PR Checks
+    permissions:
+      contents: read
+      pull-requests: read
     runs-on: ubuntu-latest
     # Container-backed integration tests can wedge (Aspire DCP, Testcontainers). Without a
     # bound these jobs inherit GitHub's 6-hour default and burn a runner on a dead run.
@@ -30,6 +34,16 @@ jobs:
         uses: wagoid/commitlint-github-action@b948419dd99f3fd78a6548d48f94e3df7f6bf3ed # v6
         env:
           NODE_PATH: ${{ github.workspace }}/node_modules
+
+      - name: Commit scope and release analysis tests
+        run: bun run test:release
+
+      - name: Validate the squash commit title
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: node .github/scripts/check-pr-title.mjs
 
       # Resolve the affected base/head for both PR and push-to-main; `nx affected`
       # otherwise defaults to --base=main, which is not a local ref on the runner

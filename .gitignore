@@ -1,6 +1,8 @@
 # Nx
 .nx/cache
 .nx/workspace-data
+.nx/releases/
+.nx/previews/
 
 # Claude Code local state / nested git worktrees
 # (Nx must not descend into these worktree checkouts — their stale csproj

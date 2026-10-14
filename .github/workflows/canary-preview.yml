@@ -1,56 +1,59 @@
-name: Canary Preview
+name: PR Preview Images
 on:
   pull_request:
-    types: [labeled, synchronize]
+    branches: [main, alpha, beta, next]
+    types: [opened, reopened, labeled, synchronize]
 
-# Runs while the `preview` label is on the PR. Builds each AFFECTED service through the
-# reusable pipeline in staging mode, producing a `canary-<pr#>` image plus a
-# `:sha-<short>` stamp. Scan, SBOM, and signing run as normal build outputs.
 permissions:
   contents: read
 
 concurrency:
-  # Unrelated label events get a unique group so they cannot cancel an active
-  # preview build before the job-level filter skips them.
-  group: canary-${{ github.event.pull_request.number }}-${{ github.event.action == 'labeled' && github.event.label.name != 'preview' && github.run_id || 'build' }}
+  group: preview-${{ github.event.pull_request.number }}-${{ github.event.action == 'labeled' && github.event.label.name != 'preview' && github.run_id || 'build' }}
   cancel-in-progress: true
 
 jobs:
   discover:
-    name: Discover affected services
+    name: Discover affected preview services
     if: >-
-      (github.event.action == 'labeled' && github.event.label.name == 'preview') ||
-      (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'preview'))
-    runs-on: ubuntu-latest
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.labels.*.name, 'preview') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'preview')
+    runs-on: ubuntu-24.04
     outputs:
-      matrix: ${{ steps.discover.outputs.matrix }}
-      has-services: ${{ steps.discover.outputs.has-services }}
+      matrix: ${{ steps.services.outputs.matrix }}
+      has-services: ${{ steps.services.outputs.has-services }}
+      source-sha: ${{ steps.source.outputs.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
           fetch-depth: 0
-
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Discover affected services
-        id: discover
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci
+      - name: Resolve the proposed merge result
+        id: source
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          affected=$(bunx nx show projects --affected --base="$BASE_SHA" --head="$HEAD_SHA" --json 2>/dev/null || echo "")
-          [ -n "$affected" ] && export NX_AFFECTED="$affected"
+          set -euo pipefail
+          test "$(git rev-parse HEAD^1)" = "$BASE_SHA"
+          test "$(git rev-parse HEAD^2)" = "$HEAD_SHA"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Discover affected services
+        id: services
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          export NX_AFFECTED=$(bunx nx show projects --affected --base="$BASE_SHA" --head="$HEAD_SHA" --json)
           services=$(bash .github/scripts/discover-services.sh)
-          count=$(echo "$services" | jq 'length')
-          echo "matrix=$(echo "$services" | jq -c '{include: .}')" >> "$GITHUB_OUTPUT"
-          echo "has-services=$([ "$count" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          echo "Affected service(s):"; echo "$services" | jq -r '.[].product'
+          echo "matrix=$(jq -c '{include: .}' <<< "$services")" >> "$GITHUB_OUTPUT"
+          echo "has-services=$(jq 'length > 0' <<< "$services")" >> "$GITHUB_OUTPUT"
 
-  canary:
-    name: Canary ${{ matrix.product }}
+  images:
+    name: Preview ${{ matrix.product }}
     needs: discover
     if: needs.discover.outputs.has-services == 'true'
     strategy:
@@ -70,11 +73,45 @@ jobs:
       release-group: ${{ matrix.releaseGroup }}
       nx-project: ${{ matrix.nxProject }}
       project-path: ${{ matrix.projectPath }}
-      # Preview version is derived from the PR run number; the image tag is
-      # canary-<pr#>, so every push updates the ephemeral preview image.
-      version: ${{ matrix.baseVersion }}-preview.${{ github.run_number }}
-      source-ref: ${{ github.event.pull_request.head.sha }}
+      version: 0.0.0-preview.${{ github.event.pull_request.number }}.${{ github.run_id }}.${{ github.run_attempt }}
+      source-ref: ${{ needs.discover.outputs.source-sha }}
       publish-mode: staging
-      staging-tag: canary-${{ github.event.pull_request.number }}
+      staging-tag: pr-${{ github.event.pull_request.number }}-${{ needs.discover.outputs.source-sha }}-${{ github.run_id }}-${{ github.run_attempt }}
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  manifest:
+    name: Record preview images
+    needs: [discover, images]
+    if: always() && needs.discover.result == 'success' && (needs.discover.outputs.has-services != 'true' || needs.images.result == 'success')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.discover.outputs.source-sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - run: bun install --frozen-lockfile
+      - name: Download signed preview image results
+        if: needs.discover.outputs.has-services == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: image-result-*
+          path: .nx/previews/images
+          merge-multiple: true
+      - name: Write the deployment handoff
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PREVIEW_SOURCE_SHA: ${{ needs.discover.outputs.source-sha }}
+        run: |
+          mkdir -p .nx/previews/images
+          node .github/scripts/preview-manifest.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: preview-manifest-${{ github.event.pull_request.number }}
+          path: .nx/previews/preview-manifest.json
+          include-hidden-files: true

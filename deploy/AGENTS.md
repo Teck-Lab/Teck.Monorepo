@@ -131,25 +131,20 @@ In CI, prefer `bunx nx run <project>:docker:build` and keep raw `docker build` f
 
 ## Deployment Pipeline (End-to-End)
 
-Docker images are built here. Kubernetes manifests and promotion live in other repos:
+Docker images and platform release manifests are published here. Kubernetes
+manifests and deployment belong in Teck.GitOps; infrastructure belongs in
+Teck.Terraform. Argo CD integration is a future handoff and is not provisioned here.
 
 ```
-Teck.Monorepo (here)          Teck.GitOps                   Teck.Terraform
-─────────────────────         ──────────                    ──────────────
-deploy/Containerfile.template  apps/{env}/teck-cloud/        modules/{tool}/
-    │                          └─ {service}/kustomization.yaml
-    │                          └─ config.yaml
-    │                          └─ deployment.yaml
-    │                          └─ service.yaml
-    │
-    ├─→ Docker image           Kargo Warehouse detects        Provisions infra
-    │   ghcr.io/teck-lab/       new image tag → promotes       (PG, Redis, MQ)
-    │   teck-monorepo/{group}/  Freight through stages:
-    │   {service}:{version}     canary → dev → prod
-    │                          └─ ArgoCD syncs overlay
-    │
-    └─ CI: reusable-build-sign-sbom.yml
-       (SLSA L3: build → codegen → scan → SBOM → sign → push)
+Validated release-branch commit
+    -> changed-group image builds using deploy/Containerfile.template
+    -> vulnerability scans, SBOMs, VEX and signatures
+    -> platform GitHub Release with platform-manifest.json
+    -> Teck.GitOps / Argo CD deployment (future integration)
+
+Labelled PR preview
+    -> affected development image builds
+    -> preview-manifest artifact (no release or environment provisioning)
 ```
 
 **Key rule:** Never create Kubernetes YAML in this repo. Deployment manifests belong in Teck.GitOps. Dockerfiles belong here.
@@ -157,7 +152,14 @@ deploy/Containerfile.template  apps/{env}/teck-cloud/        modules/{tool}/
 ## Image Naming
 
 Images are built by CI and published to `ghcr.io/teck-lab/teck-monorepo/{group}/{service-name}`.
-Tags: `{version}` (semver) + `sha-{shortSha}` (immutable reference). Release metadata uses `{group}@{version}`.
+Released images use the component's semantic version and digest reference.
+CI builds and validates temporary `{version}-build.{sourceSha}` candidates, then
+promotes the same signed digest to `{version}` and its channel alias. Release
+metadata uses `{release-group}@v{version}`. Platform GitHub Releases attach the
+complete `platform-manifest.json`, including unchanged components and digests.
+Future GitOps integration consumes that published manifest. PRs labelled
+`preview` only build development images with `pr-<number>-<merge-sha>-<run-id>-<attempt>`
+tags; they do not publish releases or provision environments here.
 
 ## Rules
 

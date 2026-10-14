@@ -61,18 +61,6 @@ while IFS= read -r svcdir; do
     release_group="operations"
   fi
 
-  # baseVersion is used only by ephemeral feature previews. Stable releases
-  # use the group-specific version resolved by Nx Conventional Commits.
-  latest=$(git tag -l "${release_group}@v*" 2>/dev/null \
-    | sed "s/^${release_group}@v//" \
-    | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)
-  if [ -z "$latest" ]; then
-    base="0.1.0"
-  else
-    IFS=. read -r ma mi pa <<<"$latest"
-    base="${ma}.${mi}.$((pa + 1))"
-  fi
-
   objs+=("$(jq -nc \
     --arg group "$group" \
     --arg service "$service" \
@@ -81,8 +69,7 @@ while IFS= read -r svcdir; do
     --arg projectpath "$host" \
     --arg scanpath "$svcdir" \
     --arg releasegroup "$release_group" \
-    --arg baseversion "$base" \
-    '{group:$group, service:$service, product:$product, nxProject:$nxproject, projectPath:$projectpath, scanPath:$scanpath, releaseGroup:$releasegroup, baseVersion:$baseversion}')")
+    '{group:$group, service:$service, product:$product, nxProject:$nxproject, projectPath:$projectpath, scanPath:$scanpath, releaseGroup:$releasegroup}')")
 done < <(find src/services -mindepth 2 -maxdepth 2 -type d | sort)
 
 printf '%s\n' "${objs[@]}" | jq -s '.'
