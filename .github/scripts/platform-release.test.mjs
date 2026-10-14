@@ -25,6 +25,7 @@ import {
   publishRelease,
 } from "./publish-release.mjs";
 import { releaseServices } from "./release-matrix.mjs";
+import { acceptSummary, applySummary, generateSummary, summaryInput } from "./release-summary.mjs";
 
 const require = createRequire(import.meta.url);
 const { Auto } = autoCore;
@@ -239,7 +240,14 @@ const services = [
 function plan() {
   return {
     sourceSha: sha,
-    platform: { version: "1.3.0-next.1", channel: "next" },
+    platform: {
+      version: "1.3.0-next.1",
+      tag: "v1.3.0-next.1",
+      channel: "next",
+      from: "v1.3.0-next.0",
+      candidateTag: "v1.3.0-next.0",
+      stableTag: "v1.2.0",
+    },
     components: [
       { name: "order", releaseGroup: "order", version: "2.1.0-next.0", changed: true, images: [] },
       { name: "catalog", releaseGroup: "catalog", version: "3.0.0", changed: false, images: [] },
@@ -414,19 +422,21 @@ test("preview manifests contain build references rather than release versions", 
 });
 test("release notes include complete versions and group-scoped change sections", () => {
   const notes = platformNotes(plan(), { order: "- checkout (#1)" }, "- platform changes");
-  assert.match(notes, /catalog \| 3\.0\.0/);
-  assert.match(notes, /## order\n\n- checkout/);
-  assert.doesNotMatch(notes, /## catalog/);
+  assert.match(notes, /## ♻️ catalog · v3\.0\.0 \(unchanged\)/);
+  assert.match(notes, /## 📦 order · v2\.1\.0-next\.0\n\n- checkout/);
+  assert.match(notes, /updates 1 of 2 components: order/);
+  assert.doesNotMatch(notes, /\| Component \| Version \|/);
 });
-test("release changelogs collapse each changed component and platform section with the table visible", () => {
+test("release changelogs show versions in collapsed headers for changed and unchanged components", () => {
   const notes = platformNotes(plan(), { order: "- checkout (#1)" }, "- platform changes");
   const body = githubReleaseBody(plan(), notes);
-  assert.match(body.split("<details>")[0], /catalog \| 3\.0\.0/);
-  assert.match(body, /<details>\n<summary>order<\/summary>\n\n## order\n\n- checkout/);
-  assert.match(body, /<summary>Platform changes<\/summary>/);
-  assert.doesNotMatch(body, /<details open|<summary>catalog<\/summary>/);
-  assert.equal(body.match(/<details>/g)?.length, 2);
-  assert.equal(body.match(/<\/details>/g)?.length, 2);
+  assert.match(body.split("<details>")[0], /Highlights: checkout/);
+  assert.match(body, /<summary>📦 order · v2\.1\.0-next\.0<\/summary>/);
+  assert.match(body, /<summary>♻️ catalog · v3\.0\.0 \(unchanged\)<\/summary>/);
+  assert.match(body, /<summary>🛠️ Platform changes<\/summary>/);
+  assert.doesNotMatch(body, /<details open|\| Component \| Version \|/);
+  assert.equal(body.match(/<details>/g)?.length, 3);
+  assert.equal(body.match(/<\/details>/g)?.length, 3);
   assert.doesNotMatch(notes, /<details>/, "the full attachment stays plain Markdown");
 });
 test("fixed-group notes include each change once across member projects using Nx's renderer", async () => {
@@ -475,9 +485,9 @@ test("oversized platform histories retain inline component changes and the full 
   const body = githubReleaseBody(plan(), notes);
   assert.ok(body.length < 120_000);
   assert.match(body, /release-notes\.md/);
-  assert.match(body, /catalog \| 3\.0\.0/);
-  assert.match(body, /## order\n\n- checkout/);
-  assert.match(body, /## Platform changes/);
+  assert.match(body, /catalog · v3\.0\.0/);
+  assert.match(body, /## 📦 order · v2\.1\.0-next\.0\n\n- checkout/);
+  assert.match(body, /## 🛠️ Platform changes/);
   assert.equal(githubReleaseBody(plan(), "small release"), "small release");
 });
 test("oversized histories keep complete linked entries for every changed component", () => {
@@ -494,10 +504,14 @@ test("oversized histories keep complete linked entries for every changed compone
   const body = githubReleaseBody(manifest, platformNotes(manifest, groups, "- repair CI"));
   assert.ok(Buffer.byteLength(body) <= 120_000);
   for (const unit of manifest.components) {
-    assert.ok(body.includes(`## ${unit.name}\n\n### Features\n\n${entry.trimEnd()}`));
+    assert.ok(body.includes(`## 📦 ${unit.name} · v0.0.1\n\n### Features\n\n${entry.trimEnd()}`));
   }
-  assert.match(body, /## Platform changes\n\n- repair CI/);
-  assert.equal(body.match(/add checkout/g)?.length, body.match(/\/pull\/123\)\)/g)?.length);
+  assert.match(body, /## 🛠️ Platform changes\n\n- repair CI/);
+  const collapsed = body.slice(body.indexOf("<details>"));
+  assert.equal(
+    collapsed.match(/add checkout/g)?.length,
+    collapsed.match(/\/pull\/123\)\)/g)?.length,
+  );
   assert.match(body, /Additional changes are listed/);
   assert.equal(body.match(/<details>/g)?.length, 14);
   assert.equal(body.match(/<\/details>/g)?.length, 14);
@@ -507,7 +521,7 @@ test("release bodies budget multibyte notes by UTF-8 size and preserve small rel
   const small = platformNotes(plan(), { order: entry }, "- repair CI");
   const smallBody = githubReleaseBody(plan(), small);
   assert.ok(smallBody.includes(entry.trimEnd()));
-  assert.match(smallBody, /## Platform changes\n\n- repair CI/);
+  assert.match(smallBody, /## 🛠️ Platform changes\n\n- repair CI/);
   assert.doesNotMatch(smallBody, /shortened|Additional changes are listed/);
   const notes = platformNotes(
     plan(),
@@ -520,7 +534,88 @@ test("release bodies budget multibyte notes by UTF-8 size and preserve small rel
   assert.ok(Buffer.byteLength(body) <= 120_000);
   assert.match(body, /checkout 🛒 æøå/);
   assert.doesNotMatch(body, /\uFFFD/);
-  assert.match(body, /## Platform changes\n\n- repair CI/);
+  assert.match(body, /## 🛠️ Platform changes\n\n- repair CI/);
+});
+test("comparison links use the release baseline and remain below all shortened sections", () => {
+  const manifest = plan();
+  const body = githubReleaseBody(
+    manifest,
+    platformNotes(manifest, { order: "- checkout\n".repeat(20_000) }, "- repair CI"),
+  );
+  const footer = body.slice(body.lastIndexOf("</details>") + "</details>".length);
+  assert.match(footer, /\/compare\/v1\.3\.0-next\.0\.\.\.v1\.3\.0-next\.1/);
+  manifest.platform = {
+    version: "1.3.0",
+    tag: "v1.3.0",
+    channel: "stable",
+    from: "v1.2.0",
+    stableTag: "v1.2.0",
+  };
+  assert.match(platformNotes(manifest, {}, ""), /\/compare\/v1\.2\.0\.\.\.v1\.3\.0/);
+  manifest.platform = { version: "0.1.0", channel: "stable", from: sha };
+  assert.match(platformNotes(manifest, {}, ""), /Compare changes from the initial commit/);
+});
+test("AI overview inputs include bounded, directly scoped changes for every changed component", () => {
+  const manifest = plan();
+  manifest.groupNotes = {
+    order: `${"- general maintenance\n".repeat(10_000)}- **order:** add checkout\n`,
+  };
+  const input = summaryInput(manifest);
+  const data = JSON.parse(input);
+  assert.ok(Buffer.byteLength(input) < 60_000);
+  assert.equal(data.components.length, 1);
+  assert.equal(data.components[0].changes.length, 8);
+  assert.equal(data.components[0].changes[0], "order: add checkout");
+});
+test("OmniRoute receives OpenAI-compatible requests targeting the configured combo", async () => {
+  const manifest = plan();
+  const summary = "This platform release improves checkout and repairs the release automation.";
+  const record = await generateSummary(manifest, {
+    baseUrl: "https://route.example/v1/",
+    model: "teck-fast-text",
+    apiKey: "test-key",
+    request: async (url, options) => {
+      assert.equal(url.href, "https://route.example/v1/chat/completions");
+      assert.equal(options.headers.authorization, "Bearer test-key");
+      const payload = JSON.parse(options.body);
+      assert.equal(payload.model, "teck-fast-text");
+      assert.equal(payload.messages[0].role, "system");
+      assert.equal(payload.tools, undefined);
+      assert.equal(JSON.parse(payload.messages[1].content).version, manifest.platform.version);
+      return { ok: true, json: async () => ({ choices: [{ message: { content: summary } }] }) };
+    },
+  });
+  assert.equal(applySummary(manifest, record).releaseSummary, summary);
+  assert.match(platformNotes(applySummary(manifest, record), {}, ""), new RegExp(summary));
+});
+test("AI overview validation rejects wrong sources, malformed output and provider error bodies", async () => {
+  const manifest = plan();
+  const record = acceptSummary(
+    manifest,
+    "This release improves checkout and fixes release preparation.",
+  );
+  assert.throws(
+    () => applySummary(manifest, { ...record, sourceSha: "different-source" }),
+    /source mismatch/,
+  );
+  assert.throws(() => applySummary(manifest, { ...record, version: "9.0.0" }), /version mismatch/);
+  assert.throws(() => acceptSummary(manifest, `<details>${"bad ".repeat(20)}`), /without HTML/);
+  assert.throws(() => acceptSummary(manifest, undefined), /Missing overview/);
+  await assert.rejects(
+    generateSummary(manifest, {
+      baseUrl: "https://route.example/v1",
+      model: "teck-fast-text",
+      apiKey: "test-key",
+      request: async () => ({
+        ok: false,
+        status: 429,
+        json: () => {
+          throw new Error("Provider details must not be logged");
+        },
+      }),
+    }),
+    /HTTP 429/,
+  );
 });
 test("release publication is refused outside CI", async () => {
   if (process.env.GITHUB_ACTIONS === "true") return;
