@@ -31,6 +31,12 @@ export function platformVersion({ channel, stableTag, candidateTag, bump }) {
   if (!valid(version)) throw new Error(`Auto could not calculate a platform version: ${version}`);
   return valid(version);
 }
+export function releaseSourceAlreadyPublished(
+  { sourceSha, stableTag, candidateTag },
+  resolveTag = (tag) => git("rev-list", "-n", "1", tag),
+) {
+  return [stableTag, candidateTag].some((tag) => tag && resolveTag(tag) === sourceSha);
+}
 export function releaseChecksPassed(runs, sha, branch) {
   return ["CI", "Security Scans"].every((name) => {
     const matching = runs.filter(

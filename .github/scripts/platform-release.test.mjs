@@ -13,6 +13,7 @@ import {
   platformNotes,
   platformVersion,
   releaseChecksPassed,
+  releaseSourceAlreadyPublished,
   selectPlatformTag,
 } from "./platform-release.mjs";
 import { previewManifest } from "./preview-manifest.mjs";
@@ -122,6 +123,18 @@ test("platform tags exclude group versions and other prerelease channels", () =>
   assert.equal(selectPlatformTag(tags), "v1.2.1");
   assert.equal(selectPlatformTag(tags, "alpha"), "v1.3.0-alpha.2");
   assert.equal(selectPlatformTag(tags, "next"), "v1.3.0-next.1");
+});
+test("repeated source commits skip publication while new sources and stable promotion remain eligible", () => {
+  const tags = { "v1.2.0": "old-source", "v1.3.0-next.0": sha, "v1.3.0": sha };
+  const resolve = (tag) => tags[tag];
+  const published = (stableTag, candidateTag = null, sourceSha = sha) =>
+    releaseSourceAlreadyPublished({ sourceSha, stableTag, candidateTag }, resolve);
+  assert.equal(published(null), false, "first release");
+  assert.equal(published("v1.3.0"), true, "duplicate stable trigger");
+  assert.equal(published("v1.2.0", "v1.3.0-next.0"), true, "duplicate candidate trigger");
+  assert.equal(published("v1.2.0", "v1.3.0-next.0", "new-source"), false, "new candidate");
+  assert.equal(published("v1.3.0", null, "new-source"), false, "new stable source");
+  assert.equal(published("v1.2.0"), false, "promotion from next to stable");
 });
 test("native Auto increments candidates and stable releases without repeated base bumps", () => {
   assert.equal(

@@ -25,6 +25,8 @@ ApplicationSet lifecycle concern; this repository does not deploy preview enviro
    Merge promotion PRs with a merge commit to preserve original changes and PRs.
 2. CI and Security Scans run for every release branch. Release waits for the
    latest push run of both to succeed for the exact source SHA.
+   Repeated triggers for a source already published as the latest stable release
+   or the current channel candidate skip preparation and publication.
 3. Nx resolves versions with Conventional Commits and scopes. Auto's native
    Conventional Commit plugin computes the platform bump. Standard SemVer
    increments stable versions; Auto's `determineNextVersion` increments channel
