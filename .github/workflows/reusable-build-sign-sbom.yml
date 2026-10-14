@@ -240,20 +240,9 @@ jobs:
           path: trivy-results.json
           retention-days: 90
 
-      - name: Run Trivy vulnerability scanner (SARIF)
-        if: always()
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
-        env:
-          TRIVY_USERNAME: ${{ github.actor }}
-          TRIVY_PASSWORD: ${{ secrets.github-token }}
-        with:
-          version: 'v0.69.3'
-          image-ref: ${{ needs.build-and-push.outputs.image-ref }}
-          format: sarif
-          output: trivy-image.sarif
-          severity: CRITICAL,HIGH,MEDIUM,LOW
-          ignore-unfixed: true
-          exit-code: '0'
+      - name: Convert the Trivy report to SARIF
+        if: always() && hashFiles('trivy-results.json') != ''
+        run: trivy convert --format sarif --output trivy-image.sarif trivy-results.json
 
       - name: Upload image findings to Code Scanning
         if: always() && hashFiles('trivy-image.sarif') != ''
@@ -292,23 +281,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.github-token }}
 
-      - name: Generate SPDX SBOM
-        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+      - name: Install the pinned Syft scanner
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
-          image: ${{ needs.build-and-push.outputs.image-ref }}
-          format: spdx-json
-          output-file: sbom-${{ inputs.service-group }}-${{ inputs.service-name }}.spdx.json
-          registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.github-token }}
+          syft-version: v1.54.0
 
-      - name: Generate CycloneDX SBOM
-        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
-        with:
-          image: ${{ needs.build-and-push.outputs.image-ref }}
-          format: cyclonedx-json
-          output-file: sbom-${{ inputs.service-group }}-${{ inputs.service-name }}.cyclonedx.json
-          registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.github-token }}
+      - name: Scan once and export SPDX and CycloneDX
+        env:
+          IMAGE_REF: ${{ needs.build-and-push.outputs.image-ref }}
+          SYFT_REGISTRY_AUTH_USERNAME: ${{ github.actor }}
+          SYFT_REGISTRY_AUTH_PASSWORD: ${{ secrets.github-token }}
+          SYFT_CHECK_FOR_APP_UPDATE: 'false'
+          SERVICE_GROUP: ${{ inputs.service-group }}
+          SERVICE_NAME: ${{ inputs.service-name }}
+        run: |
+          syft scan "registry:$IMAGE_REF" \
+            -o "spdx-json=sbom-${SERVICE_GROUP}-${SERVICE_NAME}.spdx.json" \
+            -o "cyclonedx-json=sbom-${SERVICE_GROUP}-${SERVICE_NAME}.cyclonedx.json"
 
       - name: Upload SPDX SBOM artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

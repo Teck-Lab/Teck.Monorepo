@@ -420,24 +420,38 @@ test("preview manifests contain build references rather than release versions", 
     }),
   );
 });
-test("release notes include complete versions and group-scoped change sections", () => {
+test("release notes include versions and changes only for changed components", () => {
   const notes = platformNotes(plan(), { order: "- checkout (#1)" }, "- platform changes");
-  assert.match(notes, /## ♻️ catalog · v3\.0\.0 \(unchanged\)/);
+  assert.doesNotMatch(notes, /catalog · v3\.0\.0/);
   assert.match(notes, /## 📦 order · v2\.1\.0-next\.0\n\n- checkout/);
   assert.match(notes, /updates 1 of 2 components: order/);
   assert.doesNotMatch(notes, /\| Component \| Version \|/);
 });
-test("release changelogs show versions in collapsed headers for changed and unchanged components", () => {
+test("release changelogs omit unchanged components while retaining versioned headers", () => {
   const notes = platformNotes(plan(), { order: "- checkout (#1)" }, "- platform changes");
   const body = githubReleaseBody(plan(), notes);
   assert.match(body.split("<details>")[0], /Highlights: checkout/);
   assert.match(body, /<summary>📦 order · v2\.1\.0-next\.0<\/summary>/);
-  assert.match(body, /<summary>♻️ catalog · v3\.0\.0 \(unchanged\)<\/summary>/);
+  assert.doesNotMatch(body, /catalog · v3\.0\.0/);
   assert.match(body, /<summary>🛠️ Platform changes<\/summary>/);
   assert.doesNotMatch(body, /<details open|\| Component \| Version \|/);
-  assert.equal(body.match(/<details>/g)?.length, 3);
-  assert.equal(body.match(/<\/details>/g)?.length, 3);
+  assert.equal(body.match(/<details>/g)?.length, 2);
+  assert.equal(body.match(/<\/details>/g)?.length, 2);
   assert.doesNotMatch(notes, /<details>/, "the full attachment stays plain Markdown");
+});
+test("platform-only releases keep the compare link and complete manifest without empty component sections", () => {
+  const manifest = plan();
+  for (const unit of manifest.components) unit.changed = false;
+  const original = structuredClone(manifest);
+  const body = githubReleaseBody(
+    manifest,
+    platformNotes(manifest, {}, "- improve release automation"),
+  );
+  assert.doesNotMatch(body, /🧩 Components|<summary>📦|catalog ·|order ·/);
+  assert.match(body, /improve release automation/);
+  assert.match(body, /\/compare\/v1\.3\.0-next\.0\.\.\.v1\.3\.0-next\.1/);
+  assert.equal(body.match(/<details>/g)?.length, 1);
+  assert.deepEqual(manifest, original);
 });
 test("fixed-group notes include each change once across member projects using Nx's renderer", async () => {
   const Renderer = groupChangelogRenderer(["Order.Application", "Order.Host"]);
@@ -485,7 +499,7 @@ test("oversized platform histories retain inline component changes and the full 
   const body = githubReleaseBody(plan(), notes);
   assert.ok(body.length < 120_000);
   assert.match(body, /release-notes\.md/);
-  assert.match(body, /catalog · v3\.0\.0/);
+  assert.doesNotMatch(body, /catalog · v3\.0\.0/);
   assert.match(body, /## 📦 order · v2\.1\.0-next\.0\n\n- checkout/);
   assert.match(body, /## 🛠️ Platform changes/);
   assert.equal(githubReleaseBody(plan(), "small release"), "small release");
