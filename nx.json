@@ -88,8 +88,12 @@
       "inputs": [
         "default",
         "^default",
-        { "env": "TECK_RELEASE_VERSION" },
-        { "env": "TECK_SOURCE_REVISION" }
+        {
+          "env": "TECK_RELEASE_VERSION"
+        },
+        {
+          "env": "TECK_SOURCE_REVISION"
+        }
       ]
     },
     "restore": {
@@ -116,37 +120,66 @@
       "inputs": [
         "default",
         "^default",
-        { "env": "TECK_RELEASE_VERSION" },
-        { "env": "TECK_SOURCE_REVISION" }
+        {
+          "env": "TECK_RELEASE_VERSION"
+        },
+        {
+          "env": "TECK_SOURCE_REVISION"
+        }
       ]
     }
   },
   "release": {
+    "conventionalCommits": {
+      "useCommitScope": true,
+      "types": {
+        "perf": {
+          "semverBump": "patch"
+        },
+        "refactor": {
+          "semverBump": "patch"
+        },
+        "build": {
+          "semverBump": "patch"
+        },
+        "chore": {
+          "semverBump": "patch"
+        },
+        "style": {
+          "semverBump": "patch"
+        },
+        "revert": {
+          "semverBump": "patch"
+        }
+      }
+    },
     "version": {
       "specifierSource": "conventional-commits",
       "currentVersionResolver": "git-tag",
       "fallbackCurrentVersionResolver": "disk",
       "updateDependents": "always",
-      "git": {
-        "commit": false,
-        "commitMessage": "ci(release): publish affected releases",
-        "tag": false,
-        "stageChanges": false
-      },
       "applyPreidToDependents": true
+    },
+    "releaseTag": {
+      "checkAllBranchesWhen": false,
+      "strictPreid": true
+    },
+    "git": {
+      "commit": false,
+      "tag": false,
+      "stageChanges": false
     },
     "changelog": {
       "workspaceChangelog": false,
       "projectChangelogs": {
         "createRelease": false,
-        "file": false
+        "file": false,
+        "renderOptions": {
+          "authors": false,
+          "applyUsernameToAuthors": false
+        }
       },
       "automaticFromRef": true
-    },
-    "conventionalCommits": {
-      "types": {
-        "chore": { "semverBump": "patch", "changelog": { "hidden": true } }
-      }
     },
     "groups": {
       "operations": {
@@ -155,7 +188,9 @@
         "version": {
           "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
         },
-        "releaseTag": { "pattern": "operations@v{version}" }
+        "releaseTag": {
+          "pattern": "operations@v{version}"
+        }
       },
       "order": {
         "projects": ["src/services/commerce/order/*.Host"],
@@ -163,7 +198,9 @@
         "version": {
           "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
         },
-        "releaseTag": { "pattern": "order@v{version}" }
+        "releaseTag": {
+          "pattern": "order@v{version}"
+        }
       },
       "pricing": {
         "projects": ["src/services/commerce/pricing/*.Host"],
@@ -171,7 +208,9 @@
         "version": {
           "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
         },
-        "releaseTag": { "pattern": "pricing@v{version}" }
+        "releaseTag": {
+          "pattern": "pricing@v{version}"
+        }
       },
       "basket": {
         "projects": ["src/services/commerce/basket/*.Host"],
@@ -179,7 +218,9 @@
         "version": {
           "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
         },
-        "releaseTag": { "pattern": "basket@v{version}" }
+        "releaseTag": {
+          "pattern": "basket@v{version}"
+        }
       },
       "catalog": {
         "projects": ["src/services/commerce/catalog/*.Host"],
@@ -187,7 +228,9 @@
         "version": {
           "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
         },
-        "releaseTag": { "pattern": "catalog@v{version}" }
+        "releaseTag": {
+          "pattern": "catalog@v{version}"
+        }
       },
       "customer": {
         "projects": ["src/services/commerce/customer/*.Host"],
@@ -195,7 +238,9 @@
         "version": {
           "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
         },
-        "releaseTag": { "pattern": "customer@v{version}" }
+        "releaseTag": {
+          "pattern": "customer@v{version}"
+        }
       },
       "inventory": {
         "projects": ["src/services/commerce/inventory/*.Host"],
@@ -203,7 +248,9 @@
         "version": {
           "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
         },
-        "releaseTag": { "pattern": "inventory@v{version}" }
+        "releaseTag": {
+          "pattern": "inventory@v{version}"
+        }
       },
       "gateway-public": {
         "projects": ["src/services/gateway/public"],
@@ -211,12 +258,16 @@
         "version": {
           "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
         },
-        "releaseTag": { "pattern": "gateway-public@v{version}" }
+        "releaseTag": {
+          "pattern": "gateway-public@v{version}"
+        }
       },
       "web": {
         "projects": ["src/apps/*", "src/packages/*"],
         "projectsRelationship": "independent",
-        "releaseTag": { "pattern": "{projectName}@v{version}" }
+        "releaseTag": {
+          "pattern": "{projectName}@v{version}"
+        }
       }
     }
   },

@@ -51,17 +51,22 @@ specs/
 | web | `src/apps/*`, `src/packages/*` |
 
 `.github/scripts/discover-services.sh` derives these groups from the service
-layout. Nx Conventional Commits and release groups determine which independently
-versioned units are released, including dependency-driven bumps. Stable tags
+layout. Nx Conventional Commit analysis and release groups determine which
+independently versioned units are released, including dependency-driven bumps. Stable tags
 use `<release-group>@v{version}`; container images use that group's semantic
 version.
 
 ## Key rules
 
-- Never create Git tags or promote a release locally. Use Conventional Commit
-  messages for release intent; Nx derives semantic bumps from commits affecting
-  each release unit. CI owns versioning, the release PR, tags, changelogs,
-  canary prereleases, and stable GitHub Releases.
+- Never create Git tags or promote a release locally. Nx derives version bumps
+  for components from Conventional Commits; Auto derives the platform version.
+  CI owns tags, changelogs, alpha/beta/next prereleases, and stable GitHub Releases.
+  Merges to `main` publish stable releases; `alpha`, `beta`, and `next` publish
+  their corresponding prerelease channels after CI and Security Scans pass for
+  the exact source commit. Promotion PRs between release branches must preserve
+  commit ancestry; do not squash or rebase an entire release branch.
+  The `preview` label requests development image builds only, with no release,
+  prerelease, release tags, or version changes. Argo CD integration is external.
 - Published commits must use Conventional Commit format (`type(scope): description`)
   and carry a GitHub-verified signature (GPG, SSH, or S/MIME), including commits on PR branches.
   GitHub's native `Require signed commits` ruleset rule owns signature enforcement;
@@ -72,6 +77,11 @@ version.
   author, committer, and signature overrides and verify the returned remote SHA's
   signature through GitHub's commit verification API. An App email or App-authenticated
   `git push` does not sign existing local commits.
+- Commit scopes use the domain/group allowlist in `commit-scopes.mjs`, enforced
+  by Commitlint locally and in CI. Use domain names such as `order` and
+  `inventory`, or repository scopes such as `ci` and `release`; comma-separated
+  scopes are supported. Release automation must use `release:prepare`, which
+  resolves domain scopes before Nx calculates versions.
 - Fixes and small features use the pre-commit gate, QA review, and merge without
   a preview.
 - Medium and larger features require a documented test plan and the `preview`
@@ -137,8 +147,8 @@ version.
 - `nx.json` - Nx plugins, target defaults, and project graph configuration
 - `package.json` - Bun workspaces and repository scripts
 - `.github/workflows/ci.yml` - pull-request checks
-- `.github/workflows/release-images.yml` - immutable release-candidate images
-- `.github/workflows/release.yml` - release pipeline
-- `.github/release-drafter/` - group-scoped draft-release configurations
+- `.github/workflows/canary-preview.yml` - opt-in preview image builds
+- `.github/workflows/release.yml` - validated platform/component release pipeline
+- `.autorc.json` - platform release channels and native Auto plugins
 - `.github/scripts/prepare-release.mjs` - Nx release manifest generation
 - `.github/workflows/security-scans.yml` - security scanning

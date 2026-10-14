@@ -1,34 +1,155 @@
 name: Release
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-    types: [closed]
+  workflow_run:
+    workflows: [CI, Security Scans]
+    types: [completed]
+    branches: [main, alpha, beta, next]
 
 permissions:
   contents: read
 
+# Versions and immutable tags share one repository-wide release lock.
 concurrency:
-  group: release-${{ github.event.pull_request.number || github.ref }}
+  group: platform-release
   cancel-in-progress: false
 
 jobs:
   prepare:
-    name: Maintain the Nx release PR
-    if: github.event_name == 'push'
+    name: Prepare the validated platform release
+    if: github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      has-releases: ${{ steps.versions.outputs.has-releases }}
+      has-services: ${{ steps.matrix.outputs.has-services }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-ci
+
+      - name: Require both workflows for this exact commit
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RELEASE_SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: node .github/scripts/release-gate.mjs
+
+      - name: Mint the Teck Automation GitHub App token
+        if: steps.gate.outputs.ready == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.TECK_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.TECK_AUTOMATION_APP_PRIVATE_KEY }}
+          owner: Teck-Lab
+          repositories: Teck.Monorepo
+          permission-contents: read
+          permission-pull-requests: read
+          permission-issues: read
+
+      - name: Resolve platform and component versions
+        id: versions
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          RELEASE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RELEASE_SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          NX_DAEMON: 'false'
+        run: |
+          git checkout -B "$RELEASE_BRANCH" "$RELEASE_SOURCE_SHA"
+          bun run release:prepare
+
+      - name: Export changed service matrix
+        id: matrix
+        if: steps.versions.outputs.has-releases == 'true'
+        run: |
+          bash .github/scripts/discover-services.sh > .nx/releases/discovered-services.json
+          node .github/scripts/release-matrix.mjs .nx/releases/discovered-services.json > .nx/releases/matrix.json
+          echo "matrix=$(jq -c . .nx/releases/matrix.json)" >> "$GITHUB_OUTPUT"
+          echo "has-services=$(jq '.include | length > 0' .nx/releases/matrix.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload immutable release plan
+        if: steps.versions.outputs.has-releases == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: platform-release-plan
+          path: .nx/releases/
+          include-hidden-files: true
+
+  images:
+    name: Build ${{ matrix.product }}
+    needs: prepare
+    if: needs.prepare.outputs.has-releases == 'true' && needs.prepare.outputs.has-services == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    permissions:
+      actions: write
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      security-events: write
+    uses: ./.github/workflows/reusable-build-sign-sbom.yml
+    with:
+      service-group: ${{ matrix.group }}
+      service-name: ${{ matrix.service }}
+      release-group: ${{ matrix.releaseName }}
+      nx-project: ${{ matrix.nxProject }}
+      project-path: ${{ matrix.projectPath }}
+      version: ${{ matrix.candidateVersion }}
+      artifact-version: ${{ matrix.version }}
+      source-ref: ${{ matrix.sourceSha }}
+      publish-mode: release
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    name: Publish the platform release
+    needs: [prepare, images]
+    if: always() && needs.prepare.result == 'success' && needs.prepare.outputs.has-releases == 'true' && (needs.prepare.outputs.has-services != 'true' || needs.images.result == 'success')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: write
+      packages: write
       pull-requests: write
-    outputs:
-      has-releases: ${{ steps.manifest.outputs.has-releases }}
-      matrix: ${{ steps.manifest.outputs.matrix }}
-      release-head: ${{ steps.cpr.outputs.pull-request-head-sha }}
-
+      issues: write
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - run: bun install --frozen-lockfile
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: platform-release-plan
+          path: .nx/releases
+      - name: Download signed image results
+        if: needs.prepare.outputs.has-services == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: image-result-*
+          path: .nx/releases/images
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f00e # v4.3.0
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
       - name: Mint the Teck Automation GitHub App token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -39,238 +160,13 @@ jobs:
           repositories: Teck.Monorepo
           permission-contents: write
           permission-pull-requests: write
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: main
-          fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
-
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          global-json-file: global.json
-
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Resolve versions and changelogs with Nx
-        id: release
-        shell: bash
-        run: |
-          RELEASE_SOURCE_SHA=$(git rev-parse HEAD) bun run release:prepare
-          if test -s .nx/releases/manifest.json; then
-            echo 'has-releases=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'has-releases=false' >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Export release matrix
-        id: manifest
-        if: steps.release.outputs.has-releases == 'true'
-        shell: bash
-        run: |
-          test -s .nx/releases/manifest.json
-          echo "matrix=$(jq -c '{include: .releases}' .nx/releases/manifest.json)" >> "$GITHUB_OUTPUT"
-          echo 'has-releases=true' >> "$GITHUB_OUTPUT"
-
-      # Run even when there is no manifest: create-pull-request closes its existing
-      # release/nx PR when the checkout matches main, and delete-branch removes it.
-      - name: Create or update the signed release PR
-        id: cpr
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          sign-commits: true
-          branch: release/nx
-          base: main
-          delete-branch: true
-          commit-message: 'ci(release): publish affected releases'
-          title: 'ci(release): publish affected releases'
-          body: |
-            Nx generated this release PR from Conventional Commits affecting release units on `main`.
-
-            - Package manifests are updated where the Nx ecosystem supports them.
-            - .NET versions are supplied at build time and are not hard-coded into project files.
-            - Merging this PR promotes the exact canary image digests and publishes the matching draft releases.
-          labels: |
-            autorelease: pending
-
-  draft:
-    name: Draft ${{ matrix.name }}@v${{ matrix.version }}
-    needs: prepare
-    if: needs.prepare.outputs.has-releases == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
-    permissions:
-      contents: write
-      pull-requests: read
-
-    steps:
-      - name: Mint the Teck Automation GitHub App token
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          client-id: ${{ vars.TECK_AUTOMATION_APP_ID }}
-          private-key: ${{ secrets.TECK_AUTOMATION_APP_PRIVATE_KEY }}
-          owner: Teck-Lab
-          repositories: Teck.Monorepo
-          permission-contents: write
-          permission-pull-requests: read
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.prepare.outputs.release-head }}
-
-      - name: Read the Nx changelog
-        id: notes
-        shell: bash
+          permission-issues: write
+      - name: Promote signed digests and publish with Auto
         env:
-          NOTES_FILE: ${{ matrix.notesFile }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          RELEASE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RELEASE_SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          delimiter="NX_NOTES_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
-          {
-            echo "value<<$delimiter"
-            cat "$NOTES_FILE"
-            echo
-            echo "$delimiter"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Create or update the stable draft
-        uses: release-drafter/release-drafter@978bb0b30c5ee8cdd332ced253758157150d43f0 # v7.8.0
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          config-name: ${{ matrix.configName }}
-          name: '${{ matrix.name }} v${{ matrix.version }}'
-          tag: ${{ matrix.tag }}
-          version: ${{ matrix.version }}
-          from: ${{ matrix.previousTag }}
-          commitish: ${{ github.sha }}
-          header: ${{ steps.notes.outputs.value }}
-          publish: false
-          prerelease: false
-          latest: false
-  stable-plan:
-    name: Read the merged release manifest
-    if: >-
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.merged == true &&
-      github.event.pull_request.head.ref == 'release/nx'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    outputs:
-      matrix: ${{ steps.manifest.outputs.matrix }}
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
-          fetch-depth: 0
-
-      - name: Export the stable release matrix
-        id: manifest
-        shell: bash
-        run: |
-          test -s .nx/releases/manifest.json
-          echo "matrix=$(jq -c '{include: .releases}' .nx/releases/manifest.json)" >> "$GITHUB_OUTPUT"
-
-  publish:
-    name: Publish ${{ matrix.name }}@v${{ matrix.version }}
-    needs: stable-plan
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.stable-plan.outputs.matrix) }}
-    permissions:
-      contents: write
-      packages: write
-      pull-requests: read
-
-    steps:
-      - name: Mint the Teck Automation GitHub App token
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          client-id: ${{ vars.TECK_AUTOMATION_APP_ID }}
-          private-key: ${{ secrets.TECK_AUTOMATION_APP_PRIVATE_KEY }}
-          owner: Teck-Lab
-          repositories: Teck.Monorepo
-          permission-contents: write
-          permission-pull-requests: read
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
-          fetch-depth: 0
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
-      - name: Promote immutable candidate image manifests
-        shell: bash
-        env:
-          CANDIDATE_VERSION: ${{ format('{0}-canary.{1}', matrix.version, matrix.sourceSha) }}
-          RELEASE_GROUP: ${{ matrix.releaseGroup }}
-          RELEASE_VERSION: ${{ matrix.version }}
-          REPOSITORY_OWNER: ${{ github.repository_owner }}
-        run: |
-          set -euo pipefail
-          owner=$(printf '%s' "$REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
-          services=$(bash .github/scripts/discover-services.sh)
-          images=$(jq -r --arg owner "$owner" --arg group "$RELEASE_GROUP" '
-            .[] | select(.releaseGroup == $group) |
-            "ghcr.io/\($owner)/teck-monorepo/\(.group)/\(.service)"
-          ' <<< "$services")
-
-          while IFS= read -r image; do
-            [[ -n "$image" ]] || continue
-            source_digest=$(docker buildx imagetools inspect "$image:$CANDIDATE_VERSION" |
-              awk '$1 == "Digest:" { print $2; exit }')
-            test -n "$source_digest"
-            docker buildx imagetools create --prefer-index=false \
-              --tag "$image:$RELEASE_VERSION" --tag "$image:latest" "$image@$source_digest"
-            stable_digest=$(docker buildx imagetools inspect "$image:$RELEASE_VERSION" |
-              awk '$1 == "Digest:" { print $2; exit }')
-            test "$stable_digest" = "$source_digest"
-          done <<< "$images"
-
-      - name: Read the Nx changelog
-        id: notes
-        shell: bash
-        env:
-          NOTES_FILE: ${{ matrix.notesFile }}
-        run: |
-          delimiter="NX_NOTES_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
-          {
-            echo "value<<$delimiter"
-            cat "$NOTES_FILE"
-            echo
-            echo "$delimiter"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Publish the existing stable draft
-        uses: release-drafter/release-drafter@978bb0b30c5ee8cdd332ced253758157150d43f0 # v7.8.0
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          config-name: ${{ matrix.configName }}
-          name: '${{ matrix.name }} v${{ matrix.version }}'
-          tag: ${{ matrix.tag }}
-          version: ${{ matrix.version }}
-          from: ${{ matrix.previousTag }}
-          commitish: ${{ github.event.pull_request.merge_commit_sha }}
-          header: ${{ steps.notes.outputs.value }}
-          publish: true
-          prerelease: false
-          latest: false
+          mkdir -p .nx/releases/images
+          git checkout -B "$RELEASE_BRANCH" "$RELEASE_SOURCE_SHA"
+          bun run release:publish

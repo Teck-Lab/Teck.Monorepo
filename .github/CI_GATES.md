@@ -1,11 +1,12 @@
 # Required pull-request checks
 
-Require these exact check names in the branch ruleset for `main`, with GitHub
+Require these exact check names in the branch rulesets for `main`, `alpha`,
+`beta`, and `next`, with GitHub
 Actions as the expected source:
 
 | Check | Coverage |
 | --- | --- |
-| `CI Gate` | Affected builds, tests, lint and type checks; affected Aspire and architecture suites; OpenAPI validation when applicable. |
+| `CI Gate` | Commit format/scopes and squash PR titles; affected builds, tests, lint and type checks; affected Aspire and architecture suites; OpenAPI validation when applicable. |
 | `Security Gate` | All CodeQL languages, Semgrep service categories, workflow/configuration scans, dependency review and Gitleaks. |
 
 Publish and run the updated workflows before selecting the new gate checks in
@@ -48,9 +49,16 @@ Keep the native code-scanning rule requiring CodeQL and Semgrep OSS at the
 `main-code-scanning-high-or-higher` ruleset already provides this policy. Other
 SARIF tools can be added to that rule if their findings should also block merges.
 
-The workflows currently run on pull requests targeting `main` and pushes to
-`main`. If a merge queue is enabled, add and validate `merge_group` handling in
+The workflows run on pull requests targeting and pushes to all four release
+branches. Automation must use PRs and must not bypass these required checks.
+If a merge queue is enabled, add and validate `merge_group` handling in
 both workflows before requiring these checks for it.
+
+The Release workflow listens for completion of CI and Security Scans. It checks
+that the latest push run of both workflows succeeded for the exact branch and
+source SHA before preparing any release. Image publication also waits for all
+candidate image scans, SBOMs, VEX and signatures. A labelled PR preview cannot
+trigger Release because its validation event is `pull_request`, not `push`.
 
 ## CI scheduling and dependency reuse
 
