@@ -15,6 +15,14 @@ Neither aggregate replaces required reviews, the native code-scanning rule, or
 the native `Require signed commits` rule. Use that rule for GitHub-verified GPG,
 SSH or S/MIME signatures; there is no separate signature-checking Actions job.
 
+Conventional Commit headers are limited to 100 characters for human and agent
+commits and PR titles. Dependabot's native messages can exceed that limit because
+they include package names, versions and update-group details. The commit gate
+uses its exact signed-off-by trailer for the length/subject/scope-required
+exceptions; the title gate uses the PR author's `dependabot[bot]` login.
+Type and scope allowlist validation still apply. Dependabot is configured to use
+`chore(deps)`; its existing `deps-dev` scope is also accepted.
+
 ## Failure handling
 
 Both aggregate jobs use `always()` and inspect the results of their declared

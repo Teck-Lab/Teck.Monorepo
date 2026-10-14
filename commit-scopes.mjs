@@ -32,6 +32,7 @@ const repositoryScopes = [
   "build",
   "ci",
   "deps",
+  "deps-dev",
   "deploy",
   "docs",
   "identity",

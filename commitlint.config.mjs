@@ -5,9 +5,22 @@ const forbiddenSubjectCases = ["sentence-case", "start-case", "pascal-case", "up
 const dependabotSignature = "Signed-off-by: dependabot[bot] <support@github.com>";
 const startsWithLetter = /^[\p{Ll}\p{Lu}\p{Lt}]/iu;
 
-export function subjectCaseUnlessDependabot(parsed) {
+function hasDependabotTrailer(parsed) {
   const messageBody = [parsed.body, parsed.footer].filter(Boolean).join("\n");
-  if (messageBody.includes(dependabotSignature)) return [true];
+  return messageBody.split(/\r?\n/).includes(dependabotSignature);
+}
+
+export function headerMaxLengthUnlessDependabot(parsed, _when, maxLength) {
+  if (hasDependabotTrailer(parsed)) return [true];
+  const length = parsed.header?.length ?? 0;
+  return [
+    length <= maxLength,
+    `header must not be longer than ${maxLength} characters, current length is ${length}`,
+  ];
+}
+
+export function subjectCaseUnlessDependabot(parsed) {
+  if (hasDependabotTrailer(parsed)) return [true];
 
   const { subject } = parsed;
   if (typeof subject !== "string" || !startsWithLetter.test(subject)) return [true];
@@ -17,8 +30,7 @@ export function subjectCaseUnlessDependabot(parsed) {
 }
 
 export function scopeRequiredUnlessDependabot(parsed) {
-  const messageBody = [parsed.body, parsed.footer].filter(Boolean).join("\n");
-  return [Boolean(parsed.scope) || messageBody.includes(dependabotSignature), "scope is required"];
+  return [Boolean(parsed.scope) || hasDependabotTrailer(parsed), "scope is required"];
 }
 
 export default {
@@ -26,12 +38,15 @@ export default {
   plugins: [
     {
       rules: {
+        "header-max-length-unless-dependabot": headerMaxLengthUnlessDependabot,
         "subject-case-unless-dependabot": subjectCaseUnlessDependabot,
         "scope-required-unless-dependabot": scopeRequiredUnlessDependabot,
       },
     },
   ],
   rules: {
+    "header-max-length": [0],
+    "header-max-length-unless-dependabot": [2, "always", 100],
     "scope-case": [2, "always", "lower-case"],
     "scope-enum": [2, "always", commitScopes],
     "scope-required-unless-dependabot": [2, "always"],
