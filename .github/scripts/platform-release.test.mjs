@@ -446,13 +446,52 @@ test("fixed-group notes include each change once across member projects using Nx
   assert.match(entries[0], /repair checkout/);
   assert.doesNotMatch(entries[0], /repair catalog/);
 });
-test("oversized histories retain the version table and reference complete attached notes", () => {
+test("oversized platform histories retain inline component changes and the full attachment", () => {
   const notes = platformNotes(plan(), { order: "- checkout" }, "x".repeat(130_000));
   const body = githubReleaseBody(plan(), notes);
   assert.ok(body.length < 120_000);
   assert.match(body, /release-notes\.md/);
   assert.match(body, /catalog \| 3\.0\.0/);
+  assert.match(body, /## order\n\n- checkout/);
+  assert.match(body, /## Platform changes/);
   assert.equal(githubReleaseBody(plan(), "small release"), "small release");
+});
+test("oversized histories keep complete linked entries for every changed component", () => {
+  const manifest = plan();
+  manifest.components = Array.from({ length: 13 }, (_, index) => ({
+    name: `component-${index}`,
+    version: "0.0.1",
+    changed: true,
+  }));
+  const entry = "- add checkout ([#123](https://github.com/test/repo/pull/123))\n";
+  const groups = Object.fromEntries(
+    manifest.components.map((unit) => [unit.name, `### Features\n\n${entry.repeat(1_000)}`]),
+  );
+  const body = githubReleaseBody(manifest, platformNotes(manifest, groups, "- repair CI"));
+  assert.ok(Buffer.byteLength(body) <= 120_000);
+  for (const unit of manifest.components) {
+    assert.ok(body.includes(`## ${unit.name}\n\n### Features\n\n${entry.trimEnd()}`));
+  }
+  assert.match(body, /## Platform changes\n\n- repair CI/);
+  assert.equal(body.match(/add checkout/g)?.length, body.match(/\/pull\/123\)\)/g)?.length);
+  assert.match(body, /Additional changes are listed/);
+});
+test("release bodies budget multibyte notes by UTF-8 size and preserve small releases", () => {
+  const entry = "- checkout 🛒 æøå ([#123](https://github.com/test/repo/pull/123))\n";
+  const small = platformNotes(plan(), { order: entry }, "- repair CI");
+  assert.equal(githubReleaseBody(plan(), small), small);
+  const notes = platformNotes(
+    plan(),
+    { order: entry.repeat(Math.ceil(120_000 / Buffer.byteLength(entry))) },
+    "- repair CI",
+  );
+  assert.ok(notes.length < 120_000);
+  assert.ok(Buffer.byteLength(notes) > 120_000);
+  const body = githubReleaseBody(plan(), notes);
+  assert.ok(Buffer.byteLength(body) <= 120_000);
+  assert.match(body, /checkout 🛒 æøå/);
+  assert.doesNotMatch(body, /\uFFFD/);
+  assert.match(body, /## Platform changes\n\n- repair CI/);
 });
 test("release publication is refused outside CI", async () => {
   if (process.env.GITHUB_ACTIONS === "true") return;

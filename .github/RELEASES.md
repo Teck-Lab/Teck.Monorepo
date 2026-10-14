@@ -46,8 +46,9 @@ ApplicationSet lifecycle concern; this repository does not deploy preview enviro
    the previous stable platform release.
    Fixed-group entries are rendered once using Nx's public renderer extension.
    Complete notes are also attached as `release-notes.md`; oversized bootstrap
-   histories use a component table in the release body and keep all changes in
-   that attached file.
+   histories retain the component table and inline changelog sections for every
+   changed component. Large sections are shortened at complete Markdown lines
+   to fit the release body budget; the attachment retains every change.
 7. Every release attaches `platform-manifest.json`: all components, including
    unchanged versions, their source revisions and exact image digests. A future
    GitOps deployment consumes this manifest after release publication, rather

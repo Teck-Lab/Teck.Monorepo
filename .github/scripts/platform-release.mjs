@@ -104,14 +104,45 @@ export function readManifest(path = ".nx/releases/manifest.json") {
 }
 
 export function githubReleaseBody(manifest, notes) {
-  if (notes.length <= 120_000) return notes;
-  return [
-    `# Teck platform ${manifest.platform.version}`,
-    "",
-    "The complete notes, grouped by component, are attached as `release-notes.md`.",
-    "",
-    "| Component | Version |",
-    "| --- | --- |",
-    ...manifest.components.map((unit) => `| ${unit.name} | ${unit.version} |`),
-  ].join("\n");
+  const maxBytes = 120_000;
+  if (Buffer.byteLength(notes) <= maxBytes) return notes;
+  // Partition only our outer sections; Nx version/type headings stay inside
+  // their component. Give each section room so one large history cannot hide
+  // the remaining components or the platform changes.
+  const headings = [
+    ...manifest.components.filter((unit) => unit.changed).map((unit) => `## ${unit.name}`),
+    "## Platform changes",
+  ];
+  const starts = headings
+    .map((heading) => notes.indexOf(`\n${heading}\n`))
+    .filter((index) => index >= 0)
+    .map((index) => index + 1)
+    .sort((a, b) => a - b);
+  const sections = starts.length
+    ? starts.map((start, index) => notes.slice(start, starts[index + 1]))
+    : [notes];
+  const prefix = `${notes.slice(0, starts[0] ?? 0)}Some sections are shortened below. The complete changelog is attached as \`release-notes.md\`.\n\n`;
+  const sectionBudget = Math.floor(
+    (maxBytes - Buffer.byteLength(prefix) - (sections.length - 1) * 2) / sections.length,
+  );
+  const suffix = "\n\n_Additional changes are listed in the attached release-notes.md._";
+  return (
+    prefix +
+    sections
+      .map((section) => {
+        if (Buffer.byteLength(section) <= sectionBudget) return section.trimEnd();
+        const lines = [];
+        let remaining = sectionBudget - Buffer.byteLength(suffix);
+        for (const line of section.trimEnd().split("\n")) {
+          const bytes = Buffer.byteLength(line) + (lines.length ? 1 : 0);
+          if (bytes > remaining) break;
+          lines.push(line);
+          remaining -= bytes;
+        }
+        // Keep complete Markdown lines, including PR links, rather than cutting
+        // the changelog in the middle of a link or a multibyte character.
+        return lines.join("\n").trimEnd() + suffix;
+      })
+      .join("\n\n")
+  );
 }
