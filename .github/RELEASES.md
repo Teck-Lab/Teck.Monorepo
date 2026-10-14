@@ -48,8 +48,9 @@ ApplicationSet lifecycle concern; this repository does not deploy preview enviro
    previous published candidate on that channel; stable notes compare against
    the previous stable platform release.
    Fixed-group entries are rendered once using Nx's public renderer extension.
-   Each component and the platform changes use a collapsible section, closed by
-   default. Unchanged components retain their version with an unchanged marker.
+   Each changed component and the platform changes use a collapsible section,
+   closed by default. Unchanged components are omitted from the changelog;
+   their versions and image digests remain in `platform-manifest.json`.
    Complete notes are also attached as `release-notes.md`; oversized bootstrap
    histories retain the overview and inline changelog sections for every
    changed component. Large sections are shortened at complete Markdown lines

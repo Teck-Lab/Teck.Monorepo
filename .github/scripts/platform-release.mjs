@@ -106,24 +106,22 @@ export function releaseOverview(manifest, groupNotes = {}) {
   return `This ${channel} updates ${changed.length} of ${manifest.components.length} components${changed.length ? `: ${changed.map((unit) => unit.name).join(", ")}` : ""}.${highlights.length ? ` Highlights: ${highlights.join("; ")}.` : ""}`;
 }
 function componentHeading(unit) {
-  return `## ${unit.changed ? "📦" : "♻️"} ${unit.name} · v${unit.version}${unit.changed ? "" : " (unchanged)"}`;
+  return `## 📦 ${unit.name} · v${unit.version}`;
 }
 export function platformNotes(manifest, groupNotes, autoNotes) {
+  const changed = manifest.components.filter((component) => component.changed);
   const lines = [
     `# 🚀 Teck platform ${manifest.platform.version}`,
     "",
     manifest.releaseSummary || releaseOverview(manifest, groupNotes),
     "",
-    "## 🧩 Components",
-    "",
   ];
-  for (const unit of manifest.components) {
+  if (changed.length) lines.push("## 🧩 Components", "");
+  for (const unit of changed) {
     lines.push(
       componentHeading(unit),
       "",
-      unit.changed
-        ? groupNotes[unit.name] || "🔗 Dependency-driven version update."
-        : "♻️ Unchanged in this platform release.",
+      groupNotes[unit.name] || "🔗 Dependency-driven version update.",
       "",
     );
   }
@@ -149,7 +147,10 @@ export function githubReleaseBody(manifest, notes) {
   // Partition only our outer sections; Nx version/type headings stay inside
   // their component. Give each section room so one large history cannot hide
   // the remaining components or the platform changes.
-  const headings = [...manifest.components.map(componentHeading), "## 🛠️ Platform changes"];
+  const headings = [
+    ...manifest.components.filter((unit) => unit.changed).map(componentHeading),
+    "## 🛠️ Platform changes",
+  ];
   const starts = headings
     .map((heading) => notes.indexOf(`\n${heading}\n`))
     .filter((index) => index >= 0)
