@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import test from "node:test";
-import { Auto } from "@auto-it/core";
+import autoCore from "@auto-it/core";
 import { AsyncSeriesBailHook, AsyncSeriesWaterfallHook } from "tapable";
 import { groupChangelogRenderer } from "./group-changelog.mjs";
 import {
@@ -26,6 +26,7 @@ import {
 import { releaseServices } from "./release-matrix.mjs";
 
 const require = createRequire(import.meta.url);
+const { Auto } = autoCore;
 const Released = require("@auto-it/released").default;
 const Conventional = require("@auto-it/conventional-commits").default;
 const { defaultLabels } = require("@auto-it/core/dist/semver");
