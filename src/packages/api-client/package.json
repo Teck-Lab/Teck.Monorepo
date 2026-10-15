@@ -1,0 +1,17 @@
+{
+  "name": "@teck/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "openapi-typescript ../../../specs/catalog/products.openapi.json -o src/generated/catalog.ts",
+    "check:generated": "node scripts/check-generated.mjs",
+    "smoke": "bun scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0"
+  }
+}

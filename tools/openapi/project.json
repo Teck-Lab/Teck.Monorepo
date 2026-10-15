@@ -1,0 +1,28 @@
+{
+  "name": "openapi-tools",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "targets": {
+    "export:catalog": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{workspaceRoot}",
+        "command": "node tools/openapi/export-catalog.mjs && bun tools/openapi/normalize-catalog.mjs"
+      }
+    },
+    "generate:catalog": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{workspaceRoot}",
+        "command": "bun run --cwd src/packages/api-client generate"
+      }
+    },
+    "check:catalog-contract": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{workspaceRoot}",
+        "command": "node tools/openapi/check-generated.mjs"
+      }
+    }
+  }
+}

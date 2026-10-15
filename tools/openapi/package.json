@@ -1,0 +1,8 @@
+{
+  "name": "@teck/openapi-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "export:catalog": "node tools/openapi/export-catalog.mjs"
+  }
+}

@@ -90,6 +90,7 @@ public static class OpenApiExtensions
                     }
 
                     settings.OperationProcessors.Add(new OpenApiAudienceOperationProcessor("public", includeUnannotated: false));
+                    settings.OperationProcessors.Add(new OpenApiProtectedResourceOperationProcessor());
                     settings.OperationProcessors.Add(new AspNetCoreOperationSecurityScopeProcessor("oAuth2"));
                 };
             });

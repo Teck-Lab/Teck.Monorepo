@@ -79,6 +79,8 @@ public static class Extensions
 
         webApplication.UseFastEndpoints(config =>
         {
+            config.Errors.ProducesMetadataType = typeof(Microsoft.AspNetCore.Mvc.ValidationProblemDetails);
+            config.Errors.ContentType = "application/problem+json";
             config.Errors.ResponseBuilder = (failures, context, statusCode) =>
             {
                 var problemDetails = new Microsoft.AspNetCore.Mvc.ValidationProblemDetails(

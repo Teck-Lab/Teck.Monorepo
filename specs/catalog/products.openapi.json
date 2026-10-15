@@ -1,0 +1,287 @@
+{
+  "x-generator": "NSwag v14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))",
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Teck.Cloud.WebAPI Public API",
+    "version": "0.0.1"
+  },
+  "paths": {
+    "/products": {
+      "post": {
+        "tags": ["Products"],
+        "summary": "Creates a product.",
+        "operationId": "CatalogHostEndpointsProductsCreateProductEndpoint",
+        "requestBody": {
+          "x-name": "CreateProductRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogHostEndpointsProductsCreateProductRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationProductsResponsesProductDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ],
+        "x-protected-resource": {
+          "resource": "catalog",
+          "scope": "manage"
+        }
+      }
+    },
+    "/products/{productId}": {
+      "get": {
+        "tags": ["Products"],
+        "summary": "Fetches a product by identifier.",
+        "operationId": "CatalogHostEndpointsProductsGetProductEndpoint",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "description": "The product identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationProductsResponsesProductDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ],
+        "x-protected-resource": {
+          "resource": "catalog",
+          "scope": "product-read"
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FastEndpointsErrorResponse": {
+        "type": "object",
+        "description": "the dto used to send an error response to the client",
+        "additionalProperties": false,
+        "properties": {
+          "statusCode": {
+            "type": "integer",
+            "description": "the http status code sent to the client. default is 400.",
+            "format": "int32",
+            "default": 400
+          },
+          "message": {
+            "type": "string",
+            "description": "the message for the error response",
+            "default": "One or more errors occurred!"
+          },
+          "errors": {
+            "type": "object",
+            "description": "the collection of errors for the current context",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "CatalogApplicationProductsResponsesVariantDto": {
+        "type": "object",
+        "description": "A sellable variant with its flattened sell price.",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "guid"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "sellPriceAmount": {
+            "type": "number",
+            "format": "decimal"
+          },
+          "sellPriceCurrency": {
+            "type": "string"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogApplicationProductsResponsesVariantAttributeDto"
+            }
+          }
+        }
+      },
+      "CatalogApplicationProductsResponsesVariantAttributeDto": {
+        "type": "object",
+        "description": "A name/value variant attribute.",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "CatalogApplicationProductsResponsesProductDto": {
+        "type": "object",
+        "description": "A product with its variants.",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "guid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "categoryId": {
+            "type": "string",
+            "format": "guid",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogApplicationProductsResponsesVariantDto"
+            }
+          }
+        }
+      },
+      "CatalogHostEndpointsProductsCreateProductRequest": {
+        "type": "object",
+        "description": "Request to create a product with a single default variant.",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "sku",
+          "sellPriceCurrency"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The product name.",
+            "minLength": 1,
+            "nullable": false
+          },
+          "description": {
+            "type": "string",
+            "description": "The optional product description.",
+            "nullable": true
+          },
+          "categoryId": {
+            "type": "string",
+            "description": "The optional owning category.",
+            "format": "guid",
+            "nullable": true
+          },
+          "sku": {
+            "type": "string",
+            "description": "The default variant SKU.",
+            "minLength": 1,
+            "nullable": false
+          },
+          "sellPriceAmount": {
+            "type": "number",
+            "description": "The default variant sell price amount.",
+            "format": "decimal",
+            "minimum": 0
+          },
+          "sellPriceCurrency": {
+            "type": "string",
+            "description": "The ISO currency code for the sell price.",
+            "maxLength": 3,
+            "minLength": 3,
+            "nullable": false
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "oAuth2": {
+        "type": "oauth2",
+        "in": "header"
+      }
+    }
+  }
+}
