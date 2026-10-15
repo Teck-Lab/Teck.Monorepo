@@ -7,11 +7,14 @@ Router; `mobile/` is the one **Expo + React Native** app (the exception).
 
 | App | Package | Stack | Purpose |
 |-----|---------|-------|---------|
-| `web/` | @teck/web | Next.js 16 + Tailwind v4 + shadcn/ui | Public-facing shell |
-| `mobile/` | @teck/mobile | Expo + NativeWind v5 + react-native-reusables | Mobile app |
-| `web-dashboard/` | @teck/web-dashboard | Next.js 16 | Admin dashboard (primary app) — *planned* |
+| `web/` | @teck/web | Next.js 16 + Tailwind v4 + shadcn/ui | Customer-facing web application |
+| `mobile/` | @teck/mobile | Expo + NativeWind v5 + react-native-reusables | Customer-facing mobile app |
+| `web-dashboard/` | @teck/web-dashboard | Next.js 16 | Staff dashboard for .NET products, statistics, and operational workflows through APIs — *planned* |
 | `docs/` | @teck/docs | Nextra | Documentation site — *planned* |
 | `storybook/` | @teck/storybook | Storybook | Component library docs — *planned* |
+Payload CMS is the staff editorial system for authoring pages/page-builder content for one or more websites. Its admin is not the operational dashboard. The customer-facing applications (`web/` and `mobile/`) are distinct from both.
+
+Keycloak remains the identity boundary and YARP the API gateway boundary; the planned dashboard accesses backend capabilities through APIs and does not reference .NET projects directly. Medusa is not part of the chosen architecture.
 
 > `mobile/` is **Expo + React Native**, not Next.js. It shares **design tokens**
 > with web through `@teck/tailwind-config` (so a color/radius change updates both

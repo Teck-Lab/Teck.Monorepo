@@ -8,7 +8,7 @@ in this file and the nearest nested `AGENTS.md` for the files being changed.
 
 - Read this file before making repository changes.
 - Read the nearest nested `AGENTS.md` before editing files in that subtree.
-- More specific nested instructions override broader instructions when they
+- More specific nested `AGENTS.md` files override broader instructions when they
   conflict.
 - Keep mandatory architecture and coding constraints in `AGENTS.md`, tests,
   analyzers, or CI so they apply independently of the agent runtime.
@@ -35,6 +35,14 @@ tools/
 deploy/
 specs/
 ```
+
+## Application architecture boundaries
+
+- Payload CMS is the staff editorial system for authoring pages/page-builder content for one or more websites. It is not the operational dashboard.
+- The planned `src/apps/web-dashboard/` is a separate staff application for managing the .NET products, statistics, and operational workflows through APIs. It is planned, not an implemented capability.
+- The customer-facing application is distinct from both Payload's editorial admin and the planned operational dashboard.
+- Keycloak remains the identity boundary and YARP remains the API gateway boundary. Applications access backend capabilities through APIs; they do not couple directly to .NET projects.
+- Medusa is not part of the chosen architecture.
 
 ## Service image groups
 
