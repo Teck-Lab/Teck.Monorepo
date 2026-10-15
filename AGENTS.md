@@ -36,6 +36,21 @@ deploy/
 specs/
 ```
 
+## Application architecture boundaries
+
+- Payload CMS is the planned staff editorial system for authoring page-builder content; it is not currently installed and is not the operational dashboard.
+- Published websites are separate renderers of published content, not the Payload staff Admin. The
+  planned `src/apps/web-dashboard/` is a separate staff application for managing .NET products,
+  statistics, and operational workflows through APIs; it is not an implemented capability.
+- The intended customer-facing application is distinct from the staff dashboard. .NET services
+  remain authoritative for products, prices, stock, and orders; Payload may reference .NET product
+  IDs in published content but does not own transactional data.
+- `src/apps/web/` is an existing minimal public-facing shell, not a functional customer application.
+  `src/apps/mobile/` is an Expo app; its customer role is not established here.
+- Keycloak remains the identity boundary and YARP remains the API gateway boundary. Applications
+  access backend capabilities through APIs; they do not couple directly to .NET projects.
+- Medusa is not part of the chosen architecture.
+
 ## Service image groups
 
 | Group | Path |
