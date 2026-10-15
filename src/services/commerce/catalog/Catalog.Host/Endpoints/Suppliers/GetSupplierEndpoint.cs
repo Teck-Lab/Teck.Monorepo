@@ -11,7 +11,7 @@ public sealed class GetSupplierEndpoint(IMessageBus bus)
     : AuthenticatedEndpoint<GetSupplierRequest, SupplierDto>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("catalog", "read", "public");
+    protected override EndpointPermission Permission => new("catalog", "supplier-read", "public");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(GetSupplierRequest request, CancellationToken ct)

@@ -87,8 +87,112 @@
     {
       "clientId": "catalog-api",
       "enabled": true,
-      "publicClient": true,
-      "protocol": "openid-connect"
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "local-only-catalog-api-secret-not-for-production",
+      "authorizationServicesEnabled": true,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "organization-membership",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-organization-membership-mapper",
+          "config": {
+            "claim.name": "organization",
+            "jsonType.label": "JSON",
+            "multivalued": "true",
+            "addOrganizationId": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ],
+      "authorizationSettings": {
+        "policyEnforcementMode": "ENFORCING",
+        "resources": [
+          {
+            "name": "catalog",
+            "scopes": [
+              { "name": "manage" },
+              { "name": "read" },
+              { "name": "product-read" },
+              { "name": "supplier-read" }
+            ]
+          }
+        ],
+        "policies": [
+          {
+            "name": "catalog-read-roles",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-reader\",\"required\":false},{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "catalog-read",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": { "scopes": "[\"read\"]", "applyPolicies": "[\"catalog-read-roles\"]" }
+          },
+          {
+            "name": "catalog-manage-roles",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "catalog-manage",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": { "scopes": "[\"manage\"]", "applyPolicies": "[\"catalog-manage-roles\"]" }
+          },
+          {
+            "name": "catalog-product-read-roles",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-reader\",\"required\":false},{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "catalog-product-read",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": { "scopes": "[\"product-read\"]", "applyPolicies": "[\"catalog-product-read-roles\"]" }
+          },
+          {
+            "name": "catalog-supplier-read-roles",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "catalog-supplier-read",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": { "scopes": "[\"supplier-read\"]", "applyPolicies": "[\"catalog-supplier-read-roles\"]" }
+          }
+        ]
+      }
     },
     {
       "clientId": "pricing-api",
@@ -269,6 +373,16 @@
           "protocolMapper": "oidc-audience-mapper",
           "config": {
             "included.client.audience": "pricing-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "catalog-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "catalog-api",
             "access.token.claim": "true",
             "id.token.claim": "false"
           }

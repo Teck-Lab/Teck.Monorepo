@@ -24,9 +24,11 @@ The following values must be supplied independently for staging and production:
 | Every confidential-client secret | **SECRET.** Generate and store a distinct secret for each environment and client; never copy a committed local value. |
 | Person password credentials and Keycloak administration credentials | **SECRET.** Create and manage them through the environment secret store; do not reuse local passwords or administrator credentials. |
 
-The required confidential-client secrets are for `order-api`, `pricing-api`,
-`teck-dashboard`, and `public-gateway`. The `catalog-api` client is public and
-does not have a client secret in the local reference inventory.
+The required confidential-client secrets are for `order-api`, `catalog-api`,
+`pricing-api`, `teck-dashboard`, and `public-gateway`. The local realm defines
+`catalog-api` as a confidential client for token exchange and protected-resource
+authorization. Staging and production must generate independent secrets; never
+promote the local reference secret.
 
 ## Identity-provider inventory
 
@@ -52,7 +54,7 @@ All five clients use OpenID Connect and are enabled.
 | Client | Client flags | Secret handling |
 | --- | --- | --- |
 | `order-api` | Confidential (`publicClient: false`), `clientAuthenticatorType: client-secret`, authorization services enabled. | **SECRET** — generate a per-environment client secret. |
-| `catalog-api` | Public (`publicClient: true`); no client authenticator or authorization service. | No client secret. |
+| `catalog-api` | Confidential (`publicClient: false`), `clientAuthenticatorType: client-secret`, authorization services enabled. Its local catalog authorization service defines `manage`, `product-read`, and `supplier-read` scopes. | **SECRET** — generate a per-environment client secret. |
 | `pricing-api` | Confidential (`publicClient: false`), `clientAuthenticatorType: client-secret`, authorization services enabled. | **SECRET** — generate a per-environment client secret. |
 | `teck-dashboard` | Confidential (`publicClient: false`), `clientAuthenticatorType: client-secret`, standard flow enabled, direct access grants disabled, and `pkce.code.challenge.method: S256`. Configure environment-specific redirect URIs and web origins. | **SECRET** — generate a per-environment client secret. |
 | `public-gateway` | Confidential (`publicClient: false`), `clientAuthenticatorType: client-secret`, direct access grants enabled, and `standard.token.exchange.enabled: true`. | **SECRET** — generate a per-environment client secret. |
@@ -77,7 +79,7 @@ Create the following mappers and claim behavior:
   - `pricing-api-audience`: an `oidc-audience-mapper` that adds `pricing-api`
     to the access-token audience only.
 
-`catalog-api` has no protocol mappers in the committed local manifest.
+`catalog-api` has the `organization-membership` mapper. The `public-gateway` client also has a `catalog-api-audience` mapper that adds `catalog-api` to the access-token audience only, enabling gateway token exchange to the Catalog protected resource.
 
 ### Authorization resources, scopes, and permissions
 
@@ -88,6 +90,7 @@ follows:
 | Client | Resource and scopes | Permission definitions |
 | --- | --- | --- |
 | `order-api` | Resource `order`; scopes `read` and `retry-payment`. | `order-read-roles` is a role policy for `platform-reader` or `platform-manager`; `order-read` is a scope policy for `read` that applies `order-read-roles`. `order-retry-payment-manager` is a role policy for `platform-manager`; `order-retry-payment` is a scope policy for `retry-payment` that applies `order-retry-payment-manager`. |
+| `catalog-api` | Resource `catalog`; scopes `manage`, `product-read`, and `supplier-read`. | `catalog-manage` and `catalog-supplier-read` are limited to `platform-manager`; `catalog-product-read` is granted to `platform-reader` and `platform-manager`. |
 | `pricing-api` | Resource `pricing`; scopes `read` and `manage`. | `pricing-read-roles` is a role policy for `platform-reader` or `platform-manager`; `pricing-read` is a scope policy for `read` that applies `pricing-read-roles`. `pricing-manage-manager` is a role policy for `platform-manager`; `pricing-manage` is a scope policy for `manage` that applies `pricing-manage-manager`. |
 
 Every listed policy uses `logic: POSITIVE` and

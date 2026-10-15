@@ -105,6 +105,24 @@ public sealed class GatewayFlowTests : IClassFixture<GatewayFlowTests.GatewayFix
         Assert.StartsWith("Bearer ", echoed.Authorization, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("GET", "/products/00000000-0000-0000-0000-000000000001")]
+    [InlineData("POST", "/products")]
+    public async Task AuthenticatedCatalogRequest_ForwardsTenantAndExchangedBearer(string method, string path)
+    {
+        using HttpClient client = fixture.CreateMockUserClient("tenant-a");
+        using var request = new HttpRequestMessage(new HttpMethod(method), path);
+
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        EchoedHeaders? echoed = await response.Content.ReadFromJsonAsync<EchoedHeaders>();
+        Assert.NotNull(echoed);
+        Assert.Equal("tenant-a", echoed!.TenantId);
+        Assert.False(string.IsNullOrEmpty(echoed.TenantDbStrategy));
+        Assert.StartsWith("Bearer ", echoed.Authorization, StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>
     /// An unauthenticated request must be rejected with 401 by the authorization middleware
     /// before any tenant-resolution or token-exchange logic runs.
