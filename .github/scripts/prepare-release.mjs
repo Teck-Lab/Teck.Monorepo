@@ -2,7 +2,7 @@
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ReleaseClient, releaseVersion } from "nx/release";
-import { groupChangelogRenderer } from "./group-changelog.mjs";
+import { ComponentChangelogRenderer, groupChangelogRenderer } from "./group-changelog.mjs";
 import {
   channelFor,
   createPlatformAuto,
@@ -97,6 +97,9 @@ if (!hasReleases) {
 }
 const version = platformVersion({ channel, stableTag, candidateTag, bump });
 const changelogClient = new ReleaseClient({
+  changelog: {
+    projectChangelogs: { renderer: ComponentChangelogRenderer },
+  },
   groups: Object.fromEntries(
     versionResult.releaseGraph.releaseGroups
       .filter((group) => group.projectsRelationship === "fixed")

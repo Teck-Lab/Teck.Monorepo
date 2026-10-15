@@ -121,7 +121,7 @@ export function platformNotes(manifest, groupNotes, autoNotes) {
     lines.push(
       componentHeading(unit),
       "",
-      groupNotes[unit.name] || "🔗 Dependency-driven version update.",
+      groupNotes[unit.name]?.trim() || "🔗 Dependency-driven version update.",
       "",
     );
   }
@@ -144,8 +144,8 @@ export function readManifest(path = ".nx/releases/manifest.json") {
 
 export function githubReleaseBody(manifest, notes) {
   const maxBytes = 120_000;
-  // Partition only our outer sections; Nx version/type headings stay inside
-  // their component. Give each section room so one large history cannot hide
+  // Partition only our outer sections; change categories stay inside their
+  // component. Give each section room so one large history cannot hide
   // the remaining components or the platform changes.
   const headings = [
     ...manifest.components.filter((unit) => unit.changed).map(componentHeading),
@@ -159,7 +159,7 @@ export function githubReleaseBody(manifest, notes) {
   // The comparison link remains outside the collapsed sections and outside
   // their truncation budget, so it always appears at the bottom.
   const footerStart = notes.lastIndexOf("\n---\n\n🔎 ");
-  const footer = footerStart >= 0 ? notes.slice(footerStart) : "";
+  const footer = footerStart >= 0 ? `\n${notes.slice(footerStart)}` : "";
   const content = footerStart >= 0 ? notes.slice(0, footerStart) : notes;
   const sections = starts.length
     ? starts.map((start, index) => content.slice(start, starts[index + 1]))
@@ -168,10 +168,13 @@ export function githubReleaseBody(manifest, notes) {
   const summaries = sections.map((section) =>
     section.startsWith("## ") ? section.split("\n", 1)[0].slice(3) : "Changes",
   );
+  const contents = sections.map((section) =>
+    (section.startsWith("## ") ? section.slice(section.indexOf("\n") + 1) : section).trim(),
+  );
   const collapse = (section, index) =>
-    `<details>\n<summary>${summaries[index]}</summary>\n\n${section.trimEnd()}\n\n</details>`;
+    `<details>\n<summary><h2>${summaries[index]}</h2></summary>\n\n${section.trimEnd()}\n\n</details>`;
   const completeBody =
-    content.slice(0, starts[0] ?? 0) + sections.map(collapse).join("\n\n") + footer;
+    content.slice(0, starts[0] ?? 0) + contents.map(collapse).join("\n\n") + footer;
   if (Buffer.byteLength(completeBody) <= maxBytes) return completeBody;
   const prefix = `${notes.slice(0, starts[0] ?? 0)}Some sections are shortened below. The complete changelog is attached as \`release-notes.md\`.\n\n`;
   const wrapperBytes = sections.reduce(
@@ -189,7 +192,7 @@ export function githubReleaseBody(manifest, notes) {
   const suffix = "\n\n_Additional changes are listed in the attached release-notes.md._";
   return (
     prefix +
-    sections
+    contents
       .map((section) => {
         if (Buffer.byteLength(section) <= sectionBudget) return section.trimEnd();
         const lines = [];
