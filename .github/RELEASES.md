@@ -25,6 +25,8 @@ ApplicationSet lifecycle concern; this repository does not deploy preview enviro
    Merge promotion PRs with a merge commit to preserve original changes and PRs.
 2. CI and Security Scans run for every release branch. Release waits for the
    latest push run of both to succeed for the exact source SHA.
+   Repeated triggers for a source already published as the latest stable release
+   or the current channel candidate skip preparation and publication.
 3. Nx resolves versions with Conventional Commits and scopes. Auto's native
    Conventional Commit plugin computes the platform bump. Standard SemVer
    increments stable versions; Auto's `determineNextVersion` increments channel
@@ -41,13 +43,20 @@ ApplicationSet lifecycle concern; this repository does not deploy preview enviro
    The two namespaces are isolated during Auto/Nx version lookup. Group tags
    do not create separate GitHub Releases.
 6. Auto publishes one platform GitHub Release, including group-scoped notes and
-   a complete component version table. Prerelease notes compare against the
+   an initial overview and component versions in expandable section headers.
+   Prerelease notes compare against the
    previous published candidate on that channel; stable notes compare against
    the previous stable platform release.
    Fixed-group entries are rendered once using Nx's public renderer extension.
+   Each changed component and the platform changes use a collapsible section,
+   closed by default. Unchanged components are omitted from the changelog;
+   their versions and image digests remain in `platform-manifest.json`.
    Complete notes are also attached as `release-notes.md`; oversized bootstrap
-   histories use a component table in the release body and keep all changes in
-   that attached file.
+   histories retain the overview and inline changelog sections for every
+   changed component. Large sections are shortened at complete Markdown lines
+   to fit the release body budget; the attachment retains every change.
+   A compare link at the bottom uses the previous stable/candidate tag, or the
+   initial commit for the first release.
 7. Every release attaches `platform-manifest.json`: all components, including
    unchanged versions, their source revisions and exact image digests. A future
    GitOps deployment consumes this manifest after release publication, rather
@@ -99,6 +108,16 @@ manifest; their existing CI builds are retained. A separate frontend/package
 distribution mechanism can consume these component versions.
 
 ## Configuration and validation
+
+The optional AI overview uses OmniRoute's OpenAI-compatible `/chat/completions`
+API with the `teck-fast-text` combo. Store the API base URL (including `/v1`) as
+the `OMNIROUTE_BASE_URL` Actions secret, and the key as `OMNIROUTE_API_KEY`.
+Set `RELEASE_AI_SUMMARY=true` to enable it; `OMNIROUTE_MODEL` optionally overrides
+the default combo. The separate summary job has repository read permissions,
+sends only bounded release-note data and grants no tools. The overview artifact
+is bound to the source SHA and platform version before publication. Disabled,
+failed or invalid AI summaries fall back to a generated overview, and never
+block publication. Versioning, tags and changelog entries are unaffected by AI.
 
 - `.autorc.json` pins the base/prerelease branches and native Auto plugins.
 - The release jobs use the Teck Automation App credentials already configured

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import {
   createPlatformAuto,
@@ -9,6 +9,7 @@ import {
   platformNotes,
   readManifest,
 } from "./platform-release.mjs";
+import { applySummary } from "./release-summary.mjs";
 
 export async function completeManifest(manifest, services, results, resolveImage, promoteImage) {
   const completed = structuredClone(manifest);
@@ -125,6 +126,16 @@ function promoteImage(image, digest, version, channel) {
 export async function publishRelease(manifest, services, results) {
   if (process.env.GITHUB_ACTIONS !== "true") throw new Error("Release publication is CI-only.");
   assert.equal(git("rev-parse", "HEAD"), manifest.sourceSha, "Publication source mismatch");
+  if (existsSync(".nx/releases/release-summary.json")) {
+    try {
+      manifest = applySummary(
+        manifest,
+        JSON.parse(readFileSync(".nx/releases/release-summary.json", "utf8")),
+      );
+    } catch {
+      console.warn("Optional AI overview is invalid; using the generated release overview.");
+    }
+  }
   const { auto } = await createPlatformAuto({
     branch: manifest.branch,
     sourceSha: manifest.sourceSha,

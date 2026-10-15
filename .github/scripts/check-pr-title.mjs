@@ -6,6 +6,7 @@ import config from "../../commitlint.config.mjs";
 export async function lintPullRequestTitle(title, author) {
   const rules = { ...conventional.rules, ...config.rules };
   if (author === "dependabot[bot]") {
+    rules["header-max-length-unless-dependabot"] = [0];
     rules["subject-case-unless-dependabot"] = [0];
     rules["scope-required-unless-dependabot"] = [0];
   }
