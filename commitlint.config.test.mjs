@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import conventional from "@commitlint/config-conventional";
 import lint from "@commitlint/lint";
 import { lintPullRequestTitle } from "./.github/scripts/check-pr-title.mjs";
 import config, { subjectCaseUnlessDependabot } from "./commitlint.config.mjs";
 
 const parsed = (subject, footer = null) => ({ subject, body: null, footer });
+const rules = { ...conventional.rules, ...config.rules };
+const longDependabotTitle =
+  "chore(deps): bump docker/setup-buildx-action from 4.3.0 to 4.4.1 in the actions-minor-patch group across 1 directory";
+const dependabotTrailer = "Signed-off-by: dependabot[bot] <support@github.com>";
 
 test("accepts domain, group, package and repository scopes", async () => {
   for (const scope of [
@@ -84,6 +89,68 @@ test("Dependabot titles keep their subject exemption but still validate scopes",
     (await lintPullRequestTitle("chore(orderr): Bump ErrorOr", "dependabot[bot]")).valid,
     false,
   );
+});
+
+test("accepts existing long and development dependency titles from Dependabot", async () => {
+  assert.equal(longDependabotTitle.length, 116);
+  for (const title of [
+    longDependabotTitle,
+    "chore(deps-dev): bump @types/node from 22.20.0 to 26.6.5",
+    "chore(deps-dev): bump babel-preset-expo from 57.0.14 to 58.0.12",
+  ]) {
+    const result = await lintPullRequestTitle(title, "dependabot[bot]");
+    assert.equal(result.valid, true, JSON.stringify(result.errors));
+  }
+});
+
+test("keeps the 100-character PR title limit for humans, agents and similar bot names", async () => {
+  const title = `fix(ci): ${"a".repeat(91)}`;
+  assert.equal(title.length, 100);
+  for (const author of ["contributor", "teck-agent[bot]", "dependabot-preview[bot]"]) {
+    assert.equal((await lintPullRequestTitle(title, author)).valid, true);
+    const result = await lintPullRequestTitle(`${title}a`, author);
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.some((error) => error.name === "header-max-length-unless-dependabot"));
+    assert.equal((await lintPullRequestTitle(longDependabotTitle, author)).valid, false);
+  }
+});
+
+test("long Dependabot titles still enforce conventional types and allowed scopes", async () => {
+  for (const title of [
+    longDependabotTitle.replace("chore(deps)", "unknown(deps)"),
+    longDependabotTitle.replace("(deps)", "(unknown)"),
+    "this is not a conventional commit",
+  ]) {
+    assert.equal((await lintPullRequestTitle(title, "dependabot[bot]")).valid, false, title);
+  }
+});
+
+test("commit length uses the same boundary and only exempts the exact Dependabot trailer", async () => {
+  const title = `fix(ci): ${"a".repeat(91)}`;
+  assert.equal((await lint(title, rules, { plugins: config.plugins })).valid, true);
+  for (const message of [
+    `${title}a`,
+    `${longDependabotTitle}\n\nSigned-off-by: another-bot <support@github.com>`,
+    `${longDependabotTitle}\n\nquoted ${dependabotTrailer}`,
+    `${longDependabotTitle}\n\n${dependabotTrailer} trailing text`,
+  ]) {
+    const result = await lint(message, rules, { plugins: config.plugins });
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.some((error) => error.name === "header-max-length-unless-dependabot"));
+  }
+  for (const header of [longDependabotTitle, "chore(deps-dev): Bump @types/node"]) {
+    const result = await lint(`${header}\n\n${dependabotTrailer}`, rules, {
+      plugins: config.plugins,
+    });
+    assert.equal(result.valid, true, JSON.stringify(result.errors));
+  }
+  const unknownScope = await lint(
+    `${longDependabotTitle.replace("(deps)", "(unknown)")}\n\n${dependabotTrailer}`,
+    rules,
+    { plugins: config.plugins },
+  );
+  assert.equal(unknownScope.valid, false);
+  assert.ok(unknownScope.errors.some((error) => error.name === "scope-enum"));
 });
 
 test("keeps lowercase subjects valid", () => {
