@@ -7,11 +7,13 @@ Router; `mobile/` is the one **Expo + React Native** app (the exception).
 
 | App | Package | Stack | Purpose |
 |-----|---------|-------|---------|
-| `web/` | @teck/web | Next.js 16 + Tailwind v4 + shadcn/ui | Public-facing shell |
-| `mobile/` | @teck/mobile | Expo + NativeWind v5 + react-native-reusables | Mobile app |
-| `web-dashboard/` | @teck/web-dashboard | Next.js 16 | Admin dashboard (primary app) — *planned* |
+| `web/` | @teck/web | Next.js 16 + Tailwind v4 + shadcn/ui | Existing minimal public-facing shell; not a functional customer app |
+| `mobile/` | @teck/mobile | Expo + NativeWind v5 + react-native-reusables | Expo app; customer role not established |
+| `web-dashboard/` | @teck/web-dashboard | Next.js 16 | Operational dashboard (staff app) — *planned*; distinct from Payload's editorial Admin |
 | `docs/` | @teck/docs | Nextra | Documentation site — *planned* |
 | `storybook/` | @teck/storybook | Storybook | Component library docs — *planned* |
+
+Payload CMS is planned and is not currently installed. Its staff Admin is for editorial authoring; published websites are separate renderers of published content. The planned `web-dashboard/` is a distinct staff application for operational workflows, not Payload's Admin.
 
 > `mobile/` is **Expo + React Native**, not Next.js. It shares **design tokens**
 > with web through `@teck/tailwind-config` (so a color/radius change updates both
