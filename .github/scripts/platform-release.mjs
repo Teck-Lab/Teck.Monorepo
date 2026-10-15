@@ -1,7 +1,9 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { Auto, determineNextVersion } from "@auto-it/core";
+import autoCore from "@auto-it/core";
 import { inc, prerelease, rcompare, valid } from "semver";
+
+const { Auto, determineNextVersion } = autoCore;
 
 export const releaseBranches = ["main", "alpha", "beta", "next"];
 export function git(...args) {
@@ -28,6 +30,12 @@ export function platformVersion({ channel, stableTag, candidateTag, bump }) {
       : determineNextVersion(stable, candidateTag ?? stable, bump, channel);
   if (!valid(version)) throw new Error(`Auto could not calculate a platform version: ${version}`);
   return valid(version);
+}
+export function releaseSourceAlreadyPublished(
+  { sourceSha, stableTag, candidateTag },
+  resolveTag = (tag) => git("rev-list", "-n", "1", tag),
+) {
+  return [stableTag, candidateTag].some((tag) => tag && resolveTag(tag) === sourceSha);
 }
 export function releaseChecksPassed(runs, sha, branch) {
   return ["CI", "Security Scans"].every((name) => {
@@ -75,26 +83,59 @@ export async function createPlatformAuto({ branch, sourceSha }) {
   auto.git.getLastTagNotInBaseBranch = async () => candidateTag;
   return { auto, stableTag, candidateTag, firstCommit };
 }
+export function releaseOverview(manifest, groupNotes = {}) {
+  const changed = manifest.components.filter((unit) => unit.changed);
+  const highlights = [
+    ...new Set(
+      changed.flatMap((unit) =>
+        (groupNotes[unit.name] ?? "")
+          .split("\n")
+          .filter((line) => line.startsWith("- "))
+          .slice(0, 2)
+          .map((line) =>
+            line
+              .slice(2)
+              .replace(/\s+\(\[.*$/, "")
+              .replaceAll("**", ""),
+          ),
+      ),
+    ),
+  ].slice(0, 4);
+  const channel =
+    manifest.platform.channel === "stable" ? "release" : `${manifest.platform.channel} prerelease`;
+  return `This ${channel} updates ${changed.length} of ${manifest.components.length} components${changed.length ? `: ${changed.map((unit) => unit.name).join(", ")}` : ""}.${highlights.length ? ` Highlights: ${highlights.join("; ")}.` : ""}`;
+}
+function componentHeading(unit) {
+  return `## 📦 ${unit.name} · v${unit.version}`;
+}
 export function platformNotes(manifest, groupNotes, autoNotes) {
+  const changed = manifest.components.filter((component) => component.changed);
   const lines = [
-    `# Teck platform ${manifest.platform.version}`,
+    `# 🚀 Teck platform ${manifest.platform.version}`,
     "",
-    "## Components",
-    "",
-    "| Component | Version |",
-    "| --- | --- |",
-    ...manifest.components.map((unit) => `| ${unit.name} | ${unit.version} |`),
+    manifest.releaseSummary || releaseOverview(manifest, groupNotes),
     "",
   ];
-  for (const unit of manifest.components.filter((component) => component.changed)) {
+  if (changed.length) lines.push("## 🧩 Components", "");
+  for (const unit of changed) {
     lines.push(
-      `## ${unit.name}`,
+      componentHeading(unit),
       "",
-      groupNotes[unit.name] || "Dependency-driven version update.",
+      groupNotes[unit.name] || "🔗 Dependency-driven version update.",
       "",
     );
   }
-  lines.push("## Platform changes", "", autoNotes || "No additional release notes.", "");
+  lines.push("## 🛠️ Platform changes", "", autoNotes || "No additional release notes.", "");
+  const repository = process.env.GITHUB_REPOSITORY ?? "Teck-Lab/Teck.Monorepo";
+  const baseline = manifest.platform.from;
+  if (baseline) {
+    lines.push(
+      "---",
+      "",
+      `🔎 [Compare ${manifest.platform.stableTag || manifest.platform.candidateTag ? "changes since the previous release" : "changes from the initial commit"}](https://github.com/${repository}/compare/${encodeURIComponent(baseline)}...${encodeURIComponent(manifest.platform.tag ?? `v${manifest.platform.version}`)})`,
+      "",
+    );
+  }
   return lines.join("\n");
 }
 export function readManifest(path = ".nx/releases/manifest.json") {
@@ -102,14 +143,69 @@ export function readManifest(path = ".nx/releases/manifest.json") {
 }
 
 export function githubReleaseBody(manifest, notes) {
-  if (notes.length <= 120_000) return notes;
-  return [
-    `# Teck platform ${manifest.platform.version}`,
-    "",
-    "The complete notes, grouped by component, are attached as `release-notes.md`.",
-    "",
-    "| Component | Version |",
-    "| --- | --- |",
-    ...manifest.components.map((unit) => `| ${unit.name} | ${unit.version} |`),
-  ].join("\n");
+  const maxBytes = 120_000;
+  // Partition only our outer sections; Nx version/type headings stay inside
+  // their component. Give each section room so one large history cannot hide
+  // the remaining components or the platform changes.
+  const headings = [
+    ...manifest.components.filter((unit) => unit.changed).map(componentHeading),
+    "## 🛠️ Platform changes",
+  ];
+  const starts = headings
+    .map((heading) => notes.indexOf(`\n${heading}\n`))
+    .filter((index) => index >= 0)
+    .map((index) => index + 1)
+    .sort((a, b) => a - b);
+  // The comparison link remains outside the collapsed sections and outside
+  // their truncation budget, so it always appears at the bottom.
+  const footerStart = notes.lastIndexOf("\n---\n\n🔎 ");
+  const footer = footerStart >= 0 ? notes.slice(footerStart) : "";
+  const content = footerStart >= 0 ? notes.slice(0, footerStart) : notes;
+  const sections = starts.length
+    ? starts.map((start, index) => content.slice(start, starts[index + 1]))
+    : [content];
+  if (!starts.length && Buffer.byteLength(notes) <= maxBytes) return notes;
+  const summaries = sections.map((section) =>
+    section.startsWith("## ") ? section.split("\n", 1)[0].slice(3) : "Changes",
+  );
+  const collapse = (section, index) =>
+    `<details>\n<summary>${summaries[index]}</summary>\n\n${section.trimEnd()}\n\n</details>`;
+  const completeBody =
+    content.slice(0, starts[0] ?? 0) + sections.map(collapse).join("\n\n") + footer;
+  if (Buffer.byteLength(completeBody) <= maxBytes) return completeBody;
+  const prefix = `${notes.slice(0, starts[0] ?? 0)}Some sections are shortened below. The complete changelog is attached as \`release-notes.md\`.\n\n`;
+  const wrapperBytes = sections.reduce(
+    (bytes, _section, index) => bytes + Buffer.byteLength(collapse("", index)),
+    0,
+  );
+  const sectionBudget = Math.floor(
+    (maxBytes -
+      Buffer.byteLength(prefix) -
+      Buffer.byteLength(footer) -
+      wrapperBytes -
+      (sections.length - 1) * 2) /
+      sections.length,
+  );
+  const suffix = "\n\n_Additional changes are listed in the attached release-notes.md._";
+  return (
+    prefix +
+    sections
+      .map((section) => {
+        if (Buffer.byteLength(section) <= sectionBudget) return section.trimEnd();
+        const lines = [];
+        let remaining = sectionBudget - Buffer.byteLength(suffix);
+        for (const line of section.trimEnd().split("\n")) {
+          const bytes = Buffer.byteLength(line) + (lines.length ? 1 : 0);
+          if (bytes > remaining) break;
+          lines.push(line);
+          remaining -= bytes;
+        }
+        // Keep complete Markdown lines, including PR links, rather than cutting
+        // the changelog in the middle of a link or a multibyte character.
+        return lines.join("\n").trimEnd() + suffix;
+      })
+      .map(collapse)
+      .join("\n\n") +
+    footer
+  );
 }

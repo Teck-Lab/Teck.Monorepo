@@ -1,5 +1,7 @@
 version: 2
 updates:
+  # Keep one allowed scope for all dependency types; include: scope would
+  # let Dependabot choose deps or deps-dev instead.
   # NuGet uses one repository-wide Directory.Packages.props, but discovery is
   # scoped so the native updater does not restore the entire monorepo in one
   # job. Minor and patch updates become one PR per scope; major updates remain
@@ -11,8 +13,7 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: "chore"
-      include: "scope"
+      prefix: "chore(deps)"
     groups:
       basket-minor-patch:
         applies-to: version-updates
@@ -25,8 +26,7 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: "chore"
-      include: "scope"
+      prefix: "chore(deps)"
     groups:
       catalog-minor-patch:
         applies-to: version-updates
@@ -39,8 +39,7 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: "chore"
-      include: "scope"
+      prefix: "chore(deps)"
     groups:
       customer-minor-patch:
         applies-to: version-updates
@@ -53,8 +52,7 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: "chore"
-      include: "scope"
+      prefix: "chore(deps)"
     groups:
       inventory-minor-patch:
         applies-to: version-updates
@@ -67,8 +65,7 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: "chore"
-      include: "scope"
+      prefix: "chore(deps)"
     groups:
       order-minor-patch:
         applies-to: version-updates
@@ -81,8 +78,7 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: "chore"
-      include: "scope"
+      prefix: "chore(deps)"
     groups:
       pricing-minor-patch:
         applies-to: version-updates
@@ -95,8 +91,7 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: "chore"
-      include: "scope"
+      prefix: "chore(deps)"
     groups:
       billing-minor-patch:
         applies-to: version-updates
@@ -109,8 +104,7 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: "chore"
-      include: "scope"
+      prefix: "chore(deps)"
     groups:
       gateway-minor-patch:
         applies-to: version-updates
@@ -123,8 +117,7 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: "chore"
-      include: "scope"
+      prefix: "chore(deps)"
     groups:
       shared-minor-patch:
         applies-to: version-updates
@@ -137,8 +130,7 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: "chore"
-      include: "scope"
+      prefix: "chore(deps)"
     groups:
       aspire-minor-patch:
         applies-to: version-updates
@@ -151,8 +143,7 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: "chore"
-      include: "scope"
+      prefix: "chore(deps)"
     groups:
       architecture-tests-minor-patch:
         applies-to: version-updates
@@ -165,8 +156,7 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: "chore"
-      include: "scope"
+      prefix: "chore(deps)"
     groups:
       integration-tests-minor-patch:
         applies-to: version-updates
@@ -179,8 +169,7 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: "chore"
-      include: "scope"
+      prefix: "chore(deps)"
     groups:
       unit-tests-minor-patch:
         applies-to: version-updates
@@ -190,9 +179,8 @@ updates:
     directory: /
     schedule: { interval: weekly }
     commit-message:
-      prefix: "chore"
-      prefix-development: "chore"
-      include: "scope"
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps)"
     groups:
       nx-minor-patch:
         applies-to: version-updates
@@ -211,8 +199,7 @@ updates:
     directory: /deploy
     schedule: { interval: weekly }
     commit-message:
-      prefix: "chore"
-      include: "scope"
+      prefix: "chore(deps)"
     groups:
       docker-minor-patch:
         applies-to: version-updates
@@ -222,8 +209,7 @@ updates:
     directory: /
     schedule: { interval: weekly }
     commit-message:
-      prefix: "chore"
-      include: "scope"
+      prefix: "chore(deps)"
     groups:
       actions-minor-patch:
         applies-to: version-updates
