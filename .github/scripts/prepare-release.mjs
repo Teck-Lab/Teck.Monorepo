@@ -3,7 +3,13 @@ import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ReleaseClient, releaseVersion } from "nx/release";
 import { groupChangelogRenderer } from "./group-changelog.mjs";
-import { channelFor, createPlatformAuto, git, platformVersion } from "./platform-release.mjs";
+import {
+  channelFor,
+  createPlatformAuto,
+  git,
+  platformVersion,
+  releaseSourceAlreadyPublished,
+} from "./platform-release.mjs";
 import { installReleaseScopeAliases } from "./release-scopes.mjs";
 
 installReleaseScopeAliases();
@@ -18,6 +24,14 @@ const { auto, stableTag, candidateTag, firstCommit } = await createPlatformAuto(
   sourceSha,
 });
 const from = candidateTag ?? stableTag ?? firstCommit;
+// Both validation workflows can queue this same source. Auto's default patch
+// bump also applies to an empty range, so skip it before calculating versions.
+if (releaseSourceAlreadyPublished({ sourceSha, stableTag, candidateTag })) {
+  if (!dryRun && process.env.GITHUB_OUTPUT)
+    appendFileSync(process.env.GITHUB_OUTPUT, "has-releases=false\n");
+  console.log("This source commit has already been published on this release channel.");
+  process.exit(0);
+}
 const bump = await auto.release.getSemverBump(stableTag ?? firstCommit, sourceSha);
 const deltaBump = await auto.release.getSemverBump(from, sourceSha);
 const versionResult = await releaseVersion({
