@@ -1,9 +1,10 @@
-@import "tailwindcss";
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css";
+@import "nativewind/theme";
 @import "@teck/tailwind-config/tokens.css";
 
-/* NativeWind v5 is CSS-first (Tailwind v4): scan the app + shared native UI
-   package for class names. The ui-native glob matches nothing until that
-   package is created (Task 6). */
+/* NativeWind v5 is CSS-first: scan the app and shared native UI for class names. */
 @source "./src/**/*.{js,jsx,ts,tsx}";
 @source "../../packages/ui-native/src/**/*.{js,jsx,ts,tsx}";
 
