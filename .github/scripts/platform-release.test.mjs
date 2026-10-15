@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import test from "node:test";
 import autoCore from "@auto-it/core";
 import { AsyncSeriesBailHook, AsyncSeriesWaterfallHook } from "tapable";
-import { groupChangelogRenderer } from "./group-changelog.mjs";
+import { ComponentChangelogRenderer, groupChangelogRenderer } from "./group-changelog.mjs";
 import {
   channelFor,
   createPlatformAuto,
@@ -431,9 +431,12 @@ test("release changelogs omit unchanged components while retaining versioned hea
   const notes = platformNotes(plan(), { order: "- checkout (#1)" }, "- platform changes");
   const body = githubReleaseBody(plan(), notes);
   assert.match(body.split("<details>")[0], /Highlights: checkout/);
-  assert.match(body, /<summary>📦 order · v2\.1\.0-next\.0<\/summary>/);
+  assert.match(body, /<summary><h2>📦 order · v2\.1\.0-next\.0<\/h2><\/summary>/);
   assert.doesNotMatch(body, /catalog · v3\.0\.0/);
-  assert.match(body, /<summary>🛠️ Platform changes<\/summary>/);
+  assert.match(body, /<summary><h2>🛠️ Platform changes<\/h2><\/summary>/);
+  assert.equal(body.match(/📦 order · v2\.1\.0-next\.0/g)?.length, 1);
+  assert.equal(body.match(/🛠️ Platform changes/g)?.length, 1);
+  assert.doesNotMatch(body, /^## (?:📦|🛠️)/m);
   assert.doesNotMatch(body, /<details open|\| Component \| Version \|/);
   assert.equal(body.match(/<details>/g)?.length, 2);
   assert.equal(body.match(/<\/details>/g)?.length, 2);
@@ -447,7 +450,7 @@ test("platform-only releases keep the compare link and complete manifest without
     manifest,
     platformNotes(manifest, {}, "- improve release automation"),
   );
-  assert.doesNotMatch(body, /🧩 Components|<summary>📦|catalog ·|order ·/);
+  assert.doesNotMatch(body, /🧩 Components|<summary><h2>📦|catalog ·|order ·/);
   assert.match(body, /improve release automation/);
   assert.match(body, /\/compare\/v1\.3\.0-next\.0\.\.\.v1\.3\.0-next\.1/);
   assert.equal(body.match(/<details>/g)?.length, 1);
@@ -483,7 +486,7 @@ test("fixed-group notes include each change once across member projects using Nx
         changelogEntryVersion: "1.2.0",
         entryWhenNoChanges: false,
         isVersionPlans: false,
-        changelogRenderOptions: { authors: false, commitReferences: false },
+        changelogRenderOptions: { authors: false, commitReferences: false, versionTitleDate: true },
         conventionalCommitsConfig: DEFAULT_CONVENTIONAL_COMMITS_CONFIG,
         remoteReleaseClient: { getRemoteRepoData: () => null },
       }).render(),
@@ -493,6 +496,60 @@ test("fixed-group notes include each change once across member projects using Nx
   assert.equal(entries[0].match(/add checkout/g)?.length, 1);
   assert.match(entries[0], /repair checkout/);
   assert.doesNotMatch(entries[0], /repair catalog/);
+  assert.doesNotMatch(entries[0], /^#{1,2} 1\.2\.0|\(\d{4}-\d{2}-\d{2}\)/m);
+});
+
+test("real Nx component notes retain changes without a second version/date or section heading", async () => {
+  for (const version of ["1.0.0", "2.1.0", "2.1.0-next.0"]) {
+    const notes = await new ComponentChangelogRenderer({
+      project: "mobile",
+      changes: [
+        {
+          type: "fix",
+          scope: "mobile",
+          description: "align NativeWind RC",
+          affectedProjects: ["mobile"],
+        },
+      ],
+      changelogEntryVersion: version,
+      entryWhenNoChanges: false,
+      isVersionPlans: false,
+      changelogRenderOptions: { authors: false, commitReferences: false, versionTitleDate: true },
+      conventionalCommitsConfig: DEFAULT_CONVENTIONAL_COMMITS_CONFIG,
+      remoteReleaseClient: { getRemoteRepoData: () => null },
+    }).render();
+    const manifest = plan();
+    manifest.components = [{ name: "mobile", version, changed: true }];
+    const attachment = platformNotes(manifest, { mobile: notes }, "- platform maintenance");
+    const body = githubReleaseBody(manifest, attachment);
+    assert.equal(body.split(`📦 mobile · v${version}`).length - 1, 1);
+    assert.ok(body.includes(`<summary><h2>📦 mobile · v${version}</h2></summary>`));
+    assert.match(body, /<\/summary>\n\n### 🩹 Fixes\n\n- \*\*mobile:\*\* align NativeWind RC/);
+    assert.doesNotMatch(body, /^#{1,2} (?:📦|\d)/m);
+    assert.doesNotMatch(attachment, /^#{1,2} \d|\(\d{4}-\d{2}-\d{2}\)/m);
+    assert.ok(attachment.includes(`## 📦 mobile · v${version}\n\n### 🩹 Fixes`));
+  }
+});
+
+test("dependency-only and version-only Nx notes keep their explanation without version/date boilerplate", async () => {
+  for (const dependencyBumps of [
+    undefined,
+    [{ dependencyName: "ui-native", newVersion: "1.2.0" }],
+  ]) {
+    const notes = await new ComponentChangelogRenderer({
+      project: "mobile",
+      changes: [],
+      dependencyBumps,
+      changelogEntryVersion: "2.1.0",
+      entryWhenNoChanges: "Dependency-driven version update.",
+      isVersionPlans: false,
+      changelogRenderOptions: { authors: false, versionTitleDate: true },
+      conventionalCommitsConfig: DEFAULT_CONVENTIONAL_COMMITS_CONFIG,
+      remoteReleaseClient: { getRemoteRepoData: () => null },
+    }).render();
+    assert.doesNotMatch(notes, /^#{1,2} \d|\(\d{4}-\d{2}-\d{2}\)/m);
+    assert.match(notes, dependencyBumps ? /Updated ui-native to 1\.2\.0/ : /Dependency-driven/);
+  }
 });
 test("oversized platform histories retain inline component changes and the full attachment", () => {
   const notes = platformNotes(plan(), { order: "- checkout" }, "x".repeat(130_000));
@@ -500,8 +557,8 @@ test("oversized platform histories retain inline component changes and the full 
   assert.ok(body.length < 120_000);
   assert.match(body, /release-notes\.md/);
   assert.doesNotMatch(body, /catalog · v3\.0\.0/);
-  assert.match(body, /## 📦 order · v2\.1\.0-next\.0\n\n- checkout/);
-  assert.match(body, /## 🛠️ Platform changes/);
+  assert.match(body, /<summary><h2>📦 order · v2\.1\.0-next\.0<\/h2><\/summary>\n\n- checkout/);
+  assert.match(body, /<summary><h2>🛠️ Platform changes<\/h2><\/summary>/);
   assert.equal(githubReleaseBody(plan(), "small release"), "small release");
 });
 test("oversized histories keep complete linked entries for every changed component", () => {
@@ -518,9 +575,14 @@ test("oversized histories keep complete linked entries for every changed compone
   const body = githubReleaseBody(manifest, platformNotes(manifest, groups, "- repair CI"));
   assert.ok(Buffer.byteLength(body) <= 120_000);
   for (const unit of manifest.components) {
-    assert.ok(body.includes(`## 📦 ${unit.name} · v0.0.1\n\n### Features\n\n${entry.trimEnd()}`));
+    assert.ok(
+      body.includes(
+        `<summary><h2>📦 ${unit.name} · v0.0.1</h2></summary>\n\n### Features\n\n${entry.trimEnd()}`,
+      ),
+    );
+    assert.equal(body.split(`📦 ${unit.name} · v0.0.1`).length - 1, 1);
   }
-  assert.match(body, /## 🛠️ Platform changes\n\n- repair CI/);
+  assert.match(body, /<summary><h2>🛠️ Platform changes<\/h2><\/summary>\n\n- repair CI/);
   const collapsed = body.slice(body.indexOf("<details>"));
   assert.equal(
     collapsed.match(/add checkout/g)?.length,
@@ -535,7 +597,7 @@ test("release bodies budget multibyte notes by UTF-8 size and preserve small rel
   const small = platformNotes(plan(), { order: entry }, "- repair CI");
   const smallBody = githubReleaseBody(plan(), small);
   assert.ok(smallBody.includes(entry.trimEnd()));
-  assert.match(smallBody, /## 🛠️ Platform changes\n\n- repair CI/);
+  assert.match(smallBody, /<summary><h2>🛠️ Platform changes<\/h2><\/summary>\n\n- repair CI/);
   assert.doesNotMatch(smallBody, /shortened|Additional changes are listed/);
   const notes = platformNotes(
     plan(),
@@ -548,7 +610,7 @@ test("release bodies budget multibyte notes by UTF-8 size and preserve small rel
   assert.ok(Buffer.byteLength(body) <= 120_000);
   assert.match(body, /checkout 🛒 æøå/);
   assert.doesNotMatch(body, /\uFFFD/);
-  assert.match(body, /## 🛠️ Platform changes\n\n- repair CI/);
+  assert.match(body, /<summary><h2>🛠️ Platform changes<\/h2><\/summary>\n\n- repair CI/);
 });
 test("comparison links use the release baseline and remain below all shortened sections", () => {
   const manifest = plan();
@@ -557,6 +619,11 @@ test("comparison links use the release baseline and remain below all shortened s
     platformNotes(manifest, { order: "- checkout\n".repeat(20_000) }, "- repair CI"),
   );
   const footer = body.slice(body.lastIndexOf("</details>") + "</details>".length);
+  assert.match(
+    footer,
+    /^\n\n---\n\n/,
+    "the footer must leave the HTML block before Markdown resumes",
+  );
   assert.match(footer, /\/compare\/v1\.3\.0-next\.0\.\.\.v1\.3\.0-next\.1/);
   manifest.platform = {
     version: "1.3.0",
