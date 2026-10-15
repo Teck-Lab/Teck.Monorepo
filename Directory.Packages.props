@@ -50,6 +50,8 @@
     <!-- Patch transitive SignalR dependencies for GHSA-334f-vvp4-7g6p. -->
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Common" Version="9.0.21" />
     <PackageVersion Include="Microsoft.OpenApi" Version="2.12.0" />
+    <!-- Patch the gateway's transitive YAML reader for GHSA-7pxr-59rr-hqj2. -->
+    <PackageVersion Include="Microsoft.OpenApi.Readers" Version="1.6.30" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.17.3" />
     <PackageVersion Include="Scalar.AspNetCore.Microsoft" Version="2.17.3" />
     <PackageVersion Include="Grpc.AspNetCore" Version="2.84.0" />
