@@ -2,6 +2,8 @@ extern alias CustomerHost;
 extern alias OrderHost;
 extern alias PricingHost;
 extern alias PricingApplication;
+extern alias CatalogHost;
+extern alias CatalogApplication;
 
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
@@ -44,14 +46,15 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
     private string? unprovisionedConnectionString;
     private string? orderConnectionString;
     private string? pricingConnectionString;
+    private string? catalogConnectionString;
     private Dictionary<bool, Lazy<Task<RoutedServiceFixture>>>? routedServiceFixtures;
-
     /// <summary>Gets the Keycloak state after reconciliation and tenant registration.</summary>
     internal LocalIdentityTestInstance Provisioned => new(
         GetRequired(provisioned),
         GetRequired(provisionedConnectionString),
         GetRequired(orderConnectionString),
         GetRequired(pricingConnectionString),
+        GetRequired(catalogConnectionString),
         RabbitMqConnectionString,
         true);
 
@@ -60,6 +63,9 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
 
     /// <summary>Gets the migrated shared database used by the in-process pricing host.</summary>
     internal string PricingConnectionString => GetRequired(pricingConnectionString);
+
+    /// <summary>Gets the migrated shared database used by the in-process catalog host.</summary>
+    internal string CatalogConnectionString => GetRequired(catalogConnectionString);
 
     /// <summary>Gets the RabbitMQ connection string required by the real Wolverine service hosts.</summary>
     internal string RabbitMqConnectionString => NormalizeRabbitMqConnectionString(GetRequired(rabbitMq).GetConnectionString());
@@ -83,6 +89,9 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
         provisionedConnectionString = await CreateMigratedDatabaseAsync<CustomerDbContext>("local_identity_provisioned", typeof(CustomerHost::Program).Assembly.GetName().Name!).ConfigureAwait(false);
         orderConnectionString = await CreateMigratedDatabaseAsync<Orders.Application.Database.OrderDbContext>("local_identity_order", typeof(OrderHost::Program).Assembly.GetName().Name!).ConfigureAwait(false);
         pricingConnectionString = await CreateMigratedDatabaseAsync<PricingApplication::Pricing.Application.Database.PricingDbContext>("local_identity_pricing", typeof(PricingHost::Program).Assembly.GetName().Name!).ConfigureAwait(false);
+        catalogConnectionString = await CreateMigratedDatabaseAsync<CatalogApplication::Catalog.Application.Database.CatalogDbContext>(
+            "local_identity_catalog",
+            typeof(CatalogHost::Program).Assembly.GetName().Name!).ConfigureAwait(false);
         await ReconcileProvisionedInstanceAsync().ConfigureAwait(false);
         routedServiceFixtures = [];
     }
@@ -181,6 +190,7 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
             GetRequired(unprovisionedConnectionString),
             OrderConnectionString,
             PricingConnectionString,
+            CatalogConnectionString,
             RabbitMqConnectionString,
             false);
     }
@@ -288,6 +298,7 @@ internal sealed record LocalIdentityTestInstance(
     string CustomerConnectionString,
     string OrderConnectionString,
     string PricingConnectionString,
+    string CatalogConnectionString,
     string RabbitMqConnectionString,
     bool IsProvisioned);
 

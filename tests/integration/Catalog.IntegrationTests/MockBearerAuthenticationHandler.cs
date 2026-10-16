@@ -50,20 +50,20 @@ internal sealed class MockBearerAuthenticationHandler : AuthenticationHandler<Au
     {
     }
 
-    /// <inheritdoc/>
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var claims = new[]
+        var tenantId = Context.Request.Headers.TryGetValue("X-Test-Tenant-Id", out var requestedTenantId)
+            ? requestedTenantId.ToString()
+            : TestTenantId;
+        var claims = new List<Claim>();
+        if (!string.Equals(tenantId, "none", StringComparison.Ordinal))
         {
-            new Claim("tenant_id", TestTenantId),
-            // BasketIdentityAccessor.CustomerId reads the "customer_id" claim via
-            // HttpContext.User.FindFirstValue("customer_id") — this must match exactly for
-            // GetOrCreateBasketHandler and CheckoutHandler to resolve an authenticated customer.
-            new Claim("customer_id", TestCustomerId),
-            new Claim(ClaimTypes.NameIdentifier, "test-user"),
-            new Claim(ClaimTypes.Name, "Test User"),
-        };
+            claims.Add(new Claim("tenant_id", tenantId));
+        }
 
+        claims.Add(new Claim("customer_id", TestCustomerId));
+        claims.Add(new Claim(ClaimTypes.NameIdentifier, "test-user"));
+        claims.Add(new Claim(ClaimTypes.Name, "Test User"));
         var identity = new ClaimsIdentity(claims, SchemeName);
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, SchemeName);
