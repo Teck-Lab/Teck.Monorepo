@@ -47,6 +47,85 @@ public sealed class ProductLifecycleTests : CatalogIntegrationTestBase
     }
 
     [Fact]
+    public async Task CreateProduct_TenantA_PersistsTenantAndCannotBeReadByTenantB()
+    {
+        using var tenantARequest = new HttpRequestMessage(HttpMethod.Post, "/products")
+        {
+            Content = JsonContent.Create(new
+            {
+                Name = "Tenant A Widget",
+                Description = "Owned by tenant A",
+                CategoryId = (Guid?)null,
+                Sku = "TENANT-A-WIDGET",
+                SellPriceAmount = 9.99m,
+                SellPriceCurrency = "USD",
+            }),
+        };
+        tenantARequest.Headers.Add("X-Test-Tenant-Id", "tenant-a");
+
+        using var createResponse = await Client.SendAsync(tenantARequest);
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<ProductDto>();
+        Assert.NotNull(created);
+
+        await using (var db = new CatalogDbContext(
+            new DbContextOptionsBuilder<CatalogDbContext>()
+                .UseNpgsql(DatabaseConnectionString)
+                .UseTeckCloudTenant("tenant-a")
+                .Options,
+            null!))
+        {
+            var persisted = await db.Products.IgnoreQueryFilters().SingleAsync(product => product.Id == created!.Id);
+            Assert.Equal("tenant-a", persisted.TenantId);
+        }
+
+        using var tenantAReadRequest = new HttpRequestMessage(HttpMethod.Get, $"/products/{created!.Id}");
+        tenantAReadRequest.Headers.Add("X-Test-Tenant-Id", "tenant-a");
+        using var tenantAReadResponse = await Client.SendAsync(tenantAReadRequest);
+        Assert.Equal(HttpStatusCode.OK, tenantAReadResponse.StatusCode);
+        var tenantAProduct = await tenantAReadResponse.Content.ReadFromJsonAsync<ProductDto>();
+        Assert.Equal(created.Id, tenantAProduct!.Id);
+
+        using var tenantBRequest = new HttpRequestMessage(HttpMethod.Get, $"/products/{created!.Id}");
+        tenantBRequest.Headers.Add("X-Test-Tenant-Id", "tenant-b");
+        using var tenantBResponse = await Client.SendAsync(tenantBRequest);
+
+        Assert.Equal(HttpStatusCode.OK, tenantBResponse.StatusCode);
+        Assert.Empty(await tenantBResponse.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task CreateProduct_WithoutTenant_FailsClosed()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/products")
+        {
+            Content = JsonContent.Create(new
+            {
+                Name = "Tenantless Widget",
+                Description = (string?)null,
+                CategoryId = (Guid?)null,
+                Sku = "TENANTLESS-WIDGET",
+                SellPriceAmount = 9.99m,
+                SellPriceCurrency = "USD",
+            }),
+        };
+        request.Headers.Add("X-Test-Tenant-Id", "none");
+
+        using var response = await Client.SendAsync(request);
+
+        Assert.False(response.IsSuccessStatusCode);
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        await using var db = new CatalogDbContext(
+            new DbContextOptionsBuilder<CatalogDbContext>()
+                .UseNpgsql(DatabaseConnectionString)
+                .UseTeckCloudTenant("tenant-a")
+                .Options,
+            null!);
+        Assert.False(await db.Products.IgnoreQueryFilters().AnyAsync(product => product.Variants.Any(variant => variant.Sku == "TENANTLESS-WIDGET")));
+    }
+
+    [Fact]
     public async Task GetProduct_AfterCreate_ReturnsProduct()
     {
         var created = await Client.PostAsJsonAsync("/products", new

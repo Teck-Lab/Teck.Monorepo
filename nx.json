@@ -9,7 +9,9 @@
         },
         "test": {
           "targetName": "test",
-          "dependsOn": ["build"]
+          "dependsOn": [
+            "build"
+          ]
         },
         "restore": {
           "targetName": "restore"
@@ -50,7 +52,9 @@
     },
     {
       "plugin": "@nx/next/plugin",
-      "include": ["src/apps/web"],
+      "include": [
+        "src/apps/web"
+      ],
       "options": {
         "startTargetName": "start",
         "buildTargetName": "build",
@@ -62,7 +66,9 @@
     },
     {
       "plugin": "@nx/storybook/plugin",
-      "include": ["src/apps/storybook"],
+      "include": [
+        "src/apps/storybook"
+      ],
       "options": {
         "buildStorybookTargetName": "build-storybook",
         "serveStorybookTargetName": "storybook"
@@ -70,7 +76,9 @@
     },
     {
       "plugin": "@nx/expo/plugin",
-      "include": ["src/apps/mobile"],
+      "include": [
+        "src/apps/mobile"
+      ],
       "options": {
         "startTargetName": "start",
         "serveTargetName": "serve",
@@ -83,7 +91,10 @@
   ],
   "targetDefaults": {
     "build": {
-      "dependsOn": ["restore", "^build"],
+      "dependsOn": [
+        "restore",
+        "^build"
+      ],
       "cache": true,
       "inputs": [
         "default",
@@ -97,11 +108,15 @@
       ]
     },
     "restore": {
-      "dependsOn": ["^restore"],
+      "dependsOn": [
+        "^restore"
+      ],
       "cache": true
     },
     "test": {
-      "dependsOn": ["build"],
+      "dependsOn": [
+        "build"
+      ],
       "cache": true,
       "options": {
         "forwardAllArgs": false
@@ -111,11 +126,15 @@
       "cache": true
     },
     "typecheck": {
-      "dependsOn": ["^build"],
+      "dependsOn": [
+        "^build"
+      ],
       "cache": true
     },
     "docker:build": {
-      "dependsOn": ["build"],
+      "dependsOn": [
+        "build"
+      ],
       "cache": true,
       "inputs": [
         "default",
@@ -183,7 +202,9 @@
     },
     "groups": {
       "operations": {
-        "projects": ["src/services/operations/*/*.Host"],
+        "projects": [
+          "src/services/operations/*/*.Host"
+        ],
         "projectsRelationship": "fixed",
         "version": {
           "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
@@ -193,7 +214,9 @@
         }
       },
       "order": {
-        "projects": ["src/services/commerce/order/*.Host"],
+        "projects": [
+          "src/services/commerce/order/*.Host"
+        ],
         "projectsRelationship": "fixed",
         "version": {
           "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
@@ -203,7 +226,9 @@
         }
       },
       "pricing": {
-        "projects": ["src/services/commerce/pricing/*.Host"],
+        "projects": [
+          "src/services/commerce/pricing/*.Host"
+        ],
         "projectsRelationship": "fixed",
         "version": {
           "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
@@ -213,7 +238,9 @@
         }
       },
       "basket": {
-        "projects": ["src/services/commerce/basket/*.Host"],
+        "projects": [
+          "src/services/commerce/basket/*.Host"
+        ],
         "projectsRelationship": "fixed",
         "version": {
           "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
@@ -223,7 +250,9 @@
         }
       },
       "catalog": {
-        "projects": ["src/services/commerce/catalog/*.Host"],
+        "projects": [
+          "src/services/commerce/catalog/*.Host"
+        ],
         "projectsRelationship": "fixed",
         "version": {
           "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
@@ -233,7 +262,9 @@
         }
       },
       "customer": {
-        "projects": ["src/services/commerce/customer/*.Host"],
+        "projects": [
+          "src/services/commerce/customer/*.Host"
+        ],
         "projectsRelationship": "fixed",
         "version": {
           "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
@@ -243,7 +274,9 @@
         }
       },
       "inventory": {
-        "projects": ["src/services/commerce/inventory/*.Host"],
+        "projects": [
+          "src/services/commerce/inventory/*.Host"
+        ],
         "projectsRelationship": "fixed",
         "version": {
           "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
@@ -253,7 +286,9 @@
         }
       },
       "gateway-public": {
-        "projects": ["src/services/gateway/public"],
+        "projects": [
+          "src/services/gateway/public"
+        ],
         "projectsRelationship": "fixed",
         "version": {
           "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
@@ -263,7 +298,10 @@
         }
       },
       "web": {
-        "projects": ["src/apps/*", "src/packages/*"],
+        "projects": [
+          "src/apps/*",
+          "src/packages/*"
+        ],
         "projectsRelationship": "independent",
         "releaseTag": {
           "pattern": "{projectName}@v{version}"
@@ -284,5 +322,6 @@
         "linter": "none"
       }
     }
-  }
+  },
+  "analytics": false
 }

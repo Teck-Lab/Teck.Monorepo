@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -14,6 +15,156 @@ namespace Aspire.AppHost.IntegrationTests;
 public sealed class RoutedServiceAuthorizationTests(LocalIdentityKeycloakFixture fixture)
 {
     private readonly LocalIdentityKeycloakFixture fixture = fixture;
+
+    /// <summary>Ensures product creation and reads use the real catalog service through the gateway.</summary>
+    [Fact]
+    public async Task GatewayCatalog_WhenManagerCreatesProduct_AllowsProductRead()
+    {
+        LocalIdentityTestInstance instance = fixture.Provisioned;
+        string token = await LocalIdentityKeycloakFixture.GetTokenAsync(
+            instance,
+            LocalIdentityKeycloakFixture.DeveloperUsername,
+            LocalIdentityKeycloakFixture.DeveloperPassword).ConfigureAwait(false);
+        string tenantId = TenantAwareSignInTests.ReadOrganizationIds(LocalIdentityKeycloakFixture.ReadToken(token)).Single();
+        RoutedServiceFixture routed = await fixture.GetRoutedServiceFixtureAsync(instance).ConfigureAwait(false);
+        using HttpClient client = routed.Gateway.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var createResponse = await client.PostAsJsonAsync("/products", new
+        {
+            Name = "Gateway catalog product",
+            Description = "Staff-managed product",
+            CategoryId = (Guid?)null,
+            Sku = $"GATEWAY-{Guid.NewGuid():N}",
+            SellPriceAmount = 12.50m,
+            SellPriceCurrency = "USD",
+        }).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        using JsonDocument created = JsonDocument.Parse(await createResponse.Content.ReadAsStringAsync().ConfigureAwait(false));
+        Guid productId = created.RootElement.GetProperty("id").GetGuid();
+
+        using var readResponse = await client.GetAsync($"/products/{productId}").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, readResponse.StatusCode);
+        using JsonDocument fetched = JsonDocument.Parse(await readResponse.Content.ReadAsStringAsync().ConfigureAwait(false));
+        Assert.Equal(productId, fetched.RootElement.GetProperty("id").GetGuid());
+        Assert.Equal("Gateway catalog product", fetched.RootElement.GetProperty("name").GetString());
+        Assert.Equal(tenantId, fetched.RootElement.GetProperty("tenantId").GetString());
+    }
+
+    /// <summary>Ensures reader role can read a real manager-created product but cannot manage products.</summary>
+    [Fact]
+    public async Task GatewayCatalog_WhenReaderRequestsProductRead_AllowsGetAndDeniesCreate()
+    {
+        LocalIdentityTestInstance instance = fixture.Provisioned;
+        string managerToken = await LocalIdentityKeycloakFixture.GetTokenAsync(
+            instance,
+            LocalIdentityKeycloakFixture.DeveloperUsername,
+            LocalIdentityKeycloakFixture.DeveloperPassword).ConfigureAwait(false);
+        string tenantId = TenantAwareSignInTests.ReadOrganizationIds(LocalIdentityKeycloakFixture.ReadToken(managerToken)).Single();
+        string readerToken = await LocalIdentityKeycloakFixture.GetReaderTokenAsync(instance).ConfigureAwait(false);
+        RoutedServiceFixture routed = await fixture.GetRoutedServiceFixtureAsync(instance).ConfigureAwait(false);
+        using HttpClient client = routed.Gateway.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", managerToken);
+        using var createResponse = await client.PostAsJsonAsync("/products", new
+        {
+            Name = "Reader-visible product",
+            Description = "Created by staff before customer read",
+            CategoryId = (Guid?)null,
+            Sku = $"READER-{Guid.NewGuid():N}",
+            SellPriceAmount = 4.25m,
+            SellPriceCurrency = "USD",
+        }).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        using JsonDocument created = JsonDocument.Parse(await createResponse.Content.ReadAsStringAsync().ConfigureAwait(false));
+        Guid productId = created.RootElement.GetProperty("id").GetGuid();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", readerToken);
+        using var readResponse = await client.GetAsync($"/products/{productId}").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, readResponse.StatusCode);
+        using JsonDocument fetched = JsonDocument.Parse(await readResponse.Content.ReadAsStringAsync().ConfigureAwait(false));
+        Assert.Equal(productId, fetched.RootElement.GetProperty("id").GetGuid());
+        Assert.Equal("Reader-visible product", fetched.RootElement.GetProperty("name").GetString());
+        Assert.Equal(tenantId, fetched.RootElement.GetProperty("tenantId").GetString());
+        // A forged tenant header must not override the tenant authority in the signed reader token.
+        client.DefaultRequestHeaders.Add("X-TenantId", Guid.NewGuid().ToString());
+        using var spoofedTenantResponse = await client.GetAsync($"/products/{productId}").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Forbidden, spoofedTenantResponse.StatusCode);
+        client.DefaultRequestHeaders.Remove("X-TenantId");
+
+        using var deniedCreateResponse = await client.PostAsJsonAsync("/products", new
+        {
+            Name = "Reader denied",
+            Description = (string?)null,
+            CategoryId = (Guid?)null,
+            Sku = $"DENIED-{Guid.NewGuid():N}",
+            SellPriceAmount = 1m,
+            SellPriceCurrency = "USD",
+        }).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Forbidden, deniedCreateResponse.StatusCode);
+
+        client.DefaultRequestHeaders.Authorization = null;
+        using var anonymousResponse = await client.GetAsync($"/products/{productId}").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymousResponse.StatusCode);
+    }
+
+    /// <summary>Ensures a gateway-audience token cannot bypass the Catalog service-audience boundary.</summary>
+    [Fact]
+    public async Task Catalog_WhenGatewayTokenCallsServiceDirectly_RejectsMissingExchangedAudience()
+    {
+        LocalIdentityTestInstance instance = fixture.Provisioned;
+        string token = await LocalIdentityKeycloakFixture.GetTokenAsync(
+            instance,
+            LocalIdentityKeycloakFixture.DeveloperUsername,
+            LocalIdentityKeycloakFixture.DeveloperPassword).ConfigureAwait(false);
+        RoutedServiceFixture routed = await fixture.GetRoutedServiceFixtureAsync(instance).ConfigureAwait(false);
+        using HttpClient directCatalog = routed.Catalog.CreateClient();
+        directCatalog.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await directCatalog.GetAsync("/products/00000000-0000-0000-0000-000000000001").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>Ensures a valid Catalog-audience reader token lacks the manager-only supplier permission.</summary>
+    [Fact]
+    public async Task Catalog_WhenReaderRequestsSupplierDataDirectly_DeniesManagerOnlyRead()
+    {
+        LocalIdentityTestInstance instance = fixture.Provisioned;
+        string token = await LocalIdentityKeycloakFixture.GetReaderTokenAsync(instance).ConfigureAwait(false);
+        RoutedServiceFixture routed = await fixture.GetRoutedServiceFixtureAsync(instance).ConfigureAwait(false);
+        IServiceTokenExchangeService exchange = routed.Gateway.Services.GetRequiredService<IServiceTokenExchangeService>();
+        ServiceTokenResult exchanged = await exchange.ExchangeTokenAsync(token, "catalog-api", "fixture").ConfigureAwait(false);
+        System.IdentityModel.Tokens.Jwt.JwtSecurityToken exchangedToken = LocalIdentityKeycloakFixture.ReadToken(exchanged.AccessToken);
+        Assert.Contains("catalog-api", exchangedToken.Audiences);
+        using HttpClient directCatalog = routed.Catalog.CreateClient();
+        directCatalog.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", exchanged.AccessToken);
+
+        using var supplierResponse = await directCatalog.GetAsync("/suppliers/00000000-0000-0000-0000-000000000001").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Forbidden, supplierResponse.StatusCode);
+
+        using var costHistoryResponse = await directCatalog.GetAsync(
+            "/variants/00000000-0000-0000-0000-000000000001/suppliers/00000000-0000-0000-0000-000000000001/history").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Forbidden, costHistoryResponse.StatusCode);
+    }
+
+    /// <summary>Ensures supplier URLs are absent from the gateway route table rather than asserting downstream authorization.</summary>
+    [Fact]
+    public async Task GatewayCatalog_WhenReaderRequestsSupplierData_ReturnsNotFoundForUnroutedPaths()
+    {
+        LocalIdentityTestInstance instance = fixture.Provisioned;
+        string token = await LocalIdentityKeycloakFixture.GetReaderTokenAsync(instance).ConfigureAwait(false);
+        RoutedServiceFixture routed = await fixture.GetRoutedServiceFixtureAsync(instance).ConfigureAwait(false);
+        using HttpClient client = routed.Gateway.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var supplierResponse = await client.GetAsync("/suppliers/00000000-0000-0000-0000-000000000001").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.NotFound, supplierResponse.StatusCode);
+
+        using var costHistoryResponse = await client.GetAsync(
+            "/variants/00000000-0000-0000-0000-000000000001/suppliers/00000000-0000-0000-0000-000000000001/history").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.NotFound, costHistoryResponse.StatusCode);
+    }
+
+
 
     /// <summary>Ensures both routed clusters execute a real read endpoint for a signed-in reader.</summary>
     [Theory]

@@ -29,5 +29,12 @@ public sealed class CreateProductEndpoint(IMessageBus bus)
     {
         Post("/products");
         Version(0);
+        Description(builder =>
+        {
+            builder.Produces<ProductDto>(StatusCodes.Status201Created);
+            builder.Produces<Microsoft.AspNetCore.Mvc.ValidationProblemDetails>(
+                StatusCodes.Status400BadRequest,
+                "application/problem+json");
+        });
     }
 }

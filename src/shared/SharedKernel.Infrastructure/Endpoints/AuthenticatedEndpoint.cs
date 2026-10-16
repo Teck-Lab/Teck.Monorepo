@@ -24,8 +24,11 @@ public abstract class AuthenticatedEndpoint<TRequest, TResponse> : Endpoint<TReq
         ConfigureEndpoint();
 
         EndpointPermission permission = Permission;
-
         Metadata(new OpenApiAudienceMetadata(permission.Audience));
+        if (!permission.IsAnonymous)
+        {
+            Metadata(new OpenApiProtectedResourceMetadata(permission.Resource, permission.Scope));
+        }
 
         Options(builder =>
         {

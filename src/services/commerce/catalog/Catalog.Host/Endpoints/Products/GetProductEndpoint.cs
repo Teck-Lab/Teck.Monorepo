@@ -11,7 +11,7 @@ public sealed class GetProductEndpoint(IMessageBus bus)
     : AuthenticatedEndpoint<GetProductRequest, ProductDto>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("catalog", "read", "public");
+    protected override EndpointPermission Permission => new("catalog", "product-read", "public");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(GetProductRequest request, CancellationToken ct)

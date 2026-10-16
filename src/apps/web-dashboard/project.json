@@ -1,0 +1,27 @@
+{
+  "name": "web-dashboard",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "src/apps/web-dashboard",
+  "projectType": "application",
+  "tags": ["scope:apps", "type:app"],
+  "targets": {
+    "build": {
+      "executor": "@nx/next:build",
+      "outputs": ["{options.outputPath}"],
+      "options": { "outputPath": "dist/src/apps/web-dashboard" }
+    },
+    "serve": {
+      "executor": "@nx/next:server",
+      "options": { "buildTarget": "web-dashboard:build", "dev": true }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": { "cwd": "{workspaceRoot}", "command": "biome check src/apps/web-dashboard" }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build"],
+      "options": { "cwd": "src/apps/web-dashboard", "command": "tsc --noEmit" }
+    }
+  }
+}
