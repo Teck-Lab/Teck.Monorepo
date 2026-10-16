@@ -1,0 +1,38 @@
+@import "tailwindcss";
+@import "@teck/tailwind-config/tokens.css";
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-border: hsl(var(--border));
+  --color-ring: hsl(var(--primary));
+  --radius-md: var(--radius);
+}
+
+:root {
+  --background: 40 33% 97%;
+  --foreground: 221 39% 11%;
+  --primary: 217 91% 45%;
+  --primary-foreground: 0 0% 100%;
+  --border: 220 13% 85%;
+  --radius: 0.75rem;
+}
+
+body {
+  margin: 0;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+* {
+  box-sizing: border-box;
+}

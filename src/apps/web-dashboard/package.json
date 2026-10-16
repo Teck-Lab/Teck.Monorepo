@@ -1,0 +1,14 @@
+{
+  "name": "@teck/web-dashboard",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "@teck/api-client": "workspace:*",
+    "@teck/tailwind-config": "workspace:*",
+    "next": "^16.0.0",
+    "next-auth": "^4.24.11",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^3.25.76"
+  }
+}

@@ -88,6 +88,30 @@ export interface components {
             isActive?: boolean;
             variants?: components["schemas"]["CatalogApplicationProductsResponsesVariantDto"][];
         };
+        MicrosoftAspNetCoreMvcValidationProblemDetails: components["schemas"]["MicrosoftAspNetCoreHttpHttpValidationProblemDetails"] & ({
+            errors?: {
+                [key: string]: string[];
+            };
+        } & {
+            [key: string]: unknown;
+        });
+        MicrosoftAspNetCoreHttpHttpValidationProblemDetails: components["schemas"]["MicrosoftAspNetCoreMvcProblemDetails"] & ({
+            errors?: {
+                [key: string]: string[];
+            };
+        } & {
+            [key: string]: unknown;
+        });
+        MicrosoftAspNetCoreMvcProblemDetails: {
+            type?: string | null;
+            title?: string | null;
+            /** Format: int32 */
+            status?: number | null;
+            detail?: string | null;
+            instance?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** @description Request to create a product with a single default variant. */
         CatalogHostEndpointsProductsCreateProductRequest: {
             /** @description The product name. */
@@ -146,7 +170,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
+                    "application/problem+json": components["schemas"]["MicrosoftAspNetCoreMvcValidationProblemDetails"];
                 };
             };
             /** @description Unauthorized */

@@ -40,7 +40,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                  "$ref": "#/components/schemas/MicrosoftAspNetCoreMvcValidationProblemDetails"
                 }
               }
             }
@@ -225,6 +225,83 @@
             "items": {
               "$ref": "#/components/schemas/CatalogApplicationProductsResponsesVariantDto"
             }
+          }
+        }
+      },
+      "MicrosoftAspNetCoreMvcValidationProblemDetails": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MicrosoftAspNetCoreHttpHttpValidationProblemDetails"
+          },
+          {
+            "type": "object",
+            "additionalProperties": {
+              "nullable": true
+            },
+            "properties": {
+              "errors": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "MicrosoftAspNetCoreHttpHttpValidationProblemDetails": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MicrosoftAspNetCoreMvcProblemDetails"
+          },
+          {
+            "type": "object",
+            "additionalProperties": {
+              "nullable": true
+            },
+            "properties": {
+              "errors": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "MicrosoftAspNetCoreMvcProblemDetails": {
+        "type": "object",
+        "additionalProperties": {
+          "nullable": true
+        },
+        "properties": {
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "instance": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
