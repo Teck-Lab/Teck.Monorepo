@@ -1,24 +1,44 @@
-# tests/ — Testing Conventions
+# tests/ — .NET Test Layers and Feature Verification
 
-## Structure
+## Test layers
 
-| Directory | Framework | Scope |
-|-----------|-----------|-------|
-| `unit/` | xUnit (.NET), Bun test (TS) | Isolated logic, no I/O |
-| `integration/` | xUnit + Testcontainers | Real DB/MQ, service-level |
-| `architecture/` | ArchUnitNET | Layer boundary enforcement |
+| Layer | Project examples | Use it for |
+|---|---|---|
+| Unit | `tests/unit/*` | Isolated decisions, validation, calculations, and handlers. No containers; use fakes for external boundaries. |
+| Service integration | `tests/integration/{Basket,Catalog,Customer,Inventory,Notification,Order,Pricing}.IntegrationTests` | Exercise service HTTP/host composition against real PostgreSQL and RabbitMQ when persistence, SQL behavior, message delivery, or cross-component composition is the behavior. |
+| Gateway edge | `tests/integration/Gateway.Public.IntegrationTests` | Exercise the real gateway pipeline and YARP transforms with in-process upstream/authentication doubles; no external services required. |
+| Routed identity | `tests/integration/Aspire.AppHost.IntegrationTests` | Focused end-to-end proof through real Keycloak → YARP → service for identity, routing, and tenant boundaries. This boots the relevant Aspire resources and containers. |
+| Architecture | `tests/architecture/*Architecture.UnitTests` | Enforce dependency and layering rules; these are runnable tests. `Teck.Platform.Arch.Tests` supplies shared rules only and is not a test suite. |
 
-## Conventions (from Teck.Cloud)
+Choose the narrowest layer that proves the observable contract. A feature may need a positive success case and a meaningful negative/authorization case; add a persistence assertion when stored state is part of the contract, and a routed identity case when real authentication or tenant routing is part of it. Reuse existing suites and shared helpers; do not require one test per feature or a coverage percentage.
 
-- **Naming**: `Method_WhenCondition_ExpectedResult`
-- **Structure**: Arrange-Act-Assert
-- **Integration tests**: prefer real dependencies via Testcontainers over mocking
-- **Architecture tests**: enforce clean architecture boundaries (API must not contain Request/Validator types, Application must not contain endpoint types)
+## Running tests
 
-## Running
+Use actual Nx project names, not product slugs. For example:
 
 ```bash
-nx test                              # all tests
-nx affected -t test                  # only changed projects
-nx test --project=catalog-api        # single project
+# One runnable suite, selected by Nx project name
+bunx nx run Inventory.IntegrationTests:test
+
+# Every suite affected by the current changes
+bunx nx affected -t test
+
+# Every runnable test target in the workspace
+bunx nx run-many -t test --all
+
+# Focus a real xUnit v3 class; run the project once first to restore/build
+dotnet run --project tests/unit/Teck.LocalIdentity.UnitTests/Teck.LocalIdentity.UnitTests.csproj -- -class '*Realm*' -noColor
 ```
+
+The repository selects Microsoft.Testing.Platform in `global.json`. The xUnit v3 in-process runner accepts `-class '*Realm*'` as shown above; do not copy VSTest `--filter FullyQualifiedName~...` examples into this workspace. Nx's `--` forwards arguments to the target command.
+Container-backed integration suites require a working Docker-compatible container runtime. Inventory and other shared-fixture service suites start PostgreSQL and RabbitMQ via Testcontainers; routed Aspire tests additionally start Keycloak, Redis, and the selected service/gateway resources. Ensure Docker is running and images can be pulled. Unit, architecture, and gateway-edge suites do not require those external containers.
+
+## Fixture lifecycle and isolation
+
+`Teck.Platform.IntegrationTests.Shared` is a fixture/support library, not a test project and intentionally has no `test` target. Each service test assembly defines its own xUnit collection so xUnit v3 can discover the shared `ICollectionFixture`; the fixture starts one PostgreSQL and one RabbitMQ container per test project. Tests in that collection share those resources; the fixture resets database tables between tests. Keep test data scoped to the scenario and avoid assumptions about execution order. Collection-scoped shared resources trade startup time for shared state, so use a separate resource/database or disable parallelization where the behavior needs stronger isolation; never make tests depend on mutable state left by another case. Aspire's shared collection is serialized because its stateful resources use data volumes.
+
+## CI selection
+
+`.github/workflows/ci.yml` runs `nx affected -t build test lint typecheck` in the main PR-check job, excluding `Aspire.AppHost.IntegrationTests` and `*.Architecture.UnitTests`. Dedicated sibling jobs select affected Aspire tests and architecture suites, respectively; those suites are not omitted by the exclusion. Preserve that split when editing CI, and inspect the project graph before changing exclusions.
+
+Run the focused suite for fast feedback, then affected checks for the feature's dependency impact. Use the relevant architecture or routed Aspire suite when the change crosses those boundaries; full `run-many` is useful for broad validation, not a replacement for selecting behavioral acceptance tests.
