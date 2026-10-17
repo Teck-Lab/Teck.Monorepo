@@ -256,8 +256,7 @@ public sealed class SharedTestcontainersFixture : IAsyncLifetime
     public async Task DropTestDatabaseAsync(string databaseName, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(databaseName);
-        if (!databaseName.StartsWith("testdb_", StringComparison.Ordinal)
-            || databaseName.Length > 63
+        if (databaseName.Length > 63
             || databaseName.Any(character => !char.IsAsciiLetterLower(character) && !char.IsAsciiDigit(character) && character != '_'))
         {
             throw new ArgumentException("Only safe test database identifiers can be dropped.", nameof(databaseName));
@@ -301,7 +300,8 @@ public sealed class SharedTestcontainersFixture : IAsyncLifetime
         await databaseLock.WaitAsync(cancellationToken);
         try
         {
-            NpgsqlConnection.ClearAllPools();
+            using var isolatedConnection = new NpgsqlConnection(connectionString);
+            NpgsqlConnection.ClearPool(isolatedConnection);
             await DropTestDatabaseAsync(databaseName, cancellationToken);
         }
         finally

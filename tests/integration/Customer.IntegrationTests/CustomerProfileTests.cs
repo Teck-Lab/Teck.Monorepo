@@ -127,6 +127,28 @@ public sealed class CustomerProfileTests : CustomerIntegrationTestBase
         Assert.Equal(true, await command.ExecuteScalarAsync());
     }
 
+    [Fact]
+    public async Task DropTestDatabase_RemovesSafeMigrationNamedDatabase()
+    {
+        string databaseName = $"notification_migrate_{Guid.NewGuid():N}";
+        await using (var admin = new NpgsqlConnection(fixture.AdminConnectionString))
+        {
+            await admin.OpenAsync();
+            await using var create = admin.CreateCommand();
+            create.CommandText = $"CREATE DATABASE \"{databaseName}\"";
+            await create.ExecuteNonQueryAsync();
+        }
+
+        await fixture.DropTestDatabaseAsync(databaseName);
+
+        await using var connection = new NpgsqlConnection(fixture.AdminConnectionString);
+        await connection.OpenAsync();
+        await using var check = connection.CreateCommand();
+        check.CommandText = "SELECT 1 FROM pg_database WHERE datname = @databaseName";
+        check.Parameters.AddWithValue("databaseName", databaseName);
+        Assert.Null(await check.ExecuteScalarAsync());
+    }
+
     private async Task<string[]> GetCustomerTestDatabaseNamesAsync()
     {
         await using var connection = new NpgsqlConnection(fixture.AdminConnectionString);
