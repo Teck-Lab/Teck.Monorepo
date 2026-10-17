@@ -31,11 +31,10 @@ dotnet run --project tests/unit/Teck.LocalIdentity.UnitTests/Teck.LocalIdentity.
 ```
 
 The repository selects Microsoft.Testing.Platform in `global.json`. The xUnit v3 in-process runner accepts `-class '*Realm*'` as shown above; do not copy VSTest `--filter FullyQualifiedName~...` examples into this workspace. Nx's `--` forwards arguments to the target command.
-Container-backed integration suites require a working Docker-compatible container runtime. Inventory and other shared-fixture service suites start PostgreSQL and RabbitMQ via Testcontainers; routed Aspire tests additionally start Keycloak, Redis, and the selected service/gateway resources. Ensure Docker is running and images can be pulled. Unit, architecture, and gateway-edge suites do not require those external containers.
 
 ## Fixture lifecycle and isolation
 
-`Teck.Platform.IntegrationTests.Shared` is a fixture/support library, not a test project and intentionally has no `test` target. Each service test assembly defines its own xUnit collection so xUnit v3 can discover the shared `ICollectionFixture`; the fixture starts one PostgreSQL and one RabbitMQ container per test project. Tests in that collection share those resources; the fixture resets database tables between tests. Keep test data scoped to the scenario and avoid assumptions about execution order. Collection-scoped shared resources trade startup time for shared state, so use a separate resource/database or disable parallelization where the behavior needs stronger isolation; never make tests depend on mutable state left by another case. Aspire's shared collection is serialized because its stateful resources use data volumes.
+`Teck.Platform.IntegrationTests.Shared` is a fixture/support library, not a test project and intentionally has no `test` target. Each service test assembly defines its own xUnit collection so xUnit v3 can discover the shared `ICollectionFixture`; the fixture starts one PostgreSQL and one RabbitMQ container per test project. Customer HTTP tests create a migrated database per test host and drop it after disposing the host. Other suites may use a shared database and truncate tables between cases. Keep test data scoped to the scenario and avoid assumptions about execution order. Prefer an isolated database when concurrent hosts or background work could overlap table cleanup; never make tests depend on mutable state left by another case. Aspire's shared collection is serialized because its stateful resources use data volumes.
 
 ## CI selection
 
