@@ -38,11 +38,10 @@ public abstract class CustomerIntegrationTestBase : IDisposable
         ArgumentNullException.ThrowIfNull(fixture);
         this.fixture = fixture;
 
-        // Migrations live in Customer.Host (migrationsAssembly: typeof(Program).Assembly in
-        // AddCustomerPersistence). Reuses the same shared database as GetTenantDatabaseInfoTests —
-        // CreateSharedTestDatabaseAsync is idempotent (no-op if the database already exists).
+        // Keep each live host on its own migrated database; shared-table truncation can erase
+        // data belonging to another concurrently running test host.
         databaseConnectionString = fixture
-            .CreateSharedTestDatabaseAsync(typeof(CustomerDbContext), "Customer.Host")
+            .CreateIsolatedTestDatabaseAsync(typeof(CustomerDbContext), "Customer.Host")
             .GetAwaiter()
             .GetResult();
 
@@ -53,7 +52,7 @@ public abstract class CustomerIntegrationTestBase : IDisposable
     /// <summary>Gets the HTTP client bound to the in-memory Customer.Host test server.</summary>
     protected HttpClient Client { get; }
 
-    /// <summary>Gets the PostgreSQL connection string shared by this test project.</summary>
+    /// <summary>Gets the PostgreSQL connection string isolated to this test host.</summary>
     protected string DatabaseConnectionString => databaseConnectionString;
 
     /// <inheritdoc/>
@@ -61,7 +60,7 @@ public abstract class CustomerIntegrationTestBase : IDisposable
     {
         Client.Dispose();
         factory.Dispose();
-        fixture.TruncateAllTablesAsync(databaseConnectionString).GetAwaiter().GetResult();
+        fixture.DropIsolatedTestDatabaseAsync(databaseConnectionString).GetAwaiter().GetResult();
         GC.SuppressFinalize(this);
     }
 

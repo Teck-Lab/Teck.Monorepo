@@ -13,7 +13,7 @@ namespace Teck.Platform.IntegrationTests.Shared;
 
 /// <summary>
 /// Shared fixture that spins up one PostgreSQL and one RabbitMQ container per test project.
-/// All tests in the project share the same database, but tables are truncated between tests for isolation.
+/// Tests share the containers; database isolation is managed by each test suite.
 /// </summary>
 [SuppressMessage("Design", "CA1515:Consider making public types internal", Justification = "xUnit requires collection fixtures to be public")]
 public sealed class SharedTestcontainersFixture : IAsyncLifetime
@@ -104,13 +104,8 @@ public sealed class SharedTestcontainersFixture : IAsyncLifetime
     }
 
     /// <summary>
-    /// Creates a single shared test database for the project, runs EF migrations, and returns the connection string.
-    /// This database is reused across all tests in the project.
+    /// Creates a shared test database, applies any pending EF migrations, and returns its connection string.
     /// </summary>
-    /// <param name="dbContextType">The EF DbContext type to migrate.</param>
-    /// <param name="migrationsAssembly">The assembly containing migrations.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The connection string for the test database.</returns>
     public async Task<string> CreateSharedTestDatabaseAsync(
         Type dbContextType,
         string migrationsAssembly,
@@ -120,39 +115,92 @@ public sealed class SharedTestcontainersFixture : IAsyncLifetime
         try
         {
             string databaseName = $"testdb_{dbContextType.Name.ToLowerInvariant()}";
-
-            // Check if database already exists
-            await using var adminConnection = new NpgsqlConnection(AdminConnectionString);
-            await adminConnection.OpenAsync(cancellationToken);
-            await using var checkCommand = adminConnection.CreateCommand();
-            checkCommand.CommandText = $"SELECT 1 FROM pg_database WHERE datname = '{databaseName}'";
-            var exists = await checkCommand.ExecuteScalarAsync(cancellationToken) is not null;
-
-            if (!exists)
-            {
-                await using var createCommand = adminConnection.CreateCommand();
-                createCommand.CommandText = $"CREATE DATABASE \"{databaseName}\"";
-                await createCommand.ExecuteNonQueryAsync(cancellationToken);
-
-                string testConnectionString = GetDatabaseConnectionString(databaseName);
-
-                // Run migrations using the test database connection
-                var optionsBuilderType = typeof(DbContextOptionsBuilder<>).MakeGenericType(dbContextType);
-                var optionsBuilder = (DbContextOptionsBuilder)Activator.CreateInstance(optionsBuilderType)!;
-                optionsBuilder.UseNpgsql(testConnectionString, npgsql => npgsql.MigrationsAssembly(migrationsAssembly));
-
-                var dbContext = (DbContext)Activator.CreateInstance(dbContextType, optionsBuilder.Options, null)!;
-                await using (dbContext)
-                {
-                    await dbContext.Database.MigrateAsync(cancellationToken);
-                }
-            }
-
-            return GetDatabaseConnectionString(databaseName);
+            await EnsureDatabaseExistsAsync(databaseName, cancellationToken);
+            string connectionString = GetDatabaseConnectionString(databaseName);
+            await ApplyMigrationsAsync(dbContextType, migrationsAssembly, connectionString, cancellationToken);
+            return connectionString;
         }
         finally
         {
             databaseLock.Release();
+        }
+    }
+
+
+    /// <summary>
+    /// Creates an isolated test database with a unique name and applies EF migrations.
+    /// The returned connection string can be dropped with <see cref="DropTestDatabaseAsync"/>.
+    /// </summary>
+    public async Task<string> CreateIsolatedTestDatabaseAsync(
+        Type dbContextType,
+        string migrationsAssembly,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(dbContextType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(migrationsAssembly);
+        string databaseName = $"testdb_{dbContextType.Name.ToLowerInvariant()}_{Guid.NewGuid():N}";
+        await databaseLock.WaitAsync(cancellationToken);
+        bool lockHeld = true;
+        try
+        {
+            await EnsureDatabaseExistsAsync(databaseName, cancellationToken);
+            string connectionString = GetDatabaseConnectionString(databaseName);
+            await ApplyMigrationsAsync(dbContextType, migrationsAssembly, connectionString, cancellationToken);
+            return connectionString;
+        }
+        catch
+        {
+            databaseLock.Release();
+            lockHeld = false;
+            try
+            {
+                await DropTestDatabaseAsync(databaseName, CancellationToken.None);
+            }
+            catch
+            {
+                // Preserve the migration/create exception; cleanup is best effort.
+            }
+
+            throw;
+        }
+        finally
+        {
+            if (lockHeld)
+            {
+                databaseLock.Release();
+            }
+        }
+    }
+
+
+    private async Task EnsureDatabaseExistsAsync(string databaseName, CancellationToken cancellationToken)
+    {
+        await using var adminConnection = new NpgsqlConnection(AdminConnectionString);
+        await adminConnection.OpenAsync(cancellationToken);
+        await using var checkCommand = adminConnection.CreateCommand();
+        checkCommand.CommandText = "SELECT 1 FROM pg_database WHERE datname = @databaseName";
+        checkCommand.Parameters.AddWithValue("databaseName", databaseName);
+        if (await checkCommand.ExecuteScalarAsync(cancellationToken) is null)
+        {
+            await using var createCommand = adminConnection.CreateCommand();
+            createCommand.CommandText = $"CREATE DATABASE \"{databaseName.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
+            await createCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+    }
+
+    private static async Task ApplyMigrationsAsync(
+        Type dbContextType,
+        string migrationsAssembly,
+        string connectionString,
+        CancellationToken cancellationToken)
+    {
+        var optionsBuilderType = typeof(DbContextOptionsBuilder<>).MakeGenericType(dbContextType);
+        var optionsBuilder = (DbContextOptionsBuilder)Activator.CreateInstance(optionsBuilderType)!;
+        optionsBuilder.UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly(migrationsAssembly));
+        var dbContext = (DbContext)Activator.CreateInstance(dbContextType, optionsBuilder.Options, null)!;
+        await using (dbContext)
+        {
+            await dbContext.Database.MigrateAsync(cancellationToken);
         }
     }
 
@@ -207,20 +255,59 @@ public sealed class SharedTestcontainersFixture : IAsyncLifetime
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task DropTestDatabaseAsync(string databaseName, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(databaseName);
+        if (databaseName.Length > 63
+            || databaseName.Any(character => !char.IsAsciiLetterLower(character) && !char.IsAsciiDigit(character) && character != '_'))
+        {
+            throw new ArgumentException("Only safe test database identifiers can be dropped.", nameof(databaseName));
+        }
+
         await using var adminConnection = new NpgsqlConnection(AdminConnectionString);
         await adminConnection.OpenAsync(cancellationToken);
 
         await using var terminateCommand = adminConnection.CreateCommand();
-        terminateCommand.CommandText = $@"
-            SELECT pg_terminate_backend(pid) 
-            FROM pg_stat_activity 
-            WHERE datname = '{databaseName}' 
+        terminateCommand.CommandText = @"
+            SELECT pg_terminate_backend(pid)
+            FROM pg_stat_activity
+            WHERE datname = @databaseName
             AND pid <> pg_backend_pid()";
+        terminateCommand.Parameters.AddWithValue("databaseName", databaseName);
         await terminateCommand.ExecuteNonQueryAsync(cancellationToken);
 
         await using var dropCommand = adminConnection.CreateCommand();
         dropCommand.CommandText = $"DROP DATABASE IF EXISTS \"{databaseName}\"";
         await dropCommand.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Drops a test database, clearing pooled connections before terminating its sessions.
+    /// </summary>
+    /// <param name="connectionString">Connection string for the database to drop.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task DropIsolatedTestDatabaseAsync(string connectionString, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        string? databaseName = new NpgsqlConnectionStringBuilder(connectionString).Database;
+        int suffixSeparator = databaseName?.LastIndexOf('_') ?? -1;
+        if (databaseName is null
+            || !databaseName.StartsWith("testdb_", StringComparison.Ordinal)
+            || suffixSeparator <= "testdb_".Length
+            || !Guid.TryParseExact(databaseName[(suffixSeparator + 1)..], "N", out _))
+        {
+            throw new ArgumentException("Only isolated test database identifiers can be dropped through this method.", nameof(connectionString));
+        }
+
+        await databaseLock.WaitAsync(cancellationToken);
+        try
+        {
+            using var isolatedConnection = new NpgsqlConnection(connectionString);
+            NpgsqlConnection.ClearPool(isolatedConnection);
+            await DropTestDatabaseAsync(databaseName, cancellationToken);
+        }
+        finally
+        {
+            databaseLock.Release();
+        }
     }
 
     /// <inheridoc/>
