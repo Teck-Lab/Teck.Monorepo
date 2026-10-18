@@ -1,0 +1,17 @@
+{
+  "organizations": [
+    {
+      "name": "Authorization Test Organization",
+      "alias": "teck-local-alpha",
+      "enabled": true,
+      "domains": [],
+      "members": ["dev@teck.local", "dev-reader@teck.local", "integration-manager", "integration-reader"],
+      "tenant": {
+        "identifier": "tenant-authz-test",
+        "databaseStrategy": "shared",
+        "databaseProvider": "postgres",
+        "hasReadReplicas": false
+      }
+    }
+  ]
+}

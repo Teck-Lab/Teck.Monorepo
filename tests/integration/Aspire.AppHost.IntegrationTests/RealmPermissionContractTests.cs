@@ -13,6 +13,8 @@ namespace Aspire.AppHost.IntegrationTests;
 public sealed class RealmPermissionContractTests
 {
     private const string GatewayClientId = "public-gateway";
+    private const string DefaultRealmPath = "src/aspire/Teck.AppHost/realms/teck-realm.json";
+    private const string TestRealmPath = "src/aspire/Teck.AppHost/test-realms/teck-realm.json";
     private const string OrganizationMapperId = "oidc-organization-membership-mapper";
     private const string PlatformManagerRole = "platform-manager";
     private const string PlatformReaderRole = "platform-reader";
@@ -65,67 +67,96 @@ public sealed class RealmPermissionContractTests
         Assert.False(dashboard.GetProperty("directAccessGrantsEnabled").GetBoolean());
         Assert.Equal("S256", dashboard.GetProperty("attributes").GetProperty("pkce.code.challenge.method").GetString());
         Assert.Equal(
-            ["http://localhost:3001/*", "http://localhost:3001/api/auth/callback/keycloak"],
+            ["https://REPLACE_WITH_ENVIRONMENT_DASHBOARD_URL/*", "https://REPLACE_WITH_ENVIRONMENT_DASHBOARD_URL/api/auth/callback/keycloak"],
             dashboard.GetProperty("redirectUris").EnumerateArray()
                 .Select(uri => uri.GetString()!)
                 .Order(StringComparer.Ordinal)
                 .ToArray());
         Assert.Equal(
-            ["http://localhost:3001"],
+            ["https://REPLACE_WITH_ENVIRONMENT_DASHBOARD_URL"],
             dashboard.GetProperty("webOrigins").EnumerateArray()
                 .Select(origin => origin.GetString()!)
                 .Order(StringComparer.Ordinal)
                 .ToArray());
     }
 
-    /// <summary>Ensures every committed realm credential is visibly local-only, except the allow-listed legacy gateway secret.</summary>
+    /// <summary>Ensures the production-safe default realm contains no user credentials or enabled password grants.</summary>
     [Fact]
-    public void CommittedRealm_WhenCredentialsAreEnumerated_UsesOnlyLocalOnlyValues()
+    public void DefaultRealm_WhenCredentialsAreEnumerated_RequiresEnvironmentValuesAndDisablesPasswordGrants()
     {
         using JsonDocument realm = ReadRealm();
-        var credentials = new List<(string Kind, string Owner, string Value, bool? Temporary)>();
+        Assert.Empty(realm.RootElement.GetProperty("users").EnumerateArray());
 
         foreach (JsonElement client in realm.RootElement.GetProperty("clients").EnumerateArray())
         {
+            Assert.False(client.GetProperty("directAccessGrantsEnabled").GetBoolean(), client.GetProperty("clientId").GetString());
             if (client.TryGetProperty("secret", out JsonElement secret))
             {
-                credentials.Add(("client secret", client.GetProperty("clientId").GetString()!, secret.GetString()!, null));
+                Assert.StartsWith("REPLACE_WITH_ENVIRONMENT_SECRET_", secret.GetString(), StringComparison.Ordinal);
             }
         }
+    }
 
-        foreach (JsonElement user in realm.RootElement.GetProperty("users").EnumerateArray())
+    /// <summary>Ensures test realm preserves authorization contracts and adds only test credentials and grants.</summary>
+    [Fact]
+    public void TestRealm_WhenComparedToDefault_PreservesResourcesRolesScopesAndMappers()
+    {
+        using JsonDocument production = ReadRealm();
+        using JsonDocument test = ReadTestRealm();
+        JsonElement prod = production.RootElement;
+        JsonElement testRoot = test.RootElement;
+
+        Assert.Equal(CanonicalJson(prod.GetProperty("roles")), CanonicalJson(testRoot.GetProperty("roles")));
+        foreach (JsonElement productionClient in prod.GetProperty("clients").EnumerateArray())
         {
-            foreach (JsonElement credential in user.GetProperty("credentials").EnumerateArray())
+            JsonElement testClient = FindClient(testRoot, productionClient.GetProperty("clientId").GetString()!);
+            foreach (string property in new[] { "protocolMappers", "authorizationSettings" })
             {
-                credentials.Add((
-                    credential.GetProperty("type").GetString()!,
-                    user.GetProperty("username").GetString()!,
-                    credential.GetProperty("value").GetString()!,
-                    credential.GetProperty("temporary").GetBoolean()));
+                bool hasProduction = productionClient.TryGetProperty(property, out JsonElement productionValue);
+                bool hasTest = testClient.TryGetProperty(property, out JsonElement testValue);
+                Assert.Equal(hasProduction, hasTest);
+                if (hasProduction)
+                {
+                    Assert.Equal(CanonicalJson(productionValue), CanonicalJson(testValue));
+                }
+            }
+            Assert.False(testClient.GetProperty("directAccessGrantsEnabled").GetBoolean());
+            Assert.Equal(productionClient.GetProperty("publicClient").GetBoolean(), testClient.GetProperty("publicClient").GetBoolean());
+            if (productionClient.TryGetProperty("secret", out JsonElement productionSecret))
+            {
+                Assert.StartsWith("local-only-test-", testClient.GetProperty("secret").GetString(), StringComparison.Ordinal);
+                Assert.StartsWith("REPLACE_WITH_ENVIRONMENT_SECRET_", productionSecret.GetString(), StringComparison.Ordinal);
             }
         }
-
-        Assert.Contains(credentials, credential => credential is ("client secret", "teck-dashboard", "local-only-dashboard-secret-not-for-production", null));
-        Assert.Contains(credentials, credential => credential is ("client secret", "order-api", "local-only-order-api-secret-not-for-production", null));
-        Assert.Contains(credentials, credential => credential is ("client secret", "pricing-api", "local-only-pricing-api-secret-not-for-production", null));
-        Assert.Contains(credentials, credential => credential is ("password", "dev@teck.local", "local-only-dev-password-not-for-production", false));
-        Assert.Contains(credentials, credential => credential is ("password", "dev-reader@teck.local", "local-only-dev-reader-password-not-for-production", false));
-
-        AssertUserRoles(realm.RootElement, "dev@teck.local", [PlatformManagerRole, PlatformReaderRole]);
-        AssertUserRoles(realm.RootElement, "dev-reader@teck.local", [PlatformReaderRole]);
-
-        Assert.All(credentials, credential =>
+        JsonElement[] testClients = testRoot.GetProperty("clients").EnumerateArray().ToArray();
+        Assert.Equal(prod.GetProperty("clients").GetArrayLength() + 1, testClients.Length);
+        JsonElement tokenClient = FindClient(testRoot, "integration-test-client");
+        Assert.False(tokenClient.GetProperty("publicClient").GetBoolean());
+        Assert.True(tokenClient.GetProperty("directAccessGrantsEnabled").GetBoolean());
+        Assert.StartsWith("local-only-test-", tokenClient.GetProperty("secret").GetString(), StringComparison.Ordinal);
+        Assert.Contains(tokenClient.GetProperty("protocolMappers").EnumerateArray(), mapper => mapper.GetProperty("protocolMapper").GetString() == OrganizationMapperId);
+        foreach (string audience in new[] { "order-api", "pricing-api", GatewayClientId })
         {
-            if (credential is ("client secret", GatewayClientId, "dev-secret-change-me", null))
-            {
-                return;
-            }
+            Assert.Contains(tokenClient.GetProperty("protocolMappers").EnumerateArray(), mapper =>
+                mapper.GetProperty("protocolMapper").GetString() == "oidc-audience-mapper"
+                && mapper.GetProperty("config").GetProperty("included.client.audience").GetString() == audience);
+        }
+        Assert.Equal(1, testClients.Count(client => client.GetProperty("directAccessGrantsEnabled").GetBoolean()));
+        JsonElement testUsers = testRoot.GetProperty("users");
+        JsonElement productionUsers = prod.GetProperty("users");
+        Assert.Empty(productionUsers.EnumerateArray());
+        Assert.Equal(4, testUsers.GetArrayLength());
+        Assert.Equal("none", testRoot.GetProperty("sslRequired").GetString());
+        Assert.Contains(testUsers.EnumerateArray(), user => user.GetProperty("username").GetString() == "integration-manager");
+        Assert.All(testUsers.EnumerateArray(), user => Assert.Contains(user.GetProperty("credentials").EnumerateArray(), credential => credential.GetProperty("type").GetString() == "password"));
+    }
 
-            Assert.StartsWith("local-only-", credential.Value, StringComparison.Ordinal);
-            Assert.EndsWith("-not-for-production", credential.Value, StringComparison.Ordinal);
-            Assert.Contains(credential.Kind == "client secret" ? "-secret-" : "-password-", credential.Value, StringComparison.Ordinal);
-            Assert.False(credential.Temporary ?? false);
-        });
+    private static string CanonicalJson(JsonElement value) => JsonSerializer.Serialize(value);
+
+    private static JsonDocument ReadTestRealm()
+    {
+        string root = FindRepositoryRoot();
+        return JsonDocument.Parse(File.ReadAllText(Path.Combine(root, TestRealmPath)));
     }
 
     private static void AssertPermissionsMatchClient(JsonElement realm, string clientId, Assembly endpointAssembly)
@@ -231,7 +262,7 @@ public sealed class RealmPermissionContractTests
     private static JsonDocument ReadRealm()
     {
         string root = FindRepositoryRoot();
-        return JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "src", "aspire", "Teck.AppHost", "realms", "teck-realm.json")));
+        return JsonDocument.Parse(File.ReadAllText(Path.Combine(root, DefaultRealmPath)));
     }
 
     private static string FindRepositoryRoot()

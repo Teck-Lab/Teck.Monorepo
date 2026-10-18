@@ -8,10 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="../../../src/aspire/Teck.AppHost/test-realms/teck-realm.json" Link="test-realms/teck-realm.json" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.RabbitMq" />
+    <PackageReference Include="Testcontainers.Keycloak" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>

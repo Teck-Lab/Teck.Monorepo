@@ -19,3 +19,10 @@ namespace Pricing.IntegrationTests;
 public class SharedTestcontainersCollection : ICollectionFixture<SharedTestcontainersFixture>
 {
 }
+
+/// <summary>Provides an isolated Keycloak realm for real authorization tests.</summary>
+[CollectionDefinition("KeycloakTestRealm")]
+[SuppressMessage("Design", "CA1515:Consider making public types internal", Justification = "xUnit requires collection definition classes to be public")]
+public sealed class KeycloakTestRealmCollection : ICollectionFixture<KeycloakTestRealmFixture>, ICollectionFixture<SharedTestcontainersFixture>
+{
+}

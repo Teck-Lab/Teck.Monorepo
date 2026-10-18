@@ -26,8 +26,10 @@ namespace Aspire.AppHost.IntegrationTests;
 public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
 {
     internal const string Realm = "teck";
+    internal const string TestTokenClientId = "integration-test-client";
+    internal const string TestTokenClientSecret = "local-only-test-integration-token-client-secret-not-for-production";
     internal const string GatewayClientId = "public-gateway";
-    internal const string GatewayClientSecret = "dev-secret-change-me";
+    internal const string GatewayClientSecret = "local-only-test-public-gateway-secret-not-for-production";
     internal const string DeveloperUsername = "dev@teck.local";
     internal const string DeveloperPassword = "local-only-dev-password-not-for-production";
     internal const string ReaderUsername = "dev-reader@teck.local";
@@ -67,7 +69,7 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
     /// <inheritdoc />
     public async ValueTask InitializeAsync()
     {
-        string realmPath = Path.Combine(FindRepositoryRoot(), "src", "aspire", "Teck.AppHost", "realms", "teck-realm.json");
+        string realmPath = Path.Combine(FindRepositoryRoot(), "src", "aspire", "Teck.AppHost", "test-realms", "teck-realm.json");
         postgres = new PostgreSqlBuilder("postgres:16-alpine")
             .WithDatabase("postgres")
             .WithUsername("postgres")
@@ -138,15 +140,13 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
         {
             Content = new FormUrlEncodedContent([
                 new KeyValuePair<string, string>("grant_type", "password"),
+                new KeyValuePair<string, string>("client_id", TestTokenClientId),
+                new KeyValuePair<string, string>("client_secret", TestTokenClientSecret),
                 new KeyValuePair<string, string>("username", username),
                 new KeyValuePair<string, string>("password", password),
                 new KeyValuePair<string, string>("scope", "openid organization:*"),
             ]),
         };
-        request.Headers.Authorization = new AuthenticationHeaderValue(
-            "Basic",
-            Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{GatewayClientId}:{GatewayClientSecret}")));
-
         using HttpResponseMessage response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
         string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         Assert.True(response.IsSuccessStatusCode, $"Password grant returned {(int)response.StatusCode}: {body}");
@@ -170,7 +170,7 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
     {
         if (unprovisioned is null)
         {
-            string realmPath = Path.Combine(FindRepositoryRoot(), "src", "aspire", "Teck.AppHost", "realms", "teck-realm.json");
+            string realmPath = Path.Combine(FindRepositoryRoot(), "src", "aspire", "Teck.AppHost", "test-realms", "teck-realm.json");
             unprovisioned = CreateKeycloak(realmPath);
             await unprovisioned.StartAsync().ConfigureAwait(false);
             unprovisionedConnectionString = await CreateMigratedDatabaseAsync<CustomerDbContext>("local_identity_unprovisioned", typeof(CustomerHost::Program).Assembly.GetName().Name!).ConfigureAwait(false);
@@ -217,7 +217,7 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
         };
         using var client = new HttpClient { BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute) };
         string root = FindRepositoryRoot();
-        using JsonDocument realm = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(root, "src", "aspire", "Teck.AppHost", "realms", "teck-realm.json")).ConfigureAwait(false));
+        using JsonDocument realm = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(root, "src", "aspire", "Teck.AppHost", "test-realms", "teck-realm.json")).ConfigureAwait(false));
         using JsonDocument organizations = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(root, "src", "aspire", "Teck.AppHost", "identity", "local-organizations.json")).ConfigureAwait(false));
 
         await new RealmReconciler(client, options).ReconcileAsync(realm, CancellationToken.None).ConfigureAwait(false);

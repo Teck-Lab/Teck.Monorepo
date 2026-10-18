@@ -37,7 +37,8 @@ if (useVolumes)
     keycloak.WithDataVolume();
 }
 
-keycloak.WithRealmImport("./realms");
+string keycloakRealmImportPath = builder.Configuration["KeycloakRealmImportPath"] ?? "./realms";
+keycloak.WithRealmImport(keycloakRealmImportPath);
 
 // Services. ConnectionStrings__{Name} env vars match what each persistence extension reads
 // (OrderWrite/OrderRead/CustomerWrite/CustomerRead/CatalogWrite/CatalogRead);
