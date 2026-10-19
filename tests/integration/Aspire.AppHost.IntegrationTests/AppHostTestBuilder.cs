@@ -14,8 +14,9 @@ internal static class AppHostTestBuilder
         var builder = await DistributedApplicationTestingBuilder.CreateAsync<Projects.Teck_AppHost>([
             $"Parameters:postgres-password={TestPostgresPassword}",
             $"Parameters:keycloak-admin-password={TestKeycloakAdminPassword}",
-            "UseVolumes=false",
             "UseFixedKeycloakPort=false",
+            "KeycloakRealmImportPath=./test-realms",
+            "UseVolumes=false",
         ]).ConfigureAwait(false);
 
         // The test launches project binaries directly, without the production image's WolverineCodegenWrite step.

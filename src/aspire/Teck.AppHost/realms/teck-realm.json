@@ -1,10 +1,17 @@
 {
   "realm": "teck",
   "enabled": true,
-  "sslRequired": "none",
+  "sslRequired": "external",
   "organizationsEnabled": true,
   "roles": {
-    "realm": [{ "name": "platform-reader" }, { "name": "platform-manager" }]
+    "realm": [
+      {
+        "name": "platform-reader"
+      },
+      {
+        "name": "platform-manager"
+      }
+    ]
   },
   "clients": [
     {
@@ -12,7 +19,7 @@
       "enabled": true,
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "local-only-order-api-secret-not-for-production",
+      "secret": "REPLACE_WITH_ENVIRONMENT_SECRET_ORDER_API",
       "authorizationServicesEnabled": true,
       "protocol": "openid-connect",
       "protocolMappers": [
@@ -30,6 +37,15 @@
             "userinfo.token.claim": "true",
             "introspection.token.claim": "true"
           }
+        },
+        {
+          "name": "order-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "order-api",
+            "access.token.claim": "true"
+          }
         }
       ],
       "authorizationSettings": {
@@ -37,7 +53,14 @@
         "resources": [
           {
             "name": "order",
-            "scopes": [{ "name": "read" }, { "name": "retry-payment" }]
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "retry-payment"
+              }
+            ]
           }
         ],
         "policies": [
@@ -82,20 +105,22 @@
             }
           }
         ]
-      }
+      },
+      "directAccessGrantsEnabled": false
     },
     {
       "clientId": "catalog-api",
       "enabled": true,
       "publicClient": true,
-      "protocol": "openid-connect"
+      "protocol": "openid-connect",
+      "directAccessGrantsEnabled": false
     },
     {
       "clientId": "pricing-api",
       "enabled": true,
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "local-only-pricing-api-secret-not-for-production",
+      "secret": "REPLACE_WITH_ENVIRONMENT_SECRET_PRICING_API",
       "authorizationServicesEnabled": true,
       "protocol": "openid-connect",
       "protocolMappers": [
@@ -113,6 +138,15 @@
             "userinfo.token.claim": "true",
             "introspection.token.claim": "true"
           }
+        },
+        {
+          "name": "pricing-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "pricing-api",
+            "access.token.claim": "true"
+          }
         }
       ],
       "authorizationSettings": {
@@ -120,7 +154,14 @@
         "resources": [
           {
             "name": "pricing",
-            "scopes": [{ "name": "read" }, { "name": "manage" }]
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "manage"
+              }
+            ]
           }
         ],
         "policies": [
@@ -165,21 +206,24 @@
             }
           }
         ]
-      }
+      },
+      "directAccessGrantsEnabled": false
     },
     {
       "clientId": "teck-dashboard",
       "enabled": true,
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "local-only-dashboard-secret-not-for-production",
+      "secret": "REPLACE_WITH_ENVIRONMENT_SECRET_TECK_DASHBOARD",
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "redirectUris": [
-        "http://localhost:3001/api/auth/callback/keycloak",
-        "http://localhost:3001/*"
+        "https://REPLACE_WITH_ENVIRONMENT_DASHBOARD_URL/*",
+        "https://REPLACE_WITH_ENVIRONMENT_DASHBOARD_URL/api/auth/callback/keycloak"
       ],
-      "webOrigins": ["http://localhost:3001"],
+      "webOrigins": [
+        "https://REPLACE_WITH_ENVIRONMENT_DASHBOARD_URL"
+      ],
       "protocol": "openid-connect",
       "attributes": {
         "pkce.code.challenge.method": "S256"
@@ -207,8 +251,8 @@
       "enabled": true,
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "dev-secret-change-me",
-      "directAccessGrantsEnabled": true,
+      "secret": "REPLACE_WITH_ENVIRONMENT_SECRET_PUBLIC_GATEWAY",
+      "directAccessGrantsEnabled": false,
       "protocol": "openid-connect",
       "attributes": {
         "standard.token.exchange.enabled": "true"
@@ -276,40 +320,5 @@
       ]
     }
   ],
-  "users": [
-    {
-      "username": "dev@teck.local",
-      "email": "dev@teck.local",
-      "emailVerified": true,
-      "firstName": "Dev",
-      "lastName": "User",
-      "enabled": true,
-      "requiredActions": [],
-      "realmRoles": ["platform-reader", "platform-manager"],
-      "credentials": [
-        {
-          "type": "password",
-          "value": "local-only-dev-password-not-for-production",
-          "temporary": false
-        }
-      ]
-    },
-    {
-      "username": "dev-reader@teck.local",
-      "email": "dev-reader@teck.local",
-      "emailVerified": true,
-      "firstName": "Dev",
-      "lastName": "Reader",
-      "enabled": true,
-      "requiredActions": [],
-      "realmRoles": ["platform-reader"],
-      "credentials": [
-        {
-          "type": "password",
-          "value": "local-only-dev-reader-password-not-for-production",
-          "temporary": false
-        }
-      ]
-    }
-  ]
+  "users": []
 }

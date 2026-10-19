@@ -25,6 +25,7 @@ public sealed class RoutedServiceAuthorizationTests(LocalIdentityKeycloakFixture
         string token = await LocalIdentityKeycloakFixture.GetReaderTokenAsync(instance).ConfigureAwait(false);
         string tenantId = TenantAwareSignInTests.ReadOrganizationIds(LocalIdentityKeycloakFixture.ReadToken(token)).Single();
         RoutedServiceFixture routedServices = await fixture.GetRoutedServiceFixtureAsync(instance).ConfigureAwait(false);
+        routedServices.AssertServiceAuthorizationOptionsMatchRealm();
         Guid? seededOrderId = path.StartsWith("/orders", StringComparison.Ordinal)
             ? await routedServices.SeedOrderAsync(tenantId).ConfigureAwait(false)
             : null;

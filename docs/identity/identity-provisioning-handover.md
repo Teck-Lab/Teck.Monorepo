@@ -3,13 +3,22 @@
 This is the staging and production identity contract. It is derived from the
 committed local reference manifests:
 
-- `src/aspire/Teck.AppHost/realms/teck-realm.json`
+- `src/aspire/Teck.AppHost/realms/teck-realm.json` (production-safe object template; no user passwords or enabled direct grants)
+- `src/aspire/Teck.AppHost/test-realms/teck-realm.json` (isolated local test import; test-only users and password-grant clients)
 - `src/aspire/Teck.AppHost/identity/local-organizations.json`
 
+The default AppHost imports only `realms/`; never place test realm documents in that import directory. LocalIdentity/AppHost integration tests explicitly select `test-realms/`.
+
 Teck.Terraform and Teck.GitOps must provision the environment-specific
-equivalent of every object below. The local manifests are an object inventory,
-not a source of values to promote. In particular, **no credential value
-committed in this repository may be promoted to staging or production**.
+equivalent of every object below. Both committed manifests are templates only,
+not deployable configuration or sources of values to promote. In particular,
+**no credential value committed in this repository may be promoted to staging
+or production**. Production deployment requires environment-specific SSL,
+redirect URLs/web origins, secrets and identities; do not deploy committed local values.
+
+The test-only `test-realms/teck-realm.json` adds seeded users and exactly one password-grant client: the confidential `integration-test-client`. It carries the organization-membership mapper and audience mappers for `order-api`, `pricing-api`, and `public-gateway`, allowing real tokens to reach their existing validation paths. The service/gateway clients keep direct grants disabled; gateway token exchange remains configured on `public-gateway`. Its authorization resources, scopes, policies, realm roles, and service protocol mappers remain regression-checked against the production-safe default manifest. Test passwords and client secrets are local test values only; never promote them.
+The production and test realms both map `order-api` and `pricing-api` into their access-token audiences. Direct Order and Pricing integration tests import the isolated realm, request `openid organization:*`, provision real Keycloak organization membership through its Admin API, and exercise actual service endpoints backed by PostgreSQL and RabbitMQ. Pricing verifies anonymous 401, reader 403, manager-created price-list HTTP read-back and tenant-scoped database persistence; Order verifies anonymous 401, reader HTTP read-back of an ActionRequired order, manager-authorized payment retry 202 with retry state persisted in PostgreSQL, reader-forbidden payment retry, and tenant-scoped persistence. Routed AppHost tests additionally exercise read and management authorization through the gateway to real in-process Order and Pricing hosts. No mock authentication handler or caller-controlled tenant header is used in those authorization paths.
+Automated direct-service authorization tests use real Keycloak user access tokens through the test-only password grant, including signed organization-membership claims with Keycloak-generated organization IDs. The grant is enabled only for `integration-test-client` in the isolated test realm; production and default local AppHost realm imports keep password grants disabled.
 
 ## Environment-owned values and secrets
 
@@ -36,11 +45,10 @@ platform contract; environment-owned values are called out above.
 
 ### Realm and roles
 
-Create an enabled `teck` realm with `sslRequired` set to `none` in the local
-reference and the organizations capability enabled (`organizationsEnabled:
-true`). Configure the appropriate transport-security setting for each deployed
-environment; the local `none` setting is not a production value. Create these
-realm roles:
+Create an enabled `teck` realm with `sslRequired` set to `external` in the
+production-safe template and the organizations capability enabled
+(`organizationsEnabled: true`). Review and set the appropriate transport-security
+policy for each deployed environment. Create these realm roles:
 
 - `platform-reader`
 - `platform-manager`
@@ -55,7 +63,7 @@ All five clients use OpenID Connect and are enabled.
 | `catalog-api` | Public (`publicClient: true`); no client authenticator or authorization service. | No client secret. |
 | `pricing-api` | Confidential (`publicClient: false`), `clientAuthenticatorType: client-secret`, authorization services enabled. | **SECRET** — generate a per-environment client secret. |
 | `teck-dashboard` | Confidential (`publicClient: false`), `clientAuthenticatorType: client-secret`, standard flow enabled, direct access grants disabled, and `pkce.code.challenge.method: S256`. Configure environment-specific redirect URIs and web origins. | **SECRET** — generate a per-environment client secret. |
-| `public-gateway` | Confidential (`publicClient: false`), `clientAuthenticatorType: client-secret`, direct access grants enabled, and `standard.token.exchange.enabled: true`. | **SECRET** — generate a per-environment client secret. |
+| `public-gateway` | Confidential (`publicClient: false`), `clientAuthenticatorType: client-secret`, direct access grants disabled, and `standard.token.exchange.enabled: true`. | **SECRET** — generate a per-environment client secret. |
 
 ### Protocol mappers
 

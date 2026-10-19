@@ -41,6 +41,9 @@ internal sealed class RoutedServiceFixture : IDisposable
     /// <summary>Creates one order row for the calling test without rebuilding the shared hosts.</summary>
     internal Task<Guid> SeedOrderAsync(string tenantId) => routedServices.SeedOrderAsync(tenantId);
 
+    /// <summary>Verifies effective UMA service options match the isolated realm without emitting credential values.</summary>
+    internal void AssertServiceAuthorizationOptionsMatchRealm() => routedServices.AssertServiceAuthorizationOptionsMatchRealm();
+
     /// <summary>Creates the immutable shared hosts after retrieving the selected Keycloak instance's signing keys.</summary>
     internal static async Task<RoutedServiceFixture> CreateAsync(LocalIdentityTestInstance instance)
     {
@@ -60,8 +63,14 @@ internal sealed class RoutedServiceFixture : IDisposable
     private static async Task<IReadOnlyList<SecurityKey>> GetPublishedSigningKeysAsync(string issuer)
     {
         using var client = new HttpClient();
-        string jwks = await client.GetStringAsync($"{issuer}/protocol/openid-connect/certs").ConfigureAwait(false);
-        return new JsonWebKeySet(jwks).GetSigningKeys().ToArray();
+        string metadataAddress = issuer + "/.well-known/openid-configuration";
+        var retriever = new Microsoft.IdentityModel.Protocols.HttpDocumentRetriever { RequireHttps = false };
+        var manager = new Microsoft.IdentityModel.Protocols.ConfigurationManager<Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectConfiguration>(
+            metadataAddress,
+            new Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectConfigurationRetriever(),
+            retriever);
+        Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectConfiguration configuration = await manager.GetConfigurationAsync(CancellationToken.None).ConfigureAwait(false);
+        return configuration.SigningKeys.ToArray();
     }
 }
 
@@ -72,14 +81,10 @@ internal sealed class RealIdentityGatewayFactory(
     string? tokenIssuer = null,
     IReadOnlyList<SecurityKey>? signingKeys = null) : WebApplicationFactory<GatewayHost::Program>
 {
-    static RealIdentityGatewayFactory() => JasperFx.CommandLine.JasperFxEnvironment.AutoStartHost = true;
-
     /// <inheritdoc />
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        string baseAddress = string.IsNullOrWhiteSpace(tokenIssuer)
-            ? instance.Keycloak.GetBaseAddress().TrimEnd('/')
-            : tokenIssuer[..tokenIssuer.IndexOf("/realms/", StringComparison.OrdinalIgnoreCase)];
+        string baseAddress = instance.Keycloak.GetBaseAddress().TrimEnd('/');
         builder.UseEnvironment("Development");
         builder.UseSetting("Keycloak:realm", LocalIdentityKeycloakFixture.Realm);
         builder.UseSetting("Keycloak:auth-server-url", baseAddress);
@@ -111,7 +116,6 @@ internal sealed class RealIdentityGatewayFactory(
                     };
                 });
             }
-
             services.Replace(ServiceDescriptor.Singleton<ITenantDatabaseStrategyResolver>(new TenantRegistryResolver(instance.CustomerConnectionString)));
             if (routedServices is not null)
             {
@@ -180,6 +184,21 @@ internal sealed class RoutedServiceHosts : IDisposable
         return seededOrder.Id;
     }
 
+    internal void AssertServiceAuthorizationOptionsMatchRealm()
+    {
+        AssertServiceOptions<OrderHost::Program>(order, "order-api", "local-only-test-order-api-secret-not-for-production");
+        AssertServiceOptions<PricingHost::Program>(pricing, "pricing-api", "local-only-test-pricing-api-secret-not-for-production");
+    }
+
+    private static void AssertServiceOptions<TProgram>(WebApplicationFactory<TProgram> factory, string expectedResource, string expectedSecret)
+        where TProgram : class
+    {
+        Keycloak.AuthServices.Authorization.AuthorizationServer.KeycloakAuthorizationServerOptions options =
+            factory.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<Keycloak.AuthServices.Authorization.AuthorizationServer.KeycloakAuthorizationServerOptions>>().Value;
+        Xunit.Assert.Equal(expectedResource, options.Resource);
+        Xunit.Assert.Equal(expectedSecret, options.Credentials?.Secret);
+    }
+
     /// <inheritdoc />
     public void Dispose()
     {
@@ -220,7 +239,7 @@ internal sealed class OrderServiceFactory(
         "Order",
         instance.OrderConnectionString,
         "order-api",
-        "local-only-order-api-secret-not-for-production");
+        "local-only-test-order-api-secret-not-for-production");
 }
 
 /// <summary>Builds the shared Pricing host with strict real-Keycloak authentication.</summary>
@@ -240,7 +259,7 @@ internal sealed class PricingServiceFactory(
         "Pricing",
         instance.PricingConnectionString,
         "pricing-api",
-        "local-only-pricing-api-secret-not-for-production");
+        "local-only-test-pricing-api-secret-not-for-production");
 }
 
 /// <summary>Applies the common strict-authentication configuration to a routed service host.</summary>
@@ -260,6 +279,7 @@ internal static class RoutedServiceHostConfiguration
         builder.UseEnvironment("Development");
         builder.UseSetting($"ConnectionStrings:{connectionName}Write", connectionString);
         builder.UseSetting($"ConnectionStrings:{connectionName}Read", connectionString);
+        builder.UseSetting($"ConnectionStrings:{connectionName}", connectionString);
         builder.UseSetting("ConnectionStrings:Default", connectionString);
         builder.UseSetting("ConnectionStrings:rabbitmq", instance.RabbitMqConnectionString);
         builder.UseSetting("Keycloak:realm", LocalIdentityKeycloakFixture.Realm);
@@ -292,4 +312,4 @@ internal static class RoutedServiceHostConfiguration
                 ClockSkew = TimeSpan.Zero,
             };
         });
-}
+    }
