@@ -4,10 +4,37 @@
       "name": "Authorization Test Organization",
       "alias": "teck-local-alpha",
       "enabled": true,
-      "domains": [],
-      "members": ["dev@teck.local", "dev-reader@teck.local", "integration-manager", "integration-reader"],
+      "members": [
+        "dev@teck.local",
+        "dev-reader@teck.local",
+        "integration-manager",
+        "integration-reader",
+        "integration-no-access"
+      ],
       "tenant": {
         "identifier": "tenant-authz-test",
+        "databaseStrategy": "shared",
+        "databaseProvider": "postgres",
+        "hasReadReplicas": false
+      },
+      "domains": [
+        {
+          "name": "authz-test.teck.local",
+          "verified": false
+        }
+      ]
+    },
+    {
+      "name": "Foreign Authorization Test Organization",
+      "alias": "teck-local-foreign",
+      "enabled": true,
+      "domains": [],
+      "members": [
+        "integration-foreign-member",
+        "integration-foreign-manager"
+      ],
+      "tenant": {
+        "identifier": "tenant-authz-foreign-test",
         "databaseStrategy": "shared",
         "databaseProvider": "postgres",
         "hasReadReplicas": false

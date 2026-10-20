@@ -13,6 +13,55 @@
       }
     ]
   },
+  "clientScopes": [
+    {
+      "name": "organization",
+      "description": "Keycloak organization membership scope",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "organization-membership",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-organization-membership-mapper",
+          "config": {
+            "claim.name": "organization",
+            "jsonType.label": "JSON",
+            "multivalued": "true",
+            "addOrganizationId": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "basic",
+      "description": "OpenID Connect basic scope",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "sub",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {"name":"order-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"order-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"order-api","access.token.claim":"true","id.token.claim":"false"}}]},
+    {"name":"pricing-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"pricing-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"pricing-api","access.token.claim":"true","id.token.claim":"false"}}]},
+    {"name":"public-gateway-audience","protocol":"openid-connect","protocolMappers":[{"name":"public-gateway-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"public-gateway","access.token.claim":"true","id.token.claim":"false"}}]},
+    {"name":"basket-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"basket-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"basket-api","access.token.claim":"true","id.token.claim":"false"}}]},
+    {"name":"customer-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"customer-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"customer-api","access.token.claim":"true","id.token.claim":"false"}}]},
+    {"name":"inventory-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"inventory-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"inventory-api","access.token.claim":"true","id.token.claim":"false"}}]},
+    {"name":"billing-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"billing-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"billing-api","access.token.claim":"true","id.token.claim":"false"}}]},
+    {"name":"catalog-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"catalog-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"catalog-api","access.token.claim":"true","id.token.claim":"false"}}]}
+  ],
   "clients": [
     {
       "clientId": "order-api",
@@ -111,8 +160,474 @@
     {
       "clientId": "catalog-api",
       "enabled": true,
-      "publicClient": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "local-only-test-catalog-api-secret-not-for-production",
       "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "organization-membership",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-organization-membership-mapper",
+          "config": {
+            "claim.name": "organization",
+            "jsonType.label": "JSON",
+            "multivalued": "true",
+            "addOrganizationId": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "catalog-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "catalog-api",
+            "access.token.claim": "true"
+          }
+        }
+      ],
+      "directAccessGrantsEnabled": false,
+      "authorizationServicesEnabled": true,
+      "authorizationSettings": {
+        "policyEnforcementMode": "ENFORCING",
+        "resources": [
+          {
+            "name": "catalog",
+            "scopes": [
+              {"name": "read"},
+              {"name": "manage"},
+              {"name": "supplier-read"}
+            ]
+          }
+        ],
+        "policies": [
+          {
+            "name": "catalog-read-roles",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-reader\",\"required\":false},{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "catalog-read",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"read\"]",
+              "applyPolicies": "[\"catalog-read-roles\"]"
+            }
+          },
+          {
+            "name": "catalog-manage-manager",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "catalog-manage",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"manage\"]",
+              "applyPolicies": "[\"catalog-manage-manager\"]"
+            }
+          },
+          {
+            "name": "supplier-read-manager",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "supplier-read",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"supplier-read\"]",
+              "applyPolicies": "[\"supplier-read-manager\"]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "clientId": "customer-api",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "local-only-test-customer-api-secret-not-for-production",
+      "authorizationServicesEnabled": true,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "organization-membership",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-organization-membership-mapper",
+          "config": {
+            "claim.name": "organization",
+            "jsonType.label": "JSON",
+            "multivalued": "true",
+            "addOrganizationId": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "customer-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "customer-api",
+            "access.token.claim": "true"
+          }
+        }
+      ],
+      "authorizationSettings": {
+        "policyEnforcementMode": "ENFORCING",
+        "resources": [
+          {
+            "name": "customer",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "manage"
+              }
+            ]
+          }
+        ],
+        "policies": [
+          {
+            "name": "customer-read-roles",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-reader\",\"required\":false},{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "customer-read",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"read\"]",
+              "applyPolicies": "[\"customer-read-roles\"]"
+            }
+          },
+          {
+            "name": "customer-manage-manager",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "customer-manage",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"manage\"]",
+              "applyPolicies": "[\"customer-manage-manager\"]"
+            }
+          }
+        ]
+      },
+      "directAccessGrantsEnabled": false
+    },
+    {
+      "clientId": "basket-api",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "local-only-test-basket-api-secret-not-for-production",
+      "authorizationServicesEnabled": true,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "organization-membership",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-organization-membership-mapper",
+          "config": {
+            "claim.name": "organization",
+            "jsonType.label": "JSON",
+            "multivalued": "true",
+            "addOrganizationId": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "basket-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "basket-api",
+            "access.token.claim": "true"
+          }
+        }
+      ],
+      "authorizationSettings": {
+        "policyEnforcementMode": "ENFORCING",
+        "resources": [
+          {
+            "name": "basket",
+            "scopes": [
+              {
+                "name": "checkout"
+              },
+              {
+                "name": "merge"
+              }
+            ]
+          }
+        ],
+        "policies": [
+          {
+            "name": "basket-checkout-manager",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "basket-checkout",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"checkout\"]",
+              "applyPolicies": "[\"basket-checkout-manager\"]"
+            }
+          },
+          {
+            "name": "basket-merge-manager",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "basket-merge",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"merge\"]",
+              "applyPolicies": "[\"basket-merge-manager\"]"
+            }
+          }
+        ]
+      },
+      "directAccessGrantsEnabled": false
+    },
+    {
+      "clientId": "inventory-api",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "local-only-test-inventory-api-secret-not-for-production",
+      "authorizationServicesEnabled": true,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "organization-membership",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-organization-membership-mapper",
+          "config": {
+            "claim.name": "organization",
+            "jsonType.label": "JSON",
+            "multivalued": "true",
+            "addOrganizationId": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "inventory-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "inventory-api",
+            "access.token.claim": "true"
+          }
+        }
+      ],
+      "authorizationSettings": {
+        "policyEnforcementMode": "ENFORCING",
+        "resources": [
+          {
+            "name": "inventory",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "adjust"
+              },
+              {
+                "name": "register"
+              },
+              {
+                "name": "set-location-priorities"
+              },
+              {
+                "name": "set-policy"
+              }
+            ]
+          }
+        ],
+        "policies": [
+          {
+            "name": "inventory-read-roles",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-reader\",\"required\":false},{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "inventory-read",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"read\"]",
+              "applyPolicies": "[\"inventory-read-roles\"]"
+            }
+          },
+          {
+            "name": "inventory-manage-manager",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "inventory-manage",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"adjust\",\"register\",\"set-location-priorities\",\"set-policy\"]",
+              "applyPolicies": "[\"inventory-manage-manager\"]"
+            }
+          }
+        ]
+      },
+      "directAccessGrantsEnabled": false
+    },
+    {
+      "clientId": "billing-api",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "local-only-test-billing-api-secret-not-for-production",
+      "authorizationServicesEnabled": true,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "organization-membership",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-organization-membership-mapper",
+          "config": {
+            "claim.name": "organization",
+            "jsonType.label": "JSON",
+            "multivalued": "true",
+            "addOrganizationId": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "billing-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "billing-api",
+            "access.token.claim": "true"
+          }
+        }
+      ],
+      "authorizationSettings": {
+        "policyEnforcementMode": "ENFORCING",
+        "resources": [
+          {
+            "name": "billing",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          }
+        ],
+        "policies": [
+          {
+            "name": "billing-read-roles",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-reader\",\"required\":false},{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "billing-read",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"read\"]",
+              "applyPolicies": "[\"billing-read-roles\"]"
+            }
+          }
+        ]
+      },
       "directAccessGrantsEnabled": false
     },
     {
@@ -222,7 +737,7 @@
         "http://localhost:3001/*"
       ],
       "webOrigins": [
-        "http://localhost:3001"
+        "https://REPLACE_WITH_ENVIRONMENT_DASHBOARD_URL"
       ],
       "protocol": "openid-connect",
       "attributes": {
@@ -332,53 +847,8 @@
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
       "authorizationServicesEnabled": false,
-      "protocolMappers": [
-        {
-          "name": "organization-membership",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-organization-membership-mapper",
-          "config": {
-            "claim.name": "organization",
-            "jsonType.label": "JSON",
-            "multivalued": "true",
-            "addOrganizationId": "true",
-            "access.token.claim": "true",
-            "id.token.claim": "true",
-            "userinfo.token.claim": "true",
-            "introspection.token.claim": "true"
-          }
-        },
-        {
-          "name": "order-api-audience",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-audience-mapper",
-          "config": {
-            "included.client.audience": "order-api",
-            "access.token.claim": "true",
-            "id.token.claim": "false"
-          }
-        },
-        {
-          "name": "pricing-api-audience",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-audience-mapper",
-          "config": {
-            "included.client.audience": "pricing-api",
-            "access.token.claim": "true",
-            "id.token.claim": "false"
-          }
-        },
-        {
-          "name": "public-gateway-audience",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-audience-mapper",
-          "config": {
-            "included.client.audience": "public-gateway",
-            "access.token.claim": "true",
-            "id.token.claim": "false"
-          }
-        }
-      ]
+      "defaultClientScopes": ["organization", "basic", "profile", "email", "roles", "web-origins"],
+      "optionalClientScopes": ["order-api-audience", "pricing-api-audience", "public-gateway-audience", "basket-api-audience", "customer-api-audience", "inventory-api-audience", "billing-api-audience", "catalog-api-audience"]
     }
   ],
   "users": [
@@ -454,6 +924,61 @@
         {
           "type": "password",
           "value": "local-only-test-reader-password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "integration-no-access",
+      "email": "integration-no-access@teck.local",
+      "emailVerified": true,
+      "firstName": "Integration",
+      "lastName": "No Access",
+      "enabled": true,
+      "requiredActions": [],
+      "realmRoles": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "local-only-test-no-access-password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "integration-foreign-member",
+      "email": "integration-foreign-member@teck.local",
+      "emailVerified": true,
+      "firstName": "Integration",
+      "lastName": "Foreign Member",
+      "enabled": true,
+      "requiredActions": [],
+      "realmRoles": [
+        "platform-reader"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "local-only-test-foreign-password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "integration-foreign-manager",
+      "email": "integration-foreign-manager@teck.local",
+      "emailVerified": true,
+      "firstName": "Integration",
+      "lastName": "Foreign Manager",
+      "enabled": true,
+      "requiredActions": [],
+      "realmRoles": [
+        "platform-manager"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "local-only-test-foreign-manager-password",
           "temporary": false
         }
       ]

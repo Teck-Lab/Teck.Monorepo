@@ -30,53 +30,61 @@ public sealed class KeycloakTestRealmFixture : IAsyncLifetime
     /// <summary>Gets the generated organization ID emitted in signed tokens.</summary>
     public string OrganizationId { get; private set; } = string.Empty;
 
+    /// <summary>Gets the generated foreign organization ID emitted in signed tokens.</summary>
+    public string ForeignOrganizationId { get; private set; } = string.Empty;
     private async Task ProvisionOrganizationAsync()
     {
         using var client = new HttpClient { BaseAddress = new Uri(Container.GetBaseAddress(), UriKind.Absolute) };
         string root = FindRepositoryRoot();
         using JsonDocument manifest = JsonDocument.Parse(await File.ReadAllTextAsync(
             Path.Combine(root, "tests", "integration", "Teck.Platform.IntegrationTests.Shared", "test-organizations.json")).ConfigureAwait(false));
-        JsonElement organization = manifest.RootElement.GetProperty("organizations").EnumerateArray()
-            .Single(item => item.GetProperty("alias").GetString() == "teck-local-alpha");
+        foreach (JsonElement organization in manifest.RootElement.GetProperty("organizations").EnumerateArray())
+        {
+            string alias = organization.GetProperty("alias").GetString()!;
+            using var tokenResponse = await client.PostAsync(
+                "/realms/master/protocol/openid-connect/token",
+                new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["grant_type"] = "password",
+                    ["client_id"] = "admin-cli",
+                    ["username"] = "admin",
+                    ["password"] = AdminPassword,
+                })).ConfigureAwait(false);
+            tokenResponse.EnsureSuccessStatusCode();
+            using JsonDocument token = JsonDocument.Parse(await tokenResponse.Content.ReadAsStreamAsync().ConfigureAwait(false));
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.RootElement.GetProperty("access_token").GetString());
 
-        using var tokenResponse = await client.PostAsync(
-            "/realms/master/protocol/openid-connect/token",
-            new FormUrlEncodedContent(new Dictionary<string, string>
+            var organizationRequest = new
             {
-                ["grant_type"] = "password",
-                ["client_id"] = "admin-cli",
-                ["username"] = "admin",
-                ["password"] = AdminPassword,
-            })).ConfigureAwait(false);
-        tokenResponse.EnsureSuccessStatusCode();
-        using JsonDocument token = JsonDocument.Parse(await tokenResponse.Content.ReadAsStreamAsync().ConfigureAwait(false));
-        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.RootElement.GetProperty("access_token").GetString());
+                name = organization.GetProperty("name").GetString(),
+                alias,
+                enabled = organization.GetProperty("enabled").GetBoolean(),
+                domains = organization.GetProperty("domains"),
+            };
+            using var createResponse = await client.PostAsJsonAsync($"/admin/realms/{Realm}/organizations", organizationRequest).ConfigureAwait(false);
+            createResponse.EnsureSuccessStatusCode();
+            string location = createResponse.Headers.Location?.ToString() ?? throw new InvalidOperationException("Keycloak did not return the created organization location.");
+            string organizationId = Uri.UnescapeDataString(location.TrimEnd('/').Split('/').Last());
+            if (alias == "teck-local-alpha") OrganizationId = organizationId;
+            else if (alias == "teck-local-foreign") ForeignOrganizationId = organizationId;
 
-        var organizationRequest = new
-        {
-            name = organization.GetProperty("name").GetString(),
-            alias = organization.GetProperty("alias").GetString(),
-            enabled = organization.GetProperty("enabled").GetBoolean(),
-            domains = organization.GetProperty("domains"),
-        };
-        using var createResponse = await client.PostAsJsonAsync($"/admin/realms/{Realm}/organizations", organizationRequest).ConfigureAwait(false);
-        createResponse.EnsureSuccessStatusCode();
-        string location = createResponse.Headers.Location?.ToString() ?? throw new InvalidOperationException("Keycloak did not return the created organization location.");
-        OrganizationId = Uri.UnescapeDataString(location.TrimEnd('/').Split('/').Last());
-
-        foreach (JsonElement member in organization.GetProperty("members").EnumerateArray())
-        {
-            string username = member.GetString()!;
-            using var usersResponse = await client.GetAsync($"/admin/realms/{Realm}/users?username={Uri.EscapeDataString(username)}&exact=true").ConfigureAwait(false);
-            usersResponse.EnsureSuccessStatusCode();
-            using JsonDocument users = JsonDocument.Parse(await usersResponse.Content.ReadAsStreamAsync().ConfigureAwait(false));
-            string userId = users.RootElement.EnumerateArray().Single().GetProperty("id").GetString()!;
-            using var memberResponse = await client.PostAsJsonAsync(
-                $"/admin/realms/{Realm}/organizations/{Uri.EscapeDataString(OrganizationId)}/members",
-                userId).ConfigureAwait(false);
-            memberResponse.EnsureSuccessStatusCode();
+            foreach (JsonElement member in organization.GetProperty("members").EnumerateArray())
+            {
+                string username = member.GetString()!;
+                using var usersResponse = await client.GetAsync($"/admin/realms/{Realm}/users?username={Uri.EscapeDataString(username)}&exact=true").ConfigureAwait(false);
+                usersResponse.EnsureSuccessStatusCode();
+                using JsonDocument users = JsonDocument.Parse(await usersResponse.Content.ReadAsStreamAsync().ConfigureAwait(false));
+                string userId = users.RootElement.EnumerateArray().Single().GetProperty("id").GetString()!;
+                using var memberResponse = await client.PostAsJsonAsync(
+                    $"/admin/realms/{Realm}/organizations/{Uri.EscapeDataString(organizationId)}/members",
+                    userId).ConfigureAwait(false);
+                memberResponse.EnsureSuccessStatusCode();
+            }
         }
+
+
     }
+
 
     private static string FindRepositoryRoot()
     {
@@ -112,7 +120,8 @@ public sealed class KeycloakTestRealmFixture : IAsyncLifetime
         string password,
         string clientId,
         CancellationToken cancellationToken = default,
-        string? clientSecret = null)
+        string? clientSecret = null,
+        string? requestedScope = null)
     {
         using var client = new HttpClient();
         var form = new List<KeyValuePair<string, string>>
@@ -121,7 +130,9 @@ public sealed class KeycloakTestRealmFixture : IAsyncLifetime
             new("client_id", clientId),
             new("username", username),
             new("password", password),
-            new("scope", "openid organization:*"),
+            new("scope", requestedScope is null
+                ? "openid organization:* order-api-audience pricing-api-audience public-gateway-audience basket-api-audience customer-api-audience inventory-api-audience billing-api-audience catalog-api-audience"
+                : $"openid organization:* {requestedScope}"),
         };
         if (clientSecret is not null)
         {
@@ -132,7 +143,11 @@ public sealed class KeycloakTestRealmFixture : IAsyncLifetime
             $"{Authority}/protocol/openid-connect/token",
             new FormUrlEncodedContent(form),
             cancellationToken).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            string error = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            throw new HttpRequestException($"Keycloak token request failed with {(int)response.StatusCode}: {error}");
+        }
 
         using JsonDocument document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false));
         return document.RootElement.GetProperty("access_token").GetString()!;
