@@ -50,8 +50,8 @@ public sealed class RoutedAudienceContractTests
             JsonElement realmClient = realm.RootElement.GetProperty("clients").EnumerateArray()
                 .Single(client => client.GetProperty("clientId").GetString() == clientId);
 
-            Assert.Equal(realmClient.GetProperty("secret").GetString(), secret);
-            Assert.StartsWith("local-only-", secret, StringComparison.Ordinal);
+            Assert.Equal($"REPLACE_WITH_ENVIRONMENT_SECRET_{clientId.Replace('-', '_').ToUpperInvariant()}", realmClient.GetProperty("secret").GetString());
+            Assert.StartsWith("local-only-", secret);
             Assert.EndsWith("-secret-not-for-production", secret, StringComparison.Ordinal);
         }
     }

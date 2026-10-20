@@ -35,12 +35,12 @@ public sealed class RealmReconcilerTests
         Assert.Equal(firstState.Roles, handler.State.Roles);
         Assert.Equal(firstState.Clients, handler.State.Clients);
         Assert.Equal(firstState.Users, handler.State.Users);
-        Assert.Equal(2, handler.State.Roles.Length);
-        Assert.Equal(5, handler.State.Clients.Length);
-        Assert.Equal(2, handler.State.Users.Length);
+        Assert.Equal(manifest.RootElement.GetProperty("roles").GetProperty("realm").GetArrayLength(), handler.State.Roles.Length);
+        Assert.Equal(manifest.RootElement.GetProperty("clients").GetArrayLength(), handler.State.Clients.Length);
+        Assert.Equal(manifest.RootElement.GetProperty("users").GetArrayLength(), handler.State.Users.Length);
         Assert.True(handler.State.OrganizationsEnabled);
         Assert.True(handler.MutatingRequestCount == 0, $"Unexpected mutations: {string.Join(", ", handler.MutatingRequests.Select(request => $"{request.Method} {request.Path}"))}");
-        Assert.Equal(2, handler.CreatedUsersWithCredentials);
+        Assert.Equal(manifest.RootElement.GetProperty("users").EnumerateArray().Count(user => user.TryGetProperty("credentials", out JsonElement credentials) && credentials.GetArrayLength() > 0), handler.CreatedUsersWithCredentials);
     }
 
     /// <summary>Ensures retained resource-server settings are repaired through the supported base endpoint and then converge.</summary>
@@ -190,6 +190,7 @@ public sealed class RealmReconcilerTests
                 return Empty(HttpStatusCode.MethodNotAllowed);
             }
 
+
             if (path.EndsWith("/authz/resource-server", StringComparison.Ordinal))
             {
                 if (request.Method != HttpMethod.Put)
@@ -209,7 +210,10 @@ public sealed class RealmReconcilerTests
             {
                 if (!string.IsNullOrEmpty(request.RequestUri.Query))
                 {
-                    return Json(HttpStatusCode.OK, ToJson(collection.Values.Where(value => Identity(collectionPath, value) == key)));
+                    string queryName = request.RequestUri.Query.Split('&')[0].Split('=')[0].TrimStart('?');
+                    string identityName = collectionPath.EndsWith("/clients", StringComparison.Ordinal) ? "clientId" :
+                        collectionPath.EndsWith("/users", StringComparison.Ordinal) ? "username" : "name";
+                    return Json(HttpStatusCode.OK, ToJson(collection.Values.Where(value => Identity(collectionPath, value) == key && queryName == identityName)));
                 }
 
                 if (key is null)

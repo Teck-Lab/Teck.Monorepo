@@ -30,7 +30,7 @@ public static class CheckoutHandler
         CancellationToken ct)
     {
         var basket = await repository.FirstOrDefaultAsync(new BasketByIdSpec(command.BasketId), enableTracking: true, ct).ConfigureAwait(false)
-            ?? throw new InvalidOperationException($"Basket '{command.BasketId}' was not found.");
+            ?? throw new KeyNotFoundException($"Basket '{command.BasketId}' was not found.");
 
         if (string.IsNullOrWhiteSpace(identity.Subject))
         {
