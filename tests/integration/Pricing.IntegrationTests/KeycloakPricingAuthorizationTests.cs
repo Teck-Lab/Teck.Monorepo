@@ -104,10 +104,8 @@ public sealed class KeycloakPricingAuthorizationTests : IAsyncLifetime
         {
             issuer = tokenPayload.RootElement.GetProperty("iss").GetString()!;
             JsonElement memberships = tokenPayload.RootElement.GetProperty("organization");
-            Assert.Equal(JsonValueKind.Array, memberships.ValueKind);
-            JsonElement membership = memberships.EnumerateArray().Single(value => value.ValueKind == JsonValueKind.Object);
-            organizationId = membership.EnumerateObject()
-                .Select(value => value.Value.TryGetProperty("id", out JsonElement id) ? id.GetString() : null)
+            organizationId = memberships.EnumerateObject()
+                .Select(value => value.Value.GetProperty("id").GetString())
                 .Single(id => !string.IsNullOrWhiteSpace(id))!;
         }
 
@@ -124,6 +122,47 @@ public sealed class KeycloakPricingAuthorizationTests : IAsyncLifetime
         Assert.NotNull(roundTripped);
         Assert.Equal(created.Id, roundTripped.Id);
         Assert.Equal(request.name, roundTripped.Name);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", readerToken);
+        using HttpResponseMessage readerReadResponse = await client.GetAsync($"/price-lists/{created.Id}").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, readerReadResponse.StatusCode);
+        Guid productId = Guid.NewGuid();
+        var priceRequest = new { id = created.Id, productId, amount = 12.50m, tiers = Array.Empty<object>() };
+        using HttpResponseMessage readerManageResponse = await client.PutAsJsonAsync(
+            $"/price-lists/{created.Id}/prices/{productId}", priceRequest).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Forbidden, readerManageResponse.StatusCode);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using HttpResponseMessage managerMutationResponse = await client.PutAsJsonAsync(
+            $"/price-lists/{created.Id}/prices/{productId}", priceRequest).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, managerMutationResponse.StatusCode);
+        using HttpResponseMessage managerReadResponse = await client.GetAsync($"/price-lists/{created.Id}").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, managerReadResponse.StatusCode);
+        PriceListDto? managerReadBack = await managerReadResponse.Content.ReadFromJsonAsync<PriceListDto>().ConfigureAwait(false);
+        Assert.NotNull(managerReadBack);
+        Assert.Contains(managerReadBack.Prices, price => price.ProductId == productId && price.Amount == 12.50m);
+        string wrongAudienceToken = await keycloak.GetUserTokenAsync(
+            Manager, ManagerPassword, PricingClientId, clientSecret: PricingClientSecret,
+            requestedScope: "order-api-audience").ConfigureAwait(false);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", wrongAudienceToken);
+        using HttpResponseMessage wrongAudienceRead = await client.GetAsync($"/price-lists/{created.Id}").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Unauthorized, wrongAudienceRead.StatusCode);
+
+        string foreignToken = await keycloak.GetUserTokenAsync(
+            "integration-foreign-manager", "local-only-test-foreign-manager-password", PricingClientId,
+            clientSecret: PricingClientSecret).ConfigureAwait(false);
+        using (JsonDocument foreignPayload = ReadTokenPayload(foreignToken))
+        {
+            Assert.Contains(keycloak.ForeignOrganizationId, foreignPayload.RootElement.GetProperty("organization")
+                .EnumerateObject().Select(value => value.Value.GetProperty("id").GetString()));
+        }
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", foreignToken);
+        using HttpResponseMessage foreignRead = await client.GetAsync($"/price-lists/{created.Id}").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, foreignRead.StatusCode);
+        Assert.Empty(await foreignRead.Content.ReadAsStringAsync().ConfigureAwait(false));
+        using HttpResponseMessage foreignMutation = await client.PutAsJsonAsync(
+            $"/price-lists/{created.Id}/prices/{productId}", new { id = created.Id, productId, amount = 999m, tiers = Array.Empty<object>() }).ConfigureAwait(false);
+
         var options = new DbContextOptionsBuilder<PricingDbContext>()
             .UseNpgsql(connectionString)
             .UseTeckCloudTenant(organizationId)
@@ -131,6 +170,10 @@ public sealed class KeycloakPricingAuthorizationTests : IAsyncLifetime
         await using var db = new PricingDbContext(options, null!);
         var persisted = await db.PriceLists.SingleAsync(list => list.Id == created.Id).ConfigureAwait(false);
         Assert.Equal(request.name, persisted.Name);
+        var persistedPrice = await db.Prices.SingleAsync(price => price.PriceListId == created.Id && price.ProductId == productId).ConfigureAwait(false);
+        Assert.Equal(12.50m, persistedPrice.Amount.Amount);
+        Assert.Equal(HttpStatusCode.OK, foreignMutation.StatusCode);
+        Assert.Empty(await foreignMutation.Content.ReadAsStringAsync().ConfigureAwait(false));
     }
 
     /// <inheritdoc />

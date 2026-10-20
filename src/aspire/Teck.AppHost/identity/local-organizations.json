@@ -5,7 +5,7 @@
       "alias": "teck-local-alpha",
       "enabled": true,
       "domains": [{ "name": "alpha.teck.local", "verified": false }],
-      "members": ["dev@teck.local", "dev-reader@teck.local"],
+      "members": ["dev@teck.local", "dev-reader@teck.local", "integration-manager", "integration-reader"],
       "tenant": {
         "identifier": "teck-local-alpha",
         "databaseStrategy": "shared",
