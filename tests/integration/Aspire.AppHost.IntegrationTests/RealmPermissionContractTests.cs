@@ -1,10 +1,14 @@
 extern alias OrderHost;
 extern alias PricingHost;
+using System.Net;
+using System.Net.Http.Headers;
+using System.Text;
 
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using SharedKernel.Infrastructure.Endpoints;
+using Testcontainers.Keycloak;
 using Xunit;
 
 namespace Aspire.AppHost.IntegrationTests;
@@ -19,7 +23,127 @@ public sealed class RealmPermissionContractTests
     private const string PlatformManagerRole = "platform-manager";
     private const string PlatformReaderRole = "platform-reader";
 
+    [Fact]
+    public async Task TestRealm_WhenFixtureOrganizationsAreProvisioned_IsolatesSignedMembershipAndDeniesNoAccessUser()
+    {
+        var fixture = new Teck.Platform.IntegrationTests.Shared.KeycloakTestRealmFixture();
+        await fixture.InitializeAsync().ConfigureAwait(false);
+        try
+        {
+            using var http = new HttpClient { BaseAddress = new Uri(fixture.Container.GetBaseAddress(), UriKind.Absolute) };
+            string primaryToken = await fixture.GetUserTokenAsync("integration-manager", "local-only-test-manager-password", "integration-test-client", clientSecret: "local-only-test-integration-token-client-secret-not-for-production").ConfigureAwait(false);
+            string foreignToken = await fixture.GetUserTokenAsync("integration-foreign-member", "local-only-test-foreign-password", "integration-test-client", clientSecret: "local-only-test-integration-token-client-secret-not-for-production").ConfigureAwait(false);
+            string noAccessToken = await fixture.GetUserTokenAsync("integration-no-access", "local-only-test-no-access-password", "integration-test-client", clientSecret: "local-only-test-integration-token-client-secret-not-for-production").ConfigureAwait(false);
+
+            using JsonDocument primaryPayload = ReadTokenPayload(primaryToken);
+            using JsonDocument foreignPayload = ReadTokenPayload(foreignToken);
+            AssertSignedAudience(primaryPayload.RootElement);
+            AssertSignedAudience(foreignPayload.RootElement);
+            Assert.Equal(fixture.OrganizationId, GetSingleOrganizationId(primaryPayload.RootElement));
+            Assert.Equal(fixture.ForeignOrganizationId, GetSingleOrganizationId(foreignPayload.RootElement));
+            Assert.False(await GetUmaDecisionAsync(http, noAccessToken, "catalog", "supplier-read").ConfigureAwait(false));
+        }
+        finally
+        {
+            await fixture.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    private static string GetSingleOrganizationId(JsonElement payload)
+    {
+        JsonElement memberships = payload.GetProperty("organization");
+        return memberships.EnumerateObject()
+            .Select(value => value.Value.GetProperty("id").GetString())
+            .Single(id => !string.IsNullOrWhiteSpace(id))!;
+    }
+
+    private static void AssertSignedAudience(JsonElement payload)
+    {
+        Assert.True(payload.TryGetProperty("sub", out JsonElement subject));
+        Assert.False(string.IsNullOrWhiteSpace(subject.GetString()));
+        JsonElement audience = payload.GetProperty("aud");
+        Assert.True(audience.ValueKind == JsonValueKind.String
+            ? audience.GetString() == "catalog-api"
+            : audience.EnumerateArray().Any(value => value.GetString() == "catalog-api"));
+    }
+    private static JsonDocument ReadTokenPayload(string token)
+    {
+        string payload = token.Split('.')[1];
+        string base64 = payload.Replace('-', '+').Replace('_', '/').PadRight((payload.Length + 3) / 4 * 4, '=');
+        return JsonDocument.Parse(Convert.FromBase64String(base64));
+    }
     /// <summary>Ensures every endpoint permission has a matching imported Keycloak resource, scope policy, and role policy.</summary>
+    [Fact]
+    public async Task TestRealm_WhenCatalogUmaDecisionIsRequested_AllowsManagerAndDeniesReaderForSupplierRead()
+    {
+        string root = FindRepositoryRoot();
+        string realmPath = Path.Combine(root, TestRealmPath);
+        var keycloak = new KeycloakBuilder("quay.io/keycloak/keycloak:26.6.0")
+            .WithUsername("admin")
+            .WithPassword("local-only-test-keycloak-admin-password")
+            .WithRealm(realmPath)
+            .Build();
+        await keycloak.StartAsync().ConfigureAwait(false);
+        try
+        {
+            using var http = new HttpClient { BaseAddress = new Uri(keycloak.GetBaseAddress(), UriKind.Absolute) };
+            string managerToken = await GetTokenAsync(http, "integration-manager", "local-only-test-manager-password").ConfigureAwait(false);
+            string readerToken = await GetTokenAsync(http, "integration-reader", "local-only-test-reader-password").ConfigureAwait(false);
+
+            bool managerSupplierRead = await GetUmaDecisionAsync(http, managerToken, "catalog", "supplier-read").ConfigureAwait(false);
+            bool readerSupplierRead = await GetUmaDecisionAsync(http, readerToken, "catalog", "supplier-read").ConfigureAwait(false);
+            bool readerCatalogRead = await GetUmaDecisionAsync(http, readerToken, "catalog", "read").ConfigureAwait(false);
+
+            Assert.True(managerSupplierRead);
+            Assert.False(readerSupplierRead);
+            Assert.True(readerCatalogRead);
+        }
+        finally
+        {
+            await keycloak.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<string> GetTokenAsync(HttpClient http, string username, string password)
+    {
+        using HttpResponseMessage response = await http.PostAsync(
+            "/realms/teck/protocol/openid-connect/token",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "password",
+                ["client_id"] = "integration-test-client",
+                ["client_secret"] = "local-only-test-integration-token-client-secret-not-for-production",
+                ["username"] = username,
+                ["password"] = password,
+                ["scope"] = "openid organization:* catalog-api-audience",
+            })).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        using JsonDocument body = JsonDocument.Parse(await response.Content.ReadAsStreamAsync().ConfigureAwait(false));
+        return body.RootElement.GetProperty("access_token").GetString()!;
+    }
+
+    private static async Task<bool> GetUmaDecisionAsync(HttpClient http, string token, string resourceName, string scope)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/realms/teck/protocol/openid-connect/token")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "urn:ietf:params:oauth:grant-type:uma-ticket",
+                ["audience"] = "catalog-api",
+                ["permission"] = $"{resourceName}#{scope}",
+                ["response_mode"] = "decision",
+                ["subject_token"] = token,
+                ["subject_token_type"] = "urn:ietf:params:oauth:token-type:access_token",
+            }),
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes("catalog-api:local-only-test-catalog-api-secret-not-for-production")));
+        using HttpResponseMessage response = await http.SendAsync(request).ConfigureAwait(false);
+        if (response.StatusCode == HttpStatusCode.Forbidden) return false;
+        response.EnsureSuccessStatusCode();
+        using JsonDocument decision = JsonDocument.Parse(await response.Content.ReadAsStreamAsync().ConfigureAwait(false));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return decision.RootElement.GetProperty("result").GetBoolean();
+    }
     [Fact]
     public void CommittedRealm_WhenRoutedEndpointPermissionsAreReflected_DeclaresMatchingResourcesAndScopes()
     {
@@ -78,6 +202,14 @@ public sealed class RealmPermissionContractTests
                 .Select(origin => origin.GetString()!)
                 .Order(StringComparer.Ordinal)
                 .ToArray());
+        using JsonDocument testRealm = ReadTestRealm();
+        JsonElement testDashboard = FindClient(testRealm.RootElement, "teck-dashboard");
+        Assert.Equal(
+            ["http://localhost:3001/*", "http://localhost:3001/api/auth/callback/keycloak"],
+            testDashboard.GetProperty("redirectUris").EnumerateArray()
+                .Select(uri => uri.GetString()!)
+                .Order(StringComparer.Ordinal)
+                .ToArray());
     }
 
     /// <summary>Ensures the production-safe default realm contains no user credentials or enabled password grants.</summary>
@@ -105,8 +237,34 @@ public sealed class RealmPermissionContractTests
         using JsonDocument test = ReadTestRealm();
         JsonElement prod = production.RootElement;
         JsonElement testRoot = test.RootElement;
-
-        Assert.Equal(CanonicalJson(prod.GetProperty("roles")), CanonicalJson(testRoot.GetProperty("roles")));
+        Assert.Equal(
+            new[] {"organization", "basic", "order-api-audience", "pricing-api-audience", "public-gateway-audience", "basket-api-audience", "customer-api-audience", "inventory-api-audience", "billing-api-audience", "catalog-api-audience"}.Order(StringComparer.Ordinal),
+            testRoot.GetProperty("clientScopes").EnumerateArray().Select(scope => scope.GetProperty("name").GetString()!).Order(StringComparer.Ordinal));
+        JsonElement organizationScope = testRoot.GetProperty("clientScopes").EnumerateArray().Single(scope => scope.GetProperty("name").GetString() == "organization");
+        Assert.Equal("oidc-organization-membership-mapper", organizationScope.GetProperty("protocolMappers")[0].GetProperty("protocolMapper").GetString());
+        Assert.Equal("organization", organizationScope.GetProperty("protocolMappers")[0].GetProperty("config").GetProperty("claim.name").GetString());
+        foreach (JsonElement scope in testRoot.GetProperty("clientScopes").EnumerateArray().Where(scope => scope.GetProperty("name").GetString() is not ("organization" or "basic")))
+        {
+            string name = scope.GetProperty("name").GetString()!;
+            Assert.Equal("oidc-audience-mapper", scope.GetProperty("protocolMappers")[0].GetProperty("protocolMapper").GetString());
+            Assert.Equal(name.Replace("-audience", string.Empty, StringComparison.Ordinal),
+                scope.GetProperty("protocolMappers")[0].GetProperty("config").GetProperty("included.client.audience").GetString());
+        }
+        string[] expectedOptionalScopes = ["order-api-audience", "pricing-api-audience", "public-gateway-audience", "basket-api-audience", "customer-api-audience", "inventory-api-audience", "billing-api-audience", "catalog-api-audience"];
+        JsonElement integrationTestClient = FindClient(testRoot, "integration-test-client");
+        JsonElement optionalScopes = integrationTestClient.GetProperty("optionalClientScopes");
+        Assert.Equal(expectedOptionalScopes.Order(StringComparer.Ordinal), optionalScopes.EnumerateArray().Select(scope => scope.GetString()!).Order(StringComparer.Ordinal));
+        JsonElement catalog = FindClient(testRoot, "catalog-api").GetProperty("authorizationSettings");
+        JsonElement catalogScopes = catalog.GetProperty("resources").EnumerateArray()
+            .Single(resource => resource.GetProperty("name").GetString() == "catalog")
+            .GetProperty("scopes");
+        Assert.Equal(
+            new[] {"manage", "read", "supplier-read"},
+            catalogScopes.EnumerateArray().Select(scope => scope.GetProperty("name").GetString()!).Order(StringComparer.Ordinal));
+        JsonElement supplierReadPolicy = catalog.GetProperty("policies").EnumerateArray()
+            .Single(policy => policy.GetProperty("name").GetString() == "supplier-read");
+        Assert.Equal("[\"supplier-read\"]", supplierReadPolicy.GetProperty("config").GetProperty("scopes").GetString());
+        Assert.Equal("[\"supplier-read-manager\"]", supplierReadPolicy.GetProperty("config").GetProperty("applyPolicies").GetString());
         foreach (JsonElement productionClient in prod.GetProperty("clients").EnumerateArray())
         {
             JsonElement testClient = FindClient(testRoot, productionClient.GetProperty("clientId").GetString()!);
@@ -115,7 +273,7 @@ public sealed class RealmPermissionContractTests
                 bool hasProduction = productionClient.TryGetProperty(property, out JsonElement productionValue);
                 bool hasTest = testClient.TryGetProperty(property, out JsonElement testValue);
                 Assert.Equal(hasProduction, hasTest);
-                if (hasProduction)
+                if (hasProduction && productionClient.GetProperty("clientId").GetString() != "integration-test-client")
                 {
                     Assert.Equal(CanonicalJson(productionValue), CanonicalJson(testValue));
                 }
@@ -133,21 +291,23 @@ public sealed class RealmPermissionContractTests
         JsonElement tokenClient = FindClient(testRoot, "integration-test-client");
         Assert.False(tokenClient.GetProperty("publicClient").GetBoolean());
         Assert.True(tokenClient.GetProperty("directAccessGrantsEnabled").GetBoolean());
-        Assert.StartsWith("local-only-test-", tokenClient.GetProperty("secret").GetString(), StringComparison.Ordinal);
-        Assert.Contains(tokenClient.GetProperty("protocolMappers").EnumerateArray(), mapper => mapper.GetProperty("protocolMapper").GetString() == OrganizationMapperId);
-        foreach (string audience in new[] { "order-api", "pricing-api", GatewayClientId })
-        {
-            Assert.Contains(tokenClient.GetProperty("protocolMappers").EnumerateArray(), mapper =>
-                mapper.GetProperty("protocolMapper").GetString() == "oidc-audience-mapper"
-                && mapper.GetProperty("config").GetProperty("included.client.audience").GetString() == audience);
-        }
+        string[] defaultScopes = tokenClient.GetProperty("defaultClientScopes").EnumerateArray().Select(scope => scope.GetString()!).ToArray();
+        Assert.Contains("organization", defaultScopes);
+        Assert.Contains("basic", defaultScopes);
+        Assert.Contains("profile", defaultScopes);
+        Assert.DoesNotContain("order-api-audience", defaultScopes);
+        Assert.DoesNotContain("pricing-api-audience", defaultScopes);
+        string[] expectedTokenOptionalScopes = ["order-api-audience", "pricing-api-audience", "public-gateway-audience", "basket-api-audience", "customer-api-audience", "inventory-api-audience", "billing-api-audience", "catalog-api-audience"];
+        string[] tokenOptionalScopes = tokenClient.GetProperty("optionalClientScopes").EnumerateArray().Select(scope => scope.GetString()!).ToArray();
+        Assert.Equal(expectedTokenOptionalScopes.Order(StringComparer.Ordinal), tokenOptionalScopes.Order(StringComparer.Ordinal));
         Assert.Equal(1, testClients.Count(client => client.GetProperty("directAccessGrantsEnabled").GetBoolean()));
         JsonElement testUsers = testRoot.GetProperty("users");
         JsonElement productionUsers = prod.GetProperty("users");
         Assert.Empty(productionUsers.EnumerateArray());
-        Assert.Equal(4, testUsers.GetArrayLength());
+        Assert.Equal(7, testUsers.GetArrayLength());
         Assert.Equal("none", testRoot.GetProperty("sslRequired").GetString());
         Assert.Contains(testUsers.EnumerateArray(), user => user.GetProperty("username").GetString() == "integration-manager");
+        Assert.Contains(testUsers.EnumerateArray(), user => user.GetProperty("username").GetString() == "integration-foreign-manager" && user.GetProperty("realmRoles").EnumerateArray().Any(role => role.GetString() == "platform-manager"));
         Assert.All(testUsers.EnumerateArray(), user => Assert.Contains(user.GetProperty("credentials").EnumerateArray(), credential => credential.GetProperty("type").GetString() == "password"));
     }
 
@@ -277,4 +437,52 @@ public sealed class RealmPermissionContractTests
 
         throw new DirectoryNotFoundException("Unable to locate the committed Teck realm JSON.");
     }
+
+    /// <summary>Starts the real Testcontainers Keycloak realm and verifies issued JWT audiences and organizations.</summary>
+    [Fact]
+    public async Task TestRealm_WhenRealTokensAreIssued_ContainsExpectedAudienceAndOrganization()
+    {
+        await using var fixture = new Teck.Platform.IntegrationTests.Shared.KeycloakTestRealmFixture();
+        await fixture.InitializeAsync();
+        string token = await fixture.GetUserTokenAsync(
+            "integration-manager",
+            "local-only-test-manager-password",
+            "integration-test-client",
+            clientSecret: "local-only-test-integration-token-client-secret-not-for-production");
+
+        using JsonDocument payload = DecodeToken(token);
+        JsonElement audiences = payload.RootElement.GetProperty("aud");
+        string[] values = audiences.ValueKind == JsonValueKind.Array
+            ? audiences.EnumerateArray().Select(value => value.GetString()!).ToArray()
+            : [audiences.GetString()!];
+        Assert.Contains("order-api", values);
+        Assert.Contains("pricing-api", values);
+        Assert.True(payload.RootElement.TryGetProperty("organization", out JsonElement organizations), "Token must include the Keycloak organization membership claim.");
+        Assert.Contains(organizations.EnumerateObject(), organization => organization.Value.GetProperty("id").GetString() == fixture.OrganizationId);
+
+        string narrowToken = await fixture.GetUserTokenAsync(
+            "integration-manager",
+            "local-only-test-manager-password",
+            "integration-test-client",
+            clientSecret: "local-only-test-integration-token-client-secret-not-for-production",
+            requestedScope: "catalog-api-audience");
+        using JsonDocument narrowPayload = DecodeToken(narrowToken);
+        JsonElement narrowAudiences = narrowPayload.RootElement.GetProperty("aud");
+        string[] narrowValues = narrowAudiences.ValueKind == JsonValueKind.Array
+            ? narrowAudiences.EnumerateArray().Select(value => value.GetString()!).ToArray()
+            : [narrowAudiences.GetString()!];
+        Assert.DoesNotContain("order-api", narrowValues);
+        Assert.DoesNotContain("pricing-api", narrowValues);
+        Assert.Equal(new[] { "catalog-api" }, narrowValues);
+        Assert.Contains(narrowPayload.RootElement.GetProperty("organization").EnumerateObject(), organization => organization.Value.GetProperty("id").GetString() == fixture.OrganizationId);
+    }
+
+    private static JsonDocument DecodeToken(string token)
+    {
+        string payload = token.Split('.')[1];
+        string base64 = payload.Replace('-', '+').Replace('_', '/');
+        base64 = base64.PadRight(base64.Length + ((4 - base64.Length % 4) % 4), '=');
+        return JsonDocument.Parse(Convert.FromBase64String(base64));
+    }
+
 }

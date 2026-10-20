@@ -144,7 +144,7 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
                 new KeyValuePair<string, string>("client_secret", TestTokenClientSecret),
                 new KeyValuePair<string, string>("username", username),
                 new KeyValuePair<string, string>("password", password),
-                new KeyValuePair<string, string>("scope", "openid organization:*"),
+                new KeyValuePair<string, string>("scope", "openid organization:* order-api-audience pricing-api-audience public-gateway-audience"),
             ]),
         };
         using HttpResponseMessage response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
