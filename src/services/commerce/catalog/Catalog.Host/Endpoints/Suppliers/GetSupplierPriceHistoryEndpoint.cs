@@ -11,7 +11,7 @@ public sealed class GetSupplierPriceHistoryEndpoint(IMessageBus bus)
     : AuthenticatedEndpoint<GetSupplierPriceHistoryRequest, IReadOnlyList<SupplierPriceHistoryDto>>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("catalog", "read", "public");
+    protected override EndpointPermission Permission => new("catalog", "supplier-read", "public");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(GetSupplierPriceHistoryRequest request, CancellationToken ct)
