@@ -32,8 +32,10 @@ public sealed class OrganizationReconcilerTests
         Assert.Equal(["teck-local-alpha", "teck-local-beta"], firstRun.Select(organization => organization.Alias).Order().ToArray());
         Assert.All(firstRun, organization => Assert.NotEqual(Guid.Empty, organization.Id));
         Assert.Equal(2, handler.Organizations.Count);
-        Assert.Equal(2, handler.Memberships["teck-local-alpha"].Count);
+        Assert.Equal(4, handler.Memberships["teck-local-alpha"].Count);
         Assert.Single(handler.Memberships["teck-local-beta"]);
+        Assert.Equal(new[] { "dev@teck.local", "dev-reader@teck.local", "integration-manager", "integration-reader" }.Order(StringComparer.Ordinal), handler.Memberships["teck-local-alpha"].Select(id => handler.UsersById[id]).Order(StringComparer.Ordinal));
+        Assert.Equal(new[] { "dev@teck.local" }.Order(StringComparer.Ordinal), handler.Memberships["teck-local-beta"].Select(id => handler.UsersById[id]).Order(StringComparer.Ordinal));
     }
 
     private static JsonDocument ReadCommittedOrganizationManifest()
@@ -57,9 +59,12 @@ public sealed class OrganizationReconcilerTests
         {
             ["dev@teck.local"] = Guid.NewGuid(),
             ["dev-reader@teck.local"] = Guid.NewGuid(),
+            ["integration-manager"] = Guid.NewGuid(),
+            ["integration-reader"] = Guid.NewGuid(),
         };
 
         internal Dictionary<string, JsonElement> Organizations => organizations;
+        internal Dictionary<Guid, string> UsersById => users.ToDictionary(pair => pair.Value, pair => pair.Key);
 
         internal Dictionary<string, HashSet<Guid>> Memberships { get; } = new(StringComparer.Ordinal);
 
@@ -91,9 +96,10 @@ public sealed class OrganizationReconcilerTests
             if (path == "/admin/realms/teck/users")
             {
                 string username = QueryValue(request.RequestUri, "username");
-                return users.TryGetValue(username, out Guid userId)
-                    ? Json(HttpStatusCode.OK, ToJson([JsonSerializer.SerializeToElement(new { id = userId, username })]))
-                    : Json(HttpStatusCode.OK, ToJson([]));
+                bool exact = QueryValue(request.RequestUri, "exact") == "true";
+                return Json(HttpStatusCode.OK, ToJson(users
+                    .Where(user => exact ? string.Equals(user.Key, username, StringComparison.Ordinal) : user.Key.Contains(username, StringComparison.Ordinal))
+                    .Select(user => JsonSerializer.SerializeToElement(new { id = user.Value, username = user.Key }))));
             }
 
             if (path.StartsWith("/admin/realms/teck/organizations/", StringComparison.Ordinal) && path.EndsWith("/members", StringComparison.Ordinal))
