@@ -171,7 +171,9 @@ public sealed class RealmReconciler
             }
             else if (!Contains(currentItem.Value, item))
             {
-                string id = currentItem.Value.TryGetProperty("id", out JsonElement value) ? RequiredString(value) : name;
+                string id = currentItem.Value.TryGetProperty("id", out JsonElement value) || currentItem.Value.TryGetProperty("_id", out value)
+                    ? RequiredString(value)
+                    : name;
                 await _client.PutAsync($"{collectionPath}/{Escape(id)}", item, cancellationToken).ConfigureAwait(false);
             }
         }

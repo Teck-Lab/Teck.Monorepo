@@ -41,6 +41,81 @@ public sealed class KeycloakOrderAuthorizationTests(KeycloakTestRealmFixture key
     }
 
     [Fact]
+    public async Task GetOrder_WithInvalidToken_IsUnauthorized()
+    {
+        string readerToken = await keycloak.GetUserTokenAsync("integration-reader", "local-only-test-reader-password", ClientId, clientSecret: ClientSecret).ConfigureAwait(false);
+        using JsonDocument payload = ReadTokenPayload(readerToken);
+        var options = new DbContextOptionsBuilder<OrderDbContext>()
+            .UseNpgsql(connectionString)
+            .UseTeckCloudTenant(keycloak.OrganizationId)
+            .Options;
+        Guid orderId;
+        await using (var database = new OrderDbContext(options, null!))
+        {
+            Order order = CreateActionRequiredOrder(payload.RootElement.GetProperty("sub").GetString()!, keycloak.OrganizationId);
+            database.Orders.Add(order);
+            await database.SaveChangesAsync().ConfigureAwait(false);
+            orderId = order.Id;
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/orders/{orderId}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "not-a-signed-jwt");
+        using HttpResponseMessage response = await client!.SendAsync(request).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RetryPayment_WithOtherRealKeycloakSubject_IsForbiddenWithoutPersistingRetry()
+    {
+        string ownerToken = await keycloak.GetUserTokenAsync("dev@teck.local", "local-only-dev-password-not-for-production", ClientId, clientSecret: ClientSecret).ConfigureAwait(false);
+        string managerToken = await keycloak.GetUserTokenAsync("integration-manager", "local-only-test-manager-password", ClientId, clientSecret: ClientSecret).ConfigureAwait(false);
+        using JsonDocument ownerPayload = ReadTokenPayload(ownerToken);
+        using JsonDocument managerPayload = ReadTokenPayload(managerToken);
+        string ownerSubject = ownerPayload.RootElement.GetProperty("sub").GetString()!;
+        Assert.NotEqual(ownerSubject, managerPayload.RootElement.GetProperty("sub").GetString());
+        var options = new DbContextOptionsBuilder<OrderDbContext>()
+            .UseNpgsql(connectionString)
+            .UseTeckCloudTenant(keycloak.OrganizationId)
+            .Options;
+        Guid orderId;
+        await using (var database = new OrderDbContext(options, null!))
+        {
+            Order order = CreateActionRequiredOrder(ownerSubject, keycloak.OrganizationId);
+            database.Orders.Add(order);
+            await database.SaveChangesAsync().ConfigureAwait(false);
+            orderId = order.Id;
+        }
+
+        string foreignToken = await keycloak.GetUserTokenAsync(
+            "integration-foreign-member", "local-only-test-foreign-password", ClientId,
+            clientSecret: ClientSecret).ConfigureAwait(false);
+        using (JsonDocument foreignPayload = ReadTokenPayload(foreignToken))
+        {
+            Assert.Contains(keycloak.ForeignOrganizationId, foreignPayload.RootElement.GetProperty("organization")
+                .EnumerateObject().Select(value => value.Value.GetProperty("id").GetString()));
+        }
+
+        client!.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", foreignToken);
+        using HttpResponseMessage foreignRead = await client.GetAsync($"/orders/{orderId}").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.NotFound, foreignRead.StatusCode);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", managerToken);
+        using HttpResponseMessage sameRoleRead = await client.GetAsync($"/orders/{orderId}").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, sameRoleRead.StatusCode);
+
+        string retryRequestId = $"other-subject-retry-{Guid.NewGuid():N}";
+        using HttpResponseMessage deniedRetry = await client.PostAsJsonAsync($"/orders/{orderId}/payment-retry",
+            new { requestId = retryRequestId, paymentMethodToken = "pm_test_replacement" }).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Forbidden, deniedRetry.StatusCode);
+        await using (var database = new OrderDbContext(options, null!))
+        {
+            Order persisted = await database.Orders.SingleAsync(order => order.Id == orderId).ConfigureAwait(false);
+            Assert.Equal(PaymentState.ActionRequired, persisted.PaymentState);
+            Assert.Null(persisted.RetryRequestId);
+            Assert.False(persisted.HasRecordedRetryRequest(retryRequestId));
+        }
+    }
+
+    [Fact]
     public async Task GetOrder_WithRealKeycloakMembership_EnforcesPermissionAndReturnsPersistedTenantOrder()
     {
         string readerToken = await keycloak.GetUserTokenAsync("integration-reader", "local-only-test-reader-password", ClientId, clientSecret: ClientSecret).ConfigureAwait(false);
@@ -51,9 +126,8 @@ public sealed class KeycloakOrderAuthorizationTests(KeycloakTestRealmFixture key
             ? audience.GetString() == "order-api"
             : audience.EnumerateArray().Any(value => value.GetString() == "order-api"));
         JsonElement memberships = payload.RootElement.GetProperty("organization");
-        JsonElement membership = memberships.EnumerateArray().Single(value => value.ValueKind == JsonValueKind.Object);
-        string organizationId = membership.EnumerateObject()
-            .Select(value => value.Value.TryGetProperty("id", out JsonElement id) ? id.GetString() : null)
+        string organizationId = memberships.EnumerateObject()
+            .Select(value => value.Value.GetProperty("id").GetString())
             .Single(id => !string.IsNullOrWhiteSpace(id))!;
         Assert.Equal(keycloak.OrganizationId, organizationId);
         using JsonDocument managerPayload = ReadTokenPayload(managerToken);
@@ -66,8 +140,10 @@ public sealed class KeycloakOrderAuthorizationTests(KeycloakTestRealmFixture key
         Guid managerOrderId;
         await using (var database = new OrderDbContext(options, null!))
         {
-            Order readerOrder = CreateActionRequiredOrder(payload.RootElement.GetProperty("sub").GetString()!, organizationId);
-            Order managerOrder = CreateActionRequiredOrder(managerPayload.RootElement.GetProperty("sub").GetString()!, organizationId);
+            Assert.True(payload.RootElement.TryGetProperty("sub", out JsonElement readerSubject));
+            Assert.True(managerPayload.RootElement.TryGetProperty("sub", out JsonElement managerSubject));
+            Order readerOrder = CreateActionRequiredOrder(readerSubject.GetString()!, organizationId);
+            Order managerOrder = CreateActionRequiredOrder(managerSubject.GetString()!, organizationId);
             database.Orders.AddRange(readerOrder, managerOrder);
             await database.SaveChangesAsync().ConfigureAwait(false);
             readerOrderId = readerOrder.Id;
@@ -76,6 +152,12 @@ public sealed class KeycloakOrderAuthorizationTests(KeycloakTestRealmFixture key
 
         using HttpResponseMessage anonymous = await client!.GetAsync($"/orders/{readerOrderId}").ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+        string wrongAudienceToken = await keycloak.GetUserTokenAsync(
+            "integration-reader", "local-only-test-reader-password", ClientId,
+            clientSecret: ClientSecret, requestedScope: "pricing-api-audience").ConfigureAwait(false);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", wrongAudienceToken);
+        using HttpResponseMessage wrongAudienceRead = await client.GetAsync($"/orders/{readerOrderId}").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Unauthorized, wrongAudienceRead.StatusCode);
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", readerToken);
         using HttpResponseMessage authorized = await client.GetAsync($"/orders/{readerOrderId}").ConfigureAwait(false);

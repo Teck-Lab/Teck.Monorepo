@@ -15,8 +15,15 @@ public sealed class MergeBasketEndpoint(IMessageBus bus) : AuthenticatedEndpoint
     /// <inheritdoc/>
     public override async Task HandleAsync(MergeBasketRequest request, CancellationToken ct)
     {
-        var result = await bus.InvokeAsync<BasketDto>(new MergeBasketCommand(request.AnonymousToken), ct);
-        await Send.OkAsync(result, ct);
+        try
+        {
+            var result = await bus.InvokeAsync<BasketDto>(new MergeBasketCommand(request.AnonymousToken), ct);
+            await Send.OkAsync(result, ct);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            await Send.ForbiddenAsync(ct);
+        }
     }
 
     /// <inheritdoc/>

@@ -19,3 +19,9 @@ namespace Catalog.IntegrationTests;
 public class SharedTestcontainersCollection : ICollectionFixture<SharedTestcontainersFixture>
 {
 }
+
+/// <summary>Shares the real Keycloak and infrastructure fixtures for authorization tests.</summary>
+[CollectionDefinition("KeycloakTestRealm")]
+public sealed class KeycloakTestRealmCollection : ICollectionFixture<KeycloakTestRealmFixture>, ICollectionFixture<SharedTestcontainersFixture>
+{
+}
