@@ -14,11 +14,13 @@ public sealed class RoutedAudienceContractTests
         using JsonDocument gateway = ReadJson("src", "services", "gateway", "public", "appsettings.json");
         using JsonDocument order = ReadJson("src", "services", "commerce", "order", "Order.Host", "appsettings.Development.json");
         using JsonDocument pricing = ReadJson("src", "services", "commerce", "pricing", "Pricing.Host", "appsettings.Development.json");
+        using JsonDocument catalog = ReadJson("src", "services", "commerce", "catalog", "Catalog.Host", "appsettings.Development.json");
         HashSet<string> realmClientIds = realm.RootElement.GetProperty("clients").EnumerateArray()
             .Select(client => client.GetProperty("clientId").GetString()!)
             .ToHashSet(StringComparer.Ordinal);
         var resources = new Dictionary<string, JsonElement>(StringComparer.Ordinal)
         {
+            ["catalog"] = catalog.RootElement,
             ["order"] = order.RootElement,
             ["pricing"] = pricing.RootElement,
         };
