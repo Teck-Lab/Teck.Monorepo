@@ -22,4 +22,4 @@ builder.AddTeckMessaging(typeof(BillingDbContext).Assembly, "BillingWrite", Nami
 var app = builder.Build();
 app.UseTeckService();
 app.MapDefaultEndpoints();
-return await app.RunTeckServiceAsync(args);
+return await app.RunTeckServiceAsync<BillingDbContext>(args);
