@@ -15,10 +15,11 @@ public sealed class RoutedServiceAuthorizationTests(LocalIdentityKeycloakFixture
 {
     private readonly LocalIdentityKeycloakFixture fixture = fixture;
 
-    /// <summary>Ensures both routed clusters execute a real read endpoint for a signed-in reader.</summary>
+    /// <summary>Ensures each routed cluster executes a real read endpoint for a signed-in reader.</summary>
     [Theory]
     [InlineData("/orders/00000000-0000-0000-0000-000000000001")]
     [InlineData("/price-lists")]
+    [InlineData("/products")]
     public async Task GatewayRead_WhenTenantIsProvisioned_SucceedsForEachRoutedService(string path)
     {
         LocalIdentityTestInstance instance = await SelectedInstanceAsync().ConfigureAwait(false);

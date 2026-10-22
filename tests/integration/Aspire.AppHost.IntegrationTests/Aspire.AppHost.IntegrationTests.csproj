@@ -21,6 +21,12 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\aspire\Teck.AppHost\Teck.AppHost.csproj" />
+    <ProjectReference Include="..\..\..\src\services\commerce\catalog\Catalog.Host\Catalog.Host.csproj">
+      <Aliases>CatalogHost</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\src\services\commerce\catalog\Catalog.Application\Catalog.Application.csproj">
+      <Aliases>CatalogApplication</Aliases>
+    </ProjectReference>
     <ProjectReference Include="..\..\..\src\services\gateway\public\Gateway.Public.csproj">
       <Aliases>GatewayHost</Aliases>
     </ProjectReference>
