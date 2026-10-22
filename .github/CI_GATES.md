@@ -23,6 +23,16 @@ exceptions; the title gate uses the PR author's `dependabot[bot]` login.
 Type and scope allowlist validation still apply. Dependabot is configured to use
 `chore(deps)`; its existing `deps-dev` scope is also accepted.
 
+## TypeScript compiler compatibility
+
+The `typescript` dependency resolves to `@typescript/typescript6` for Nx,
+Storybook, and other tools that import the TypeScript JavaScript API.
+`@typescript/native` resolves to TypeScript 7 and provides the `tsc` command used
+by app/package typecheck targets. Keep both aliases when upgrading: TypeScript 7
+does not export the compiler API required to construct the Nx project graph.
+After changing either alias, run `bun install --frozen-lockfile`,
+`bunx nx show projects --json`, and the frontend typecheck targets before CI.
+
 ## Failure handling
 
 Both aggregate jobs use `always()` and inspect the results of their declared
