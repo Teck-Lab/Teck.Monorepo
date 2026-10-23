@@ -58,16 +58,16 @@ public sealed class KeycloakCatalogAuthorizationTests(
         Assert.Equal(keycloak.OrganizationId, ReadOrganizationId(readerPayload.RootElement));
 
         client!.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", managerToken);
-        using HttpResponseMessage seedProductResponse = await client.PostAsJsonAsync("/products", ProductRequest("catalog-sensitive-" + Guid.NewGuid().ToString("N"))).ConfigureAwait(false);
+        using HttpResponseMessage seedProductResponse = await client.PostAsJsonAsync("/api/v1/admin/catalog/products", ProductRequest("catalog-sensitive-" + Guid.NewGuid().ToString("N"))).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.Created, seedProductResponse.StatusCode);
         ProductDto? seedProduct = await seedProductResponse.Content.ReadFromJsonAsync<ProductDto>().ConfigureAwait(false);
         Assert.NotNull(seedProduct);
-        using HttpResponseMessage seedSupplierResponse = await client.PostAsJsonAsync("/suppliers", new { Name = "Sensitive supplier " + Guid.NewGuid().ToString("N"), ContactEmail = (string?)null, ContactPhone = (string?)null }).ConfigureAwait(false);
+        using HttpResponseMessage seedSupplierResponse = await client.PostAsJsonAsync("/api/v1/admin/catalog/suppliers", new { Name = "Sensitive supplier " + Guid.NewGuid().ToString("N"), ContactEmail = (string?)null, ContactPhone = (string?)null }).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.Created, seedSupplierResponse.StatusCode);
         SupplierDto? seedSupplier = await seedSupplierResponse.Content.ReadFromJsonAsync<SupplierDto>().ConfigureAwait(false);
         Assert.NotNull(seedSupplier);
         Guid variantId = seedProduct!.Variants[0].Id;
-        using HttpResponseMessage seedLinkResponse = await client.PostAsJsonAsync($"/variants/{variantId}/suppliers", new
+        using HttpResponseMessage seedLinkResponse = await client.PostAsJsonAsync($"/api/v1/admin/catalog/variants/{variantId}/suppliers", new
         {
             VariantId = variantId, SupplierId = seedSupplier!.Id, CostAmount = 4m, CostCurrency = "USD",
             SupplierSku = "KEYCLOAK-SUPPLIER-1", LeadTimeDays = 5, MinOrderQuantity = 1, IsPreferred = true,
@@ -75,34 +75,53 @@ public sealed class KeycloakCatalogAuthorizationTests(
         Assert.Equal(HttpStatusCode.Created, seedLinkResponse.StatusCode);
 
         client!.DefaultRequestHeaders.Authorization = null;
-        using HttpResponseMessage missingToken = await client.GetAsync("/products").ConfigureAwait(false);
+        using HttpResponseMessage missingToken = await client.GetAsync("/api/v1/catalog/products").ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.Unauthorized, missingToken.StatusCode);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "invalid-token");
-        using HttpResponseMessage invalidToken = await client.GetAsync("/products").ConfigureAwait(false);
+        using HttpResponseMessage invalidToken = await client.GetAsync("/api/v1/catalog/products").ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.Unauthorized, invalidToken.StatusCode);
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", readerToken);
-        using HttpResponseMessage readerRead = await client.GetAsync("/products").ConfigureAwait(false);
+        using HttpResponseMessage readerRead = await client.GetAsync("/api/v1/catalog/products").ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.OK, readerRead.StatusCode);
-        using HttpResponseMessage readerSensitiveRead = await client.GetAsync($"/variants/{variantId}/suppliers/{seedSupplier!.Id}/history").ConfigureAwait(false);
+        using HttpResponseMessage readerDetail = await client.GetAsync($"/api/v1/catalog/products/{seedProduct.Id}").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, readerDetail.StatusCode);
+        using HttpResponseMessage readerCostOnCustomerPath = await client.GetAsync($"/api/v1/catalog/variants/{variantId}/suppliers/{seedSupplier!.Id}/history").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.NotFound, readerCostOnCustomerPath.StatusCode);
+        using HttpResponseMessage readerManageOnCustomerPath = await client.PostAsJsonAsync("/api/v1/catalog/products", ProductRequest("catalog-reader-customer-path-denied")).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, readerManageOnCustomerPath.StatusCode);
+        using HttpResponseMessage readerSensitiveRead = await client.GetAsync($"/api/v1/admin/catalog/variants/{variantId}/suppliers/{seedSupplier!.Id}/history").ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.Forbidden, readerSensitiveRead.StatusCode);
-        using HttpResponseMessage readerSupplierManage = await client.PostAsJsonAsync("/suppliers", new { Name = "Reader supplier", ContactEmail = (string?)null, ContactPhone = (string?)null }).ConfigureAwait(false);
+        using HttpResponseMessage readerSupplierManage = await client.PostAsJsonAsync("/api/v1/admin/catalog/suppliers", new { Name = "Reader supplier", ContactEmail = (string?)null, ContactPhone = (string?)null }).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.Forbidden, readerSupplierManage.StatusCode);
-        using HttpResponseMessage readerManage = await client.PostAsJsonAsync("/products", ProductRequest("catalog-reader-denied")).ConfigureAwait(false);
+        using HttpResponseMessage readerManage = await client.PostAsJsonAsync("/api/v1/admin/catalog/products", ProductRequest("catalog-reader-denied")).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.Forbidden, readerManage.StatusCode);
 
+        string foreignToken = await keycloak.GetUserTokenAsync(
+            "integration-foreign-manager", "local-only-test-foreign-manager-password", TokenClientId,
+            clientSecret: TokenClientSecret).ConfigureAwait(false);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", foreignToken);
+        using HttpResponseMessage foreignList = await client.GetAsync("/api/v1/catalog/products").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, foreignList.StatusCode);
+        ProductSummaryDto[]? foreignProducts = await foreignList.Content.ReadFromJsonAsync<ProductSummaryDto[]>().ConfigureAwait(false);
+        Assert.NotNull(foreignProducts);
+        Assert.DoesNotContain(foreignProducts, product => product.Id == seedProduct.Id);
+        using HttpResponseMessage foreignDetail = await client.GetAsync($"/api/v1/catalog/products/{seedProduct.Id}").ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, foreignDetail.StatusCode);
+        Assert.Empty(await foreignDetail.Content.ReadAsStringAsync().ConfigureAwait(false));
+
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", managerToken);
-        using HttpResponseMessage managerSensitiveRead = await client.GetAsync($"/variants/{variantId}/suppliers/{seedSupplier!.Id}/history").ConfigureAwait(false);
+        using HttpResponseMessage managerSensitiveRead = await client.GetAsync($"/api/v1/admin/catalog/variants/{variantId}/suppliers/{seedSupplier!.Id}/history").ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.OK, managerSensitiveRead.StatusCode);
         Catalog.Application.Suppliers.Responses.SupplierPriceHistoryDto[]? history = await managerSensitiveRead.Content.ReadFromJsonAsync<Catalog.Application.Suppliers.Responses.SupplierPriceHistoryDto[]>().ConfigureAwait(false);
         Assert.NotNull(history);
         Assert.Contains(history!, item => item.CostPriceAmount == 4m && item.CostPriceCurrency == "USD");
-        using HttpResponseMessage updateCost = await client.PutAsJsonAsync($"/variants/{variantId}/suppliers/{seedSupplier.Id}/cost", new
+        using HttpResponseMessage updateCost = await client.PutAsJsonAsync($"/api/v1/admin/catalog/variants/{variantId}/suppliers/{seedSupplier.Id}/cost", new
         {
             VariantId = variantId, SupplierId = seedSupplier.Id, CostAmount = 7m, CostCurrency = "USD",
         }).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.OK, updateCost.StatusCode);
-        using HttpResponseMessage updatedHistory = await client.GetAsync($"/variants/{variantId}/suppliers/{seedSupplier.Id}/history").ConfigureAwait(false);
+        using HttpResponseMessage updatedHistory = await client.GetAsync($"/api/v1/admin/catalog/variants/{variantId}/suppliers/{seedSupplier.Id}/history").ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.OK, updatedHistory.StatusCode);
         SupplierPriceHistoryDto[]? persistedHistory = await updatedHistory.Content.ReadFromJsonAsync<SupplierPriceHistoryDto[]>().ConfigureAwait(false);
         Assert.NotNull(persistedHistory);

@@ -1,0 +1,32 @@
+{
+  "customer": [
+    { "path": "/api/v1/catalog/products", "method": "get", "service": "catalog", "sourcePath": "/products" },
+    { "path": "/api/v1/catalog/products/{productId}", "method": "get", "service": "catalog", "sourcePath": "/products/{productId}" }
+  ],
+  "admin": [
+    { "path": "/api/v1/catalog/products", "method": "get", "service": "catalog", "sourcePath": "/products" },
+    { "path": "/api/v1/catalog/products/{productId}", "method": "get", "service": "catalog", "sourcePath": "/products/{productId}" },
+    { "path": "/api/v1/admin/catalog/products", "method": "post", "service": "catalog", "sourcePath": "/products" },
+    { "path": "/api/v1/admin/catalog/categories", "method": "post", "service": "catalog", "sourcePath": "/categories" },
+    { "path": "/api/v1/admin/catalog/products/{productId}/variants", "method": "post", "service": "catalog", "sourcePath": "/products/{productId}/variants" },
+    { "path": "/api/v1/admin/catalog/products/{productId}/variants/{variantId}/sell-price", "method": "put", "service": "catalog", "sourcePath": "/products/{productId}/variants/{variantId}/sell-price" },
+    { "path": "/api/v1/admin/catalog/suppliers", "method": "post", "service": "catalog", "sourcePath": "/suppliers" },
+    { "path": "/api/v1/admin/catalog/suppliers/{supplierId}", "method": "get", "service": "catalog", "sourcePath": "/suppliers/{supplierId}" },
+    { "path": "/api/v1/admin/catalog/variants/{variantId}/suppliers", "method": "post", "service": "catalog", "sourcePath": "/variants/{variantId}/suppliers" },
+    { "path": "/api/v1/admin/catalog/variants/{variantId}/suppliers/{supplierId}/history", "method": "get", "service": "catalog", "sourcePath": "/variants/{variantId}/suppliers/{supplierId}/history" },
+    { "path": "/api/v1/admin/catalog/variants/{variantId}/suppliers/{supplierId}/cost", "method": "put", "service": "catalog", "sourcePath": "/variants/{variantId}/suppliers/{supplierId}/cost" },
+    { "path": "/api/v1/admin/catalog/variants/{variantId}/suppliers/{supplierId}/preferred", "method": "put", "service": "catalog", "sourcePath": "/variants/{variantId}/suppliers/{supplierId}/preferred" },
+    { "path": "/api/v1/admin/pricing/price-lists", "method": "get", "service": "pricing", "sourcePath": "/price-lists" },
+    { "path": "/api/v1/admin/pricing/price-lists", "method": "post", "service": "pricing", "sourcePath": "/price-lists" },
+    { "path": "/api/v1/admin/pricing/price-lists/{id}", "method": "get", "service": "pricing", "sourcePath": "/price-lists/{id}" },
+    { "path": "/api/v1/admin/pricing/price-lists/{id}", "method": "put", "service": "pricing", "sourcePath": "/price-lists/{id}" },
+    { "path": "/api/v1/admin/pricing/price-lists/{id}/activate", "method": "post", "service": "pricing", "sourcePath": "/price-lists/{id}/activate" },
+    { "path": "/api/v1/admin/pricing/price-lists/{id}/archive", "method": "post", "service": "pricing", "sourcePath": "/price-lists/{id}/archive" },
+    { "path": "/api/v1/admin/pricing/price-lists/{id}/prices/{productId}", "method": "put", "service": "pricing", "sourcePath": "/price-lists/{id}/prices/{productId}" },
+    { "path": "/api/v1/admin/pricing/price-lists/{id}/prices/{productId}", "method": "delete", "service": "pricing", "sourcePath": "/price-lists/{id}/prices/{productId}" },
+    { "path": "/api/v1/admin/pricing/exchange-rates", "method": "get", "service": "pricing", "sourcePath": "/exchange-rates" },
+    { "path": "/api/v1/admin/pricing/exchange-rates", "method": "put", "service": "pricing", "sourcePath": "/exchange-rates" },
+    { "path": "/api/v1/admin/pricing/exchange-rates/{fromCurrency}/{toCurrency}", "method": "delete", "service": "pricing", "sourcePath": "/exchange-rates/{fromCurrency}/{toCurrency}" },
+    { "path": "/api/v1/admin/pricing/prices/resolve", "method": "get", "service": "pricing", "sourcePath": "/prices/resolve" }
+  ]
+}

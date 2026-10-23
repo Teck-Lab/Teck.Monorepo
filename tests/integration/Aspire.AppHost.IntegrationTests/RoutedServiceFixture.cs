@@ -1,6 +1,6 @@
 extern alias CatalogHost;
 extern alias GatewayHost;
-extern alias OrderHost;
+extern alias GatewayEdge;
 extern alias PricingHost;
 
 using System.Net.Http.Headers;
@@ -15,13 +15,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
-using Orders.Application.Database;
-using Orders.Domain.Entities;
-using Orders.Domain.ValueObjects;
 using SharedKernel.Infrastructure.Database.EFCore;
 using Yarp.ReverseProxy.Forwarder;
-using ITenantDatabaseStrategyResolver = GatewayHost::Gateway.Public.Edge.ITenantDatabaseStrategyResolver;
-using TenantDbStrategyResult = GatewayHost::Gateway.Public.Edge.TenantDbStrategyResult;
+using ITenantDatabaseStrategyResolver = GatewayEdge::Gateway.Edge.ITenantDatabaseStrategyResolver;
+using TenantDbStrategyResult = GatewayEdge::Gateway.Edge.TenantDbStrategyResult;
 
 namespace Aspire.AppHost.IntegrationTests;
 
@@ -38,9 +35,6 @@ internal sealed class RoutedServiceFixture : IDisposable
 
     /// <summary>Gets the gateway configured with the real routed-service forwarders.</summary>
     internal RealIdentityGatewayFactory Gateway { get; }
-
-    /// <summary>Creates one order row for the calling test without rebuilding the shared hosts.</summary>
-    internal Task<Guid> SeedOrderAsync(string tenantId) => routedServices.SeedOrderAsync(tenantId);
 
     /// <summary>Verifies effective UMA service options match the isolated realm without emitting credential values.</summary>
     internal void AssertServiceAuthorizationOptionsMatchRealm() => routedServices.AssertServiceAuthorizationOptionsMatchRealm();
@@ -111,6 +105,7 @@ internal sealed class RealIdentityGatewayFactory(
                         ValidIssuer = tokenIssuer,
                         ValidateAudience = true,
                         ValidAudience = LocalIdentityKeycloakFixture.GatewayClientId,
+                        RoleClaimType = "role",
                         RequireAudience = true,
                         ValidateLifetime = true,
                         ClockSkew = TimeSpan.Zero,
@@ -150,47 +145,22 @@ internal sealed class TenantRegistryResolver(string connectionString) : ITenantD
 internal sealed class RoutedServiceHosts : IDisposable
 {
     private readonly LocalIdentityTestInstance instance;
-    private readonly OrderServiceFactory order;
     private readonly PricingServiceFactory pricing;
     private readonly CatalogServiceFactory catalog;
 
     internal RoutedServiceHosts(LocalIdentityTestInstance instance, string issuer, IReadOnlyList<SecurityKey> signingKeys)
     {
         this.instance = instance;
-        order = new OrderServiceFactory(instance, issuer, signingKeys);
         pricing = new PricingServiceFactory(instance, issuer, signingKeys);
         catalog = new CatalogServiceFactory(instance, issuer, signingKeys);
     }
 
     internal IForwarderHttpClientFactory CreateForwarderFactory() => new RoutedServiceForwarderHttpClientFactory(
-        order.Server.CreateHandler(),
         pricing.Server.CreateHandler(),
         catalog.Server.CreateHandler());
 
-    internal async Task<Guid> SeedOrderAsync(string tenantId)
-    {
-        var options = new DbContextOptionsBuilder<OrderDbContext>()
-            .UseNpgsql(instance.OrderConnectionString)
-            .UseTeckCloudTenant(tenantId)
-            .Options;
-        await using var database = new OrderDbContext(options, null!);
-        Order seededOrder = Order.Create(
-            Guid.NewGuid(),
-            "reader-subject",
-            Guid.NewGuid(),
-            tenantId,
-            [new OrderLine(Guid.NewGuid(), "Routed service order", 1, 10m)],
-            10m,
-            "USD",
-            $"routed-service-order-{Guid.NewGuid():N}");
-        database.Orders.Add(seededOrder);
-        await database.SaveChangesAsync().ConfigureAwait(false);
-        return seededOrder.Id;
-    }
-
     internal void AssertServiceAuthorizationOptionsMatchRealm()
     {
-        AssertServiceOptions<OrderHost::Program>(order, "order-api", "local-only-test-order-api-secret-not-for-production");
         AssertServiceOptions<PricingHost::Program>(pricing, "pricing-api", "local-only-test-pricing-api-secret-not-for-production");
         AssertServiceOptions<CatalogHost::Program>(catalog, "catalog-api", "local-only-test-catalog-api-secret-not-for-production");
     }
@@ -209,46 +179,22 @@ internal sealed class RoutedServiceHosts : IDisposable
     {
         catalog.Dispose();
         pricing.Dispose();
-        order.Dispose();
     }
 }
 
 /// <summary>Routes configured clusters to their real in-process service handlers.</summary>
 internal sealed class RoutedServiceForwarderHttpClientFactory(
-    HttpMessageHandler orderHandler,
     HttpMessageHandler pricingHandler,
     HttpMessageHandler catalogHandler) : IForwarderHttpClientFactory
 {
     /// <inheritdoc />
     public HttpMessageInvoker CreateClient(ForwarderHttpClientContext context) => new(
-        string.Equals(context.ClusterId, "order", StringComparison.OrdinalIgnoreCase)
-            ? orderHandler
-            : string.Equals(context.ClusterId, "pricing", StringComparison.OrdinalIgnoreCase)
-                ? pricingHandler
-                : string.Equals(context.ClusterId, "catalog", StringComparison.OrdinalIgnoreCase)
-                    ? catalogHandler
-                    : throw new InvalidOperationException($"Unexpected routed cluster '{context.ClusterId}'."),
+        string.Equals(context.ClusterId, "pricing", StringComparison.OrdinalIgnoreCase)
+            ? pricingHandler
+            : string.Equals(context.ClusterId, "catalog", StringComparison.OrdinalIgnoreCase)
+                ? catalogHandler
+                : throw new InvalidOperationException($"Unexpected routed cluster '{context.ClusterId}'."),
         disposeHandler: false);
-}
-
-/// <summary>Builds the shared Order host with strict real-Keycloak authentication.</summary>
-internal sealed class OrderServiceFactory(
-    LocalIdentityTestInstance instance,
-    string issuer,
-    IReadOnlyList<SecurityKey> signingKeys) : WebApplicationFactory<OrderHost::Program>
-{
-    static OrderServiceFactory() => JasperFx.CommandLine.JasperFxEnvironment.AutoStartHost = true;
-
-    /// <inheritdoc />
-    protected override void ConfigureWebHost(IWebHostBuilder builder) => RoutedServiceHostConfiguration.Configure(
-        builder,
-        instance,
-        issuer,
-        signingKeys,
-        "Order",
-        instance.OrderConnectionString,
-        "order-api",
-        "local-only-test-order-api-secret-not-for-production");
 }
 
 /// <summary>Builds the shared Pricing host with strict real-Keycloak authentication.</summary>

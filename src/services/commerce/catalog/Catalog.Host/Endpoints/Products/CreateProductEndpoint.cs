@@ -11,7 +11,7 @@ public sealed class CreateProductEndpoint(IMessageBus bus)
     : AuthenticatedEndpoint<CreateProductRequest, ProductDto>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("catalog", "manage", "public");
+    protected override EndpointPermission Permission => new("catalog", "manage", "admin");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(CreateProductRequest request, CancellationToken ct)
@@ -20,14 +20,14 @@ public sealed class CreateProductEndpoint(IMessageBus bus)
             request.Name, request.Description, request.CategoryId,
             request.Sku, request.SellPriceAmount, request.SellPriceCurrency);
         var result = await bus.InvokeAsync<ProductDto>(command, ct);
-        HttpContext.Response.Headers.Location = $"/products/{result.Id}";
+        HttpContext.Response.Headers.Location = $"/api/v1/catalog/products/{result.Id}";
         await Send.ResponseAsync(result, StatusCodes.Status201Created, ct);
     }
 
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Post("/products");
+        Post("/api/v1/admin/catalog/products");
         Version(0);
     }
 }

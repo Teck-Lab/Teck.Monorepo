@@ -104,7 +104,7 @@ var catalog = builder.AddProject<Projects.Catalog_Host>("catalog")
 // variables (services__pricing__http__0, etc.) so YARP destinations like http://pricing resolve.
 // pricing resolves product list prices with multi-currency FX; it emits PriceChanged for
 // future consumers and consumes nothing.
-builder.AddProject<Projects.Pricing_Host>("pricing")
+var pricing = builder.AddProject<Projects.Pricing_Host>("pricing")
     .WithHttpEndpoint(name: "http")
     .WithEnvironment("ConnectionStrings__PricingWrite", pricingDb)
     .WithEnvironment("ConnectionStrings__PricingRead", pricingDb)
@@ -129,14 +129,20 @@ builder.AddProject<Projects.Notification_Host>("notification")
     .WithReference(rabbitmq).WithReference(keycloak)
     .WaitFor(notificationDb).WaitFor(keycloak);
 
-// WithHttpEndpoint registers a named "http" endpoint so Aspire can inject the correct
-// ASPNETCORE_URLS and the testing framework can resolve it via CreateHttpClient("gateway", "http").
-// Without this, project resources that have no launchSettings.json have no registered endpoint.
-builder.AddProject<Projects.Gateway_Public>("gateway")
+// Named HTTP endpoints expose each gateway's dynamic port to Aspire and its tests.
+// Customer traffic reaches only shared Catalog reads; admin traffic reaches those reads
+// and the operator Catalog/Pricing routes. Customer supplies tenant authority to both.
+builder.AddProject<Projects.Gateway_WebCustomer>("web-customer")
     .WithHttpEndpoint(name: "http")
-    .WithReference(order).WithReference(customer).WithReference(catalog)
+    .WithReference(catalog).WithReference(customer).WithReference(keycloak).WithReference(redis)
+    .WaitFor(catalog).WaitFor(customer).WaitFor(keycloak)
+    .WithExternalHttpEndpoints();
+
+builder.AddProject<Projects.Gateway_WebAdmin>("web-admin")
+    .WithHttpEndpoint(name: "http")
+    .WithReference(catalog).WithReference(pricing).WithReference(customer)
     .WithReference(keycloak).WithReference(redis)
-    .WaitFor(order).WaitFor(customer).WaitFor(catalog)
+    .WaitFor(catalog).WaitFor(pricing).WaitFor(customer).WaitFor(keycloak)
     .WithExternalHttpEndpoints();
 
 builder.Build().Run();

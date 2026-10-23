@@ -11,21 +11,21 @@ public sealed class CreateCategoryEndpoint(IMessageBus bus)
     : AuthenticatedEndpoint<CreateCategoryRequest, CategoryDto>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("catalog", "manage", "public");
+    protected override EndpointPermission Permission => new("catalog", "manage", "admin");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(CreateCategoryRequest request, CancellationToken ct)
     {
         var command = new CreateCategoryCommand(request.Name, request.Slug, request.ParentId);
         var result = await bus.InvokeAsync<CategoryDto>(command, ct);
-        HttpContext.Response.Headers.Location = $"/categories/{result.Id}";
+        HttpContext.Response.Headers.Location = $"/api/v1/admin/catalog/categories/{result.Id}";
         await Send.ResponseAsync(result, StatusCodes.Status201Created, ct);
     }
 
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Post("/categories");
+        Post("/api/v1/admin/catalog/categories");
         Version(0);
     }
 }

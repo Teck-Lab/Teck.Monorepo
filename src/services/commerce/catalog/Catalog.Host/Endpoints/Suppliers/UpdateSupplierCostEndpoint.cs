@@ -11,7 +11,7 @@ public sealed class UpdateSupplierCostEndpoint(IMessageBus bus)
     : AuthenticatedEndpoint<UpdateSupplierCostRequest, VariantSupplierDto>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("catalog", "manage", "public");
+    protected override EndpointPermission Permission => new("catalog", "manage", "admin");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(UpdateSupplierCostRequest request, CancellationToken ct)
@@ -25,7 +25,7 @@ public sealed class UpdateSupplierCostEndpoint(IMessageBus bus)
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Put("/variants/{variantId}/suppliers/{supplierId}/cost");
+        Put("/api/v1/admin/catalog/variants/{variantId}/suppliers/{supplierId}/cost");
         Version(0);
     }
 }

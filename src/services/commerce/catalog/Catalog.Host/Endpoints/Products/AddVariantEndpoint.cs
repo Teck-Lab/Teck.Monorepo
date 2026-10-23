@@ -11,7 +11,7 @@ public sealed class AddVariantEndpoint(IMessageBus bus)
     : AuthenticatedEndpoint<AddVariantRequest, VariantDto>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("catalog", "manage", "public");
+    protected override EndpointPermission Permission => new("catalog", "manage", "admin");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(AddVariantRequest request, CancellationToken ct)
@@ -25,7 +25,7 @@ public sealed class AddVariantEndpoint(IMessageBus bus)
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Post("/products/{productId}/variants");
+        Post("/api/v1/admin/catalog/products/{productId}/variants");
         Version(0);
     }
 }

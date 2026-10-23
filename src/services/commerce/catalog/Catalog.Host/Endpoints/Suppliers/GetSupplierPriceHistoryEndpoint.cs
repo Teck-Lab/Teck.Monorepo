@@ -11,7 +11,7 @@ public sealed class GetSupplierPriceHistoryEndpoint(IMessageBus bus)
     : AuthenticatedEndpoint<GetSupplierPriceHistoryRequest, IReadOnlyList<SupplierPriceHistoryDto>>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("catalog", "supplier-read", "public");
+    protected override EndpointPermission Permission => new("catalog", "supplier-read", "admin");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(GetSupplierPriceHistoryRequest request, CancellationToken ct)
@@ -24,7 +24,7 @@ public sealed class GetSupplierPriceHistoryEndpoint(IMessageBus bus)
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Get("/variants/{variantId}/suppliers/{supplierId}/history");
+        Get("/api/v1/admin/catalog/variants/{variantId}/suppliers/{supplierId}/history");
         Version(0);
     }
 }

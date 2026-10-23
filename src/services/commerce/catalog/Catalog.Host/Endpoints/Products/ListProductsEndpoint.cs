@@ -24,7 +24,7 @@ public sealed class ListProductsEndpoint(IMessageBus bus)
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Get("/products");
+        Get("/api/v1/catalog/products");
         Version(0);
     }
 }
