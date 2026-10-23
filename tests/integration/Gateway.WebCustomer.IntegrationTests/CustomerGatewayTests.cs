@@ -25,6 +25,16 @@ namespace Gateway.WebCustomer.IntegrationTests;
 /// <summary>Exercises the customer gateway's public contract and strict YARP route allowlist.</summary>
 public sealed class CustomerGatewayTests
 {
+    /// <summary>Aspire can probe the customer gateway independently of upstream services.</summary>
+    [Fact]
+    public async Task CustomerGateway_LivenessIsPublic()
+    {
+        using var factory = new CustomerFactory(new HttpClientHandler());
+        using HttpClient client = factory.CreateClient();
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/alive")).StatusCode);
+    }
+
     /// <summary>Product reads exchange the user token; operator/pricing routes cannot enter the customer gateway.</summary>
     [Fact]
     public async Task CustomerGateway_ExposesProductReadsOnly()

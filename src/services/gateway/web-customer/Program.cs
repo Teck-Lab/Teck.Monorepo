@@ -39,6 +39,7 @@ app.UseAuthorization();
 app.UseMultiTenant();
 app.MapReverseProxy(proxy => proxy.UseMiddleware<EdgeEnforcementMiddleware>());
 app.MapGatewayOpenApi("customer");
+app.MapDefaultEndpoints();
 
 app.Run();
 
