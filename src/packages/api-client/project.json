@@ -1,0 +1,28 @@
+{
+  "name": "api-client",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "src/packages/api-client/src",
+  "projectType": "library",
+  "targets": {
+    "sync-openapi": {
+      "executor": "nx:run-commands",
+      "options": { "cwd": "src/packages/api-client", "command": "bun run sync-openapi" }
+    },
+    "check-openapi": {
+      "executor": "nx:run-commands",
+      "options": { "cwd": "src/packages/api-client", "command": "bun run check-openapi" }
+    },
+    "generate": {
+      "executor": "nx:run-commands",
+      "options": { "cwd": "src/packages/api-client", "command": "bun run generate" }
+    },
+    "check-generated": {
+      "executor": "nx:run-commands",
+      "options": { "cwd": "src/packages/api-client", "command": "bun run check-generated" }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": { "cwd": "{workspaceRoot}", "command": "biome check src/packages/api-client/src/index.ts" }
+    }
+  }
+}

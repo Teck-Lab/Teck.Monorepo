@@ -1,0 +1,18 @@
+{
+  "name": "@teck/api-client",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync-openapi": "bun scripts/sync-openapi.ts",
+    "check-openapi": "bun scripts/sync-openapi.ts --check",
+    "generate": "openapi-typescript ./openapi/teck-platform.openapi.json -o ./src/generated/schema.d.ts",
+    "check-generated": "openapi-typescript ./openapi/teck-platform.openapi.json -o /tmp/teck-platform-openapi.d.ts && diff -u ./src/generated/schema.d.ts /tmp/teck-platform-openapi.d.ts"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0"
+  }
+}

@@ -1,3 +1,4 @@
+extern alias CatalogHost;
 extern alias GatewayHost;
 extern alias OrderHost;
 extern alias PricingHost;
@@ -145,23 +146,26 @@ internal sealed class TenantRegistryResolver(string connectionString) : ITenantD
     }
 }
 
-/// <summary>Owns one Order host and one Pricing host backed by the fixture's migrated databases.</summary>
+/// <summary>Owns the routed service hosts backed by the fixture's migrated databases.</summary>
 internal sealed class RoutedServiceHosts : IDisposable
 {
     private readonly LocalIdentityTestInstance instance;
     private readonly OrderServiceFactory order;
     private readonly PricingServiceFactory pricing;
+    private readonly CatalogServiceFactory catalog;
 
     internal RoutedServiceHosts(LocalIdentityTestInstance instance, string issuer, IReadOnlyList<SecurityKey> signingKeys)
     {
         this.instance = instance;
         order = new OrderServiceFactory(instance, issuer, signingKeys);
         pricing = new PricingServiceFactory(instance, issuer, signingKeys);
+        catalog = new CatalogServiceFactory(instance, issuer, signingKeys);
     }
 
     internal IForwarderHttpClientFactory CreateForwarderFactory() => new RoutedServiceForwarderHttpClientFactory(
         order.Server.CreateHandler(),
-        pricing.Server.CreateHandler());
+        pricing.Server.CreateHandler(),
+        catalog.Server.CreateHandler());
 
     internal async Task<Guid> SeedOrderAsync(string tenantId)
     {
@@ -188,6 +192,7 @@ internal sealed class RoutedServiceHosts : IDisposable
     {
         AssertServiceOptions<OrderHost::Program>(order, "order-api", "local-only-test-order-api-secret-not-for-production");
         AssertServiceOptions<PricingHost::Program>(pricing, "pricing-api", "local-only-test-pricing-api-secret-not-for-production");
+        AssertServiceOptions<CatalogHost::Program>(catalog, "catalog-api", "local-only-test-catalog-api-secret-not-for-production");
     }
 
     private static void AssertServiceOptions<TProgram>(WebApplicationFactory<TProgram> factory, string expectedResource, string expectedSecret)
@@ -202,15 +207,17 @@ internal sealed class RoutedServiceHosts : IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
+        catalog.Dispose();
         pricing.Dispose();
         order.Dispose();
     }
 }
 
-/// <summary>Routes gateway forwarder clients only to the two real in-process service handlers.</summary>
+/// <summary>Routes configured clusters to their real in-process service handlers.</summary>
 internal sealed class RoutedServiceForwarderHttpClientFactory(
     HttpMessageHandler orderHandler,
-    HttpMessageHandler pricingHandler) : IForwarderHttpClientFactory
+    HttpMessageHandler pricingHandler,
+    HttpMessageHandler catalogHandler) : IForwarderHttpClientFactory
 {
     /// <inheritdoc />
     public HttpMessageInvoker CreateClient(ForwarderHttpClientContext context) => new(
@@ -218,7 +225,9 @@ internal sealed class RoutedServiceForwarderHttpClientFactory(
             ? orderHandler
             : string.Equals(context.ClusterId, "pricing", StringComparison.OrdinalIgnoreCase)
                 ? pricingHandler
-                : throw new InvalidOperationException($"Unexpected routed cluster '{context.ClusterId}'."),
+                : string.Equals(context.ClusterId, "catalog", StringComparison.OrdinalIgnoreCase)
+                    ? catalogHandler
+                    : throw new InvalidOperationException($"Unexpected routed cluster '{context.ClusterId}'."),
         disposeHandler: false);
 }
 
@@ -260,6 +269,26 @@ internal sealed class PricingServiceFactory(
         instance.PricingConnectionString,
         "pricing-api",
         "local-only-test-pricing-api-secret-not-for-production");
+}
+
+/// <summary>Builds the shared Catalog host with strict real-Keycloak authentication.</summary>
+internal sealed class CatalogServiceFactory(
+    LocalIdentityTestInstance instance,
+    string issuer,
+    IReadOnlyList<SecurityKey> signingKeys) : WebApplicationFactory<CatalogHost::Program>
+{
+    static CatalogServiceFactory() => JasperFx.CommandLine.JasperFxEnvironment.AutoStartHost = true;
+
+    /// <inheritdoc />
+    protected override void ConfigureWebHost(IWebHostBuilder builder) => RoutedServiceHostConfiguration.Configure(
+        builder,
+        instance,
+        issuer,
+        signingKeys,
+        "Catalog",
+        instance.CatalogConnectionString,
+        "catalog-api",
+        "local-only-test-catalog-api-secret-not-for-production");
 }
 
 /// <summary>Applies the common strict-authentication configuration to a routed service host.</summary>

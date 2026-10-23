@@ -15,7 +15,8 @@
       "@teck/ui": ["./src/packages/ui/src/index.ts"],
       "@teck/ui/*": ["./src/packages/ui/src/*"],
       "@teck/ui-native": ["./src/packages/ui-native/src/index.ts"],
-      "@teck/ui-native/*": ["./src/packages/ui-native/src/*"]
+      "@teck/ui-native/*": ["./src/packages/ui-native/src/*"],
+      "@teck/api-client": ["./src/packages/api-client/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

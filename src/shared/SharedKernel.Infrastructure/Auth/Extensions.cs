@@ -54,13 +54,17 @@ public static class Extensions
         }
 
         bool isProduction = env.IsProduction();
+        string authServerUrl = config["Keycloak:auth-server-url"]
+            ?? throw new InvalidOperationException("Keycloak:auth-server-url is required for JWT validation.");
+        string realmAuthority = $"{authServerUrl.TrimEnd('/')}/realms/{keycloakOptions.Realm}";
 
         // Configure JWT Bearer authentication from Keycloak
         services.AddKeycloakWebApiAuthentication(config, options =>
         {
             options.IncludeErrorDetails = true;
-            options.Authority = keycloakOptions.KeycloakUrlRealm;
+            options.Authority = realmAuthority;
             options.Audience = keycloakOptions.Resource;
+            options.MetadataAddress = $"{realmAuthority}/.well-known/openid-configuration";
             options.RequireHttpsMetadata = isProduction;
             options.SaveToken = true;
 

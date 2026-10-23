@@ -733,17 +733,55 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "redirectUris": [
-        "http://localhost:3001/api/auth/callback/keycloak",
-        "http://localhost:3001/*"
+        "http://localhost:3001/*",
+        "http://localhost:3001/api/auth/callback/keycloak"
       ],
       "webOrigins": [
-        "https://REPLACE_WITH_ENVIRONMENT_DASHBOARD_URL"
+        "http://localhost:3001"
       ],
       "protocol": "openid-connect",
       "attributes": {
         "pkce.code.challenge.method": "S256"
       },
+      "defaultClientScopes": ["organization", "basic", "profile", "email", "roles", "web-origins"],
+      "optionalClientScopes": ["public-gateway-audience"],
       "protocolMappers": [
+        {
+          "name": "staff-preferred-username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "config": {
+            "user.attribute": "username",
+            "claim.name": "preferred_username",
+            "jsonType.label": "String",
+            "access.token.claim": "false",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "staff-realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "staff-gateway-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "public-gateway",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
         {
           "name": "organization-membership",
           "protocol": "openid-connect",
@@ -818,6 +856,16 @@
           "protocolMapper": "oidc-audience-mapper",
           "config": {
             "included.client.audience": "order-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "catalog-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "catalog-api",
             "access.token.claim": "true",
             "id.token.claim": "false"
           }

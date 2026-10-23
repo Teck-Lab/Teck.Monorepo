@@ -1,0 +1,138 @@
+.page {
+  width: min(100% - 2rem, 72rem);
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 3rem 0 5rem;
+  color: #172033;
+}
+.header,
+.listHeading,
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.header {
+  margin-bottom: 1rem;
+}
+.kicker {
+  margin: 0 0 0.5rem;
+  color: #53627a;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+.page h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3rem);
+  letter-spacing: -0.04em;
+}
+.page h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.25rem;
+}
+.subtitle {
+  margin: 0 0 2rem;
+  color: #53627a;
+}
+.card {
+  margin: 1.25rem 0;
+  padding: 1.5rem;
+  border: 1px solid #dce2eb;
+  border-radius: 0.8rem;
+  background: white;
+  box-shadow: 0 10px 30px rgb(23 32 51 / 5%);
+}
+.listHeading {
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #e9edf2;
+}
+.listHeading p {
+  margin: 0;
+  color: #64748b;
+}
+.currency {
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: #eff4fa;
+  color: #31445f;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.rows {
+  display: grid;
+}
+.row {
+  min-height: 4.5rem;
+  border-bottom: 1px solid #edf0f4;
+}
+.row:last-child {
+  border-bottom: 0;
+}
+.productState {
+  display: block;
+  margin-top: 0.2rem;
+  color: #6b778a;
+  font-size: 0.8rem;
+}
+.amount {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: #64748b;
+}
+.amount input {
+  width: 10rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #cbd3df;
+  border-radius: 0.4rem;
+  color: #172033;
+  font: inherit;
+}
+.amount input:disabled {
+  background: #f5f7fa;
+}
+.primary,
+.secondary {
+  min-height: 2.5rem;
+  padding: 0.55rem 1rem;
+  border: 0;
+  border-radius: 0.4rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.primary {
+  background: #175cd3;
+  color: white;
+}
+.secondary {
+  border: 1px solid #cbd3df;
+  background: white;
+  color: #172033;
+}
+.notice {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background: #eff4fa;
+  color: #31445f;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+@media (max-width: 40rem) {
+  .row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 1rem 0;
+  }
+  .amount {
+    margin-left: auto;
+  }
+}

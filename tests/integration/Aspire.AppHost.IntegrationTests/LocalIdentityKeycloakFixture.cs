@@ -1,3 +1,5 @@
+extern alias CatalogHost;
+extern alias CatalogApplication;
 extern alias CustomerHost;
 extern alias OrderHost;
 extern alias PricingHost;
@@ -46,6 +48,7 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
     private string? unprovisionedConnectionString;
     private string? orderConnectionString;
     private string? pricingConnectionString;
+    private string? catalogConnectionString;
     private Dictionary<bool, Lazy<Task<RoutedServiceFixture>>>? routedServiceFixtures;
 
     /// <summary>Gets the Keycloak state after reconciliation and tenant registration.</summary>
@@ -54,6 +57,7 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
         GetRequired(provisionedConnectionString),
         GetRequired(orderConnectionString),
         GetRequired(pricingConnectionString),
+        GetRequired(catalogConnectionString),
         RabbitMqConnectionString,
         true);
 
@@ -85,6 +89,7 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
         provisionedConnectionString = await CreateMigratedDatabaseAsync<CustomerDbContext>("local_identity_provisioned", typeof(CustomerHost::Program).Assembly.GetName().Name!).ConfigureAwait(false);
         orderConnectionString = await CreateMigratedDatabaseAsync<Orders.Application.Database.OrderDbContext>("local_identity_order", typeof(OrderHost::Program).Assembly.GetName().Name!).ConfigureAwait(false);
         pricingConnectionString = await CreateMigratedDatabaseAsync<PricingApplication::Pricing.Application.Database.PricingDbContext>("local_identity_pricing", typeof(PricingHost::Program).Assembly.GetName().Name!).ConfigureAwait(false);
+        catalogConnectionString = await CreateMigratedDatabaseAsync<CatalogApplication::Catalog.Application.Database.CatalogDbContext>("local_identity_catalog", typeof(CatalogHost::Program).Assembly.GetName().Name!).ConfigureAwait(false);
         await ReconcileProvisionedInstanceAsync().ConfigureAwait(false);
         routedServiceFixtures = [];
     }
@@ -181,6 +186,7 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
             GetRequired(unprovisionedConnectionString),
             OrderConnectionString,
             PricingConnectionString,
+            GetRequired(catalogConnectionString),
             RabbitMqConnectionString,
             false);
     }
@@ -288,6 +294,7 @@ internal sealed record LocalIdentityTestInstance(
     string CustomerConnectionString,
     string OrderConnectionString,
     string PricingConnectionString,
+    string CatalogConnectionString,
     string RabbitMqConnectionString,
     bool IsProvisioned);
 
