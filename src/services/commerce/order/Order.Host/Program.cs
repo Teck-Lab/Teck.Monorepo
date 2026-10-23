@@ -18,4 +18,4 @@ builder.AddTeckMessaging(typeof(OrderDbContext).Assembly, "OrderWrite");
 var app = builder.Build();
 app.UseTeckService();
 app.MapDefaultEndpoints();
-return await app.RunTeckServiceAsync(args);
+return await app.RunTeckServiceAsync<OrderDbContext>(args);

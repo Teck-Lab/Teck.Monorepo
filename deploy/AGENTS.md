@@ -59,16 +59,15 @@ Two distinct schemas live in each service database, created by **two different m
   `ShouldApplyMigrations` to **Development or `ASPIRE_LOCAL=true`** only. So in local/dev/Aspire runs
   the entity schema is auto-migrated on boot; in production it is **not**.
 - The `deploy/{service}/base/deployment.yaml` init container (`name: migration`, `args: ["--migrate"]`)
-  is intended to apply the EF schema in production, but **no code handles `--migrate` today**. Hosts
-  run via `RunTeckServiceAsync` → `RunJasperFxCommands(args)`. JasperFx normalizes `["--migrate"]` to
-  `["run", "--migrate"]` (leading `-` ⇒ default `run` command), and `--migrate` is not a flag of the
-  `run` command. Because `JasperFxEnvironment.AutoStartHost` is `false` in a real host (only the
-  integration-test factories set it `true`), the unknown flag raises `InvalidUsageException`, JasperFx
-  prints "Invalid usage / Unknown argument or flag for value --migrate", falls back to the `run` help
-  usage, and the process **exits with code 1**. The init container therefore fails today (it does not
-  silently no-op and it does not migrate). Wiring a real EF-migration command onto `--migrate` is a
-  tracked **follow-up**, out of scope for the transport work; it does not affect the `wolverine`
-  message store, which self-creates per (1).
+  applies the owning service's EF entity migrations before the HTTP container starts. Billing,
+  Catalog, and Order use `RunTeckServiceAsync<TDbContext>` with their write contexts; the same
+  shared command is used by Inventory and Notification. It recognizes only the single exact
+  `--migrate` argument, creates an async service scope, awaits `Database.MigrateAsync()`, and
+  exits 0 without starting JasperFx or the HTTP host. An EF/connection error fails the init
+  container rather than starting a service with an unmigrated schema. Repeated execution is
+  idempotent because EF tracks migrations in `__EFMigrationsHistory`. Normal startup and
+  `codegen write` continue through JasperFx. This command does not create the `wolverine`
+  message-store schema; the running service creates it per (1).
 
 ### 3. Production images must ship pre-generated Wolverine codegen
 
