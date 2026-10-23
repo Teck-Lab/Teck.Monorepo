@@ -1,6 +1,6 @@
 # src/services/commerce/ — Commerce Group
 
-Core e-commerce domain. All 5 services are full clean architecture skeletons (7 projects each). Versioned together as `commerce@{version}`.
+Commerce services use Domain, Application and Host projects. The six implemented service directories are `basket`, `catalog`, `customer`, `inventory`, `order` and `pricing`; their independent release groups are defined in root `nx.json`.
 
 ## Services
 
@@ -8,14 +8,14 @@ Core e-commerce domain. All 5 services are full clean architecture skeletons (7 
 |---------|-----------------|---------------------------|-------------------------------|
 | **basket** | Cart management, line items, checkout | BasketCheckedOut | ProductPriceChanged, OrderPlaced |
 | **catalog** | Products, categories, variants, master data, default sell-price fallback | ProductPriceChanged | — |
-| **customer** | **Platform tenant authority.** Global tenant registry (`Tenant` entity), per-tenant database-strategy metadata, remote `GetTenantDatabaseInfo` gRPC handler (FastEndpoints `ICommandHandler`, not WolverineFx). No HTTP endpoints; no `ITenantScoped` aggregates (the Tenant entity IS the authority). Migration seed: `dev` tenant (id `00000000-0000-0000-0000-0000000000a1`, strategy `shared`). | CustomerCreated | — |
+| **customer** | **Platform tenant authority** (global `Tenant` registry and per-tenant database-strategy metadata via `GetTenantDatabaseInfo` gRPC); also has HTTP customer-profile endpoints under `Customer.Host/Endpoints/Customers/` | CustomerCreated | — |
 | **order** | Order lifecycle, line items, fulfillment | OrderPlaced, OrderShipped | BasketCheckedOut, CustomerCreated |
 | **pricing** | Price-list authority | PriceChanged | CatalogPriceChanged |
 | **inventory** | Stock authority | StockReserved, StockReservationRejected | BasketCheckedOut, OrderPlaced |
 
-## Standard Service Structure (All Commerce Services)
+## Standard Service Structure
 
-Each service follows this exact layout. See `order/AGENTS.md` for a concrete example.
+Commerce services have Domain, Application and Host projects; this illustrative layout is not an exact inventory. See `order/AGENTS.md` for additional conventions.
 
 ```
 {service}/
