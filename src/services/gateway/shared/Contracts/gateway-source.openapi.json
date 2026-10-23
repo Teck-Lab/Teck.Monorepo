@@ -1,0 +1,2426 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Teck Catalog and Pricing gateway API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "paths": {
+    "/categories": {
+      "post": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Creates a category.",
+        "operationId": "CatalogHostEndpointsProductsCreateCategoryEndpoint",
+        "requestBody": {
+          "x-name": "CreateCategoryRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogHostEndpointsProductsCreateCategoryRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationProductsResponsesCategoryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/exchange-rates": {
+      "get": {
+        "tags": [
+          "Exchange-Rates"
+        ],
+        "summary": "Lists all exchange rates for the tenant.",
+        "operationId": "PricingHostEndpointsPricingGetExchangeRatesEndpoint",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PricingApplicationPricingResponsesExchangeRateDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Exchange-Rates"
+        ],
+        "summary": "Creates or updates the exchange rate for a currency pair.",
+        "operationId": "PricingHostEndpointsPricingSetExchangeRateEndpoint",
+        "requestBody": {
+          "x-name": "SetExchangeRateRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PricingHostEndpointsPricingSetExchangeRateRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricingApplicationPricingResponsesExchangeRateDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/exchange-rates/{fromCurrency}/{toCurrency}": {
+      "delete": {
+        "tags": [
+          "Exchange-Rates"
+        ],
+        "summary": "Removes the exchange rate for a currency pair.",
+        "operationId": "PricingHostEndpointsPricingRemoveExchangeRateEndpoint",
+        "parameters": [
+          {
+            "name": "fromCurrency",
+            "in": "path",
+            "required": true,
+            "description": "The source ISO currency.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "toCurrency",
+            "in": "path",
+            "required": true,
+            "description": "The target ISO currency.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/price-lists": {
+      "post": {
+        "tags": [
+          "Price-Lists"
+        ],
+        "summary": "Creates a new draft price list.",
+        "operationId": "PricingHostEndpointsPricingCreatePriceListEndpoint",
+        "requestBody": {
+          "x-name": "CreatePriceListRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PricingHostEndpointsPricingCreatePriceListRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricingApplicationPricingResponsesPriceListDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "Price-Lists"
+        ],
+        "summary": "Lists all price lists for the tenant.",
+        "operationId": "PricingHostEndpointsPricingListPriceListsEndpoint",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PricingApplicationPricingResponsesPriceListDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/price-lists/{id}": {
+      "get": {
+        "tags": [
+          "Price-Lists"
+        ],
+        "summary": "Retrieves a single price list by identifier.",
+        "operationId": "PricingHostEndpointsPricingGetPriceListEndpoint",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The price list identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricingApplicationPricingResponsesPriceListDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Price-Lists"
+        ],
+        "summary": "Updates a price list's details, scope, and validity.",
+        "operationId": "PricingHostEndpointsPricingUpdatePriceListEndpoint",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The list identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "requestBody": {
+          "x-name": "UpdatePriceListRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PricingHostEndpointsPricingUpdatePriceListRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricingApplicationPricingResponsesPriceListDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/price-lists/{id}/activate": {
+      "post": {
+        "tags": [
+          "Price-Lists"
+        ],
+        "summary": "Activates a price list.",
+        "operationId": "PricingHostEndpointsPricingActivatePriceListEndpoint",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The list identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricingApplicationPricingResponsesPriceListDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/price-lists/{id}/archive": {
+      "post": {
+        "tags": [
+          "Price-Lists"
+        ],
+        "summary": "Archives a price list.",
+        "operationId": "PricingHostEndpointsPricingArchivePriceListEndpoint",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The list identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricingApplicationPricingResponsesPriceListDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/price-lists/{id}/prices/{productId}": {
+      "put": {
+        "tags": [
+          "Price-Lists"
+        ],
+        "summary": "Adds or updates a product's price within a price list.",
+        "operationId": "PricingHostEndpointsPricingAddOrUpdatePriceEndpoint",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The owning price list identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "description": "The product identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "requestBody": {
+          "x-name": "AddOrUpdatePriceRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PricingHostEndpointsPricingAddOrUpdatePriceRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricingApplicationPricingResponsesPriceListDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Price-Lists"
+        ],
+        "summary": "Removes a product's price from a price list.",
+        "operationId": "PricingHostEndpointsPricingRemovePriceEndpoint",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The owning price list identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "description": "The product identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricingApplicationPricingResponsesPriceListDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/prices/resolve": {
+      "get": {
+        "tags": [
+          "Prices"
+        ],
+        "summary": "Resolves the effective price for a product in a request context.",
+        "operationId": "PricingHostEndpointsPricingResolvePriceEndpoint",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "query",
+            "required": true,
+            "description": "The product identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "required": true,
+            "description": "The requested ISO currency.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "quantity",
+            "in": "query",
+            "description": "The requested quantity (defaults to 1).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
+            }
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "description": "The optional request country.",
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          {
+            "name": "customerGroupId",
+            "in": "query",
+            "description": "The optional request customer group.",
+            "schema": {
+              "type": "string",
+              "format": "guid",
+              "nullable": true
+            }
+          },
+          {
+            "name": "channelId",
+            "in": "query",
+            "description": "The optional request channel.",
+            "schema": {
+              "type": "string",
+              "format": "guid",
+              "nullable": true
+            }
+          },
+          {
+            "name": "at",
+            "in": "query",
+            "description": "The optional resolution moment.",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricingApplicationPricingResponsesResolvedPriceDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/products": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Creates a product.",
+        "operationId": "CatalogHostEndpointsProductsCreateProductEndpoint",
+        "requestBody": {
+          "x-name": "CreateProductRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogHostEndpointsProductsCreateProductRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationProductsResponsesProductDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Lists products.",
+        "operationId": "CatalogHostEndpointsProductsListProductsEndpoint",
+        "parameters": [
+          {
+            "name": "categoryId",
+            "in": "query",
+            "description": "The optional category filter.",
+            "schema": {
+              "type": "string",
+              "format": "guid",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogApplicationProductsResponsesProductSummaryDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/products/{productId}": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Fetches a product by identifier.",
+        "operationId": "CatalogHostEndpointsProductsGetProductEndpoint",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "description": "The product identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationProductsResponsesProductDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/products/{productId}/variants": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Adds a variant to a product.",
+        "operationId": "CatalogHostEndpointsProductsAddVariantEndpoint",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "description": "The owning product identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "requestBody": {
+          "x-name": "AddVariantRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogHostEndpointsProductsAddVariantRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationProductsResponsesVariantDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/products/{productId}/variants/{variantId}/sell-price": {
+      "put": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Changes a variant's sell price.",
+        "operationId": "CatalogHostEndpointsProductsUpdateSellPriceEndpoint",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "description": "The owning product identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          },
+          {
+            "name": "variantId",
+            "in": "path",
+            "required": true,
+            "description": "The variant identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "requestBody": {
+          "x-name": "UpdateSellPriceRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogHostEndpointsProductsUpdateSellPriceRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationProductsResponsesVariantDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/suppliers": {
+      "post": {
+        "tags": [
+          "Suppliers"
+        ],
+        "summary": "Creates a supplier.",
+        "operationId": "CatalogHostEndpointsSuppliersCreateSupplierEndpoint",
+        "requestBody": {
+          "x-name": "CreateSupplierRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogHostEndpointsSuppliersCreateSupplierRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationSuppliersResponsesSupplierDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/suppliers/{supplierId}": {
+      "get": {
+        "tags": [
+          "Suppliers"
+        ],
+        "summary": "Fetches a supplier by identifier.",
+        "operationId": "CatalogHostEndpointsSuppliersGetSupplierEndpoint",
+        "parameters": [
+          {
+            "name": "supplierId",
+            "in": "path",
+            "required": true,
+            "description": "The supplier identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationSuppliersResponsesSupplierDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/variants/{variantId}/suppliers": {
+      "post": {
+        "tags": [
+          "Variants"
+        ],
+        "summary": "Links a supplier to a variant.",
+        "operationId": "CatalogHostEndpointsSuppliersLinkVariantSupplierEndpoint",
+        "parameters": [
+          {
+            "name": "variantId",
+            "in": "path",
+            "required": true,
+            "description": "The variant identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "requestBody": {
+          "x-name": "LinkVariantSupplierRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogHostEndpointsSuppliersLinkVariantSupplierRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationSuppliersResponsesVariantSupplierDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/variants/{variantId}/suppliers/{supplierId}/cost": {
+      "put": {
+        "tags": [
+          "Variants"
+        ],
+        "summary": "Changes a variant-supplier cost price.",
+        "operationId": "CatalogHostEndpointsSuppliersUpdateSupplierCostEndpoint",
+        "parameters": [
+          {
+            "name": "variantId",
+            "in": "path",
+            "required": true,
+            "description": "The variant identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          },
+          {
+            "name": "supplierId",
+            "in": "path",
+            "required": true,
+            "description": "The supplier identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "requestBody": {
+          "x-name": "UpdateSupplierCostRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogHostEndpointsSuppliersUpdateSupplierCostRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationSuppliersResponsesVariantSupplierDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/variants/{variantId}/suppliers/{supplierId}/history": {
+      "get": {
+        "tags": [
+          "Variants"
+        ],
+        "summary": "Fetches the cost history for a variant-supplier link.",
+        "operationId": "CatalogHostEndpointsSuppliersGetSupplierPriceHistoryEndpoint",
+        "parameters": [
+          {
+            "name": "variantId",
+            "in": "path",
+            "required": true,
+            "description": "The variant identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          },
+          {
+            "name": "supplierId",
+            "in": "path",
+            "required": true,
+            "description": "The supplier identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogApplicationSuppliersResponsesSupplierPriceHistoryDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/variants/{variantId}/suppliers/{supplierId}/preferred": {
+      "put": {
+        "tags": [
+          "Variants"
+        ],
+        "summary": "Sets the preferred supplier for a variant.",
+        "operationId": "CatalogHostEndpointsSuppliersSetPreferredSupplierEndpoint",
+        "parameters": [
+          {
+            "name": "variantId",
+            "in": "path",
+            "required": true,
+            "description": "The variant identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          },
+          {
+            "name": "supplierId",
+            "in": "path",
+            "required": true,
+            "description": "The supplier identifier to mark preferred.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CatalogApplicationProductsFeaturesAddVariantV1VariantAttributeInput": {
+        "type": "object",
+        "description": "A variant attribute supplied on the request.",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The attribute name (for example, \"Color\")."
+          },
+          "value": {
+            "type": "string",
+            "description": "The attribute value (for example, \"Red\")."
+          }
+        }
+      },
+      "CatalogApplicationProductsResponsesCategoryDto": {
+        "type": "object",
+        "description": "A category in the hierarchy.",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "guid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "parentId": {
+            "type": "string",
+            "format": "guid",
+            "nullable": true
+          }
+        }
+      },
+      "CatalogApplicationProductsResponsesProductDto": {
+        "type": "object",
+        "description": "A product with its variants.",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "guid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "categoryId": {
+            "type": "string",
+            "format": "guid",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogApplicationProductsResponsesVariantDto"
+            }
+          }
+        }
+      },
+      "CatalogApplicationProductsResponsesProductSummaryDto": {
+        "type": "object",
+        "description": "A lightweight product list item.",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "guid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "categoryId": {
+            "type": "string",
+            "format": "guid",
+            "nullable": true
+          }
+        }
+      },
+      "CatalogApplicationProductsResponsesVariantAttributeDto": {
+        "type": "object",
+        "description": "A name/value variant attribute.",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "CatalogApplicationProductsResponsesVariantDto": {
+        "type": "object",
+        "description": "A sellable variant with its flattened sell price.",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "guid"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "sellPriceAmount": {
+            "type": "number",
+            "format": "decimal"
+          },
+          "sellPriceCurrency": {
+            "type": "string"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogApplicationProductsResponsesVariantAttributeDto"
+            }
+          }
+        }
+      },
+      "CatalogApplicationSuppliersResponsesSupplierDto": {
+        "type": "object",
+        "description": "A supplier.",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "guid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "contactEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "contactPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogApplicationSuppliersResponsesSupplierPriceHistoryDto": {
+        "type": "object",
+        "description": "An effective-dated supplier cost record.",
+        "additionalProperties": false,
+        "properties": {
+          "costPriceAmount": {
+            "type": "number",
+            "format": "decimal"
+          },
+          "costPriceCurrency": {
+            "type": "string"
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CatalogApplicationSuppliersResponsesVariantSupplierDto": {
+        "type": "object",
+        "description": "A variant↔supplier sourcing link with its flattened cost price.",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "guid"
+          },
+          "supplierId": {
+            "type": "string",
+            "format": "guid"
+          },
+          "costPriceAmount": {
+            "type": "number",
+            "format": "decimal"
+          },
+          "costPriceCurrency": {
+            "type": "string"
+          },
+          "supplierSku": {
+            "type": "string"
+          },
+          "leadTimeDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "minOrderQuantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isPreferred": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogHostEndpointsProductsAddVariantRequest": {
+        "type": "object",
+        "description": "Request to add a variant to an existing product.",
+        "additionalProperties": false,
+        "required": [
+          "sku",
+          "sellPriceCurrency"
+        ],
+        "properties": {
+          "sku": {
+            "type": "string",
+            "description": "The variant SKU.",
+            "minLength": 1,
+            "nullable": false
+          },
+          "sellPriceAmount": {
+            "type": "number",
+            "description": "The variant sell price amount.",
+            "format": "decimal",
+            "minimum": 0
+          },
+          "sellPriceCurrency": {
+            "type": "string",
+            "description": "The ISO currency code.",
+            "maxLength": 3,
+            "minLength": 3,
+            "nullable": false
+          },
+          "attributes": {
+            "type": "array",
+            "description": "The distinguishing attributes.",
+            "items": {
+              "$ref": "#/components/schemas/CatalogApplicationProductsFeaturesAddVariantV1VariantAttributeInput"
+            }
+          }
+        }
+      },
+      "CatalogHostEndpointsProductsCreateCategoryRequest": {
+        "type": "object",
+        "description": "Request to create a category.",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "slug"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The category name.",
+            "minLength": 1,
+            "nullable": false
+          },
+          "slug": {
+            "type": "string",
+            "description": "The URL slug.",
+            "minLength": 1,
+            "nullable": false
+          },
+          "parentId": {
+            "type": "string",
+            "description": "The optional parent category.",
+            "format": "guid",
+            "nullable": true
+          }
+        }
+      },
+      "CatalogHostEndpointsProductsCreateProductRequest": {
+        "type": "object",
+        "description": "Request to create a product with a single default variant.",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "sku",
+          "sellPriceCurrency"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The product name.",
+            "minLength": 1,
+            "nullable": false
+          },
+          "description": {
+            "type": "string",
+            "description": "The optional product description.",
+            "nullable": true
+          },
+          "categoryId": {
+            "type": "string",
+            "description": "The optional owning category.",
+            "format": "guid",
+            "nullable": true
+          },
+          "sku": {
+            "type": "string",
+            "description": "The default variant SKU.",
+            "minLength": 1,
+            "nullable": false
+          },
+          "sellPriceAmount": {
+            "type": "number",
+            "description": "The default variant sell price amount.",
+            "format": "decimal",
+            "minimum": 0
+          },
+          "sellPriceCurrency": {
+            "type": "string",
+            "description": "The ISO currency code for the sell price.",
+            "maxLength": 3,
+            "minLength": 3,
+            "nullable": false
+          }
+        }
+      },
+      "CatalogHostEndpointsProductsGetProductRequest": {
+        "type": "object",
+        "description": "Request to fetch a product by identifier.",
+        "additionalProperties": false
+      },
+      "CatalogHostEndpointsProductsListProductsRequest": {
+        "type": "object",
+        "description": "Request to list products, optionally filtered by category.",
+        "additionalProperties": false
+      },
+      "CatalogHostEndpointsProductsUpdateSellPriceRequest": {
+        "type": "object",
+        "description": "Request to change a variant's sell price.",
+        "additionalProperties": false,
+        "required": [
+          "currency"
+        ],
+        "properties": {
+          "amount": {
+            "type": "number",
+            "description": "The new sell price amount.",
+            "format": "decimal",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "description": "The ISO currency code.",
+            "maxLength": 3,
+            "minLength": 3,
+            "nullable": false
+          }
+        }
+      },
+      "CatalogHostEndpointsSuppliersCreateSupplierRequest": {
+        "type": "object",
+        "description": "Request to create a supplier.",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The supplier name.",
+            "minLength": 1,
+            "nullable": false
+          },
+          "contactEmail": {
+            "type": "string",
+            "description": "The optional contact email.",
+            "format": "email",
+            "pattern": "^[^@]+@[^@]+$",
+            "nullable": true
+          },
+          "contactPhone": {
+            "type": "string",
+            "description": "The optional contact phone.",
+            "nullable": true
+          }
+        }
+      },
+      "CatalogHostEndpointsSuppliersGetSupplierPriceHistoryRequest": {
+        "type": "object",
+        "description": "Request to fetch a variant-supplier cost history.",
+        "additionalProperties": false
+      },
+      "CatalogHostEndpointsSuppliersGetSupplierRequest": {
+        "type": "object",
+        "description": "Request to fetch a supplier by identifier.",
+        "additionalProperties": false
+      },
+      "CatalogHostEndpointsSuppliersLinkVariantSupplierRequest": {
+        "type": "object",
+        "description": "Request to link a supplier to a variant.",
+        "additionalProperties": false,
+        "required": [
+          "supplierId",
+          "costCurrency"
+        ],
+        "properties": {
+          "supplierId": {
+            "type": "string",
+            "description": "The supplier identifier.",
+            "format": "guid",
+            "minLength": 1,
+            "nullable": false
+          },
+          "costAmount": {
+            "type": "number",
+            "description": "The cost price amount.",
+            "format": "decimal",
+            "minimum": 0
+          },
+          "costCurrency": {
+            "type": "string",
+            "description": "The ISO currency code.",
+            "maxLength": 3,
+            "minLength": 3,
+            "nullable": false
+          },
+          "supplierSku": {
+            "type": "string",
+            "description": "The supplier's SKU for the variant."
+          },
+          "leadTimeDays": {
+            "type": "integer",
+            "description": "The sourcing lead time in days.",
+            "format": "int32",
+            "minimum": 0
+          },
+          "minOrderQuantity": {
+            "type": "integer",
+            "description": "The minimum order quantity.",
+            "format": "int32",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "isPreferred": {
+            "type": "boolean",
+            "description": "Whether this link is the preferred supplier."
+          }
+        }
+      },
+      "CatalogHostEndpointsSuppliersSetPreferredSupplierRequest": {
+        "type": "object",
+        "description": "Request to set the preferred supplier for a variant.",
+        "additionalProperties": false
+      },
+      "CatalogHostEndpointsSuppliersUpdateSupplierCostRequest": {
+        "type": "object",
+        "description": "Request to change a variant-supplier cost price.",
+        "additionalProperties": false,
+        "required": [
+          "costCurrency"
+        ],
+        "properties": {
+          "costAmount": {
+            "type": "number",
+            "description": "The new cost price amount.",
+            "format": "decimal",
+            "minimum": 0
+          },
+          "costCurrency": {
+            "type": "string",
+            "description": "The ISO currency code.",
+            "maxLength": 3,
+            "minLength": 3,
+            "nullable": false
+          }
+        }
+      },
+      "ErrorOrSuccess": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "FastEndpointsErrorResponse": {
+        "type": "object",
+        "description": "the dto used to send an error response to the client",
+        "additionalProperties": false,
+        "properties": {
+          "statusCode": {
+            "type": "integer",
+            "description": "the http status code sent to the client. default is 400.",
+            "format": "int32",
+            "default": 400
+          },
+          "message": {
+            "type": "string",
+            "description": "the message for the error response",
+            "default": "One or more errors occurred!"
+          },
+          "errors": {
+            "type": "object",
+            "description": "the collection of errors for the current context",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "PricingApplicationPricingFeaturesAddOrUpdatePriceV1PriceTierInput": {
+        "type": "object",
+        "description": "A quantity tier supplied on a price command (currency is the list's scope currency).",
+        "additionalProperties": false,
+        "properties": {
+          "minQuantity": {
+            "type": "integer",
+            "description": "The minimum quantity (>= 1).",
+            "format": "int32"
+          },
+          "amount": {
+            "type": "number",
+            "description": "The unit amount.",
+            "format": "decimal"
+          }
+        }
+      },
+      "PricingApplicationPricingResponsesExchangeRateDto": {
+        "type": "object",
+        "description": "An exchange rate in API responses.",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The rate identifier.",
+            "format": "guid"
+          },
+          "fromCurrency": {
+            "type": "string",
+            "description": "The source ISO currency."
+          },
+          "toCurrency": {
+            "type": "string",
+            "description": "The target ISO currency."
+          },
+          "rate": {
+            "type": "number",
+            "description": "The multiplicative rate.",
+            "format": "decimal"
+          },
+          "validFrom": {
+            "type": "string",
+            "description": "The inclusive validity start, or null.",
+            "format": "date-time",
+            "nullable": true
+          },
+          "validUntil": {
+            "type": "string",
+            "description": "The exclusive validity end, or null.",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "PricingApplicationPricingResponsesPriceDto": {
+        "type": "object",
+        "description": "A product price in API responses.",
+        "additionalProperties": false,
+        "properties": {
+          "productId": {
+            "type": "string",
+            "description": "The product identifier.",
+            "format": "guid"
+          },
+          "amount": {
+            "type": "number",
+            "description": "The base unit amount.",
+            "format": "decimal"
+          },
+          "currency": {
+            "type": "string",
+            "description": "The ISO currency."
+          },
+          "tiers": {
+            "type": "array",
+            "description": "The quantity tiers.",
+            "items": {
+              "$ref": "#/components/schemas/PricingApplicationPricingResponsesPriceTierDto"
+            }
+          }
+        }
+      },
+      "PricingApplicationPricingResponsesPriceListDto": {
+        "type": "object",
+        "description": "A price list in API responses.",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The list identifier.",
+            "format": "guid"
+          },
+          "name": {
+            "type": "string",
+            "description": "The display name."
+          },
+          "description": {
+            "type": "string",
+            "description": "The optional description.",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "description": "The lifecycle status name."
+          },
+          "currency": {
+            "type": "string",
+            "description": "The scope currency."
+          },
+          "country": {
+            "type": "string",
+            "description": "The scope country, or null.",
+            "nullable": true
+          },
+          "customerGroupId": {
+            "type": "string",
+            "description": "The scope customer group, or null.",
+            "format": "guid",
+            "nullable": true
+          },
+          "channelId": {
+            "type": "string",
+            "description": "The scope channel, or null.",
+            "format": "guid",
+            "nullable": true
+          },
+          "validFrom": {
+            "type": "string",
+            "description": "The inclusive validity start, or null.",
+            "format": "date-time",
+            "nullable": true
+          },
+          "validUntil": {
+            "type": "string",
+            "description": "The exclusive validity end, or null.",
+            "format": "date-time",
+            "nullable": true
+          },
+          "prices": {
+            "type": "array",
+            "description": "The contained prices.",
+            "items": {
+              "$ref": "#/components/schemas/PricingApplicationPricingResponsesPriceDto"
+            }
+          }
+        }
+      },
+      "PricingApplicationPricingResponsesPriceTierDto": {
+        "type": "object",
+        "description": "A quantity tier in API responses.",
+        "additionalProperties": false,
+        "properties": {
+          "minQuantity": {
+            "type": "integer",
+            "description": "The minimum quantity at which the amount applies.",
+            "format": "int32"
+          },
+          "amount": {
+            "type": "number",
+            "description": "The unit amount.",
+            "format": "decimal"
+          }
+        }
+      },
+      "PricingApplicationPricingResponsesResolvedPriceDto": {
+        "type": "object",
+        "description": "The resolved price for a product in a request context.",
+        "additionalProperties": false,
+        "properties": {
+          "productId": {
+            "type": "string",
+            "description": "The product identifier.",
+            "format": "guid"
+          },
+          "unitAmount": {
+            "type": "number",
+            "description": "The resolved unit amount (converted if cross-currency).",
+            "format": "decimal"
+          },
+          "currency": {
+            "type": "string",
+            "description": "The requested ISO currency of the amount."
+          },
+          "priceListId": {
+            "type": "string",
+            "description": "The winning price list.",
+            "format": "guid"
+          },
+          "converted": {
+            "type": "boolean",
+            "description": "Whether an FX conversion was applied."
+          },
+          "rateApplied": {
+            "type": "number",
+            "description": "The FX rate applied, or null when native.",
+            "format": "decimal",
+            "nullable": true
+          }
+        }
+      },
+      "PricingHostEndpointsPricingActivatePriceListRequest": {
+        "type": "object",
+        "description": "Request to activate a price list.",
+        "additionalProperties": false
+      },
+      "PricingHostEndpointsPricingAddOrUpdatePriceRequest": {
+        "type": "object",
+        "description": "Request to add or update a product's price within a list.",
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "type": "number",
+            "description": "The base unit amount (in the list's currency).",
+            "format": "decimal",
+            "minimum": 0
+          },
+          "tiers": {
+            "type": "array",
+            "description": "The quantity tiers.",
+            "items": {
+              "$ref": "#/components/schemas/PricingApplicationPricingFeaturesAddOrUpdatePriceV1PriceTierInput"
+            }
+          }
+        }
+      },
+      "PricingHostEndpointsPricingArchivePriceListRequest": {
+        "type": "object",
+        "description": "Request to archive a price list.",
+        "additionalProperties": false
+      },
+      "PricingHostEndpointsPricingCreatePriceListRequest": {
+        "type": "object",
+        "description": "Request to create a price list.",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "currency"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The display name.",
+            "maxLength": 256,
+            "minLength": 0,
+            "nullable": false
+          },
+          "description": {
+            "type": "string",
+            "description": "The optional description.",
+            "nullable": true
+          },
+          "currency": {
+            "type": "string",
+            "description": "The scope ISO currency.",
+            "maxLength": 3,
+            "minLength": 3,
+            "nullable": false
+          },
+          "country": {
+            "type": "string",
+            "description": "The scope country, or null.",
+            "maxLength": 2,
+            "minLength": 2,
+            "nullable": true
+          },
+          "customerGroupId": {
+            "type": "string",
+            "description": "The scope customer group, or null.",
+            "format": "guid",
+            "nullable": true
+          },
+          "channelId": {
+            "type": "string",
+            "description": "The scope channel, or null.",
+            "format": "guid",
+            "nullable": true
+          },
+          "validFrom": {
+            "type": "string",
+            "description": "The inclusive validity start, or null.",
+            "format": "date-time",
+            "nullable": true
+          },
+          "validUntil": {
+            "type": "string",
+            "description": "The exclusive validity end, or null.",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "PricingHostEndpointsPricingGetPriceListRequest": {
+        "type": "object",
+        "description": "Request to retrieve a single price list by identifier.",
+        "additionalProperties": false
+      },
+      "PricingHostEndpointsPricingRemoveExchangeRateRequest": {
+        "type": "object",
+        "description": "Request to remove the exchange rate for a currency pair.",
+        "additionalProperties": false
+      },
+      "PricingHostEndpointsPricingRemovePriceRequest": {
+        "type": "object",
+        "description": "Request to remove a product's price from a list.",
+        "additionalProperties": false
+      },
+      "PricingHostEndpointsPricingResolvePriceRequest": {
+        "type": "object",
+        "description": "Query parameters for resolving a product price.",
+        "additionalProperties": false
+      },
+      "PricingHostEndpointsPricingSetExchangeRateRequest": {
+        "type": "object",
+        "description": "Request to create or update the exchange rate for a currency pair.",
+        "additionalProperties": false,
+        "required": [
+          "fromCurrency",
+          "toCurrency"
+        ],
+        "properties": {
+          "fromCurrency": {
+            "type": "string",
+            "description": "The source ISO currency.",
+            "maxLength": 3,
+            "minLength": 3,
+            "nullable": false
+          },
+          "toCurrency": {
+            "type": "string",
+            "description": "The target ISO currency.",
+            "maxLength": 3,
+            "minLength": 3,
+            "nullable": false
+          },
+          "rate": {
+            "type": "number",
+            "description": "The positive multiplicative rate.",
+            "format": "decimal",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "validFrom": {
+            "type": "string",
+            "description": "The inclusive validity start, or null.",
+            "format": "date-time",
+            "nullable": true
+          },
+          "validUntil": {
+            "type": "string",
+            "description": "The exclusive validity end, or null.",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "PricingHostEndpointsPricingUpdatePriceListRequest": {
+        "type": "object",
+        "description": "Request to update a price list's details, scope, and validity.",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "currency"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The new name.",
+            "maxLength": 256,
+            "minLength": 0,
+            "nullable": false
+          },
+          "description": {
+            "type": "string",
+            "description": "The new description.",
+            "nullable": true
+          },
+          "currency": {
+            "type": "string",
+            "description": "The new scope currency.",
+            "maxLength": 3,
+            "minLength": 3,
+            "nullable": false
+          },
+          "country": {
+            "type": "string",
+            "description": "The new scope country, or null.",
+            "maxLength": 2,
+            "minLength": 2,
+            "nullable": true
+          },
+          "customerGroupId": {
+            "type": "string",
+            "description": "The new scope customer group, or null.",
+            "format": "guid",
+            "nullable": true
+          },
+          "channelId": {
+            "type": "string",
+            "description": "The new scope channel, or null.",
+            "format": "guid",
+            "nullable": true
+          },
+          "validFrom": {
+            "type": "string",
+            "description": "The new inclusive validity start, or null.",
+            "format": "date-time",
+            "nullable": true
+          },
+          "validUntil": {
+            "type": "string",
+            "description": "The new exclusive validity end, or null.",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "oAuth2": {
+        "type": "oauth2",
+        "in": "header",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "http://localhost:8080/realms/teck/protocol/openid-connect/auth",
+            "tokenUrl": "http://localhost:8080/realms/teck/protocol/openid-connect/token",
+            "refreshUrl": "http://localhost:8080/realms/teck/protocol/openid-connect/token",
+            "scopes": {
+              "organization": "Org"
+            }
+          }
+        }
+      }
+    }
+  }
+}

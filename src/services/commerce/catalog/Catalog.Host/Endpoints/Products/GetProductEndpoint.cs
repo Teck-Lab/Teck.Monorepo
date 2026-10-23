@@ -23,7 +23,7 @@ public sealed class GetProductEndpoint(IMessageBus bus)
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Get("/products/{productId}");
+        Get("/api/v1/catalog/products/{productId}");
         Version(0);
     }
 }

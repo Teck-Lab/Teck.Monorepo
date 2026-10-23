@@ -22,26 +22,27 @@ public sealed class SupplierSourcingTests : CatalogIntegrationTestBase
     [Fact]
     public async Task CreateSupplier_ReturnsCreated()
     {
-        var response = await Client.PostAsJsonAsync("/suppliers", new
+        var response = await Client.PostAsJsonAsync("/api/v1/admin/catalog/suppliers", new
         {
             Name = "Acme", ContactEmail = "sales@acme.test", ContactPhone = (string?)null,
         });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var supplier = await response.Content.ReadFromJsonAsync<SupplierDto>();
+        Assert.Equal($"/api/v1/admin/catalog/suppliers/{supplier!.Id}", response.Headers.Location?.ToString());
         Assert.Equal("Acme", supplier!.Name);
     }
 
     [Fact]
     public async Task GetSupplier_AfterCreate_ReturnsSupplier()
     {
-        var created = await Client.PostAsJsonAsync("/suppliers", new
+        var created = await Client.PostAsJsonAsync("/api/v1/admin/catalog/suppliers", new
         {
             Name = "Globex", ContactEmail = (string?)null, ContactPhone = (string?)null,
         });
         var supplier = await created.Content.ReadFromJsonAsync<SupplierDto>();
 
-        var fetched = await Client.GetFromJsonAsync<SupplierDto>($"/suppliers/{supplier!.Id}");
+        var fetched = await Client.GetFromJsonAsync<SupplierDto>($"/api/v1/admin/catalog/suppliers/{supplier!.Id}");
 
         Assert.Equal(supplier.Id, fetched!.Id);
         Assert.Equal("Globex", fetched.Name);
@@ -50,7 +51,7 @@ public sealed class SupplierSourcingTests : CatalogIntegrationTestBase
     [Fact]
     public async Task SetPreferredSupplier_AfterLink_ReturnsNoContent()
     {
-        var createdProduct = await Client.PostAsJsonAsync("/products", new
+        var createdProduct = await Client.PostAsJsonAsync("/api/v1/admin/catalog/products", new
         {
             Name = "Preferred", Description = (string?)null, CategoryId = (Guid?)null,
             Sku = "PREF-1", SellPriceAmount = 8m, SellPriceCurrency = "USD",
@@ -58,22 +59,20 @@ public sealed class SupplierSourcingTests : CatalogIntegrationTestBase
         var product = await createdProduct.Content.ReadFromJsonAsync<ProductDto>();
         var variantId = product!.Variants[0].Id;
 
-        var createdSupplier = await Client.PostAsJsonAsync("/suppliers", new
+        var createdSupplier = await Client.PostAsJsonAsync("/api/v1/admin/catalog/suppliers", new
         {
             Name = "PrefCo", ContactEmail = (string?)null, ContactPhone = (string?)null,
         });
         var supplier = await createdSupplier.Content.ReadFromJsonAsync<SupplierDto>();
 
-        var link = await Client.PostAsJsonAsync($"/variants/{variantId}/suppliers", new
+        var link = await Client.PostAsJsonAsync($"/api/v1/admin/catalog/variants/{variantId}/suppliers", new
         {
             VariantId = variantId, SupplierId = supplier!.Id, CostAmount = 3m, CostCurrency = "USD",
             SupplierSku = "PC-1", LeadTimeDays = 2, MinOrderQuantity = 1, IsPreferred = false,
         });
         Assert.Equal(HttpStatusCode.Created, link.StatusCode);
 
-        var preferred = await Client.PutAsJsonAsync(
-            $"/variants/{variantId}/suppliers/{supplier.Id}/preferred",
-            new { VariantId = variantId, SupplierId = supplier.Id });
+        var preferred = await Client.PutAsJsonAsync($"/api/v1/admin/catalog/variants/{variantId}/suppliers/{supplier.Id}/preferred", new { VariantId = variantId, SupplierId = supplier.Id });
 
         Assert.Equal(HttpStatusCode.NoContent, preferred.StatusCode);
     }
@@ -81,7 +80,7 @@ public sealed class SupplierSourcingTests : CatalogIntegrationTestBase
     [Fact]
     public async Task UpdateSupplierCost_WritesHistoryRow()
     {
-        var createdProduct = await Client.PostAsJsonAsync("/products", new
+        var createdProduct = await Client.PostAsJsonAsync("/api/v1/admin/catalog/products", new
         {
             Name = "Sourced", Description = (string?)null, CategoryId = (Guid?)null,
             Sku = "SRC-1", SellPriceAmount = 12m, SellPriceCurrency = "USD",
@@ -89,26 +88,23 @@ public sealed class SupplierSourcingTests : CatalogIntegrationTestBase
         var product = await createdProduct.Content.ReadFromJsonAsync<ProductDto>();
         var variantId = product!.Variants[0].Id;
 
-        var createdSupplier = await Client.PostAsJsonAsync("/suppliers", new
+        var createdSupplier = await Client.PostAsJsonAsync("/api/v1/admin/catalog/suppliers", new
         {
             Name = "CostCo", ContactEmail = (string?)null, ContactPhone = (string?)null,
         });
         var supplier = await createdSupplier.Content.ReadFromJsonAsync<SupplierDto>();
 
-        var link = await Client.PostAsJsonAsync($"/variants/{variantId}/suppliers", new
+        var link = await Client.PostAsJsonAsync($"/api/v1/admin/catalog/variants/{variantId}/suppliers", new
         {
             VariantId = variantId, SupplierId = supplier!.Id, CostAmount = 4m, CostCurrency = "USD",
             SupplierSku = "CC-1", LeadTimeDays = 5, MinOrderQuantity = 1, IsPreferred = true,
         });
         Assert.Equal(HttpStatusCode.Created, link.StatusCode);
 
-        var updated = await Client.PutAsJsonAsync(
-            $"/variants/{variantId}/suppliers/{supplier.Id}/cost",
-            new { VariantId = variantId, SupplierId = supplier.Id, CostAmount = 5m, CostCurrency = "USD" });
+        var updated = await Client.PutAsJsonAsync($"/api/v1/admin/catalog/variants/{variantId}/suppliers/{supplier.Id}/cost", new { VariantId = variantId, SupplierId = supplier.Id, CostAmount = 5m, CostCurrency = "USD" });
         Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
 
-        var history = await Client.GetFromJsonAsync<List<SupplierPriceHistoryDto>>(
-            $"/variants/{variantId}/suppliers/{supplier.Id}/history");
+        var history = await Client.GetFromJsonAsync<List<SupplierPriceHistoryDto>>($"/api/v1/admin/catalog/variants/{variantId}/suppliers/{supplier.Id}/history");
         Assert.NotNull(history);
         Assert.NotEmpty(history!);
     }

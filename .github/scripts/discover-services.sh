@@ -3,7 +3,7 @@
 #
 # A "service" is a directory src/services/<group>/<service> that contains a
 # runnable Host project. The Host csproj is either <service>/*.Host/*.Host.csproj
-# (commerce services) or a single csproj directly in the service dir (gateway).
+# (commerce services) or a runnable csproj directly in the service dir (gateway).
 #
 # The emitted object is the single source of truth joined against by both
 # security-scans.yml (per-service source scans) and release.yml (per-service image
@@ -13,7 +13,7 @@
 #   product      - service key/suffix used to construct the per-service
 #                  `semgrep-${product}` GitHub Code Scanning SARIF category.
 #                  Equal to the service except gateway sub-services are prefixed.
-#   nxProject    - nx project name of the Host (Order.Host, Gateway.Public, ...)
+#   nxProject    - nx project name of the Host (Order.Host, Gateway.WebAdmin, ...)
 #   projectPath  - path to the Host csproj (build target for the image)
 #   scanPath     - directory the source scanners target for this service
 #   releaseGroup - stable service grouping used for cache and scan metadata
@@ -38,6 +38,8 @@ objs=()
 while IFS= read -r svcdir; do
   group=$(basename "$(dirname "$svcdir")")
   service=$(basename "$svcdir")
+  # Shared gateway code is a library, not a deployable reverse proxy.
+  [ "$group" = "gateway" ] && [ "$service" = "shared" ] && continue
 
   host=$(find "$svcdir" -name '*.Host.csproj' | head -1)
   if [ -z "$host" ]; then

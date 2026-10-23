@@ -12,6 +12,7 @@
     <PackageReference Include="Testcontainers.Keycloak" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.RabbitMq" />
+    <PackageReference Include="Yarp.ReverseProxy" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio">
@@ -27,8 +28,11 @@
     <ProjectReference Include="..\..\..\src\services\commerce\catalog\Catalog.Application\Catalog.Application.csproj">
       <Aliases>CatalogApplication</Aliases>
     </ProjectReference>
-    <ProjectReference Include="..\..\..\src\services\gateway\public\Gateway.Public.csproj">
+    <ProjectReference Include="..\..\..\src\services\gateway\web-admin\Gateway.WebAdmin.csproj">
       <Aliases>GatewayHost</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\src\services\gateway\shared\Gateway.Edge.csproj">
+      <Aliases>GatewayEdge</Aliases>
     </ProjectReference>
     <ProjectReference Include="..\..\..\src\services\commerce\order\Order.Host\Order.Host.csproj">
       <Aliases>OrderHost</Aliases>

@@ -64,7 +64,9 @@
   </Folder>
   <Folder Name="/src/services/content/" />
   <Folder Name="/src/services/gateway/">
-    <Project Path="src/services/gateway/public/Gateway.Public.csproj" />
+    <Project Path="src/services/gateway/shared/Gateway.Edge.csproj" />
+    <Project Path="src/services/gateway/web-customer/Gateway.WebCustomer.csproj" />
+    <Project Path="src/services/gateway/web-admin/Gateway.WebAdmin.csproj" />
   </Folder>
   <Folder Name="/src/aspire/">
     <Project Path="src/aspire/Teck.ServiceDefaults/Teck.ServiceDefaults.csproj" />
@@ -88,7 +90,7 @@
     <Project Path="tests/unit/Billing.UnitTests/Billing.UnitTests.csproj" />
     <Project Path="tests/unit/Inventory.UnitTests/Inventory.UnitTests.csproj" />
     <Project Path="tests/unit/Customer.UnitTests/Customer.UnitTests.csproj" />
-    <Project Path="tests/unit/Gateway.Public.UnitTests/Gateway.Public.UnitTests.csproj" />
+    <Project Path="tests/unit/Gateway.WebAdmin.UnitTests/Gateway.WebAdmin.UnitTests.csproj" />
     <Project Path="tests/unit/Pricing.UnitTests/Pricing.UnitTests.csproj" />
     <Project Path="tests/unit/Teck.ServiceDefaults.UnitTests/Teck.ServiceDefaults.UnitTests.csproj" />
     <Project Path="tests/unit/Teck.LocalIdentity.UnitTests/Teck.LocalIdentity.UnitTests.csproj" />
@@ -100,7 +102,8 @@
     <Project Path="tests/integration/Billing.IntegrationTests/Billing.IntegrationTests.csproj" />
     <Project Path="tests/integration/Pricing.IntegrationTests/Pricing.IntegrationTests.csproj" />
     <Project Path="tests/integration/Customer.IntegrationTests/Customer.IntegrationTests.csproj" />
-    <Project Path="tests/integration/Gateway.Public.IntegrationTests/Gateway.Public.IntegrationTests.csproj" />
+    <Project Path="tests/integration/Gateway.WebAdmin.IntegrationTests/Gateway.WebAdmin.IntegrationTests.csproj" />
+    <Project Path="tests/integration/Gateway.WebCustomer.IntegrationTests/Gateway.WebCustomer.IntegrationTests.csproj" />
     <Project Path="tests/integration/Aspire.AppHost.IntegrationTests/Aspire.AppHost.IntegrationTests.csproj" />
     <Project Path="tests/integration/Notification.IntegrationTests/Notification.IntegrationTests.csproj" />
   </Folder>

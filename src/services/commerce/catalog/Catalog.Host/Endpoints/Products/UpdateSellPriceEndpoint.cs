@@ -11,7 +11,7 @@ public sealed class UpdateSellPriceEndpoint(IMessageBus bus)
     : AuthenticatedEndpoint<UpdateSellPriceRequest, VariantDto>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("catalog", "manage", "public");
+    protected override EndpointPermission Permission => new("catalog", "manage", "admin");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(UpdateSellPriceRequest request, CancellationToken ct)
@@ -24,7 +24,7 @@ public sealed class UpdateSellPriceEndpoint(IMessageBus bus)
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Put("/products/{productId}/variants/{variantId}/sell-price");
+        Put("/api/v1/admin/catalog/products/{productId}/variants/{variantId}/sell-price");
         Version(0);
     }
 }

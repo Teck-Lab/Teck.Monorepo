@@ -11,21 +11,21 @@ public sealed class CreateSupplierEndpoint(IMessageBus bus)
     : AuthenticatedEndpoint<CreateSupplierRequest, SupplierDto>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("catalog", "manage", "public");
+    protected override EndpointPermission Permission => new("catalog", "manage", "admin");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(CreateSupplierRequest request, CancellationToken ct)
     {
         var command = new CreateSupplierCommand(request.Name, request.ContactEmail, request.ContactPhone);
         var result = await bus.InvokeAsync<SupplierDto>(command, ct);
-        HttpContext.Response.Headers.Location = $"/suppliers/{result.Id}";
+        HttpContext.Response.Headers.Location = $"/api/v1/admin/catalog/suppliers/{result.Id}";
         await Send.ResponseAsync(result, StatusCodes.Status201Created, ct);
     }
 
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Post("/suppliers");
+        Post("/api/v1/admin/catalog/suppliers");
         Version(0);
     }
 }

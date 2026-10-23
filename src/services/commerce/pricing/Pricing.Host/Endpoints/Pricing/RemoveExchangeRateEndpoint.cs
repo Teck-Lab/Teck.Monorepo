@@ -10,7 +10,7 @@ namespace Pricing.Host.Endpoints.Pricing;
 public sealed class RemoveExchangeRateEndpoint(IMessageBus bus) : AuthenticatedEndpoint<RemoveExchangeRateRequest, Success>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("pricing", "manage", "public");
+    protected override EndpointPermission Permission => new("pricing", "manage", "admin");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(RemoveExchangeRateRequest request, CancellationToken ct)
@@ -23,7 +23,7 @@ public sealed class RemoveExchangeRateEndpoint(IMessageBus bus) : AuthenticatedE
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Delete("/exchange-rates/{fromCurrency}/{toCurrency}");
+        Delete("/api/v1/admin/pricing/exchange-rates/{fromCurrency}/{toCurrency}");
         Version(0);
     }
 }
