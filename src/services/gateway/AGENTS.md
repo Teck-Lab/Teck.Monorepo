@@ -2,12 +2,15 @@
 
 YARP reverse proxies. Single-project per gateway — no Domain, no Application, no database. Versioned together as `gateway@{version}`.
 
-## Services
+## Implemented and intended web boundaries
 
-| Service | Deployed As | Purpose |
-|---------|-------------|---------|
-| **public-gateway** | yarp-gateway | Public-facing BFF — routes to downstream services with auth token exchange |
-| **admin-gateway** | admin-gateway | Internal admin gateway — routes to admin endpoints |
+| Boundary | Status | Purpose |
+|----------|--------|---------|
+| `public/` (`Gateway.Public`, deployed as `yarp-gateway`) | Implemented | YARP for selected authenticated Catalog, Order and Pricing routes; currently used by the staff dashboard |
+| `web-customer` | Planned, not implemented | YARP BFF for the Next.js customer web app; expose only customer-approved service paths and a customer-safe, versioned OpenAPI/Scalar contract |
+| `web-admin` | Planned, not implemented | YARP BFF for the internal-operator Next.js dashboard; expose approved shared/customer and admin operations, with developer/internal OpenAPI/Scalar access |
+
+There is no implemented `admin-gateway` project. These are gateway boundaries, not additional frontend applications. Next.js currently owns the dashboard's browser session; no gateway-owned SPA cookie session is implemented. Both planned gateways must exchange authenticated inbound user tokens for each downstream service audience. Guest routes without a user token require a separate explicit policy; they cannot silently bypass token exchange.
 
 ## Structure
 
@@ -40,7 +43,7 @@ YARP reverse proxies. Single-project per gateway — no Domain, no Application, 
 │       ├── HeaderFirewallStep.cs    ← #1: saves ClientRequestedTenantId then strips X-TenantId + X-Tenant-DbStrategy
 │       ├── ResolveTenantStep.cs     ← #2: resolves tenant from claims/saved header; mismatch → 403
 │       ├── ResolveDbStrategyStep.cs ← #3: calls ITenantDatabaseStrategyResolver; sets X-Tenant-DbStrategy
-│       └── ExchangeTokenStep.cs     ← #4: exchanges inbound token via IServiceTokenExchangeService; sets X-Authorization
+│       └── ExchangeTokenStep.cs     ← #4: exchanges an inbound token via IServiceTokenExchangeService; stores the result in HttpContext.Items
 └── Containerfile
 ```
 
@@ -50,13 +53,21 @@ YARP reverse proxies. Single-project per gateway — no Domain, no Application, 
 |-----------|---------|
 | SharedKernel.Core | Configuration, extensions |
 | SharedKernel.Infrastructure | Auth (JWT validation, token exchange, ITenantTokenContextResolver), health checks |
-| SharedKernel.Grpc.Contracts | gRPC client contracts (public gateway only) |
+| SharedKernel.Grpc.Contracts | gRPC tenant metadata contract used by the implemented public gateway; tenant-scoped operator routes need an authoritative strategy too |
 
 ## Rules
 
 - **No service references** — gateways proxy via YARP at runtime, never reference service projects
 - **No business logic** — pure routing and auth middleware
-- **Auth token exchange** — BFF pattern: exchange user token for per-service audience token via IServiceTokenExchangeService
+- **Auth token exchange** — BFF pattern: exchange authenticated user tokens for per-service audience tokens via IServiceTokenExchangeService; an absent inbound token currently makes `ExchangeTokenStep` proceed, so protected/guest routes need an explicit policy before broad exposure
+
+## Endpoint classification and documentation: current state
+
+`src/shared/SharedKernel.Infrastructure/Endpoints/EndpointPermission.cs` declares a protected resource, scope, and `Audience`. `AuthenticatedEndpoint` applies Keycloak protected-resource authorization (or `AllowAnonymous`) and attaches `OpenApiAudienceMetadata`. That audience filters service-host OpenAPI operations; it does **not** select YARP routes or make an endpoint safe for customer exposure. Existing `"public"` audiences include protected Catalog management operations. The gateway's `ReverseProxy:Routes` independently select paths, methods, upstream clusters, edge modes and exchange audiences; they are currently maintained by hand in `public/appsettings.json`.
+
+Only Catalog and Pricing hosts currently register `AddOpenApiInfrastructure`/`UseOpenApiInfrastructure`, serving versioned `/openapi/{documentName}/openapi.json` and `/docs` (Scalar) via shared infrastructure. Customer has HTTP profile endpoints but does not currently register those OpenAPI/Scalar helpers. The public gateway does not register OpenAPI or Scalar. The dashboard's checked-in TypeScript client snapshot is assembled from live Catalog and Pricing **service-host** documents, not generated from a gateway document (`src/packages/api-client/scripts/sync-openapi.ts`). Service documents include `vN` and `vN-public` registrations; Scalar currently lists `vN`. Do not infer that endpoint declarations with `Version(0)` are already exposed at a particular `/api/vN/...` path without checking actual host routes.
+
+Before adding catch-all routes for `web-customer` or `web-admin`, classify and migrate service paths and permissions deliberately; prefix or document audience alone is not an authorization boundary. Keep each gateway's per-service destination explicit, reject unintended future endpoint exposure, and prove its published OpenAPI contains only reachable operations. If paths are changed in services, migrate callers, tests, generated clients and docs together; do not assume YARP automatically discovers `EndpointPermission.Audience`. Tenant IDs come from authenticated claims or an explicit guest policy. The implemented gateway asks Customer for the tenant's **database strategy**, not the caller's identity; tenant-scoped operator requests may still need that lookup, while platform-wide requests without tenant data may not.
 
 ## Public Gateway — Edge Pipeline
 
@@ -80,7 +91,7 @@ is mandatory.
 
 ### Edge step execution (inside `EdgeEnforcementMiddleware`)
 
-Each YARP-proxied route must have `Metadata: { EdgeAccess: ... }`. The middleware
+The implemented public gateway's configured routes declare `Metadata: { EdgeAccess: ... }`. The registry currently defaults omitted metadata to `Authenticated` rather than rejecting it. The middleware
 reads `IReverseProxyFeature.Route.Config.RouteId`, looks up the `EdgeAccessPolicy`
 from `IEdgeAccessPolicyRegistry`, then runs the ordered steps:
 
@@ -89,7 +100,7 @@ from `IEdgeAccessPolicyRegistry`, then runs the ordered steps:
 | 1. HeaderFirewall | `HeaderFirewallStep` | Saves `X-TenantId` into `EdgeContext.ClientRequestedTenantId`, then strips `X-TenantId` and `X-Tenant-DbStrategy` so clients cannot inject trusted headers downstream. |
 | 2. ResolveTenant | `ResolveTenantStep` | 403 `tenant.token.missing` if no tenant claim; 403 `tenant.mismatch` if client-requested tenant ≠ token tenant; 400 `tenant.header.missing` for `TenantFromHeader` mode with no header |
 | 3. ResolveDbStrategy | `ResolveDbStrategyStep` | 503 `tenant.lookup.unavailable` if gRPC fails; sets `X-Tenant-DbStrategy` header |
-| 4. ExchangeToken | `ExchangeTokenStep` | 401/403 on `TokenExchangeException`; sets `X-Authorization` item |
+| 4. ExchangeToken | `ExchangeTokenStep` | 401/403 on `TokenExchangeException`; stores an exchanged token in `HttpContext.Items` for the YARP transform; currently proceeds if no inbound token is present |
 
 After all steps proceed, YARP transforms (`AddEdgeGatewayTransforms`) copy
 `X-TenantId`, `X-Tenant-DbStrategy`, and the exchanged `Authorization: Bearer …`
@@ -97,13 +108,13 @@ to the proxied request.
 
 ### Route metadata
 
-All routes must declare `EdgeAccess` in their `Metadata` block:
+The implemented public gateway's routes declare `EdgeAccess` in their `Metadata` block:
 
 ```json
 "Metadata": { "EdgeAccess": "Authenticated" }
 ```
 
-Valid values: `Authenticated`, `TenantFromHeader`, `Anonymous`.
+Valid values: `Authenticated`, `TenantFromHeader`, `Anonymous`. The current registry defaults an omitted `EdgeAccess` to `Authenticated`; it is not an explicit-metadata guard.
 Non-anonymous routes without `Clusters:{id}:Destinations:*:AccessTokenClientName`
 cause `EdgeAccessPolicyRegistry.Build` to **throw at startup** (fail-closed).
 
