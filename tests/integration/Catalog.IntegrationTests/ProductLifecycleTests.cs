@@ -27,7 +27,7 @@ public sealed class ProductLifecycleTests : CatalogIntegrationTestBase
     [Fact]
     public async Task CreateProduct_ReturnsCreated_WithDefaultVariant()
     {
-        var response = await Client.PostAsJsonAsync("/products", new
+        var response = await Client.PostAsJsonAsync("/api/v1/admin/catalog/products", new
         {
             Name = "Widget",
             Description = "A widget",
@@ -40,6 +40,7 @@ public sealed class ProductLifecycleTests : CatalogIntegrationTestBase
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var product = await response.Content.ReadFromJsonAsync<ProductDto>();
         Assert.NotNull(product);
+        Assert.Equal($"/api/v1/catalog/products/{product!.Id}", response.Headers.Location?.ToString());
         Assert.Equal("Widget", product!.Name);
         Assert.NotEqual(Guid.Empty, product.Id);
         var variant = Assert.Single(product.Variants);
@@ -49,14 +50,14 @@ public sealed class ProductLifecycleTests : CatalogIntegrationTestBase
     [Fact]
     public async Task GetProduct_AfterCreate_ReturnsProduct()
     {
-        var created = await Client.PostAsJsonAsync("/products", new
+        var created = await Client.PostAsJsonAsync("/api/v1/admin/catalog/products", new
         {
             Name = "Gadget", Description = (string?)null, CategoryId = (Guid?)null,
             Sku = "GADGET-1", SellPriceAmount = 5m, SellPriceCurrency = "USD",
         });
         var product = await created.Content.ReadFromJsonAsync<ProductDto>();
 
-        var fetched = await Client.GetAsync(new Uri($"/products/{product!.Id}", UriKind.Relative));
+        var fetched = await Client.GetAsync(new Uri($"/api/v1/catalog/products/{product!.Id}", UriKind.Relative));
 
         Assert.Equal(HttpStatusCode.OK, fetched.StatusCode);
         var body = await fetched.Content.ReadFromJsonAsync<ProductDto>();
@@ -86,7 +87,7 @@ public sealed class ProductLifecycleTests : CatalogIntegrationTestBase
             await seed.SaveChangesAsync();
         }
 
-        HttpResponseMessage response = await Client.GetAsync($"/products/{foreignProduct.Id}");
+        HttpResponseMessage response = await Client.GetAsync($"/api/v1/catalog/products/{foreignProduct.Id}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Empty(await response.Content.ReadAsStringAsync());
@@ -95,13 +96,13 @@ public sealed class ProductLifecycleTests : CatalogIntegrationTestBase
     [Fact]
     public async Task ListProducts_AfterCreate_IncludesProduct()
     {
-        await Client.PostAsJsonAsync("/products", new
+        await Client.PostAsJsonAsync("/api/v1/admin/catalog/products", new
         {
             Name = "Listed", Description = (string?)null, CategoryId = (Guid?)null,
             Sku = "LIST-1", SellPriceAmount = 1m, SellPriceCurrency = "USD",
         });
 
-        var list = await Client.GetFromJsonAsync<List<ProductSummaryDto>>("/products");
+        var list = await Client.GetFromJsonAsync<List<ProductSummaryDto>>("/api/v1/catalog/products");
 
         Assert.NotNull(list);
         Assert.Contains(list!, p => p.Name == "Listed");
@@ -110,7 +111,7 @@ public sealed class ProductLifecycleTests : CatalogIntegrationTestBase
     [Fact]
     public async Task CreateCategory_ReturnsCreated()
     {
-        var response = await Client.PostAsJsonAsync("/categories", new
+        var response = await Client.PostAsJsonAsync("/api/v1/admin/catalog/categories", new
         {
             Name = "Hardware", Slug = "hardware", ParentId = (Guid?)null,
         });
@@ -123,14 +124,14 @@ public sealed class ProductLifecycleTests : CatalogIntegrationTestBase
     [Fact]
     public async Task AddVariant_ToExistingProduct_ReturnsCreated()
     {
-        var created = await Client.PostAsJsonAsync("/products", new
+        var created = await Client.PostAsJsonAsync("/api/v1/admin/catalog/products", new
         {
             Name = "Shirt", Description = (string?)null, CategoryId = (Guid?)null,
             Sku = "SHIRT", SellPriceAmount = 20m, SellPriceCurrency = "USD",
         });
         var product = await created.Content.ReadFromJsonAsync<ProductDto>();
 
-        var response = await Client.PostAsJsonAsync($"/products/{product!.Id}/variants", new
+        var response = await Client.PostAsJsonAsync($"/api/v1/admin/catalog/products/{product!.Id}/variants", new
         {
             ProductId = product.Id,
             Sku = "SHIRT-RED-L",
@@ -147,7 +148,7 @@ public sealed class ProductLifecycleTests : CatalogIntegrationTestBase
     [Fact]
     public async Task UpdateSellPrice_ChangesDefaultVariantPrice()
     {
-        var created = await Client.PostAsJsonAsync("/products", new
+        var created = await Client.PostAsJsonAsync("/api/v1/admin/catalog/products", new
         {
             Name = "Priced", Description = (string?)null, CategoryId = (Guid?)null,
             Sku = "PRICED-1", SellPriceAmount = 10m, SellPriceCurrency = "USD",
@@ -155,12 +156,10 @@ public sealed class ProductLifecycleTests : CatalogIntegrationTestBase
         var product = await created.Content.ReadFromJsonAsync<ProductDto>();
         var variantId = product!.Variants[0].Id;
 
-        var updated = await Client.PutAsJsonAsync(
-            $"/products/{product.Id}/variants/{variantId}/sell-price",
-            new { ProductId = product.Id, VariantId = variantId, Amount = 15m, Currency = "USD" });
+        var updated = await Client.PutAsJsonAsync($"/api/v1/admin/catalog/products/{product.Id}/variants/{variantId}/sell-price", new { ProductId = product.Id, VariantId = variantId, Amount = 15m, Currency = "USD" });
         Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
 
-        var reFetched = await Client.GetFromJsonAsync<ProductDto>($"/products/{product.Id}");
+        var reFetched = await Client.GetFromJsonAsync<ProductDto>($"/api/v1/catalog/products/{product.Id}");
         Assert.Equal(15m, reFetched!.Variants[0].SellPriceAmount);
     }
 }

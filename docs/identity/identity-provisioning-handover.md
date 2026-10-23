@@ -20,14 +20,14 @@ The test-only realm has one password-grant client, confidential `integration-tes
 
 ### Local browser dashboard client
 
-The test-only `teck-dashboard` client accepts `http://localhost:3001/api/auth/callback/keycloak`. Its access token must contain a `public-gateway` audience and its ID token must map realm roles to `realm_access.roles`, so Auth.js can display read-only versus manager controls. The public gateway's confidential exchange client must offer the `catalog-api` and `pricing-api` audiences for service-token exchange. Keep every client secret server-side; never promote committed test credentials to deployed environments.
+The test-only `teck-dashboard` client accepts `http://localhost:3001/api/auth/callback/keycloak`. Its access token must contain a `web-admin-gateway` audience and its ID token must map realm roles to `realm_access.roles`, so Auth.js can display read-only versus manager controls. The distinct confidential `web-customer-gateway` exchange client has only its own and `catalog-api` audiences; `web-admin-gateway` has its own, `catalog-api`, and `pricing-api` audiences. Both use standard token exchange; only the admin gateway exposes the operator Catalog/Pricing paths, and its JSON and Scalar contracts require an internal role. Keep every client secret server-side; never promote committed test credentials to deployed environments.
 
 Every endpoint permission in the shared commerce/operations services has a confidential authorization-services resource client: `basket-api` (`basket`: `checkout`, `merge`), `catalog-api` (`catalog`: `read`, `manage`, `supplier-read`), `customer-api` (`customer`: `read`, `manage`), `inventory-api` (`inventory`: `read`, `adjust`, `register`, `set-location-priorities`, `set-policy`), and `billing-api` (`billing`: `read`). Each resource client emits its own audience and the Keycloak organization-membership claim containing organization identifiers. `platform-reader` and `platform-manager` may read; only `platform-manager` may use non-read scopes, including supplier cost history. Order and Pricing retain their existing resource policies. The integration test client requests optional audiences for the services under test and the gateway.
 The production and test realms both map `order-api` and `pricing-api` into their access-token audiences. Direct Order and Pricing integration tests import the isolated realm, request `openid organization:*`, provision real Keycloak organization membership through its Admin API, and exercise actual service endpoints backed by PostgreSQL and RabbitMQ. Pricing verifies anonymous 401, reader 403, manager-created price-list HTTP read-back and tenant-scoped database persistence; Order verifies anonymous 401, reader HTTP read-back of an ActionRequired order, manager-authorized payment retry 202 with retry state persisted in PostgreSQL, reader-forbidden payment retry, and tenant-scoped persistence. Routed AppHost tests additionally exercise read and management authorization through the gateway to real in-process Order and Pricing hosts. No mock authentication handler or caller-controlled tenant header is used in those authorization paths.
 
 ## Staff dashboard local OAuth client
 
-The test realm additionally provisions confidential `teck-dashboard` with standard flow, S256 PKCE, no direct grants, and the exact callback `http://localhost:4200/api/auth/callback/keycloak`. Its `local-only-test-dashboard-secret` is for the local test realm only. Start the dashboard on port 4200 with server-only `AUTH_SECRET`, `AUTH_URL`, `KEYCLOAK_ISSUER`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`, and `TECK_GATEWAY_URL` variables. Never commit or expose production credentials; deployment must use unique secret values and exact HTTPS redirect origins.
+The test realm additionally provisions confidential `teck-dashboard` with standard flow, S256 PKCE, no direct grants, and the exact callback `http://localhost:3001/api/auth/callback/keycloak`. Its `local-only-test-dashboard-secret` is for the local test realm only. Start the dashboard on port 3001 with server-only `AUTH_SECRET`, `AUTH_URL`, `KEYCLOAK_ISSUER`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`, and `TECK_GATEWAY_URL` variables. Never commit or expose production credentials; deployment must use unique secret values and exact HTTPS redirect origins.
 Automated direct-service authorization tests use real Keycloak user access tokens through the test-only password grant, including signed organization-membership claims with Keycloak-generated organization IDs. The grant is enabled only for `integration-test-client` in the isolated test realm; production and default local AppHost realm imports keep password grants disabled.
 
 `Basket.Host` keeps current/item routes anonymous. Each storefront deployment must
@@ -53,7 +53,7 @@ The following values must be supplied independently for staging and production:
 | Person password credentials and Keycloak administration credentials | **SECRET.** Create and manage them through the environment secret store; do not reuse local passwords or administrator credentials. |
 
 The required confidential-client secrets are for `order-api`, `pricing-api`,
-`teck-dashboard`, `public-gateway`, `basket-api`, `catalog-api`, `customer-api`,
+`teck-dashboard`, `web-customer-gateway`, `web-admin-gateway`, `basket-api`, `catalog-api`, `customer-api`,
 `inventory-api`, and `billing-api`. Resource clients do not enable password grants.
 
 ## Identity-provider inventory
@@ -83,7 +83,7 @@ All listed clients use OpenID Connect and are enabled.
 | `basket-api`, `customer-api`, `inventory-api`, `billing-api` | Confidential (`publicClient: false`), `clientAuthenticatorType: client-secret`, authorization services enabled, direct access grants disabled. | **SECRET** — generate distinct per-environment client secrets. |
 | `pricing-api` | Confidential (`publicClient: false`), `clientAuthenticatorType: client-secret`, authorization services enabled. | **SECRET** — generate a per-environment client secret. |
 | `teck-dashboard` | Confidential (`publicClient: false`), `clientAuthenticatorType: client-secret`, standard flow enabled, direct access grants disabled, and `pkce.code.challenge.method: S256`. Configure environment-specific redirect URIs and web origins. | **SECRET** — generate a per-environment client secret. |
-| `public-gateway` | Confidential (`publicClient: false`), `clientAuthenticatorType: client-secret`, direct access grants disabled, and `standard.token.exchange.enabled: true`. | **SECRET** — generate a per-environment client secret. |
+| `web-customer-gateway`, `web-admin-gateway` | Distinct confidential exchange clients (`publicClient: false`), `clientAuthenticatorType: client-secret`, direct access grants disabled, and `standard.token.exchange.enabled: true`. | **SECRET** — generate distinct per-environment client secrets. |
 
 ### Protocol mappers
 
@@ -96,16 +96,12 @@ Create the following mappers and claim behavior:
   claim with organization IDs in access tokens, ID tokens, user-info responses,
   and token introspection. Each resource client also maps its own API audience
   into access tokens.
-- `public-gateway`: the same `organization-membership` mapper and four
-  additional mappers:
-  - `tenant_id`: an `oidc-usermodel-attribute-mapper` from the `tenant_id`
-    user attribute to the single string `tenant_id` access-token claim only.
-  - `public-gateway-audience`: an `oidc-audience-mapper` that adds
-    `public-gateway` to the access-token audience only.
-  - `order-api-audience`: an `oidc-audience-mapper` that adds `order-api` to
-    the access-token audience only.
-  - `pricing-api-audience`: an `oidc-audience-mapper` that adds `pricing-api`
-    to the access-token audience only.
+- Both web gateway clients: the same `organization-membership` mapper, plus
+  a `tenant_id` mapper from the user attribute into the access token, and
+  their own gateway audience mapper. `web-customer-gateway` additionally maps
+  `catalog-api`; `web-admin-gateway` additionally maps `catalog-api` and
+  `pricing-api`. The dashboard maps only `web-admin-gateway` as its gateway
+  audience. No gateway maps `order-api` for this web cutover.
 
 The isolated `integration-test-client` requests the appropriate optional API
 audience scopes; resource clients never accept password grants.

@@ -131,7 +131,7 @@ public sealed class KeycloakTestRealmFixture : IAsyncLifetime
             new("username", username),
             new("password", password),
             new("scope", requestedScope is null
-                ? "openid organization:* order-api-audience pricing-api-audience public-gateway-audience basket-api-audience customer-api-audience inventory-api-audience billing-api-audience catalog-api-audience"
+                ? "openid organization:* order-api-audience pricing-api-audience web-customer-gateway-audience web-admin-gateway-audience basket-api-audience customer-api-audience inventory-api-audience billing-api-audience catalog-api-audience"
                 : $"openid organization:* {requestedScope}"),
         };
         if (clientSecret is not null)

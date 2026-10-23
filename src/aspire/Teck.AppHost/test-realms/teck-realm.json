@@ -55,7 +55,8 @@
     },
     {"name":"order-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"order-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"order-api","access.token.claim":"true","id.token.claim":"false"}}]},
     {"name":"pricing-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"pricing-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"pricing-api","access.token.claim":"true","id.token.claim":"false"}}]},
-    {"name":"public-gateway-audience","protocol":"openid-connect","protocolMappers":[{"name":"public-gateway-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"public-gateway","access.token.claim":"true","id.token.claim":"false"}}]},
+    {"name":"web-customer-gateway-audience","protocol":"openid-connect","protocolMappers":[{"name":"web-customer-gateway-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"web-customer-gateway","access.token.claim":"true","id.token.claim":"false"}}]},
+    {"name":"web-admin-gateway-audience","protocol":"openid-connect","protocolMappers":[{"name":"web-admin-gateway-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"web-admin-gateway","access.token.claim":"true","id.token.claim":"false"}}]},
     {"name":"basket-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"basket-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"basket-api","access.token.claim":"true","id.token.claim":"false"}}]},
     {"name":"customer-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"customer-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"customer-api","access.token.claim":"true","id.token.claim":"false"}}]},
     {"name":"inventory-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"inventory-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"inventory-api","access.token.claim":"true","id.token.claim":"false"}}]},
@@ -744,7 +745,7 @@
         "pkce.code.challenge.method": "S256"
       },
       "defaultClientScopes": ["organization", "basic", "profile", "email", "roles", "web-origins"],
-      "optionalClientScopes": ["public-gateway-audience"],
+      "optionalClientScopes": ["web-admin-gateway-audience"],
       "protocolMappers": [
         {
           "name": "staff-preferred-username",
@@ -777,7 +778,7 @@
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
           "config": {
-            "included.client.audience": "public-gateway",
+            "included.client.audience": "web-admin-gateway",
             "access.token.claim": "true",
             "id.token.claim": "false"
           }
@@ -800,85 +801,80 @@
       ]
     },
     {
-      "clientId": "public-gateway",
+      "clientId": "web-customer-gateway",
       "enabled": true,
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "local-only-test-public-gateway-secret-not-for-production",
+      "secret": "local-only-test-web-customer-gateway-secret-not-for-production",
       "directAccessGrantsEnabled": false,
       "protocol": "openid-connect",
-      "attributes": {
-        "standard.token.exchange.enabled": "true"
-      },
+      "attributes": { "standard.token.exchange.enabled": "true" },
       "protocolMappers": [
         {
           "name": "tenant_id",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-attribute-mapper",
-          "config": {
-            "user.attribute": "tenant_id",
-            "claim.name": "tenant_id",
-            "access.token.claim": "true",
-            "id.token.claim": "false",
-            "userinfo.token.claim": "false",
-            "jsonType": "String",
-            "multivalued": "false"
-          }
+          "config": { "user.attribute": "tenant_id", "claim.name": "tenant_id", "access.token.claim": "true", "id.token.claim": "false", "userinfo.token.claim": "false", "jsonType": "String", "multivalued": "false" }
         },
         {
           "name": "organization-membership",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-organization-membership-mapper",
-          "config": {
-            "claim.name": "organization",
-            "jsonType.label": "JSON",
-            "multivalued": "true",
-            "addOrganizationId": "true",
-            "access.token.claim": "true",
-            "id.token.claim": "true",
-            "userinfo.token.claim": "true",
-            "introspection.token.claim": "true"
-          }
+          "config": { "claim.name": "organization", "jsonType.label": "JSON", "multivalued": "true", "addOrganizationId": "true", "access.token.claim": "true", "id.token.claim": "true", "userinfo.token.claim": "true", "introspection.token.claim": "true" }
         },
         {
-          "name": "public-gateway-audience",
+          "name": "web-customer-gateway-audience",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
-          "config": {
-            "included.client.audience": "public-gateway",
-            "access.token.claim": "true",
-            "id.token.claim": "false"
-          }
-        },
-        {
-          "name": "order-api-audience",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-audience-mapper",
-          "config": {
-            "included.client.audience": "order-api",
-            "access.token.claim": "true",
-            "id.token.claim": "false"
-          }
+          "config": { "included.client.audience": "web-customer-gateway", "access.token.claim": "true", "id.token.claim": "false" }
         },
         {
           "name": "catalog-api-audience",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
-          "config": {
-            "included.client.audience": "catalog-api",
-            "access.token.claim": "true",
-            "id.token.claim": "false"
-          }
+          "config": { "included.client.audience": "catalog-api", "access.token.claim": "true", "id.token.claim": "false" }
+        }
+      ]
+    },
+    {
+      "clientId": "web-admin-gateway",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "local-only-test-web-admin-gateway-secret-not-for-production",
+      "directAccessGrantsEnabled": false,
+      "protocol": "openid-connect",
+      "attributes": { "standard.token.exchange.enabled": "true" },
+      "protocolMappers": [
+        {
+          "name": "tenant_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": { "user.attribute": "tenant_id", "claim.name": "tenant_id", "access.token.claim": "true", "id.token.claim": "false", "userinfo.token.claim": "false", "jsonType": "String", "multivalued": "false" }
+        },
+        {
+          "name": "organization-membership",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-organization-membership-mapper",
+          "config": { "claim.name": "organization", "jsonType.label": "JSON", "multivalued": "true", "addOrganizationId": "true", "access.token.claim": "true", "id.token.claim": "true", "userinfo.token.claim": "true", "introspection.token.claim": "true" }
+        },
+        {
+          "name": "web-admin-gateway-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.client.audience": "web-admin-gateway", "access.token.claim": "true", "id.token.claim": "false" }
+        },
+        {
+          "name": "catalog-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.client.audience": "catalog-api", "access.token.claim": "true", "id.token.claim": "false" }
         },
         {
           "name": "pricing-api-audience",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
-          "config": {
-            "included.client.audience": "pricing-api",
-            "access.token.claim": "true",
-            "id.token.claim": "false"
-          }
+          "config": { "included.client.audience": "pricing-api", "access.token.claim": "true", "id.token.claim": "false" }
         }
       ]
     },
@@ -896,7 +892,13 @@
       "serviceAccountsEnabled": false,
       "authorizationServicesEnabled": false,
       "defaultClientScopes": ["organization", "basic", "profile", "email", "roles", "web-origins"],
-      "optionalClientScopes": ["order-api-audience", "pricing-api-audience", "public-gateway-audience", "basket-api-audience", "customer-api-audience", "inventory-api-audience", "billing-api-audience", "catalog-api-audience"]
+      "optionalClientScopes": ["order-api-audience", "pricing-api-audience", "web-customer-gateway-audience", "web-admin-gateway-audience", "basket-api-audience", "customer-api-audience", "inventory-api-audience", "billing-api-audience", "catalog-api-audience"],
+      "protocolMappers": [{
+        "name": "integration-realm-roles",
+        "protocol": "openid-connect",
+        "protocolMapper": "oidc-usermodel-realm-role-mapper",
+        "config": { "claim.name": "realm_access.roles", "jsonType.label": "String", "multivalued": "true", "access.token.claim": "true", "id.token.claim": "false", "userinfo.token.claim": "false" }
+      }]
     }
   ],
   "users": [

@@ -138,11 +138,10 @@ jobs:
             echo "release_tag=${RELEASE_GROUP}@v${VERSION}"
           } >> "$GITHUB_OUTPUT"
 
-      # Build directly against the shared Containerfile template (this repo has no
-      # per-project Dockerfiles, so @nx/docker infers no docker target). SERVICE_NAME
-      # is the Host assembly name from the csproj filename (Catalog.Host,
-      # Gateway.Public) - the template uses it directly for the dll/apphost, so it
-      # works whether or not the project follows the `.Host` suffix convention.
+      # Build against the shared Containerfile: this repo has no per-project
+      # Dockerfiles, so @nx/docker infers no docker target. SERVICE_NAME is the
+      # csproj assembly name (Catalog.Host or Gateway.WebAdmin), with or without
+      # a `.Host` suffix.
       - name: Build and push image
         env:
           IMAGE_NAME: ${{ steps.image-vars.outputs.image_name }}

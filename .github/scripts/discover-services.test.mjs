@@ -12,7 +12,13 @@ test("operations services expand to the fixed operations service group", () => {
   assert.deepEqual([...new Set(operations.map((service) => service.releaseGroup))], ["operations"]);
 });
 
-test("gateway public keeps its distinct product and service group", () => {
-  const gateway = services.find((service) => service.product === "gateway-public");
-  assert.deepEqual(gateway?.releaseGroup, "gateway-public");
+test("both web gateways deploy independently; shared edge is only a library", () => {
+  const gateways = services.filter((service) => service.group === "gateway");
+  assert.deepEqual(
+    gateways.map(({ service, product, nxProject, releaseGroup }) => ({ service, product, nxProject, releaseGroup })),
+    [
+      { service: "web-admin", product: "gateway-web-admin", nxProject: "Gateway.WebAdmin", releaseGroup: "gateway-web-admin" },
+      { service: "web-customer", product: "gateway-web-customer", nxProject: "Gateway.WebCustomer", releaseGroup: "gateway-web-customer" },
+    ],
+  );
 });

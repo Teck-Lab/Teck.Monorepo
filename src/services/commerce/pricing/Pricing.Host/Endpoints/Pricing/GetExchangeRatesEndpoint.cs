@@ -11,7 +11,7 @@ namespace Pricing.Host.Endpoints.Pricing;
 public sealed class GetExchangeRatesEndpoint(IMessageBus bus) : AuthenticatedEndpoint<EmptyRequest, IReadOnlyList<ExchangeRateDto>>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("pricing", "read", "public");
+    protected override EndpointPermission Permission => new("pricing", "read", "admin");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(EmptyRequest request, CancellationToken ct)
@@ -23,7 +23,7 @@ public sealed class GetExchangeRatesEndpoint(IMessageBus bus) : AuthenticatedEnd
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Get("/exchange-rates");
+        Get("/api/v1/admin/pricing/exchange-rates");
         Version(0);
     }
 }

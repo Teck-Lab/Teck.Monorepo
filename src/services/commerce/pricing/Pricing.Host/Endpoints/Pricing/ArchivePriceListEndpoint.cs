@@ -10,7 +10,7 @@ namespace Pricing.Host.Endpoints.Pricing;
 public sealed class ArchivePriceListEndpoint(IMessageBus bus) : AuthenticatedEndpoint<ArchivePriceListRequest, PriceListDto>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("pricing", "manage", "public");
+    protected override EndpointPermission Permission => new("pricing", "manage", "admin");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(ArchivePriceListRequest request, CancellationToken ct)
@@ -23,7 +23,7 @@ public sealed class ArchivePriceListEndpoint(IMessageBus bus) : AuthenticatedEnd
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Post("/price-lists/{id}/archive");
+        Post("/api/v1/admin/pricing/price-lists/{id}/archive");
         Version(0);
     }
 }

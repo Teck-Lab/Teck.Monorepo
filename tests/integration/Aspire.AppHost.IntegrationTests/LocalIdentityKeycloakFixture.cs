@@ -30,8 +30,8 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
     internal const string Realm = "teck";
     internal const string TestTokenClientId = "integration-test-client";
     internal const string TestTokenClientSecret = "local-only-test-integration-token-client-secret-not-for-production";
-    internal const string GatewayClientId = "public-gateway";
-    internal const string GatewayClientSecret = "local-only-test-public-gateway-secret-not-for-production";
+    internal const string GatewayClientId = "web-admin-gateway";
+    internal const string GatewayClientSecret = "local-only-test-web-admin-gateway-secret-not-for-production";
     internal const string DeveloperUsername = "dev@teck.local";
     internal const string DeveloperPassword = "local-only-dev-password-not-for-production";
     internal const string ReaderUsername = "dev-reader@teck.local";
@@ -149,7 +149,7 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
                 new KeyValuePair<string, string>("client_secret", TestTokenClientSecret),
                 new KeyValuePair<string, string>("username", username),
                 new KeyValuePair<string, string>("password", password),
-                new KeyValuePair<string, string>("scope", "openid organization:* order-api-audience pricing-api-audience public-gateway-audience"),
+                new KeyValuePair<string, string>("scope", "openid organization:* order-api-audience pricing-api-audience web-admin-gateway-audience"),
             ]),
         };
         using HttpResponseMessage response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);

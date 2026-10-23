@@ -11,7 +11,7 @@ public sealed class LinkVariantSupplierEndpoint(IMessageBus bus)
     : AuthenticatedEndpoint<LinkVariantSupplierRequest, VariantSupplierDto>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("catalog", "manage", "public");
+    protected override EndpointPermission Permission => new("catalog", "manage", "admin");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(LinkVariantSupplierRequest request, CancellationToken ct)
@@ -26,7 +26,7 @@ public sealed class LinkVariantSupplierEndpoint(IMessageBus bus)
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Post("/variants/{variantId}/suppliers");
+        Post("/api/v1/admin/catalog/variants/{variantId}/suppliers");
         Version(0);
     }
 }

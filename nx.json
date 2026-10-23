@@ -252,15 +252,17 @@
           "pattern": "inventory@v{version}"
         }
       },
-      "gateway-public": {
-        "projects": ["src/services/gateway/public"],
+      "gateway-web-customer": {
+        "projects": ["src/services/gateway/web-customer"],
         "projectsRelationship": "fixed",
-        "version": {
-          "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs"
-        },
-        "releaseTag": {
-          "pattern": "gateway-public@v{version}"
-        }
+        "version": { "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs" },
+        "releaseTag": { "pattern": "gateway-web-customer@v{version}" }
+      },
+      "gateway-web-admin": {
+        "projects": ["src/services/gateway/web-admin"],
+        "projectsRelationship": "fixed",
+        "version": { "versionActions": ".github/scripts/nx-dotnet-version-actions.cjs" },
+        "releaseTag": { "pattern": "gateway-web-admin@v{version}" }
       },
       "web": {
         "projects": ["src/apps/*", "src/packages/*"],

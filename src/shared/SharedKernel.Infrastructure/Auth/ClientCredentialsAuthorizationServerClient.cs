@@ -18,7 +18,7 @@ namespace SharedKernel.Infrastructure.Auth;
 /// <para>
 /// The default Keycloak.AuthServices implementation forwards the current request's bearer token
 /// as <c>Authorization: Bearer</c> on the UMA call but provides no resource-server authentication.
-/// When Standard V2 token exchange is used, that bearer token has <c>azp=teck-public-gateway</c>.
+/// When Standard V2 token exchange is used, that bearer token belongs to the web gateway exchange client.
 /// Keycloak interprets the <c>Authorization: Bearer</c> as the resource-server PAT, rejects it
 /// because the token belongs to a different client, and returns
 /// <c>unauthorized_client / Invalid identity</c>.

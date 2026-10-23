@@ -35,13 +35,42 @@ public sealed class PriceResolutionTests : PricingIntegrationTestBase
     {
     }
 
+    [Fact]
+    public async Task PriceLists_OperatorRouteIsAvailableWithoutCustomerOrLegacyAlias()
+    {
+        using HttpResponseMessage operatorRead = await Client.GetAsync(new Uri("/api/v1/admin/pricing/price-lists", UriKind.Relative));
+        Assert.Equal(System.Net.HttpStatusCode.OK, operatorRead.StatusCode);
+
+        using HttpResponseMessage customerRead = await Client.GetAsync(new Uri("/api/v1/pricing/price-lists", UriKind.Relative));
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, customerRead.StatusCode);
+        using HttpResponseMessage legacyRead = await Client.GetAsync(new Uri("/price-lists", UriKind.Relative));
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, legacyRead.StatusCode);
+    }
+
+    [Fact]
+    public async Task PricingOpenApi_ExcludesOperatorPriceListAndEditFromCustomerDocument()
+    {
+        using HttpResponseMessage allResponse = await Client.GetAsync(new Uri("/openapi/v1/openapi.json", UriKind.Relative));
+        Assert.Equal(System.Net.HttpStatusCode.OK, allResponse.StatusCode);
+        using var all = System.Text.Json.JsonDocument.Parse(await allResponse.Content.ReadAsStringAsync());
+        System.Text.Json.JsonElement allPaths = all.RootElement.GetProperty("paths");
+        Assert.True(allPaths.GetProperty("/api/v1/admin/pricing/price-lists").TryGetProperty("get", out _));
+        Assert.True(allPaths.GetProperty("/api/v1/admin/pricing/price-lists/{id}/prices/{productId}").TryGetProperty("put", out _));
+        Assert.False(allPaths.TryGetProperty("/price-lists", out _));
+
+        using HttpResponseMessage customerResponse = await Client.GetAsync(new Uri("/openapi/v1-public/openapi.json", UriKind.Relative));
+        Assert.Equal(System.Net.HttpStatusCode.OK, customerResponse.StatusCode);
+        using var customer = System.Text.Json.JsonDocument.Parse(await customerResponse.Content.ReadAsStringAsync());
+        Assert.False(customer.RootElement.GetProperty("paths").TryGetProperty("/api/v1/admin/pricing/price-lists", out _));
+    }
+
     /// <summary>Resolving in the list's native currency applies the matching quantity tier.</summary>
     [Fact]
     public async Task Resolve_NativeCurrency_ReturnsTieredPrice()
     {
         var productId = Guid.NewGuid();
 
-        var created = await Client.PostAsJsonAsync("/price-lists", new
+        var created = await Client.PostAsJsonAsync("/api/v1/admin/pricing/price-lists", new
         {
             Name = "Retail USD",
             Currency = "USD",
@@ -49,7 +78,7 @@ public sealed class PriceResolutionTests : PricingIntegrationTestBase
         created.EnsureSuccessStatusCode();
         var list = await created.Content.ReadFromJsonAsync<PriceListDto>();
 
-        var priced = await Client.PutAsJsonAsync($"/price-lists/{list!.Id}/prices/{productId}", new
+        var priced = await Client.PutAsJsonAsync($"/api/v1/admin/pricing/price-lists/{list!.Id}/prices/{productId}", new
         {
             Id = list.Id,
             ProductId = productId,
@@ -58,11 +87,11 @@ public sealed class PriceResolutionTests : PricingIntegrationTestBase
         });
         priced.EnsureSuccessStatusCode();
 
-        var activated = await Client.PostAsJsonAsync($"/price-lists/{list.Id}/activate", new { Id = list.Id });
+        var activated = await Client.PostAsJsonAsync($"/api/v1/admin/pricing/price-lists/{list.Id}/activate", new { Id = list.Id });
         activated.EnsureSuccessStatusCode();
 
         var resolved = await Client.GetFromJsonAsync<ResolvedPriceDto>(
-            $"/prices/resolve?productId={productId}&currency=USD&quantity=10");
+            $"/api/v1/admin/pricing/prices/resolve?productId={productId}&currency=USD&quantity=10");
 
         Assert.NotNull(resolved);
         Assert.False(resolved!.Converted);
@@ -76,20 +105,20 @@ public sealed class PriceResolutionTests : PricingIntegrationTestBase
     {
         var productId = Guid.NewGuid();
 
-        var created = await Client.PostAsJsonAsync("/price-lists", new { Name = "EUR list", Currency = "EUR" });
+        var created = await Client.PostAsJsonAsync("/api/v1/admin/pricing/price-lists", new { Name = "EUR list", Currency = "EUR" });
         created.EnsureSuccessStatusCode();
         var list = await created.Content.ReadFromJsonAsync<PriceListDto>();
 
-        await (await Client.PutAsJsonAsync($"/price-lists/{list!.Id}/prices/{productId}", new
+        await (await Client.PutAsJsonAsync($"/api/v1/admin/pricing/price-lists/{list!.Id}/prices/{productId}", new
         {
             Id = list.Id,
             ProductId = productId,
             Amount = 10m,
             Tiers = Array.Empty<object>(),
         })).EnsureSuccessOrThrowAsync();
-        await (await Client.PostAsJsonAsync($"/price-lists/{list.Id}/activate", new { Id = list.Id })).EnsureSuccessOrThrowAsync();
+        await (await Client.PostAsJsonAsync($"/api/v1/admin/pricing/price-lists/{list.Id}/activate", new { Id = list.Id })).EnsureSuccessOrThrowAsync();
 
-        await (await Client.PutAsJsonAsync("/exchange-rates", new
+        await (await Client.PutAsJsonAsync("/api/v1/admin/pricing/exchange-rates", new
         {
             FromCurrency = "EUR",
             ToCurrency = "USD",
@@ -97,7 +126,7 @@ public sealed class PriceResolutionTests : PricingIntegrationTestBase
         })).EnsureSuccessOrThrowAsync();
 
         var resolved = await Client.GetFromJsonAsync<ResolvedPriceDto>(
-            $"/prices/resolve?productId={productId}&currency=USD&quantity=1");
+            $"/api/v1/admin/pricing/prices/resolve?productId={productId}&currency=USD&quantity=1");
 
         Assert.NotNull(resolved);
         Assert.True(resolved!.Converted);
@@ -126,7 +155,7 @@ public sealed class PriceResolutionTests : PricingIntegrationTestBase
             await seed.SaveChangesAsync();
         }
 
-        HttpResponseMessage response = await Client.GetAsync($"/price-lists/{foreignList.Id}");
+        HttpResponseMessage response = await Client.GetAsync($"/api/v1/admin/pricing/price-lists/{foreignList.Id}");
 
         Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
         Assert.Empty(await response.Content.ReadAsStringAsync());

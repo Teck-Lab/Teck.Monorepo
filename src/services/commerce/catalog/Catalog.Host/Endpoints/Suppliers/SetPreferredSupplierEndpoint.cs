@@ -11,7 +11,7 @@ public sealed class SetPreferredSupplierEndpoint(IMessageBus bus)
     : AuthenticatedEndpoint<SetPreferredSupplierRequest, Success>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("catalog", "manage", "public");
+    protected override EndpointPermission Permission => new("catalog", "manage", "admin");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(SetPreferredSupplierRequest request, CancellationToken ct)
@@ -24,7 +24,7 @@ public sealed class SetPreferredSupplierEndpoint(IMessageBus bus)
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Put("/variants/{variantId}/suppliers/{supplierId}/preferred");
+        Put("/api/v1/admin/catalog/variants/{variantId}/suppliers/{supplierId}/preferred");
         Version(0);
     }
 }

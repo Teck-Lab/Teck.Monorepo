@@ -16,7 +16,8 @@ namespace Aspire.AppHost.IntegrationTests;
 /// <summary>Proves the committed local Keycloak realm matches each routed service's permission contract.</summary>
 public sealed class RealmPermissionContractTests
 {
-    private const string GatewayClientId = "public-gateway";
+    private const string CustomerGatewayClientId = "web-customer-gateway";
+    private const string AdminGatewayClientId = "web-admin-gateway";
     private const string DefaultRealmPath = "src/aspire/Teck.AppHost/realms/teck-realm.json";
     private const string TestRealmPath = "src/aspire/Teck.AppHost/test-realms/teck-realm.json";
     private const string OrganizationMapperId = "oidc-organization-membership-mapper";
@@ -161,13 +162,38 @@ public sealed class RealmPermissionContractTests
         AssertPermissionsMatchClient(realm.RootElement, "pricing-api", typeof(PricingHost::Program).Assembly);
     }
 
+    /// <summary>Each web edge has a distinct confidential exchange client and only its approved downstream audiences.</summary>
+    [Theory]
+    [InlineData(DefaultRealmPath)]
+    [InlineData(TestRealmPath)]
+    public void WebGateways_WhenProvisioned_HaveDistinctExchangeAudiences(string realmPath)
+    {
+        using JsonDocument realm = realmPath == DefaultRealmPath ? ReadRealm() : ReadTestRealm();
+        JsonElement customer = FindClient(realm.RootElement, CustomerGatewayClientId);
+        JsonElement admin = FindClient(realm.RootElement, AdminGatewayClientId);
+
+        Assert.False(customer.GetProperty("publicClient").GetBoolean());
+        Assert.False(admin.GetProperty("publicClient").GetBoolean());
+        Assert.Equal("true", customer.GetProperty("attributes").GetProperty("standard.token.exchange.enabled").GetString());
+        Assert.Equal("true", admin.GetProperty("attributes").GetProperty("standard.token.exchange.enabled").GetString());
+        Assert.Equal(["catalog-api", CustomerGatewayClientId], AudienceNames(customer));
+        Assert.Equal(["catalog-api", "pricing-api", AdminGatewayClientId], AudienceNames(admin));
+        Assert.Equal(AdminGatewayClientId, AudienceNames(FindClient(realm.RootElement, "teck-dashboard")).Single());
+    }
+
+    private static string[] AudienceNames(JsonElement client) =>
+        client.GetProperty("protocolMappers").EnumerateArray()
+            .Where(mapper => mapper.GetProperty("protocolMapper").GetString() == "oidc-audience-mapper")
+            .Select(mapper => mapper.GetProperty("config").GetProperty("included.client.audience").GetString()!)
+            .Order(StringComparer.Ordinal).ToArray();
+
     /// <summary>Ensures routed clients emit organization membership with organization identifiers.</summary>
     [Fact]
     public void CommittedRealm_WhenRoutedClientsAreImported_MapsOrganizationMembershipAndUsesConfidentialAudiences()
     {
         using JsonDocument realm = ReadRealm();
 
-        foreach (string clientId in new[] { GatewayClientId, "order-api", "pricing-api", "teck-dashboard" })
+        foreach (string clientId in new[] { CustomerGatewayClientId, AdminGatewayClientId, "order-api", "pricing-api", "teck-dashboard" })
         {
             AssertOrganizationMapper(FindClient(realm.RootElement, clientId));
         }
@@ -179,11 +205,8 @@ public sealed class RealmPermissionContractTests
             Assert.True(client.GetProperty("authorizationServicesEnabled").GetBoolean());
         }
 
-        JsonElement gateway = FindClient(realm.RootElement, GatewayClientId);
-        Assert.Contains(
-            gateway.GetProperty("protocolMappers").EnumerateArray(),
-            mapper => mapper.GetProperty("protocolMapper").GetString() == "oidc-audience-mapper" &&
-                mapper.GetProperty("config").GetProperty("included.client.audience").GetString() == "pricing-api");
+        Assert.DoesNotContain("pricing-api", AudienceNames(FindClient(realm.RootElement, CustomerGatewayClientId)));
+        Assert.Contains("pricing-api", AudienceNames(FindClient(realm.RootElement, AdminGatewayClientId)));
 
         JsonElement dashboard = FindClient(realm.RootElement, "teck-dashboard");
         Assert.False(dashboard.GetProperty("publicClient").GetBoolean());
@@ -238,7 +261,7 @@ public sealed class RealmPermissionContractTests
         JsonElement prod = production.RootElement;
         JsonElement testRoot = test.RootElement;
         Assert.Equal(
-            new[] {"organization", "basic", "order-api-audience", "pricing-api-audience", "public-gateway-audience", "basket-api-audience", "customer-api-audience", "inventory-api-audience", "billing-api-audience", "catalog-api-audience"}.Order(StringComparer.Ordinal),
+            new[] {"organization", "basic", "order-api-audience", "pricing-api-audience", "web-customer-gateway-audience", "web-admin-gateway-audience", "basket-api-audience", "customer-api-audience", "inventory-api-audience", "billing-api-audience", "catalog-api-audience"}.Order(StringComparer.Ordinal),
             testRoot.GetProperty("clientScopes").EnumerateArray().Select(scope => scope.GetProperty("name").GetString()!).Order(StringComparer.Ordinal));
         JsonElement organizationScope = testRoot.GetProperty("clientScopes").EnumerateArray().Single(scope => scope.GetProperty("name").GetString() == "organization");
         Assert.Equal("oidc-organization-membership-mapper", organizationScope.GetProperty("protocolMappers")[0].GetProperty("protocolMapper").GetString());
@@ -250,7 +273,7 @@ public sealed class RealmPermissionContractTests
             Assert.Equal(name.Replace("-audience", string.Empty, StringComparison.Ordinal),
                 scope.GetProperty("protocolMappers")[0].GetProperty("config").GetProperty("included.client.audience").GetString());
         }
-        string[] expectedOptionalScopes = ["order-api-audience", "pricing-api-audience", "public-gateway-audience", "basket-api-audience", "customer-api-audience", "inventory-api-audience", "billing-api-audience", "catalog-api-audience"];
+        string[] expectedOptionalScopes = ["order-api-audience", "pricing-api-audience", "web-customer-gateway-audience", "web-admin-gateway-audience", "basket-api-audience", "customer-api-audience", "inventory-api-audience", "billing-api-audience", "catalog-api-audience"];
         JsonElement integrationTestClient = FindClient(testRoot, "integration-test-client");
         JsonElement optionalScopes = integrationTestClient.GetProperty("optionalClientScopes");
         Assert.Equal(expectedOptionalScopes.Order(StringComparer.Ordinal), optionalScopes.EnumerateArray().Select(scope => scope.GetString()!).Order(StringComparer.Ordinal));
@@ -297,7 +320,7 @@ public sealed class RealmPermissionContractTests
         Assert.Contains("profile", defaultScopes);
         Assert.DoesNotContain("order-api-audience", defaultScopes);
         Assert.DoesNotContain("pricing-api-audience", defaultScopes);
-        string[] expectedTokenOptionalScopes = ["order-api-audience", "pricing-api-audience", "public-gateway-audience", "basket-api-audience", "customer-api-audience", "inventory-api-audience", "billing-api-audience", "catalog-api-audience"];
+        string[] expectedTokenOptionalScopes = ["order-api-audience", "pricing-api-audience", "web-customer-gateway-audience", "web-admin-gateway-audience", "basket-api-audience", "customer-api-audience", "inventory-api-audience", "billing-api-audience", "catalog-api-audience"];
         string[] tokenOptionalScopes = tokenClient.GetProperty("optionalClientScopes").EnumerateArray().Select(scope => scope.GetString()!).ToArray();
         Assert.Equal(expectedTokenOptionalScopes.Order(StringComparer.Ordinal), tokenOptionalScopes.Order(StringComparer.Ordinal));
         Assert.Equal(1, testClients.Count(client => client.GetProperty("directAccessGrantsEnabled").GetBoolean()));
