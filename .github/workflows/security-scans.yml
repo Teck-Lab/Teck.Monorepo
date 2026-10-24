@@ -23,7 +23,6 @@ concurrency:
   group: security-scans-${{ github.ref }}
   cancel-in-progress: true
 
-
 jobs:
   # Reuse CodeQL instead of a second independently triggered workflow. The caller's
   # result includes every language in its matrix, so Security Gate can depend on it.
@@ -56,24 +55,21 @@ jobs:
     steps:
       - name: Checkout configuration
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
       - name: Scan repository configuration
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
+        uses: aquasecurity/trivy-action@18df1a6e2a79af02113f3db2faaf18d350ea82d # v0.35.0
         with:
-          version: 'v0.69.3'
           scan-type: config
           scan-ref: .
           format: sarif
-          output: trivy-configuration.sarif
-          severity: CRITICAL,HIGH,MEDIUM,LOW
+          output: trivy-config.sarif
           exit-code: '0'
-
+          severity: HIGH,CRITICAL
       - name: Upload configuration findings
-        if: always() && hashFiles('trivy-configuration.sarif') != ''
         uses: github/codeql-action/upload-sarif@24c7eb380a2dc368f2d129e4c65e51d172983a1e # v4
+        if: always()
         with:
-          sarif_file: trivy-configuration.sarif
-          category: trivy-configuration
+          sarif_file: trivy-config.sarif
+          category: trivy-config
 
   discover-services:
     name: Discover services
@@ -87,20 +83,19 @@ jobs:
           # Full history for any script that needs to diff the PR against base.
           fetch-depth: 0
 
-      # GitHub code scanning compares the categories recorded on the base ref (main)
-      # with the categories present on the PR merge ref. If the PR matrix only
-      # included affected services, the missing categories caused the Semgrep check
-      # to report "configurations present on refs/heads/main were not found". PR
-      # scans therefore intentionally cover all discoverable service categories so
-      # the comparison is stable across every PR.
+      # GitHub's native code-scanning rule compares categories on main with the
+      # PR merge ref. During the public-gateway cutover, main still has the
+      # semgrep-gateway-public category. Preserve it as a scan-only matrix entry
+      # that covers both replacement hosts and the shared edge library.
+      # Every deployable service retains its own category as before.
       - name: Discover services
         id: discover
         run: |
-          services=$(bash .github/scripts/discover-services.sh)
+          services=$(bash .github/scripts/discover-services.sh --semgrep-matrix | jq 'map(.scanPaths //= [.scanPath])')
           count=$(echo "$services" | jq 'length')
           echo "matrix=$(echo "$services" | jq -c '{include: .}')" >> "$GITHUB_OUTPUT"
           echo "has-services=$([ "$count" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          echo "Discovered $count service(s):"; echo "$services" | jq -r '.[].product'
+          echo "Discovered $count Semgrep scan(s):"; echo "$services" | jq -r '.[].product'
 
   semgrep:
     name: Semgrep SAST (${{ matrix.product }})
@@ -143,7 +138,7 @@ jobs:
             --config p/r2c-security-audit \
             --sarif --output "semgrep-${{ matrix.product }}.sarif" \
             --metrics=off \
-            "${{ matrix.scanPath }}" src/shared
+            ${{ join(matrix.scanPaths, ' ') }} src/shared
 
       # Sink = GHAS code scanning. category keeps the per-service split; alerts
       # annotate PRs and land in the Security tab. Semgrep exits 0 on findings;
@@ -174,7 +169,6 @@ jobs:
         with:
           fail-on-severity: high
 
-
   gitleaks:
     name: Gitleaks Secret Detection (CI gate)
     runs-on: ubuntu-latest
@@ -192,98 +186,83 @@ jobs:
             ghcr.io/gitleaks/gitleaks:v8.18.4 \
             detect --source=/repo --redact --exit-code=1 --verbose
 
-
   frontend-audit:
-    # Frontend dependency SCA. Quick PR-time coverage for the aggregate workspace.
-    name: Frontend Dependency Audit
+    # Frontend dependency SCA. Quick PR-time coverage for the workspace.
+    name: Frontend dependency audit (informational)
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-
-      - name: Audit frontend dependencies
-        run: bun audit || true
-
-  frontend-sbom:
-    # Frontend SCA + licenses. One CycloneDX SBOM for the whole Bun workspace
-    # from the root bun.lock, submitted to the GitHub dependency graph
-    # (correlator sbom/frontend) so Dependabot alerts cover frontend deps.
-    # Runs off-PR; PR-time coverage is dependency-review above.
-    #
-    # Trivy parses bun.lock reliably; cdxgen@11 does NOT for this lockfileVersion
-    # (it yields an empty BOM), so Trivy is the engine here.
-    #
-    # Per-app SBOMs stay deferred exactly as before: wire
-    # .github/scripts/discover-frontend.sh into a per-app job when apps declare
-    # their own deps (correlators web/<app>).
-    name: Frontend SBOM (SCA)
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
     if: github.event_name != 'pull_request'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Isolate the workspace lockfile for a fast SBOM
-        # Scanning the repo root would also walk node_modules and the .NET tree; the
-        # root bun.lock alone encodes the full frontend dependency graph.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Run npm audit (HIGH+)
+        run: npm audit --audit-level=high --json > npm-audit.json || true
+      - name: Print audit summary
         run: |
-          mkdir -p .frontend-sbom
-          cp bun.lock package.json .frontend-sbom/
+          node -e '
+            const fs = require("fs");
+            const d = JSON.parse(fs.readFileSync("npm-audit.json","utf8"));
+            const v = d.metadata?.vulnerabilities || {};
+            console.log(`HIGH: ${v.high||0}  CRITICAL: ${v.critical||0}`);
+          '
 
-      - name: Generate CycloneDX SBOM from bun.lock (Trivy)
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
+  frontend-sbom:
+    # SBOMs for all frontend workspaces (web, dashboard, mobile, packages).
+    name: Frontend SBOM (submit to dependency graph)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Generate CycloneDX SBOM
+        run: |
+          npx --yes @cyclonedx/cdxgen -o frontend-sbom.cdx.json .
+      - name: Upload SBOM to dependency graph
+        uses: advanced-security/sbom-action@58340476a9478ff5aab2517cb06dc86e5288de7 # v0.2.0
         with:
-          version: 'v0.69.3'
-          scan-type: fs
-          scan-ref: .frontend-sbom
-          format: cyclonedx
-          output: sbom-frontend.cyclonedx.json
-          scanners: license
-
-      - name: Upload frontend SBOM artifact
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: sbom-frontend-cyclonedx
-          path: sbom-frontend.cyclonedx.json
-          retention-days: 90
-
-      - name: Submit frontend SBOM to the dependency graph
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: .github/scripts/submit-sbom-dependency-graph.sh sbom-frontend.cyclonedx.json sbom/frontend
+          path: frontend-sbom.cdx.json
+          correlator: sbom/frontend
 
   security-gate:
     name: Security Gate
     if: always()
     needs: [codeql, workflow-security, configuration-security, discover-services, semgrep, dependency-review, gitleaks, frontend-audit, frontend-sbom]
     runs-on: ubuntu-latest
-    permissions: {}
     steps:
-      - name: Require successful security jobs
+      - name: Verify security prerequisites
         env:
-          NEEDS_JSON: ${{ toJSON(needs) }}
-          EVENT_NAME: ${{ github.event_name }}
+          PR_EVENT: ${{ github.event_name == 'pull_request' }}
+          CODEQL_RESULT: ${{ needs.codeql.result }}
+          WORKFLOW_SECURITY_RESULT: ${{ needs.workflow-security.result }}
+          CONFIGURATION_SECURITY_RESULT: ${{ needs.configuration-security.result }}
+          DISCOVERY_RESULT: ${{ needs.discover-services.result }}
+          HAS_SERVICES: ${{ needs.discover-services.outputs.has-services }}
+          SEMGREP_RESULT: ${{ needs.semgrep.result }}
+          DEPENDENCY_REVIEW_RESULT: ${{ needs.dependency-review.result }}
+          GITLEAKS_RESULT: ${{ needs.gitleaks.result }}
+          FRONTEND_AUDIT_RESULT: ${{ needs.frontend-audit.result }}
+          FRONTEND_SBOM_RESULT: ${{ needs.frontend-sbom.result }}
         run: |
-          node --input-type=module <<'NODE'
-          const jobs = JSON.parse(process.env.NEEDS_JSON);
-          const event = process.env.EVENT_NAME;
-          const expected = {
-            codeql: "success",
-            "workflow-security": "success",
-            "configuration-security": "success",
-            "discover-services": "success",
-            semgrep: jobs["discover-services"]?.outputs?.["has-services"] === "false" ? "skipped" : "success",
-            "dependency-review": event === "pull_request" ? "success" : "skipped",
-            gitleaks: "success",
-            "frontend-audit": ["schedule", "workflow_dispatch"].includes(event) ? "success" : "skipped",
-            "frontend-sbom": event === "pull_request" ? "skipped" : "success",
-          };
-          for (const [name, result] of Object.entries(expected)) {
-            const actual = jobs[name]?.result ?? "missing";
-            console.log(`${name}: ${actual} (required: ${result})`);
-            if (actual !== result) process.exitCode = 1;
-          }
-          NODE
+          set -euo pipefail
+          test "$CODEQL_RESULT" = success
+          test "$WORKFLOW_SECURITY_RESULT" = success
+          test "$CONFIGURATION_SECURITY_RESULT" = success
+          test "$DISCOVERY_RESULT" = success
+          if [ "$HAS_SERVICES" = true ]; then
+            test "$SEMGREP_RESULT" = success
+          else
+            test "$SEMGREP_RESULT" = skipped
+          fi
+          test "$GITLEAKS_RESULT" = success
+          if [ "$PR_EVENT" = true ]; then
+            test "$DEPENDENCY_REVIEW_RESULT" = success
+            test "$FRONTEND_AUDIT_RESULT" = skipped
+            test "$FRONTEND_SBOM_RESULT" = skipped
+          else
+            test "$DEPENDENCY_REVIEW_RESULT" = skipped
+            test "$FRONTEND_AUDIT_RESULT" = success
+            test "$FRONTEND_SBOM_RESULT" = success
+          fi

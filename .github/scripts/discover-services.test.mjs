@@ -22,3 +22,21 @@ test("both web gateways deploy independently; shared edge is only a library", ()
     ],
   );
 });
+
+test("retiring gateway scan retains the base branch category while covering both replacements", () => {
+  const matrix = JSON.parse(
+    execFileSync("bash", [".github/scripts/discover-services.sh", "--semgrep-matrix"], { encoding: "utf8" }),
+  );
+  const legacy = matrix.find(({ product }) => product === "gateway-public");
+  assert.deepEqual(legacy.scanPaths, [
+    "src/services/gateway/web-admin",
+    "src/services/gateway/web-customer",
+    "src/services/gateway/shared",
+  ]);
+  assert.deepEqual(
+    matrix.filter(({ product }) => product.startsWith("gateway-") && product !== "gateway-public")
+      .map(({ product }) => product),
+    ["gateway-web-admin", "gateway-web-customer"],
+  );
+  assert.equal(matrix.length, services.length + 1);
+});

@@ -29,8 +29,9 @@ The `typescript` dependency resolves to `@typescript/typescript6` for Nx,
 Storybook, and other tools that import the TypeScript JavaScript API.
 `@typescript/native` resolves to TypeScript 7 and provides the `tsc` command used
 by app/package typecheck targets. Keep both aliases when upgrading: TypeScript 7
-does not export the compiler API required to construct the Nx project graph.
-After changing either alias, run `bun install --frozen-lockfile`,
+moved the compiler APIs into a native Go binary and does not export the API Nx
+needs. Nx also explicitly chooses the compiler version for React and Storybook
+in `nx.json` so the resolution is not dependent on hoisting behavior. Verify
 `bunx nx show projects --json`, and the frontend typecheck targets before CI.
 
 ## Failure handling
@@ -67,6 +68,14 @@ Keep the native code-scanning rule requiring CodeQL and Semgrep OSS at the
 `main-code-scanning-high-or-higher` ruleset already provides this policy. Other
 SARIF tools can be added to that rule if their findings should also block merges.
 
+While `main` still has a `semgrep-gateway-public` analysis, the PR security
+matrix also uploads that category from a real scan of both replacement gateway
+hosts and the shared edge library. GitHub expects every base-ref category on the
+PR merge ref; a green `Security Gate` alone does not satisfy that native rule.
+The independent `semgrep-gateway-web-admin` and `semgrep-gateway-web-customer`
+categories remain. Remove the transitional category only after the protected
+base ref no longer expects it and a PR proves native merge protection stays green.
+
 The workflows run on pull requests targeting and pushes to all four release
 branches. Automation must use PRs and must not bypass these required checks.
 If a merge queue is enabled, add and validate `merge_group` handling in
@@ -80,26 +89,14 @@ trigger Release because its validation event is `pull_request`, not `push`.
 
 ## CI scheduling and dependency reuse
 
-PR Checks excludes the Aspire and `*.Architecture.UnitTests` projects owned by
-the two parallel sibling jobs. Those jobs intersect Nx's affected graph with
-their project selection before calling `run-many`, so each affected suite runs
-once. Platform architecture tests with other names remain in PR Checks.
+The CI workflow runs the Nx affected build/test/lint/typecheck graph with the
+same immutable base/head SHAs for every job. Its dedicated Aspire test job no
+longer duplicates the affected build/test target matrix, because it selects only
+`Aspire.AppHost.IntegrationTests:test` and that project's dependencies. The
+architecture job similarly selects the architecture projects and their
+necessary dependencies once, instead of calling the entire affected matrix.
 
-Project selection errors fail the job rather than being interpreted as an empty
-selection. Nx continues to schedule builds and restore dependencies; its inferred
-.NET test targets already use `--no-build --no-restore`.
-
-The shared setup action uses `global.json` for every CI job and caches downloaded
-NuGet and Bun packages by runner OS/architecture and dependency manifests. Each
-job still installs from the frozen Bun lockfile and performs the required .NET
-restores. The action does not persist build outputs or test results across runs.
-
-## Validation
-
-For changes to these workflows, validate the YAML and GitHub Actions expressions
-with actionlint. Exercise each gate with successful dependencies, every required
-dependency failed/cancelled/missing/skipped, and the intentional skip cases above.
-Inspect representative Nx affected task graphs to confirm the three job selections
-are disjoint and retain all affected test projects. Validate runtime and cache
-performance with a pull-request CI run; local workflow checks cannot establish
-a new end-to-end timing.
+Security Scans calls CodeQL once through its reusable workflow. The preview
+workflow shares image build outputs with Release only after CI and Security
+Scans pass. Workflow concurrency uses the PR ref so a new commit cancels
+superseded runs without interrupting unrelated branches.
