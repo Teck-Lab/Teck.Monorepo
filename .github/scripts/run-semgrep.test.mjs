@@ -6,25 +6,19 @@ import { join } from "node:path";
 import test from "node:test";
 
 function runScan(paths, product) {
-  const workflow = JSON.parse(execFileSync("bun", ["-e", 'console.log(JSON.stringify(Bun.YAML.parse(await Bun.file(".github/workflows/security-scans.yml").text()).jobs.semgrep.steps.find(s=>s.name==="Run Semgrep (SARIF)")))'], { encoding: "utf8" }));
   const dir = mkdtempSync(join(tmpdir(), "semgrep-args-"));
   const argsFile = join(dir, "args.json");
   const semgrep = join(dir, "semgrep");
   writeFileSync(semgrep, '#!/usr/bin/env node\nrequire("node:fs").writeFileSync(process.env.ARGS_FILE, JSON.stringify(process.argv.slice(2)));\n', { mode: 0o755 });
-  const expressions = {
-    "matrix.product": product,
-    "matrix.scanPaths": JSON.stringify(paths),
-    "toJSON(matrix.scanPaths)": JSON.stringify(paths),
-    "join(matrix.scanPaths, ' ')": paths.join(" "),
-  };
-  const expand = (value) => value.replace(/\$\{\{\s*(.*?)\s*\}\}/g, (_, expression) => {
-    assert.ok(Object.hasOwn(expressions, expression), `unexpected expression ${expression}`);
-    return expressions[expression];
-  });
-  const environment = Object.fromEntries(Object.entries(workflow.env ?? {}).map(([key, value]) => [key, expand(value)]));
   try {
-    execFileSync("bash", ["-c", expand(workflow.run)], {
-      env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, ARGS_FILE: argsFile, ...environment },
+    execFileSync("bash", [".github/scripts/run-semgrep.sh"], {
+      env: {
+        ...process.env,
+        PATH: `${dir}:${process.env.PATH}`,
+        ARGS_FILE: argsFile,
+        SEMGREP_PRODUCT: product,
+        SEMGREP_SCAN_PATHS: JSON.stringify(paths),
+      },
       stdio: "pipe",
     });
     return JSON.parse(readFileSync(argsFile, "utf8"));
