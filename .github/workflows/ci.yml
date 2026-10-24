@@ -38,6 +38,9 @@ jobs:
       - name: Commit scope and release analysis tests
         run: bun run test:release
 
+      - name: Semgrep scan argument regression tests
+        run: node --test .github/scripts/run-semgrep.test.mjs .github/scripts/discover-services.test.mjs
+
       - name: Validate the squash commit title
         if: github.event_name == 'pull_request'
         env:
