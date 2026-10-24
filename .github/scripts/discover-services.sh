@@ -46,24 +46,26 @@ objs=()
 while IFS= read -r svcdir; do
   group=$(basename "$(dirname "$svcdir")")
   service=$(basename "$svcdir")
+  # Shared gateway code is a library, not a deployable reverse proxy.
+  [ "$group" = "gateway" ] && [ "$service" = "shared" ] && continue
 
-  # Find Host csproj (commerce services have a nested *.Host/ directory;
-  # gateway has a direct csproj).
   host=$(find "$svcdir" -name '*.Host.csproj' | head -1)
   if [ -z "$host" ]; then
     host=$(find "$svcdir" -maxdepth 1 -name '*.csproj' | head -1)
   fi
   [ -z "$host" ] && continue
 
-  nx_project=$(basename "$host" .csproj)
-  is_affected "$nx_project" || continue
+  nxproj=$(basename "$host" .csproj)
+  is_affected "$nxproj" || continue
 
   if [ "$group" = "gateway" ]; then
     product="gateway-$service"
   else
     product="$service"
   fi
-  scan_path="$svcdir"
+
+  # Product names are the default service groups; operations is deliberately
+  # one fixed multi-service group.
   release_group="$product"
   if [ "$group" = "operations" ]; then
     release_group="operations"
@@ -73,9 +75,9 @@ while IFS= read -r svcdir; do
     --arg group "$group" \
     --arg service "$service" \
     --arg product "$product" \
-    --arg nxproject "$nx_project" \
+    --arg nxproject "$nxproj" \
     --arg projectpath "$host" \
-    --arg scanpath "$scan_path" \
+    --arg scanpath "$svcdir" \
     --arg releasegroup "$release_group" \
     '{group:$group, service:$service, product:$product, nxProject:$nxproject, projectPath:$projectpath, scanPath:$scanpath, releaseGroup:$releasegroup}')")
 done < <(find src/services -mindepth 2 -maxdepth 2 -type d | sort)
