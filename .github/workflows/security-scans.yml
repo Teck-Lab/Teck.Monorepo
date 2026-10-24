@@ -131,7 +131,12 @@ jobs:
       # product). Exits 0 on findings (--error is NOT set); the merge gate is the
       # branch-protection code-scanning rule.
       - name: Run Semgrep (SARIF)
+        env:
+          SEMGREP_PRODUCT: ${{ matrix.product }}
+          SEMGREP_SCAN_PATHS: ${{ toJSON(matrix.scanPaths) }}
         run: |
+          # Treat matrix values as data, never as executable shell source.
+          mapfile -d '' -t scan_paths < <(jq -j '.[] | ., "\u0000"' <<< "$SEMGREP_SCAN_PATHS")
           # Bound the stack so OCaml never sees an unlimited RLIMIT_STACK (the root of
           # the scanner-image crash); native runners default to 8 MB, this just makes it
           # deterministic.
@@ -140,9 +145,9 @@ jobs:
             --config p/csharp \
             --config p/secrets \
             --config p/r2c-security-audit \
-            --sarif --output "semgrep-${{ matrix.product }}.sarif" \
+            --sarif --output "semgrep-${SEMGREP_PRODUCT}.sarif" \
             --metrics=off \
-            ${{ join(matrix.scanPaths, ' ') }} src/shared
+            "${scan_paths[@]}" src/shared
 
       # Sink = GHAS code scanning. category keeps the per-service split; alerts
       # annotate PRs and land in the Security tab. Semgrep exits 0 on findings;

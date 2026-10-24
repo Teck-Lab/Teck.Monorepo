@@ -75,6 +75,10 @@ The independent `semgrep-gateway-web-admin` and `semgrep-gateway-web-customer`
 categories remain. Remove the transitional category only after the protected
 base ref no longer expects it and a PR proves native merge protection stays green.
 
+Semgrep receives matrix product and scan paths through step environment variables;
+the shell decodes the path array as arguments rather than interpolating matrix
+values into executable `run` source.
+
 The workflows run on pull requests targeting and pushes to all four release
 branches. Automation must use PRs and must not bypass these required checks.
 If a merge queue is enabled, add and validate `merge_group` handling in
