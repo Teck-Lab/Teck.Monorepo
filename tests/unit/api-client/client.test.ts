@@ -17,9 +17,29 @@ describe("createTeckApiClient", () => {
         });
       },
     );
-    const result = await client.GET("/products");
+    const result = await client.GET("/api/v1/admin/pricing/price-lists");
     expect(result.response.status).toBe(200);
-    expect(observedUrl).toBe("https://gateway.example/products");
+    expect(observedUrl).toBe("https://gateway.example/api/v1/admin/pricing/price-lists");
     expect(observedAuthorization).toBe("Bearer server-token");
+  });
+
+  it("supports the generated admin price-list route contract", async () => {
+    let observedUrl = "";
+    const client = createTeckApiClient(
+      "https://gateway.example",
+      "manager-token",
+      async (input, init) => {
+        const request = input instanceof Request ? input : new Request(input, init);
+        observedUrl = request.url;
+        return new Response(JSON.stringify([]), {
+          headers: { "Content-Type": "application/json" },
+        });
+      },
+    );
+
+    const result = await client.GET("/api/v1/admin/pricing/price-lists");
+
+    expect(result.response.status).toBe(200);
+    expect(observedUrl).toBe("https://gateway.example/api/v1/admin/pricing/price-lists");
   });
 });

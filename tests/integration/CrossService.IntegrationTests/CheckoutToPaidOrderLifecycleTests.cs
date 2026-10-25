@@ -80,7 +80,7 @@ public sealed class CheckoutToPaidOrderLifecycleTests(SharedTestcontainersFixtur
         Assert.Equal(delivery.Body, acceptance.Body);
     }
 
-    // Gateway.Public.IntegrationTests.TokenTenantMismatch_Returns403 owns claim/header mismatch coverage.
+    // Gateway.WebAdmin.IntegrationTests and routed Keycloak tests own tenant/header mismatch coverage.
 
     [Fact]
     public async Task CheckoutV2IngressIsPresentWhileRetiredCallerPricedRoutesAreAbsent()

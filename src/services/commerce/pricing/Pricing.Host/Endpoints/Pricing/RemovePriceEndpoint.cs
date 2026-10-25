@@ -10,7 +10,7 @@ namespace Pricing.Host.Endpoints.Pricing;
 public sealed class RemovePriceEndpoint(IMessageBus bus) : AuthenticatedEndpoint<RemovePriceRequest, PriceListDto>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("pricing", "manage", "public");
+    protected override EndpointPermission Permission => new("pricing", "manage", "admin");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(RemovePriceRequest request, CancellationToken ct)
@@ -23,7 +23,7 @@ public sealed class RemovePriceEndpoint(IMessageBus bus) : AuthenticatedEndpoint
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Delete("/price-lists/{id}/prices/{productId}");
+        Delete("/api/v1/admin/pricing/price-lists/{id}/prices/{productId}");
         Version(0);
     }
 }

@@ -9,36 +9,30 @@ using Xunit;
 
 namespace Aspire.AppHost.IntegrationTests;
 
-/// <summary>Exercises the real Keycloak token, tenant registry, exchange and gateway edge path for each routed cluster.</summary>
+/// <summary>Exercises real Keycloak tokens, tenant registry and exchange through the admin web gateway.</summary>
 [Collection("LocalIdentityKeycloak")]
 public sealed class RoutedServiceAuthorizationTests(LocalIdentityKeycloakFixture fixture)
 {
     private readonly LocalIdentityKeycloakFixture fixture = fixture;
 
-    /// <summary>Ensures each routed cluster executes a real read endpoint for a signed-in reader.</summary>
-    [Theory]
-    [InlineData("/orders/00000000-0000-0000-0000-000000000001")]
-    [InlineData("/price-lists")]
-    [InlineData("/products")]
-    public async Task GatewayRead_WhenTenantIsProvisioned_SucceedsForEachRoutedService(string path)
+    /// <summary>Signed-in readers can reach shared Catalog reads; operator Pricing reads reject a reader.</summary>
+    [Fact]
+    public async Task GatewayRead_WhenTenantIsProvisioned_AllowsCatalogButRejectsOperatorPricing()
     {
         LocalIdentityTestInstance instance = await SelectedInstanceAsync().ConfigureAwait(false);
         string token = await LocalIdentityKeycloakFixture.GetReaderTokenAsync(instance).ConfigureAwait(false);
-        string tenantId = TenantAwareSignInTests.ReadOrganizationIds(LocalIdentityKeycloakFixture.ReadToken(token)).Single();
         RoutedServiceFixture routedServices = await fixture.GetRoutedServiceFixtureAsync(instance).ConfigureAwait(false);
         routedServices.AssertServiceAuthorizationOptionsMatchRealm();
-        Guid? seededOrderId = path.StartsWith("/orders", StringComparison.Ordinal)
-            ? await routedServices.SeedOrderAsync(tenantId).ConfigureAwait(false)
-            : null;
         using HttpClient client = routedServices.Gateway.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        string requestPath = path.StartsWith("/orders", StringComparison.Ordinal)
-            ? $"/orders/{seededOrderId ?? throw new InvalidOperationException("The order fixture was not seeded.")}"
-            : path;
-        HttpResponseMessage response = await client.GetAsync(new Uri(requestPath, UriKind.Relative)).ConfigureAwait(false);
-        Assert.True(response.StatusCode == HttpStatusCode.OK, $"Gateway read returned {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync().ConfigureAwait(false)}");
-        using JsonDocument responseBody = JsonDocument.Parse(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
-        Assert.Equal(path.StartsWith("/orders", StringComparison.Ordinal) ? JsonValueKind.Object : JsonValueKind.Array, responseBody.RootElement.ValueKind);
+
+        using HttpResponseMessage catalog = await client.GetAsync(new Uri("/api/v1/catalog/products", UriKind.Relative)).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, catalog.StatusCode);
+        using JsonDocument products = JsonDocument.Parse(await catalog.Content.ReadAsStringAsync().ConfigureAwait(false));
+        Assert.Equal(JsonValueKind.Array, products.RootElement.ValueKind);
+
+        using HttpResponseMessage pricing = await client.GetAsync(new Uri("/api/v1/admin/pricing/price-lists", UriKind.Relative)).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Forbidden, pricing.StatusCode);
     }
 
     /// <summary>Ensures each selected tenant writes and reads only its own pricing state through the real gateway.</summary>
@@ -47,6 +41,7 @@ public sealed class RoutedServiceAuthorizationTests(LocalIdentityKeycloakFixture
     {
         LocalIdentityTestInstance instance = fixture.Provisioned;
         string token = await LocalIdentityKeycloakFixture.GetTokenAsync(instance, LocalIdentityKeycloakFixture.DeveloperUsername, LocalIdentityKeycloakFixture.DeveloperPassword).ConfigureAwait(false);
+        Assert.Contains("platform-manager", LocalIdentityKeycloakFixture.ReadToken(token).Payload["realm_access"]?.ToString() ?? "", StringComparison.Ordinal);
         string[] tenantIds = TenantAwareSignInTests.ReadOrganizationIds(LocalIdentityKeycloakFixture.ReadToken(token));
         Assert.Equal(2, tenantIds.Length);
         RoutedServiceFixture routedServices = await fixture.GetRoutedServiceFixtureAsync(instance).ConfigureAwait(false);
@@ -64,12 +59,12 @@ public sealed class RoutedServiceAuthorizationTests(LocalIdentityKeycloakFixture
         Assert.DoesNotContain(firstTenantPriceListName, secondTenantPriceListNames);
     }
 
-    /// <summary>Ensures reader-only access is refused by each real management endpoint.</summary>
-    [Theory]
-    [InlineData("/orders/00000000-0000-0000-0000-000000000001/payment-retry", "{\"requestId\":\"retry-001\",\"paymentMethodToken\":\"pm-local\"}")]
-    [InlineData("/price-lists", "{\"name\":\"Denied list\",\"currency\":\"USD\"}")]
-    public async Task GatewayManagementRequest_WhenReaderLacksPermission_IsRefusedByRoutedService(string path, string body)
+    /// <summary>Operator Pricing writes reject a signed-in reader before reaching the service.</summary>
+    [Fact]
+    public async Task GatewayManagementRequest_WhenReaderLacksPermission_IsRefusedByRoutedService()
     {
+        const string path = "/api/v1/admin/pricing/price-lists";
+        const string body = "{\"name\":\"Denied list\",\"currency\":\"USD\"}";
         LocalIdentityTestInstance instance = fixture.Provisioned;
         string token = await LocalIdentityKeycloakFixture.GetReaderTokenAsync(instance).ConfigureAwait(false);
         RoutedServiceFixture routedServices = await fixture.GetRoutedServiceFixtureAsync(instance).ConfigureAwait(false);
@@ -92,14 +87,14 @@ public sealed class RoutedServiceAuthorizationTests(LocalIdentityKeycloakFixture
         using HttpClient client = routedServices.Gateway.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         client.DefaultRequestHeaders.Add("X-TenantId", "teck-local-beta");
-        HttpResponseMessage response = await client.GetAsync(new Uri("/orders/00000000-0000-0000-0000-000000000001", UriKind.Relative)).ConfigureAwait(false);
+        HttpResponseMessage response = await client.GetAsync(new Uri("/api/v1/catalog/products", UriKind.Relative)).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Contains("tenant.mismatch", await response.Content.ReadAsStringAsync().ConfigureAwait(false), StringComparison.Ordinal);
     }
 
     /// <summary>Confirms token exchange preserves signed tenant membership on every gateway-routed audience token.</summary>
     [Theory]
-    [InlineData("order-api")]
+    [InlineData("catalog-api")]
     [InlineData("pricing-api")]
     public async Task TokenExchange_WhenRoutedAudienceIsRequested_ReturnsAudienceTokenWithTenantMembership(string audience)
     {
@@ -121,7 +116,7 @@ public sealed class RoutedServiceAuthorizationTests(LocalIdentityKeycloakFixture
 
     private static async Task CreatePriceListAsync(HttpClient client, string tenantId, string name)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri("/price-lists", UriKind.Relative))
+        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri("/api/v1/admin/pricing/price-lists", UriKind.Relative))
         {
             Content = new StringContent(JsonSerializer.Serialize(new { name, currency = "USD" }), Encoding.UTF8, "application/json"),
         };
@@ -132,7 +127,7 @@ public sealed class RoutedServiceAuthorizationTests(LocalIdentityKeycloakFixture
 
     private static async Task<IReadOnlyList<string>> GetPriceListNamesAsync(HttpClient client, string tenantId)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri("/price-lists", UriKind.Relative));
+        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri("/api/v1/admin/pricing/price-lists", UriKind.Relative));
         request.Headers.Add("X-TenantId", tenantId);
         using HttpResponseMessage response = await client.SendAsync(request).ConfigureAwait(false);
         string responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);

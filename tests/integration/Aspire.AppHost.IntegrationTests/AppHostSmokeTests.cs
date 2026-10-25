@@ -6,40 +6,29 @@ using Xunit;
 namespace Aspire.AppHost.IntegrationTests;
 
 /// <summary>
-/// Aspire AppHost smoke test: boots the full stack (Postgres, Keycloak, Redis, RabbitMQ,
-/// order/customer/catalog/gateway) and verifies the gateway process starts and responds on
-/// its liveness endpoint.
+/// Aspire AppHost smoke test: boots the full stack and verifies both web gateways
+/// start and respond on their liveness endpoints.
 ///
-/// No HTTP health checks are configured on resources in AppHost.cs (no WithHttpHealthCheck),
-/// so resources do not transition to HealthStatus.Healthy via an HTTP probe.  The test waits
-/// for <see cref="KnownResourceStates.Running"/> instead, which is the terminal state for
-/// project resources without explicit health probes.  Once Running, the gateway's /alive
-/// liveness endpoint (mapped by <c>MapDefaultEndpoints</c> in TeckServiceDefaults) is
-/// asserted reachable and returning 200 OK.
-///
-/// First run pulls Docker images and builds four services — allow up to 5 minutes end-to-end.
+/// No HTTP health checks are configured on resources in AppHost.cs, so project
+/// resources reach Running rather than Healthy. Each gateway maps /alive through
+/// MapDefaultEndpoints without requiring authentication.
 /// </summary>
 [Collection("AppHost")]
 public sealed class AppHostSmokeTests(AppHostFixture fixture)
 {
-    [Fact]
-    public async Task Gateway_IsReachable_WhenAppHostStarts()
+    [Theory]
+    [InlineData("web-customer")]
+    [InlineData("web-admin")]
+    public async Task WebGateway_IsReachable_WhenAppHostStarts(string resourceName)
     {
         var app = fixture.Application;
 
-        // Wait for the gateway resource to reach the Running state.
-        // AppHost.cs does not call WithHttpHealthCheck on the gateway, so Aspire never
-        // transitions it to HealthStatus.Healthy via an HTTP probe — it stops at Running.
-        // WaitForResourceAsync(..., KnownResourceStates.Running) is the correct wait here.
-        // The gateway itself depends on order/customer/catalog which depend on their DBs and
-        // Keycloak, so this implicitly waits for the full dependency chain.
+        // A named HTTP endpoint lets Aspire resolve each gateway's dynamic port.
         await app.ResourceNotifications
-            .WaitForResourceAsync("gateway", KnownResourceStates.Running)
+            .WaitForResourceAsync(resourceName, KnownResourceStates.Running)
             .WaitAsync(TimeSpan.FromMinutes(5));
 
-        // Ask Aspire for an HttpClient that resolves to the gateway's dynamic port.
-        // "http" matches the WithHttpEndpoint(name: "http") configured in AppHost.cs.
-        using var client = app.CreateHttpClient("gateway", "http");
+        using var client = app.CreateHttpClient(resourceName, "http");
 
         // /alive is mapped by MapDefaultEndpoints() in TeckServiceDefaultsExtensions
         // (health checks tagged "live").  It is always accessible without authentication

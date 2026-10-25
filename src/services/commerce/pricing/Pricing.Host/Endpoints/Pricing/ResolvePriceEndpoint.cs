@@ -10,7 +10,7 @@ namespace Pricing.Host.Endpoints.Pricing;
 public sealed class ResolvePriceEndpoint(IMessageBus bus) : AuthenticatedEndpoint<ResolvePriceRequest, ResolvedPriceDto>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("pricing", "read", "public");
+    protected override EndpointPermission Permission => new("pricing", "read", "admin");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(ResolvePriceRequest request, CancellationToken ct)
@@ -25,7 +25,7 @@ public sealed class ResolvePriceEndpoint(IMessageBus bus) : AuthenticatedEndpoin
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Get("/prices/resolve");
+        Get("/api/v1/admin/pricing/prices/resolve");
         Version(0);
     }
 }

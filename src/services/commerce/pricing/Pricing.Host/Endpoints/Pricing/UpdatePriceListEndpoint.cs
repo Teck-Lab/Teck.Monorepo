@@ -10,7 +10,7 @@ namespace Pricing.Host.Endpoints.Pricing;
 public sealed class UpdatePriceListEndpoint(IMessageBus bus) : AuthenticatedEndpoint<UpdatePriceListRequest, PriceListDto>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("pricing", "manage", "public");
+    protected override EndpointPermission Permission => new("pricing", "manage", "admin");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(UpdatePriceListRequest request, CancellationToken ct)
@@ -25,7 +25,7 @@ public sealed class UpdatePriceListEndpoint(IMessageBus bus) : AuthenticatedEndp
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Put("/price-lists/{id}");
+        Put("/api/v1/admin/pricing/price-lists/{id}");
         Version(0);
     }
 }

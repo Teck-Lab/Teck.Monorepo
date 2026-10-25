@@ -3,7 +3,7 @@
 #
 # A "service" is a directory src/services/<group>/<service> that contains a
 # runnable Host project. The Host csproj is either <service>/*.Host/*.Host.csproj
-# (commerce services) or a single csproj directly in the service dir (gateway).
+# (commerce services) or a runnable csproj directly in the service dir (gateway).
 #
 # The emitted object is the single source of truth joined against by both
 # security-scans.yml (per-service source scans) and release.yml (per-service image
@@ -13,7 +13,7 @@
 #   product      - service key/suffix used to construct the per-service
 #                  `semgrep-${product}` GitHub Code Scanning SARIF category.
 #                  Equal to the service except gateway sub-services are prefixed.
-#   nxProject    - nx project name of the Host (Order.Host, Gateway.Public, ...)
+#   nxProject    - nx project name of the Host (Order.Host, Gateway.WebAdmin, ...)
 #   projectPath  - path to the Host csproj (build target for the image)
 #   scanPath     - directory the source scanners target for this service
 #   releaseGroup - stable service grouping used for cache and scan metadata
@@ -28,6 +28,14 @@ set -euo pipefail
 
 affected="${NX_AFFECTED:-}"
 
+# --semgrep-matrix adds the historical gateway-public SARIF category while main
+# still has that category. It is not a deployable service or release product.
+if [ "${1:-}" = "--semgrep-matrix" ]; then
+  semgrep_matrix=true
+else
+  semgrep_matrix=false
+fi
+
 is_affected() {
   local nxproj="$1"
   [ -z "$affected" ] && return 0
@@ -38,6 +46,8 @@ objs=()
 while IFS= read -r svcdir; do
   group=$(basename "$(dirname "$svcdir")")
   service=$(basename "$svcdir")
+  # Shared gateway code is a library, not a deployable reverse proxy.
+  [ "$group" = "gateway" ] && [ "$service" = "shared" ] && continue
 
   host=$(find "$svcdir" -name '*.Host.csproj' | head -1)
   if [ -z "$host" ]; then
@@ -71,5 +81,12 @@ while IFS= read -r svcdir; do
     --arg releasegroup "$release_group" \
     '{group:$group, service:$service, product:$product, nxProject:$nxproject, projectPath:$projectpath, scanPath:$scanpath, releaseGroup:$releasegroup}')")
 done < <(find src/services -mindepth 2 -maxdepth 2 -type d | sort)
+
+if [ "$semgrep_matrix" = true ]; then
+  # Scan both replacement hosts and their edge library under the retired
+  # category; never satisfy the code-scanning rule with an empty SARIF upload.
+  objs+=("$(jq -nc \
+    '{product:"gateway-public", scanPaths:["src/services/gateway/web-admin", "src/services/gateway/web-customer", "src/services/gateway/shared"]}')")
+fi
 
 printf '%s\n' "${objs[@]}" | jq -s '.'

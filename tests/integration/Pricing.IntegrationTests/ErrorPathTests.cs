@@ -25,7 +25,7 @@ public sealed class ErrorPathTests : PricingIntegrationTestBase
     [Fact]
     public async Task SoftDeletedRate_CanBeReAdded()
     {
-        var firstSet = await Client.PutAsJsonAsync("/exchange-rates", new
+        var firstSet = await Client.PutAsJsonAsync("/api/v1/admin/pricing/exchange-rates", new
         {
             FromCurrency = "EUR",
             ToCurrency = "USD",
@@ -33,10 +33,10 @@ public sealed class ErrorPathTests : PricingIntegrationTestBase
         });
         firstSet.EnsureSuccessStatusCode();
 
-        var deleted = await Client.DeleteAsync(new Uri("/exchange-rates/EUR/USD", UriKind.Relative));
+        var deleted = await Client.DeleteAsync(new Uri("/api/v1/admin/pricing/exchange-rates/EUR/USD", UriKind.Relative));
         deleted.EnsureSuccessStatusCode();
 
-        var secondSet = await Client.PutAsJsonAsync("/exchange-rates", new
+        var secondSet = await Client.PutAsJsonAsync("/api/v1/admin/pricing/exchange-rates", new
         {
             FromCurrency = "EUR",
             ToCurrency = "USD",
@@ -52,7 +52,7 @@ public sealed class ErrorPathTests : PricingIntegrationTestBase
     {
         var productId = Guid.NewGuid();
 
-        var created = await Client.PostAsJsonAsync("/price-lists", new
+        var created = await Client.PostAsJsonAsync("/api/v1/admin/pricing/price-lists", new
         {
             Name = "Non-ascending tiers",
             Currency = "USD",
@@ -60,7 +60,7 @@ public sealed class ErrorPathTests : PricingIntegrationTestBase
         created.EnsureSuccessStatusCode();
         var list = await created.Content.ReadFromJsonAsync<PriceListDto>();
 
-        var priced = await Client.PutAsJsonAsync($"/price-lists/{list!.Id}/prices/{productId}", new
+        var priced = await Client.PutAsJsonAsync($"/api/v1/admin/pricing/price-lists/{list!.Id}/prices/{productId}", new
         {
             Id = list.Id,
             ProductId = productId,

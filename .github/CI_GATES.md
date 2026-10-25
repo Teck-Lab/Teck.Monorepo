@@ -67,6 +67,18 @@ Keep the native code-scanning rule requiring CodeQL and Semgrep OSS at the
 `main-code-scanning-high-or-higher` ruleset already provides this policy. Other
 SARIF tools can be added to that rule if their findings should also block merges.
 
+While `main` still has a `semgrep-gateway-public` analysis, the PR security
+matrix also uploads that category from a real scan of both replacement gateway
+hosts and the shared edge library. GitHub expects every base-ref category on the
+PR merge ref; a green `Security Gate` alone does not satisfy that native rule.
+The independent `semgrep-gateway-web-admin` and `semgrep-gateway-web-customer`
+categories remain. Remove the transitional category only after the protected
+base ref no longer expects it and a PR proves native merge protection stays green.
+
+Semgrep receives matrix product and scan paths through step environment variables;
+the shell decodes the path array as arguments rather than interpolating matrix
+values into executable `run` source.
+
 The workflows run on pull requests targeting and pushes to all four release
 branches. Automation must use PRs and must not bypass these required checks.
 If a merge queue is enabled, add and validate `merge_group` handling in

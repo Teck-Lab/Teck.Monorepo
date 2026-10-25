@@ -87,20 +87,19 @@ jobs:
           # Full history for any script that needs to diff the PR against base.
           fetch-depth: 0
 
-      # GitHub code scanning compares the categories recorded on the base ref (main)
-      # with the categories present on the PR merge ref. If the PR matrix only
-      # included affected services, the missing categories caused the Semgrep check
-      # to report "configurations present on refs/heads/main were not found". PR
-      # scans therefore intentionally cover all discoverable service categories so
-      # the comparison is stable across every PR.
+      # GitHub's native code-scanning rule compares categories on main with the
+      # PR merge ref. During the public-gateway cutover, main still has the
+      # semgrep-gateway-public category. Preserve it as a scan-only matrix entry
+      # that covers both replacement hosts and the shared edge library.
+      # Every deployable service retains its own category as before.
       - name: Discover services
         id: discover
         run: |
-          services=$(bash .github/scripts/discover-services.sh)
+          services=$(bash .github/scripts/discover-services.sh --semgrep-matrix | jq 'map(.scanPaths //= [.scanPath])')
           count=$(echo "$services" | jq 'length')
           echo "matrix=$(echo "$services" | jq -c '{include: .}')" >> "$GITHUB_OUTPUT"
           echo "has-services=$([ "$count" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          echo "Discovered $count service(s):"; echo "$services" | jq -r '.[].product'
+          echo "Discovered $count Semgrep scan(s):"; echo "$services" | jq -r '.[].product'
 
   semgrep:
     name: Semgrep SAST (${{ matrix.product }})
@@ -132,18 +131,10 @@ jobs:
       # product). Exits 0 on findings (--error is NOT set); the merge gate is the
       # branch-protection code-scanning rule.
       - name: Run Semgrep (SARIF)
-        run: |
-          # Bound the stack so OCaml never sees an unlimited RLIMIT_STACK (the root of
-          # the scanner-image crash); native runners default to 8 MB, this just makes it
-          # deterministic.
-          ulimit -s 8192 || true
-          semgrep scan \
-            --config p/csharp \
-            --config p/secrets \
-            --config p/r2c-security-audit \
-            --sarif --output "semgrep-${{ matrix.product }}.sarif" \
-            --metrics=off \
-            "${{ matrix.scanPath }}" src/shared
+        env:
+          SEMGREP_PRODUCT: ${{ matrix.product }}
+          SEMGREP_SCAN_PATHS: ${{ toJSON(matrix.scanPaths) }}
+        run: bash .github/scripts/run-semgrep.sh
 
       # Sink = GHAS code scanning. category keeps the per-service split; alerts
       # annotate PRs and land in the Security tab. Semgrep exits 0 on findings;

@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Teck Catalog and Pricing gateway API",
+    "title": "Teck web-admin gateway API",
     "version": "1.0.0"
   },
   "servers": [
@@ -10,7 +10,7 @@
     }
   ],
   "paths": {
-    "/categories": {
+    "/api/v1/admin/catalog/categories": {
       "post": {
         "tags": [
           "Categories"
@@ -65,7 +65,590 @@
         ]
       }
     },
-    "/exchange-rates": {
+    "/api/v1/admin/catalog/products": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Creates a product.",
+        "operationId": "CatalogHostEndpointsProductsCreateProductEndpoint",
+        "requestBody": {
+          "x-name": "CreateProductRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogHostEndpointsProductsCreateProductRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationProductsResponsesProductDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/catalog/products/{productId}/variants": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Adds a variant to a product.",
+        "operationId": "CatalogHostEndpointsProductsAddVariantEndpoint",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "description": "The owning product identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "requestBody": {
+          "x-name": "AddVariantRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogHostEndpointsProductsAddVariantRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationProductsResponsesVariantDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/catalog/products/{productId}/variants/{variantId}/sell-price": {
+      "put": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Changes a variant's sell price.",
+        "operationId": "CatalogHostEndpointsProductsUpdateSellPriceEndpoint",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "description": "The owning product identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          },
+          {
+            "name": "variantId",
+            "in": "path",
+            "required": true,
+            "description": "The variant identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "requestBody": {
+          "x-name": "UpdateSellPriceRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogHostEndpointsProductsUpdateSellPriceRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationProductsResponsesVariantDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/catalog/suppliers": {
+      "post": {
+        "tags": [
+          "Suppliers"
+        ],
+        "summary": "Creates a supplier.",
+        "operationId": "CatalogHostEndpointsSuppliersCreateSupplierEndpoint",
+        "requestBody": {
+          "x-name": "CreateSupplierRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogHostEndpointsSuppliersCreateSupplierRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationSuppliersResponsesSupplierDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/catalog/suppliers/{supplierId}": {
+      "get": {
+        "tags": [
+          "Suppliers"
+        ],
+        "summary": "Fetches a supplier by identifier.",
+        "operationId": "CatalogHostEndpointsSuppliersGetSupplierEndpoint",
+        "parameters": [
+          {
+            "name": "supplierId",
+            "in": "path",
+            "required": true,
+            "description": "The supplier identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationSuppliersResponsesSupplierDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/catalog/variants/{variantId}/suppliers": {
+      "post": {
+        "tags": [
+          "Variants"
+        ],
+        "summary": "Links a supplier to a variant.",
+        "operationId": "CatalogHostEndpointsSuppliersLinkVariantSupplierEndpoint",
+        "parameters": [
+          {
+            "name": "variantId",
+            "in": "path",
+            "required": true,
+            "description": "The variant identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "requestBody": {
+          "x-name": "LinkVariantSupplierRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogHostEndpointsSuppliersLinkVariantSupplierRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationSuppliersResponsesVariantSupplierDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/catalog/variants/{variantId}/suppliers/{supplierId}/cost": {
+      "put": {
+        "tags": [
+          "Variants"
+        ],
+        "summary": "Changes a variant-supplier cost price.",
+        "operationId": "CatalogHostEndpointsSuppliersUpdateSupplierCostEndpoint",
+        "parameters": [
+          {
+            "name": "variantId",
+            "in": "path",
+            "required": true,
+            "description": "The variant identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          },
+          {
+            "name": "supplierId",
+            "in": "path",
+            "required": true,
+            "description": "The supplier identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "requestBody": {
+          "x-name": "UpdateSupplierCostRequest",
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogHostEndpointsSuppliersUpdateSupplierCostRequest"
+              }
+            }
+          },
+          "required": true,
+          "x-position": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogApplicationSuppliersResponsesVariantSupplierDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/catalog/variants/{variantId}/suppliers/{supplierId}/history": {
+      "get": {
+        "tags": [
+          "Variants"
+        ],
+        "summary": "Fetches the cost history for a variant-supplier link.",
+        "operationId": "CatalogHostEndpointsSuppliersGetSupplierPriceHistoryEndpoint",
+        "parameters": [
+          {
+            "name": "variantId",
+            "in": "path",
+            "required": true,
+            "description": "The variant identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          },
+          {
+            "name": "supplierId",
+            "in": "path",
+            "required": true,
+            "description": "The supplier identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogApplicationSuppliersResponsesSupplierPriceHistoryDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/catalog/variants/{variantId}/suppliers/{supplierId}/preferred": {
+      "put": {
+        "tags": [
+          "Variants"
+        ],
+        "summary": "Sets the preferred supplier for a variant.",
+        "operationId": "CatalogHostEndpointsSuppliersSetPreferredSupplierEndpoint",
+        "parameters": [
+          {
+            "name": "variantId",
+            "in": "path",
+            "required": true,
+            "description": "The variant identifier.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          },
+          {
+            "name": "supplierId",
+            "in": "path",
+            "required": true,
+            "description": "The supplier identifier to mark preferred.",
+            "schema": {
+              "type": "string",
+              "format": "guid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/pricing/exchange-rates": {
       "get": {
         "tags": [
           "Exchange-Rates"
@@ -153,7 +736,7 @@
         ]
       }
     },
-    "/exchange-rates/{fromCurrency}/{toCurrency}": {
+    "/api/v1/admin/pricing/exchange-rates/{fromCurrency}/{toCurrency}": {
       "delete": {
         "tags": [
           "Exchange-Rates"
@@ -215,7 +798,40 @@
         ]
       }
     },
-    "/price-lists": {
+    "/api/v1/admin/pricing/price-lists": {
+      "get": {
+        "tags": [
+          "Price-Lists"
+        ],
+        "summary": "Lists all price lists for the tenant.",
+        "operationId": "PricingHostEndpointsPricingListPriceListsEndpoint",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PricingApplicationPricingResponsesPriceListDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oAuth2": []
+          }
+        ]
+      },
       "post": {
         "tags": [
           "Price-Lists"
@@ -268,42 +884,9 @@
             "oAuth2": []
           }
         ]
-      },
-      "get": {
-        "tags": [
-          "Price-Lists"
-        ],
-        "summary": "Lists all price lists for the tenant.",
-        "operationId": "PricingHostEndpointsPricingListPriceListsEndpoint",
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PricingApplicationPricingResponsesPriceListDto"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          }
-        },
-        "security": [
-          {
-            "oAuth2": []
-          }
-        ]
       }
     },
-    "/price-lists/{id}": {
+    "/api/v1/admin/pricing/price-lists/{id}": {
       "get": {
         "tags": [
           "Price-Lists"
@@ -422,7 +1005,7 @@
         ]
       }
     },
-    "/price-lists/{id}/activate": {
+    "/api/v1/admin/pricing/price-lists/{id}/activate": {
       "post": {
         "tags": [
           "Price-Lists"
@@ -476,7 +1059,7 @@
         ]
       }
     },
-    "/price-lists/{id}/archive": {
+    "/api/v1/admin/pricing/price-lists/{id}/archive": {
       "post": {
         "tags": [
           "Price-Lists"
@@ -530,7 +1113,7 @@
         ]
       }
     },
-    "/price-lists/{id}/prices/{productId}": {
+    "/api/v1/admin/pricing/price-lists/{id}/prices/{productId}": {
       "put": {
         "tags": [
           "Price-Lists"
@@ -669,7 +1252,7 @@
         ]
       }
     },
-    "/prices/resolve": {
+    "/api/v1/admin/pricing/prices/resolve": {
       "get": {
         "tags": [
           "Prices"
@@ -781,60 +1364,7 @@
         ]
       }
     },
-    "/products": {
-      "post": {
-        "tags": [
-          "Products"
-        ],
-        "summary": "Creates a product.",
-        "operationId": "CatalogHostEndpointsProductsCreateProductEndpoint",
-        "requestBody": {
-          "x-name": "CreateProductRequest",
-          "description": "",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CatalogHostEndpointsProductsCreateProductRequest"
-              }
-            }
-          },
-          "required": true,
-          "x-position": 1
-        },
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CatalogApplicationProductsResponsesProductDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          }
-        },
-        "security": [
-          {
-            "oAuth2": []
-          }
-        ]
-      },
+    "/api/v1/catalog/products": {
       "get": {
         "tags": [
           "Products"
@@ -891,7 +1421,7 @@
         ]
       }
     },
-    "/products/{productId}": {
+    "/api/v1/catalog/products/{productId}": {
       "get": {
         "tags": [
           "Products"
@@ -917,534 +1447,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CatalogApplicationProductsResponsesProductDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          }
-        },
-        "security": [
-          {
-            "oAuth2": []
-          }
-        ]
-      }
-    },
-    "/products/{productId}/variants": {
-      "post": {
-        "tags": [
-          "Products"
-        ],
-        "summary": "Adds a variant to a product.",
-        "operationId": "CatalogHostEndpointsProductsAddVariantEndpoint",
-        "parameters": [
-          {
-            "name": "productId",
-            "in": "path",
-            "required": true,
-            "description": "The owning product identifier.",
-            "schema": {
-              "type": "string",
-              "format": "guid"
-            }
-          }
-        ],
-        "requestBody": {
-          "x-name": "AddVariantRequest",
-          "description": "",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CatalogHostEndpointsProductsAddVariantRequest"
-              }
-            }
-          },
-          "required": true,
-          "x-position": 1
-        },
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CatalogApplicationProductsResponsesVariantDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          }
-        },
-        "security": [
-          {
-            "oAuth2": []
-          }
-        ]
-      }
-    },
-    "/products/{productId}/variants/{variantId}/sell-price": {
-      "put": {
-        "tags": [
-          "Products"
-        ],
-        "summary": "Changes a variant's sell price.",
-        "operationId": "CatalogHostEndpointsProductsUpdateSellPriceEndpoint",
-        "parameters": [
-          {
-            "name": "productId",
-            "in": "path",
-            "required": true,
-            "description": "The owning product identifier.",
-            "schema": {
-              "type": "string",
-              "format": "guid"
-            }
-          },
-          {
-            "name": "variantId",
-            "in": "path",
-            "required": true,
-            "description": "The variant identifier.",
-            "schema": {
-              "type": "string",
-              "format": "guid"
-            }
-          }
-        ],
-        "requestBody": {
-          "x-name": "UpdateSellPriceRequest",
-          "description": "",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CatalogHostEndpointsProductsUpdateSellPriceRequest"
-              }
-            }
-          },
-          "required": true,
-          "x-position": 1
-        },
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CatalogApplicationProductsResponsesVariantDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          }
-        },
-        "security": [
-          {
-            "oAuth2": []
-          }
-        ]
-      }
-    },
-    "/suppliers": {
-      "post": {
-        "tags": [
-          "Suppliers"
-        ],
-        "summary": "Creates a supplier.",
-        "operationId": "CatalogHostEndpointsSuppliersCreateSupplierEndpoint",
-        "requestBody": {
-          "x-name": "CreateSupplierRequest",
-          "description": "",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CatalogHostEndpointsSuppliersCreateSupplierRequest"
-              }
-            }
-          },
-          "required": true,
-          "x-position": 1
-        },
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CatalogApplicationSuppliersResponsesSupplierDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          }
-        },
-        "security": [
-          {
-            "oAuth2": []
-          }
-        ]
-      }
-    },
-    "/suppliers/{supplierId}": {
-      "get": {
-        "tags": [
-          "Suppliers"
-        ],
-        "summary": "Fetches a supplier by identifier.",
-        "operationId": "CatalogHostEndpointsSuppliersGetSupplierEndpoint",
-        "parameters": [
-          {
-            "name": "supplierId",
-            "in": "path",
-            "required": true,
-            "description": "The supplier identifier.",
-            "schema": {
-              "type": "string",
-              "format": "guid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CatalogApplicationSuppliersResponsesSupplierDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          }
-        },
-        "security": [
-          {
-            "oAuth2": []
-          }
-        ]
-      }
-    },
-    "/variants/{variantId}/suppliers": {
-      "post": {
-        "tags": [
-          "Variants"
-        ],
-        "summary": "Links a supplier to a variant.",
-        "operationId": "CatalogHostEndpointsSuppliersLinkVariantSupplierEndpoint",
-        "parameters": [
-          {
-            "name": "variantId",
-            "in": "path",
-            "required": true,
-            "description": "The variant identifier.",
-            "schema": {
-              "type": "string",
-              "format": "guid"
-            }
-          }
-        ],
-        "requestBody": {
-          "x-name": "LinkVariantSupplierRequest",
-          "description": "",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CatalogHostEndpointsSuppliersLinkVariantSupplierRequest"
-              }
-            }
-          },
-          "required": true,
-          "x-position": 1
-        },
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CatalogApplicationSuppliersResponsesVariantSupplierDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          }
-        },
-        "security": [
-          {
-            "oAuth2": []
-          }
-        ]
-      }
-    },
-    "/variants/{variantId}/suppliers/{supplierId}/cost": {
-      "put": {
-        "tags": [
-          "Variants"
-        ],
-        "summary": "Changes a variant-supplier cost price.",
-        "operationId": "CatalogHostEndpointsSuppliersUpdateSupplierCostEndpoint",
-        "parameters": [
-          {
-            "name": "variantId",
-            "in": "path",
-            "required": true,
-            "description": "The variant identifier.",
-            "schema": {
-              "type": "string",
-              "format": "guid"
-            }
-          },
-          {
-            "name": "supplierId",
-            "in": "path",
-            "required": true,
-            "description": "The supplier identifier.",
-            "schema": {
-              "type": "string",
-              "format": "guid"
-            }
-          }
-        ],
-        "requestBody": {
-          "x-name": "UpdateSupplierCostRequest",
-          "description": "",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CatalogHostEndpointsSuppliersUpdateSupplierCostRequest"
-              }
-            }
-          },
-          "required": true,
-          "x-position": 1
-        },
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CatalogApplicationSuppliersResponsesVariantSupplierDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          }
-        },
-        "security": [
-          {
-            "oAuth2": []
-          }
-        ]
-      }
-    },
-    "/variants/{variantId}/suppliers/{supplierId}/history": {
-      "get": {
-        "tags": [
-          "Variants"
-        ],
-        "summary": "Fetches the cost history for a variant-supplier link.",
-        "operationId": "CatalogHostEndpointsSuppliersGetSupplierPriceHistoryEndpoint",
-        "parameters": [
-          {
-            "name": "variantId",
-            "in": "path",
-            "required": true,
-            "description": "The variant identifier.",
-            "schema": {
-              "type": "string",
-              "format": "guid"
-            }
-          },
-          {
-            "name": "supplierId",
-            "in": "path",
-            "required": true,
-            "description": "The supplier identifier.",
-            "schema": {
-              "type": "string",
-              "format": "guid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/CatalogApplicationSuppliersResponsesSupplierPriceHistoryDto"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FastEndpointsErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          }
-        },
-        "security": [
-          {
-            "oAuth2": []
-          }
-        ]
-      }
-    },
-    "/variants/{variantId}/suppliers/{supplierId}/preferred": {
-      "put": {
-        "tags": [
-          "Variants"
-        ],
-        "summary": "Sets the preferred supplier for a variant.",
-        "operationId": "CatalogHostEndpointsSuppliersSetPreferredSupplierEndpoint",
-        "parameters": [
-          {
-            "name": "variantId",
-            "in": "path",
-            "required": true,
-            "description": "The variant identifier.",
-            "schema": {
-              "type": "string",
-              "format": "guid"
-            }
-          },
-          {
-            "name": "supplierId",
-            "in": "path",
-            "required": true,
-            "description": "The supplier identifier to mark preferred.",
-            "schema": {
-              "type": "string",
-              "format": "guid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorOrSuccess"
                 }
               }
             }
@@ -1806,16 +1808,6 @@
           }
         }
       },
-      "CatalogHostEndpointsProductsGetProductRequest": {
-        "type": "object",
-        "description": "Request to fetch a product by identifier.",
-        "additionalProperties": false
-      },
-      "CatalogHostEndpointsProductsListProductsRequest": {
-        "type": "object",
-        "description": "Request to list products, optionally filtered by category.",
-        "additionalProperties": false
-      },
       "CatalogHostEndpointsProductsUpdateSellPriceRequest": {
         "type": "object",
         "description": "Request to change a variant's sell price.",
@@ -1866,16 +1858,6 @@
             "nullable": true
           }
         }
-      },
-      "CatalogHostEndpointsSuppliersGetSupplierPriceHistoryRequest": {
-        "type": "object",
-        "description": "Request to fetch a variant-supplier cost history.",
-        "additionalProperties": false
-      },
-      "CatalogHostEndpointsSuppliersGetSupplierRequest": {
-        "type": "object",
-        "description": "Request to fetch a supplier by identifier.",
-        "additionalProperties": false
       },
       "CatalogHostEndpointsSuppliersLinkVariantSupplierRequest": {
         "type": "object",
@@ -1928,11 +1910,6 @@
             "description": "Whether this link is the preferred supplier."
           }
         }
-      },
-      "CatalogHostEndpointsSuppliersSetPreferredSupplierRequest": {
-        "type": "object",
-        "description": "Request to set the preferred supplier for a variant.",
-        "additionalProperties": false
       },
       "CatalogHostEndpointsSuppliersUpdateSupplierCostRequest": {
         "type": "object",
@@ -2189,11 +2166,6 @@
           }
         }
       },
-      "PricingHostEndpointsPricingActivatePriceListRequest": {
-        "type": "object",
-        "description": "Request to activate a price list.",
-        "additionalProperties": false
-      },
       "PricingHostEndpointsPricingAddOrUpdatePriceRequest": {
         "type": "object",
         "description": "Request to add or update a product's price within a list.",
@@ -2213,11 +2185,6 @@
             }
           }
         }
-      },
-      "PricingHostEndpointsPricingArchivePriceListRequest": {
-        "type": "object",
-        "description": "Request to archive a price list.",
-        "additionalProperties": false
       },
       "PricingHostEndpointsPricingCreatePriceListRequest": {
         "type": "object",
@@ -2279,26 +2246,6 @@
             "nullable": true
           }
         }
-      },
-      "PricingHostEndpointsPricingGetPriceListRequest": {
-        "type": "object",
-        "description": "Request to retrieve a single price list by identifier.",
-        "additionalProperties": false
-      },
-      "PricingHostEndpointsPricingRemoveExchangeRateRequest": {
-        "type": "object",
-        "description": "Request to remove the exchange rate for a currency pair.",
-        "additionalProperties": false
-      },
-      "PricingHostEndpointsPricingRemovePriceRequest": {
-        "type": "object",
-        "description": "Request to remove a product's price from a list.",
-        "additionalProperties": false
-      },
-      "PricingHostEndpointsPricingResolvePriceRequest": {
-        "type": "object",
-        "description": "Query parameters for resolving a product price.",
-        "additionalProperties": false
       },
       "PricingHostEndpointsPricingSetExchangeRateRequest": {
         "type": "object",

@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/categories": {
+    "/api/v1/admin/catalog/categories": {
         parameters: {
             query?: never;
             header?: never;
@@ -21,7 +21,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/exchange-rates": {
+    "/api/v1/admin/catalog/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Creates a product. */
+        post: operations["CatalogHostEndpointsProductsCreateProductEndpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/catalog/products/{productId}/variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adds a variant to a product. */
+        post: operations["CatalogHostEndpointsProductsAddVariantEndpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/catalog/products/{productId}/variants/{variantId}/sell-price": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Changes a variant's sell price. */
+        put: operations["CatalogHostEndpointsProductsUpdateSellPriceEndpoint"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/catalog/suppliers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Creates a supplier. */
+        post: operations["CatalogHostEndpointsSuppliersCreateSupplierEndpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/catalog/suppliers/{supplierId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetches a supplier by identifier. */
+        get: operations["CatalogHostEndpointsSuppliersGetSupplierEndpoint"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/catalog/variants/{variantId}/suppliers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Links a supplier to a variant. */
+        post: operations["CatalogHostEndpointsSuppliersLinkVariantSupplierEndpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/catalog/variants/{variantId}/suppliers/{supplierId}/cost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Changes a variant-supplier cost price. */
+        put: operations["CatalogHostEndpointsSuppliersUpdateSupplierCostEndpoint"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/catalog/variants/{variantId}/suppliers/{supplierId}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetches the cost history for a variant-supplier link. */
+        get: operations["CatalogHostEndpointsSuppliersGetSupplierPriceHistoryEndpoint"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/catalog/variants/{variantId}/suppliers/{supplierId}/preferred": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Sets the preferred supplier for a variant. */
+        put: operations["CatalogHostEndpointsSuppliersSetPreferredSupplierEndpoint"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/pricing/exchange-rates": {
         parameters: {
             query?: never;
             header?: never;
@@ -39,7 +192,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/exchange-rates/{fromCurrency}/{toCurrency}": {
+    "/api/v1/admin/pricing/exchange-rates/{fromCurrency}/{toCurrency}": {
         parameters: {
             query?: never;
             header?: never;
@@ -56,7 +209,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/price-lists": {
+    "/api/v1/admin/pricing/price-lists": {
         parameters: {
             query?: never;
             header?: never;
@@ -74,7 +227,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/price-lists/{id}": {
+    "/api/v1/admin/pricing/price-lists/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -92,7 +245,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/price-lists/{id}/activate": {
+    "/api/v1/admin/pricing/price-lists/{id}/activate": {
         parameters: {
             query?: never;
             header?: never;
@@ -109,7 +262,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/price-lists/{id}/archive": {
+    "/api/v1/admin/pricing/price-lists/{id}/archive": {
         parameters: {
             query?: never;
             header?: never;
@@ -126,7 +279,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/price-lists/{id}/prices/{productId}": {
+    "/api/v1/admin/pricing/price-lists/{id}/prices/{productId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -144,7 +297,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/prices/resolve": {
+    "/api/v1/admin/pricing/prices/resolve": {
         parameters: {
             query?: never;
             header?: never;
@@ -161,7 +314,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/products": {
+    "/api/v1/catalog/products": {
         parameters: {
             query?: never;
             header?: never;
@@ -171,15 +324,14 @@ export interface paths {
         /** Lists products. */
         get: operations["CatalogHostEndpointsProductsListProductsEndpoint"];
         put?: never;
-        /** Creates a product. */
-        post: operations["CatalogHostEndpointsProductsCreateProductEndpoint"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/products/{productId}": {
+    "/api/v1/catalog/products/{productId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -189,142 +341,6 @@ export interface paths {
         /** Fetches a product by identifier. */
         get: operations["CatalogHostEndpointsProductsGetProductEndpoint"];
         put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/products/{productId}/variants": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Adds a variant to a product. */
-        post: operations["CatalogHostEndpointsProductsAddVariantEndpoint"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/products/{productId}/variants/{variantId}/sell-price": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Changes a variant's sell price. */
-        put: operations["CatalogHostEndpointsProductsUpdateSellPriceEndpoint"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/suppliers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Creates a supplier. */
-        post: operations["CatalogHostEndpointsSuppliersCreateSupplierEndpoint"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/suppliers/{supplierId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Fetches a supplier by identifier. */
-        get: operations["CatalogHostEndpointsSuppliersGetSupplierEndpoint"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/variants/{variantId}/suppliers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Links a supplier to a variant. */
-        post: operations["CatalogHostEndpointsSuppliersLinkVariantSupplierEndpoint"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/variants/{variantId}/suppliers/{supplierId}/cost": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Changes a variant-supplier cost price. */
-        put: operations["CatalogHostEndpointsSuppliersUpdateSupplierCostEndpoint"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/variants/{variantId}/suppliers/{supplierId}/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Fetches the cost history for a variant-supplier link. */
-        get: operations["CatalogHostEndpointsSuppliersGetSupplierPriceHistoryEndpoint"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/variants/{variantId}/suppliers/{supplierId}/preferred": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Sets the preferred supplier for a variant. */
-        put: operations["CatalogHostEndpointsSuppliersSetPreferredSupplierEndpoint"];
         post?: never;
         delete?: never;
         options?: never;
@@ -469,10 +485,6 @@ export interface components {
             /** @description The ISO currency code for the sell price. */
             sellPriceCurrency: string;
         };
-        /** @description Request to fetch a product by identifier. */
-        CatalogHostEndpointsProductsGetProductRequest: Record<string, never>;
-        /** @description Request to list products, optionally filtered by category. */
-        CatalogHostEndpointsProductsListProductsRequest: Record<string, never>;
         /** @description Request to change a variant's sell price. */
         CatalogHostEndpointsProductsUpdateSellPriceRequest: {
             /**
@@ -495,10 +507,6 @@ export interface components {
             /** @description The optional contact phone. */
             contactPhone?: string | null;
         };
-        /** @description Request to fetch a variant-supplier cost history. */
-        CatalogHostEndpointsSuppliersGetSupplierPriceHistoryRequest: Record<string, never>;
-        /** @description Request to fetch a supplier by identifier. */
-        CatalogHostEndpointsSuppliersGetSupplierRequest: Record<string, never>;
         /** @description Request to link a supplier to a variant. */
         CatalogHostEndpointsSuppliersLinkVariantSupplierRequest: {
             /**
@@ -528,8 +536,6 @@ export interface components {
             /** @description Whether this link is the preferred supplier. */
             isPreferred?: boolean;
         };
-        /** @description Request to set the preferred supplier for a variant. */
-        CatalogHostEndpointsSuppliersSetPreferredSupplierRequest: Record<string, never>;
         /** @description Request to change a variant-supplier cost price. */
         CatalogHostEndpointsSuppliersUpdateSupplierCostRequest: {
             /**
@@ -696,8 +702,6 @@ export interface components {
              */
             rateApplied?: number | null;
         };
-        /** @description Request to activate a price list. */
-        PricingHostEndpointsPricingActivatePriceListRequest: Record<string, never>;
         /** @description Request to add or update a product's price within a list. */
         PricingHostEndpointsPricingAddOrUpdatePriceRequest: {
             /**
@@ -708,8 +712,6 @@ export interface components {
             /** @description The quantity tiers. */
             tiers?: components["schemas"]["PricingApplicationPricingFeaturesAddOrUpdatePriceV1PriceTierInput"][];
         };
-        /** @description Request to archive a price list. */
-        PricingHostEndpointsPricingArchivePriceListRequest: Record<string, never>;
         /** @description Request to create a price list. */
         PricingHostEndpointsPricingCreatePriceListRequest: {
             /** @description The display name. */
@@ -741,14 +743,6 @@ export interface components {
              */
             validUntil?: string | null;
         };
-        /** @description Request to retrieve a single price list by identifier. */
-        PricingHostEndpointsPricingGetPriceListRequest: Record<string, never>;
-        /** @description Request to remove the exchange rate for a currency pair. */
-        PricingHostEndpointsPricingRemoveExchangeRateRequest: Record<string, never>;
-        /** @description Request to remove a product's price from a list. */
-        PricingHostEndpointsPricingRemovePriceRequest: Record<string, never>;
-        /** @description Query parameters for resolving a product price. */
-        PricingHostEndpointsPricingResolvePriceRequest: Record<string, never>;
         /** @description Request to create or update the exchange rate for a currency pair. */
         PricingHostEndpointsPricingSetExchangeRateRequest: {
             /** @description The source ISO currency. */
@@ -831,6 +825,446 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogApplicationProductsResponsesCategoryDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CatalogHostEndpointsProductsCreateProductEndpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogHostEndpointsProductsCreateProductRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogApplicationProductsResponsesProductDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CatalogHostEndpointsProductsAddVariantEndpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The owning product identifier. */
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogHostEndpointsProductsAddVariantRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogApplicationProductsResponsesVariantDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CatalogHostEndpointsProductsUpdateSellPriceEndpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The owning product identifier. */
+                productId: string;
+                /** @description The variant identifier. */
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogHostEndpointsProductsUpdateSellPriceRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogApplicationProductsResponsesVariantDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CatalogHostEndpointsSuppliersCreateSupplierEndpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogHostEndpointsSuppliersCreateSupplierRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogApplicationSuppliersResponsesSupplierDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CatalogHostEndpointsSuppliersGetSupplierEndpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The supplier identifier. */
+                supplierId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogApplicationSuppliersResponsesSupplierDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CatalogHostEndpointsSuppliersLinkVariantSupplierEndpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The variant identifier. */
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogHostEndpointsSuppliersLinkVariantSupplierRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogApplicationSuppliersResponsesVariantSupplierDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CatalogHostEndpointsSuppliersUpdateSupplierCostEndpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The variant identifier. */
+                variantId: string;
+                /** @description The supplier identifier. */
+                supplierId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogHostEndpointsSuppliersUpdateSupplierCostRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogApplicationSuppliersResponsesVariantSupplierDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CatalogHostEndpointsSuppliersGetSupplierPriceHistoryEndpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The variant identifier. */
+                variantId: string;
+                /** @description The supplier identifier. */
+                supplierId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogApplicationSuppliersResponsesSupplierPriceHistoryDto"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CatalogHostEndpointsSuppliersSetPreferredSupplierEndpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The variant identifier. */
+                variantId: string;
+                /** @description The supplier identifier to mark preferred. */
+                supplierId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOrSuccess"];
                 };
             };
             /** @description Bad Request */
@@ -1460,53 +1894,6 @@ export interface operations {
             };
         };
     };
-    CatalogHostEndpointsProductsCreateProductEndpoint: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CatalogHostEndpointsProductsCreateProductRequest"];
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CatalogApplicationProductsResponsesProductDto"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     CatalogHostEndpointsProductsGetProductEndpoint: {
         parameters: {
             query?: never;
@@ -1526,399 +1913,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogApplicationProductsResponsesProductDto"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    CatalogHostEndpointsProductsAddVariantEndpoint: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The owning product identifier. */
-                productId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CatalogHostEndpointsProductsAddVariantRequest"];
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CatalogApplicationProductsResponsesVariantDto"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    CatalogHostEndpointsProductsUpdateSellPriceEndpoint: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The owning product identifier. */
-                productId: string;
-                /** @description The variant identifier. */
-                variantId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CatalogHostEndpointsProductsUpdateSellPriceRequest"];
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CatalogApplicationProductsResponsesVariantDto"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    CatalogHostEndpointsSuppliersCreateSupplierEndpoint: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CatalogHostEndpointsSuppliersCreateSupplierRequest"];
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CatalogApplicationSuppliersResponsesSupplierDto"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    CatalogHostEndpointsSuppliersGetSupplierEndpoint: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The supplier identifier. */
-                supplierId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CatalogApplicationSuppliersResponsesSupplierDto"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    CatalogHostEndpointsSuppliersLinkVariantSupplierEndpoint: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The variant identifier. */
-                variantId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CatalogHostEndpointsSuppliersLinkVariantSupplierRequest"];
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CatalogApplicationSuppliersResponsesVariantSupplierDto"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    CatalogHostEndpointsSuppliersUpdateSupplierCostEndpoint: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The variant identifier. */
-                variantId: string;
-                /** @description The supplier identifier. */
-                supplierId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CatalogHostEndpointsSuppliersUpdateSupplierCostRequest"];
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CatalogApplicationSuppliersResponsesVariantSupplierDto"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    CatalogHostEndpointsSuppliersGetSupplierPriceHistoryEndpoint: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The variant identifier. */
-                variantId: string;
-                /** @description The supplier identifier. */
-                supplierId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CatalogApplicationSuppliersResponsesSupplierPriceHistoryDto"][];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["FastEndpointsErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    CatalogHostEndpointsSuppliersSetPreferredSupplierEndpoint: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The variant identifier. */
-                variantId: string;
-                /** @description The supplier identifier to mark preferred. */
-                supplierId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorOrSuccess"];
                 };
             };
             /** @description Bad Request */

@@ -154,7 +154,7 @@ internal sealed class ProductionLifecycleHarness : IDisposable
 
     internal async Task<ProductDto> CreateProductAsync(decimal sellPrice)
     {
-        var response = await Catalog.PostAsJsonAsync("/products", new
+        var response = await Catalog.PostAsJsonAsync("/api/v1/admin/catalog/products", new
         {
             Name = "Lifecycle widget",
             Description = (string?)null,

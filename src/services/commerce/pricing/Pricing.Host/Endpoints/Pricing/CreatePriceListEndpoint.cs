@@ -10,7 +10,7 @@ namespace Pricing.Host.Endpoints.Pricing;
 public sealed class CreatePriceListEndpoint(IMessageBus bus) : AuthenticatedEndpoint<CreatePriceListRequest, PriceListDto>
 {
     /// <inheritdoc/>
-    protected override EndpointPermission Permission => new("pricing", "manage", "public");
+    protected override EndpointPermission Permission => new("pricing", "manage", "admin");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(CreatePriceListRequest request, CancellationToken ct)
@@ -19,14 +19,14 @@ public sealed class CreatePriceListEndpoint(IMessageBus bus) : AuthenticatedEndp
             request.Name, request.Description, request.Currency, request.Country,
             request.CustomerGroupId, request.ChannelId, request.ValidFrom, request.ValidUntil);
         var result = await bus.InvokeAsync<PriceListDto>(command, ct);
-        HttpContext.Response.Headers.Location = $"/price-lists/{result.Id}";
+        HttpContext.Response.Headers.Location = $"/api/v1/admin/pricing/price-lists/{result.Id}";
         await Send.ResponseAsync(result, StatusCodes.Status201Created, ct);
     }
 
     /// <inheritdoc/>
     protected override void ConfigureEndpoint()
     {
-        Post("/price-lists");
+        Post("/api/v1/admin/pricing/price-lists");
         Version(0);
     }
 }

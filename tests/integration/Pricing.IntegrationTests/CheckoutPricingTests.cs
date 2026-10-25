@@ -82,9 +82,7 @@ public sealed class CheckoutPricingTests : IDisposable
     public async Task PriceChangeBeforePricingSubscriber_CheckoutCompletesAtCurrentCatalogSellPrice()
     {
         ProductDto product = await CreateProductAsync(10m);
-        var updated = await catalogClient.PutAsJsonAsync(
-            $"/products/{product.Id}/variants/{product.Variants[0].Id}/sell-price",
-            new { ProductId = product.Id, VariantId = product.Variants[0].Id, Amount = 20m, Currency = "USD" });
+        var updated = await catalogClient.PutAsJsonAsync($"/api/v1/admin/catalog/products/{product.Id}/variants/{product.Variants[0].Id}/sell-price", new { ProductId = product.Id, VariantId = product.Variants[0].Id, Amount = 20m, Currency = "USD" });
         Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
 
         using HttpClient pricingClient = pricingFactory.CreateClient();
@@ -112,7 +110,7 @@ public sealed class CheckoutPricingTests : IDisposable
 
     private async Task<ProductDto> CreateProductAsync(decimal amount)
     {
-        var response = await catalogClient.PostAsJsonAsync("/products", new
+        var response = await catalogClient.PostAsJsonAsync("/api/v1/admin/catalog/products", new
         {
             Name = "Catalog fallback widget",
             Description = (string?)null,
