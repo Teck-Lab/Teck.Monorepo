@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "healthPath": "/alive",
+  "dependencies": [
+    "keycloak"
+  ],
+  "images": [
+    {
+      "image": "ghcr.io/teck-lab/gateway-public",
+      "name": "gateway-public",
+      "context": ".",
+      "dockerfile": "deploy/Containerfile.template",
+      "args": {
+        "SERVICE_NAME": "Gateway.Public",
+        "PROJECT_PATH": "src/services/gateway/public/Gateway.Public.csproj",
+        "PUBLISH_READYTORUN": "false"
+      }
+    }
+  ],
+  "initialAnalyses": [
+    "gateway-public-health"
+  ]
+}

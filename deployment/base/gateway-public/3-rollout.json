@@ -1,0 +1,134 @@
+{
+  "apiVersion": "argoproj.io/v1alpha1",
+  "kind": "Rollout",
+  "metadata": {
+    "name": "gateway-public",
+    "annotations": {
+      "argocd.argoproj.io/sync-wave": "2"
+    }
+  },
+  "spec": {
+    "replicas": 2,
+    "revisionHistoryLimit": 2,
+    "selector": {
+      "matchLabels": {
+        "app": "gateway-public"
+      }
+    },
+    "strategy": {
+      "canary": {
+        "stableService": "gateway-public-stable",
+        "canaryService": "gateway-public-canary",
+        "trafficRouting": {
+          "plugins": {
+            "argoproj-labs/gatewayAPI": {
+              "httpRoute": "gateway-public"
+            }
+          }
+        },
+        "steps": [
+          {
+            "setWeight": 50
+          },
+          {
+            "pause": {
+              "duration": "10s"
+            }
+          },
+          {
+            "analysis": {
+              "templates": [
+                {
+                  "templateName": "gateway-public-health"
+                }
+              ],
+              "args": [
+                {
+                  "name": "namespace",
+                  "valueFrom": {
+                    "fieldRef": {
+                      "fieldPath": "metadata.namespace"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "setWeight": 100
+          }
+        ]
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "gateway-public",
+          "teck.orca.io/role": "application"
+        }
+      },
+      "spec": {
+        "serviceAccountName": "gateway-public",
+        "containers": [
+          {
+            "name": "app",
+            "image": "ghcr.io/teck-lab/gateway-public",
+            "ports": [
+              {
+                "name": "http",
+                "containerPort": 8080
+              }
+            ],
+            "env": [
+              {
+                "name": "ASPNETCORE_HTTP_PORTS",
+                "value": "8080"
+              },
+              {
+                "name": "Keycloak__credentials__secret",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "gateway-public-auth",
+                    "key": "client-secret"
+                  }
+                }
+              }
+            ],
+            "startupProbe": {
+              "httpGet": {
+                "path": "/alive",
+                "port": "http"
+              },
+              "failureThreshold": 60,
+              "periodSeconds": 2
+            },
+            "readinessProbe": {
+              "httpGet": {
+                "path": "/alive",
+                "port": "http"
+              },
+              "periodSeconds": 3
+            },
+            "livenessProbe": {
+              "httpGet": {
+                "path": "/alive",
+                "port": "http"
+              },
+              "periodSeconds": 10
+            },
+            "resources": {
+              "requests": {
+                "cpu": "100m",
+                "memory": "128Mi"
+              },
+              "limits": {
+                "cpu": "1",
+                "memory": "512Mi"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

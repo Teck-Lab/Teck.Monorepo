@@ -1,0 +1,27 @@
+{
+  "apiVersion": "kustomize.config.k8s.io/v1beta1",
+  "kind": "Kustomization",
+  "resources": [
+    "../base"
+  ],
+  "patches": [
+    {
+      "target": {
+        "group": "argoproj.io",
+        "version": "v1alpha1",
+        "kind": "Rollout",
+        "name": "gateway-public"
+      },
+      "patch": "[{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"DOTNET_ENVIRONMENT\",\"value\":\"Development\"}},{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"Keycloak__auth-server-url\",\"value\":\"http://keycloak:8080\"}}]"
+    },
+    {
+      "target": {
+        "group": "argoproj.io",
+        "version": "v1alpha1",
+        "kind": "AnalysisTemplate",
+        "name": "gateway-public-health"
+      },
+      "patch": "[{\"op\":\"replace\",\"path\":\"/spec/metrics/0/provider/job/spec/template/spec/containers/0/command\",\"value\":[\"sh\",\"-c\",\"wget -qO- http://gateway-public-canary.{{args.namespace}}.svc.cluster.local/alive | grep -qx Healthy && wget -qO- http://keycloak.{{args.namespace}}.svc.cluster.local:8080/realms/teck/.well-known/openid-configuration | grep -q issuer\"]}]"
+    }
+  ]
+}
