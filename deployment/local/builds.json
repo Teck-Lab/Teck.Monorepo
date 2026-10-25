@@ -19,5 +19,9 @@
   ],
   "initialAnalyses": [
     "gateway-public-health"
+  ],
+  "addons": [
+    "rollouts",
+    "gateway"
   ]
 }
