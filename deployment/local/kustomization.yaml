@@ -12,7 +12,7 @@
         "kind": "Rollout",
         "name": "gateway-public"
       },
-      "patch": "[{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"DOTNET_ENVIRONMENT\",\"value\":\"Development\"}},{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"Keycloak__auth-server-url\",\"value\":\"http://keycloak:8080\"}}]"
+      "patch": "[{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"DOTNET_ENVIRONMENT\",\"value\":\"Development\"}},{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"Keycloak__auth-server-url\",\"value\":\"http://keycloak:8080\"}},{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"Keycloak__realm\",\"value\":\"teck-cloud-local\"}},{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"Keycloak__resource\",\"value\":\"teck-public-gateway\"}}]"
     },
     {
       "target": {
@@ -21,7 +21,7 @@
         "kind": "AnalysisTemplate",
         "name": "gateway-public-health"
       },
-      "patch": "[{\"op\":\"replace\",\"path\":\"/spec/metrics/0/provider/job/spec/template/spec/containers/0/command\",\"value\":[\"sh\",\"-c\",\"wget -qO- http://gateway-public-canary.{{args.namespace}}.svc.cluster.local/alive | grep -qx Healthy && wget -qO- http://keycloak.{{args.namespace}}.svc.cluster.local:8080/realms/teck/.well-known/openid-configuration | grep -q issuer\"]}]"
+      "patch": "[{\"op\":\"replace\",\"path\":\"/spec/metrics/0/provider/job/spec/template/spec/containers/0/command\",\"value\":[\"sh\",\"-c\",\"wget -qO- http://gateway-public-canary.{{args.namespace}}.svc.cluster.local/alive | grep -qx Healthy && wget -qO- http://keycloak.{{args.namespace}}.svc.cluster.local:8080/realms/teck-cloud-local/.well-known/openid-configuration | grep -q issuer\"]}]"
     }
   ]
 }

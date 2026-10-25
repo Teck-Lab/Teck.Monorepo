@@ -13,7 +13,9 @@ and synchronizes local Argo CD. No GitHub push is needed. teck-kube promote test
 a separate local delivery destination; it never promotes a remote release.
 
 The local gateway uses a per-worktree Keycloak dependency supplied by the local
-GitOps profile and a generated client secret. Health and unauthenticated request
+GitOps overlay at apps/local/security/keycloak and a generated client secret.
+That overlay renders the existing in-cluster development realm/client definitions;
+the local realm is teck-cloud-local and the client is teck-public-gateway. Health and unauthenticated request
 checks cover that pilot; order/pricing/customer services are not yet included,
 so this does not establish a complete authenticated commerce workflow. Add other
 services/dependencies as their deployment resources migrate.
