@@ -24,3 +24,8 @@ Workspace tests use kindnet with no mesh. Mesh/security changes require the
 optional full target, once its Cilium/ambient compatibility has been validated.
 Do not apply the base directly: it intentionally needs an image digest, ingress
 configuration, environment settings and Secret references supplied by its target.
+
+The canonical GitOps layout was validated separately with a synthetic two-worktree
+app, real Keycloak token authentication, local Kargo promotion and cold restart.
+That fixture validates the shared platform; it does not validate this pilot against
+current main, where Gateway.Public has been retired. Adapt the pilot before merge.
