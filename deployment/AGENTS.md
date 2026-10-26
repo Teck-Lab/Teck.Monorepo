@@ -5,7 +5,7 @@ Keep cluster inventory, platform/controller installation and cluster-specific
 operational overrides in Teck.GitOps. Both workspace and full local targets consume
 the same local overlay. Terraform is outside this subtree.
 
-The first pilot covers gateway-public. Existing deploy/ Dockerfiles and service
+The pilot covers gateway-web-customer and gateway-web-admin. Existing deploy/ Dockerfiles and service
 manifests remain in use; this is not a claim that all services have migrated.
 Use the shared deploy/Containerfile.template and the repo's normal build/tests.
 

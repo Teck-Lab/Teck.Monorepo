@@ -6,8 +6,12 @@ Local uses the official KIND workflow: build the worktree image, kind load docke
 
 Each worktree owns its namespace/databases/dependencies. Platform operators are shared and explicitly enabled: cnpg for PostgreSQL integration, rollouts for Rollout/AnalysisTemplate, gateway for HTTPRoute/HTTPS. Test actual behavior, migrations and connectivity using the repo's tests or Kubernetes Jobs. A failed Job/readiness/analysis fails verification. Cleaning a worktree preserves other environments and shared operators.
 
-The gateway-public pilot requires rollouts and gateway plus a per-worktree Keycloak from GitOps apps/local/security/keycloak. It uses realm teck-cloud-local and client teck-public-gateway, rendered from canonical existing realm/client definitions with generated credentials. This is not the whole commerce stack.
+The pilot deploys both Gateway.WebCustomer and Gateway.WebAdmin from the current web-customer/web-admin projects using their distinct image names and Keycloak clients (web-customer-gateway and web-admin-gateway). Each has its own Rollout, stable/canary Services, ServiceAccount, HTTPRoute and health analysis. The shared Containerfile already handles these two client-only BFFs.
 
-Draft compatibility blocker: this pilot targets an older checkout; current main retired Gateway.Public. Adapt the pilot/build declaration to the current gateways before merge. A synthetic app/database fixture validates the shared KIND/CNPG workflow separately and does not establish current-main gateway compatibility.
+Locally the customer gateway uses the worktree host's root path. The admin gateway uses /admin, with a Gateway API prefix rewrite before reaching its unchanged application routes. For example, /admin/alive reaches the admin liveness endpoint, and /admin/api/v1/admin/catalog/... reaches its operator routes. Outside local, GitOps assigns separate ingress hosts/parents; no cluster inventory is embedded here.
+
+The optional local Keycloak renders separate clients from the canonical realm/client policy definitions. The helper creates independent customer-client-secret and admin-client-secret values in gateway-web-auth. Each gateway gets only its own value. Initial analyses verify each canary's liveness, Keycloak discovery, its own client credentials and a 401 response on its protected API path. A client-credentials token is not a substitute for a user session or a proof of a complete authenticated business workflow.
+
+Run node --test deployment/tests/gateways.test.mjs for the deployment contract tests. The API server dry-run and live sandbox checks additionally validate rendered resources. Gateway build/source compatibility is checked against current main; the pilot still does not deploy all downstream Catalog/Pricing/Customer services.
 
 Local kindnet has no Cilium/Istio ambient. Production mesh, HA, GitOps synchronization and Kargo promotion need the full environment. Terraform is outside this work.
