@@ -1,0 +1,27 @@
+{
+  "apiVersion": "kustomize.config.k8s.io/v1beta1",
+  "kind": "Kustomization",
+  "resources": [
+    "../base"
+  ],
+  "patches": [
+    {
+      "target": {
+        "group": "argoproj.io",
+        "version": "v1alpha1",
+        "kind": "Rollout",
+        "name": "gateway-web-customer"
+      },
+      "patch": "[{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"DOTNET_ENVIRONMENT\",\"value\":\"Development\"}}]"
+    },
+    {
+      "target": {
+        "group": "argoproj.io",
+        "version": "v1alpha1",
+        "kind": "Rollout",
+        "name": "gateway-web-admin"
+      },
+      "patch": "[{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"DOTNET_ENVIRONMENT\",\"value\":\"Development\"}}]"
+    }
+  ]
+}
