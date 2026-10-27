@@ -34,7 +34,7 @@
     "@nx/js": "23.3.0",
     "@nx/next": "23.3.0",
     "@nx/react": "23.3.0",
-    "@nx/storybook": "23.3.0",
+    "@nx/storybook": "24.0.1",
     "@swc-node/register": "~1.12.1",
     "@swc/cli": "~0.8.0",
     "@swc/core": "~1.16.18",
