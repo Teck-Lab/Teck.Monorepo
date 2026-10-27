@@ -32,7 +32,7 @@
     "@nx/dotnet": "23.3.0",
     "@nx/expo": "23.3.0",
     "@nx/js": "23.3.0",
-    "@nx/next": "23.3.0",
+    "@nx/next": "24.0.1",
     "@nx/react": "23.3.0",
     "@nx/storybook": "23.3.0",
     "@swc-node/register": "~1.12.1",
