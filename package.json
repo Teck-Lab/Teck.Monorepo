@@ -28,7 +28,7 @@
     "@commitlint/lint": "21.2.3",
     "@expo/cli": "~58.1.11",
     "@nx/devkit": "23.3.0",
-    "@nx/docker": "23.3.0",
+    "@nx/docker": "24.0.1",
     "@nx/dotnet": "23.3.0",
     "@nx/expo": "23.3.0",
     "@nx/js": "23.3.0",

@@ -37,7 +37,7 @@
         "@commitlint/lint": "21.2.3",
         "@expo/cli": "~58.1.11",
         "@nx/devkit": "23.3.0",
-        "@nx/docker": "23.3.0",
+        "@nx/docker": "24.0.1",
         "@nx/dotnet": "23.3.0",
         "@nx/expo": "23.3.0",
         "@nx/js": "23.3.0",
@@ -841,7 +841,7 @@
 
     "@nx/devkit": ["@nx/devkit@23.3.0", "", { "dependencies": { "ejs": "5.0.1", "minimatch": "10.2.5", "semver": "^7.6.3", "tslib": "^2.3.0", "yargs-parser": "21.1.1" }, "peerDependencies": { "nx": ">= 22 <= 24 || ^23.0.0-0" } }, "sha512-xGSV4gCwQsVdt49VRcfxd2L31dAO/9t9Isv2bM5O89vyEzwd/tkW/IQwUzWn3OdhCnHayd37S1tDyJ5DilCv7w=="],
 
-    "@nx/docker": ["@nx/docker@23.3.0", "", { "dependencies": { "@nx/devkit": "23.3.0", "tslib": "^2.3.0" } }, "sha512-UxG1UIeBhzU09HMeg9ltbgukYAWGnrMc2flS0pA3RIDKtNGQVLk8G/hLKtwDFM1D/W5jn17bDFzKtKKHv4U2cw=="],
+    "@nx/docker": ["@nx/docker@24.0.1", "", { "dependencies": { "@nx/devkit": "24.0.1", "tslib": "^2.3.0" } }, "sha512-thSZRXXUu30X7oq71wHj9gVc1WiYb2PxgwyCD9DA/6JqYAbK3noRbPjkzc91BToBQ62bIJp+FTHZ9GQBhxi4Fg=="],
 
     "@nx/dotnet": ["@nx/dotnet@23.3.0", "", { "dependencies": { "@nx/devkit": "23.3.0", "ignore": "^7.0.5", "tslib": "^2.3.0" } }, "sha512-yxZM0a8Dr5hD2mThaCLbv9yHdfprDoQkiq3KMfcK8PLy8kPF7u+TdF2wZ8FlTcZaWKO/+Hp8JZVBk3ca+3M8TQ=="],
 
@@ -3306,6 +3306,8 @@
     "@jest/transform/jest-util": ["jest-util@30.4.1", "", { "dependencies": { "@jest/types": "30.4.1", "@types/node": "*", "chalk": "^4.1.2", "ci-info": "^4.2.0", "graceful-fs": "^4.2.11", "picomatch": "^4.0.3" } }, "sha512-vjQb1sACEiv13DKJMDToJpzVW0joCsIQrmbg0fi7CyOOt+g9jTuQl2A216pWRBYhOVt53XbL/2LbMKg1BECWOw=="],
 
     "@jest/types/@types/node": ["@types/node@26.0.0", "", { "dependencies": { "undici-types": "~8.3.0" } }, "sha512-vf2YFi1iY9lHGwNJMs01biZFbKJkrZR1T6/MlzjhJLPdntOHLhTrDSnSVcdtvjihi4VQNlrFRIxLsDBlQpAipA=="],
+
+    "@nx/docker/@nx/devkit": ["@nx/devkit@24.0.1", "", { "dependencies": { "ejs": "5.0.1", "minimatch": "10.2.5", "semver": "^7.6.3", "tslib": "^2.3.0", "yargs-parser": "21.1.1" }, "peerDependencies": { "nx": ">= 23 <= 25 || ^24.0.0-0" } }, "sha512-/mkW5soMCX/dQxJySdTHrgBCl4NkGKByNvXkm7K6e1FCOmCnd3toF9EVJq5Rn7gQbfT+dXVSa8vTK8z2nhcKFg=="],
 
     "@nx/eslint/typescript": ["typescript@6.0.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw=="],
 
