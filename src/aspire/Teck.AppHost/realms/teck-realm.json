@@ -10,9 +10,33 @@
       },
       {
         "name": "platform-manager"
+      },
+      {
+        "name": "sales"
       }
     ]
   },
+  "clientScopes": [
+    {
+      "name": "tenant-purchase",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "tenant-purchase-scope",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "scope",
+            "claim.value": "tenant:purchase",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
   "clients": [
     {
       "clientId": "order-api",
@@ -489,6 +513,10 @@
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
       "secret": "REPLACE_WITH_ENVIRONMENT_SECRET_BILLING_API",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "optionalClientScopes": ["tenant-purchase", "customer-api-audience"],
       "authorizationServicesEnabled": true,
       "protocol": "openid-connect",
       "protocolMappers": [
@@ -515,6 +543,17 @@
             "included.client.audience": "billing-api",
             "access.token.claim": "true"
           }
+        },
+        {
+          "name": "billing-service-identity",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "config": {
+            "claim.name": "billing_service_identity",
+            "claim.value": "billing-api",
+            "jsonType.label": "String",
+            "access.token.claim": "true"
+          }
         }
       ],
       "authorizationSettings": {
@@ -525,7 +564,8 @@
             "scopes": [
               {
                 "name": "read"
-              }
+              },
+              { "name": "purchase" }
             ]
           }
         ],
@@ -549,10 +589,41 @@
               "scopes": "[\"read\"]",
               "applyPolicies": "[\"billing-read-roles\"]"
             }
+          },
+          {
+            "name": "billing-purchase-manager",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"platform-manager\",\"required\":false}]",
+              "fetchRoles": "true"
+            }
+          },
+          {
+            "name": "billing-purchase-scope",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"purchase\"]",
+              "applyPolicies": "[\"billing-purchase-manager\"]"
+            }
           }
         ]
       },
       "directAccessGrantsEnabled": false
+    },
+    {
+      "clientId": "customer-org-provisioner",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "REPLACE_WITH_ENVIRONMENT_SECRET_CUSTOMER_ORG_PROVISIONER",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "protocol": "openid-connect"
     },
     {
       "clientId": "pricing-api",
@@ -801,5 +872,14 @@
       ]
     }
   ],
-  "users": []
+  "users": [
+    {
+      "username": "service-account-customer-org-provisioner",
+      "enabled": true,
+      "serviceAccountClientId": "customer-org-provisioner",
+      "clientRoles": {
+        "realm-management": ["manage-organizations", "view-users", "manage-users"]
+      }
+    }
+  ]
 }

@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Stripe.net" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.RabbitMq" />
     <PackageReference Include="Testcontainers.Keycloak" />
@@ -23,8 +24,14 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\services\operations\billing\Billing.Application\Billing.Application.csproj" />
     <ProjectReference Include="..\..\..\src\services\operations\billing\Billing.Host\Billing.Host.csproj" />
+    <ProjectReference Include="..\..\..\src\services\operations\licensing\Licensing.Application\Licensing.Application.csproj" />
+    <ProjectReference Include="../../../src/services/operations/tenant-database/TenantDatabase.Reconciler/TenantDatabase.Reconciler.csproj" />
+    <ProjectReference Include="..\..\..\src\services\operations\licensing\Licensing.Host\Licensing.Host.csproj">
+      <Aliases>LicensingHost</Aliases>
+    </ProjectReference>
     <ProjectReference Include="..\Teck.Platform.IntegrationTests.Shared\Teck.Platform.IntegrationTests.Shared.csproj" />
     <None Include="..\..\..\src\aspire\Teck.AppHost\test-realms\teck-realm.json" Link="test-realms\teck-realm.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../../src/services/operations/tenant-database/TenantDatabase.Reconciler/001_create_tenant_database_requests.sql" Link="tenant-database/001_create_tenant_database_requests.sql" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="..\..\..\src\shared\SharedKernel.Infrastructure\SharedKernel.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

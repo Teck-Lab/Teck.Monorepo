@@ -25,4 +25,7 @@
     <ProjectReference Include="..\..\..\shared\SharedKernel.Grpc.Contracts\SharedKernel.Grpc.Contracts.csproj" />
     <ProjectReference Include="..\..\..\shared\SharedKernel.Infrastructure\SharedKernel.Infrastructure.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Gateway.WebAdmin.UnitTests" />
+  </ItemGroup>
 </Project>

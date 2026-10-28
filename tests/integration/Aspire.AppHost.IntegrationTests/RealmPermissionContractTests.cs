@@ -79,7 +79,7 @@ public sealed class RealmPermissionContractTests
     {
         string root = FindRepositoryRoot();
         string realmPath = Path.Combine(root, TestRealmPath);
-        var keycloak = new KeycloakBuilder("quay.io/keycloak/keycloak:26.6.0")
+        var keycloak = new KeycloakBuilder("quay.io/keycloak/keycloak:26.8.1")
             .WithUsername("admin")
             .WithPassword("local-only-test-keycloak-admin-password")
             .WithRealm(realmPath)

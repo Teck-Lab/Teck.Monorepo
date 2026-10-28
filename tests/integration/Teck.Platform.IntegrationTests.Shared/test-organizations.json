@@ -8,8 +8,7 @@
         "dev@teck.local",
         "dev-reader@teck.local",
         "integration-manager",
-        "integration-reader",
-        "integration-no-access"
+        "integration-reader"
       ],
       "tenant": {
         "identifier": "tenant-authz-test",

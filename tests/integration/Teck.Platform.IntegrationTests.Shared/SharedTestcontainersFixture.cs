@@ -133,19 +133,21 @@ public sealed class SharedTestcontainersFixture : IAsyncLifetime
                 await using var createCommand = adminConnection.CreateCommand();
                 createCommand.CommandText = $"CREATE DATABASE \"{databaseName}\"";
                 await createCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
 
-                string testConnectionString = GetDatabaseConnectionString(databaseName);
+            string testConnectionString = GetDatabaseConnectionString(databaseName);
+            // Migrate even after a previous failed initialization left the test database behind.
+            var optionsBuilderType = typeof(DbContextOptionsBuilder<>).MakeGenericType(dbContextType);
+            var optionsBuilder = (DbContextOptionsBuilder)Activator.CreateInstance(optionsBuilderType)!;
+            optionsBuilder.UseNpgsql(testConnectionString, npgsql => npgsql.MigrationsAssembly(migrationsAssembly));
 
-                // Run migrations using the test database connection
-                var optionsBuilderType = typeof(DbContextOptionsBuilder<>).MakeGenericType(dbContextType);
-                var optionsBuilder = (DbContextOptionsBuilder)Activator.CreateInstance(optionsBuilderType)!;
-                optionsBuilder.UseNpgsql(testConnectionString, npgsql => npgsql.MigrationsAssembly(migrationsAssembly));
-
-                var dbContext = (DbContext)Activator.CreateInstance(dbContextType, optionsBuilder.Options, null)!;
-                await using (dbContext)
-                {
-                    await dbContext.Database.MigrateAsync(cancellationToken);
-                }
+            var singleOptionsConstructor = dbContextType.GetConstructor([optionsBuilder.Options.GetType()]);
+            var dbContext = (DbContext)(singleOptionsConstructor is not null
+                ? singleOptionsConstructor.Invoke([optionsBuilder.Options])
+                : Activator.CreateInstance(dbContextType, optionsBuilder.Options, null)!);
+            await using (dbContext)
+            {
+                await dbContext.Database.MigrateAsync(cancellationToken);
             }
 
             return GetDatabaseConnectionString(databaseName);

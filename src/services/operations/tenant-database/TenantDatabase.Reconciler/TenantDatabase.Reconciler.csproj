@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Teck.TenantDatabase.Reconciler</RootNamespace>
+  </PropertyGroup>
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);SA1402;SA1649;SA1513;SA1516;SA1201;SA1602;SA1600;SA1611;SA1615;SA1618;SA1204;SA1413;SA1503;CA1307;IDE0005</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../../../../shared/SharedKernel.Events/SharedKernel.Events.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+  </ItemGroup>
+</Project>

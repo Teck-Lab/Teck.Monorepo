@@ -51,6 +51,98 @@ public sealed class KeycloakCustomerAuthorizationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task PaidOrganization_WithRealKeycloakAdmin_LinksOnlyVerifiedReservedOwner()
+    {
+        string buyerToken = await keycloak.GetUserTokenAsync("integration-no-access", "local-only-test-no-access-password",
+            TokenClientId, clientSecret: TokenClientSecret, requestedScope: "customer-api-audience").ConfigureAwait(false);
+        using var buyer = ReadTokenPayload(buyerToken);
+        string ownerSubject = buyer.RootElement.GetProperty("sub").GetString()!;
+        var tenantId = Guid.NewGuid();
+        var identifier = $"paid-business-{tenantId:N}";
+        using var http = new HttpClient();
+        var provisioner = new Customers.Host.Infrastructure.KeycloakOrganizationProvisioner(http,
+            Microsoft.Extensions.Options.Options.Create(new Customers.Host.Infrastructure.KeycloakOrganizationOptions
+            {
+                ServerUrl = keycloak.Authority[..keycloak.Authority.LastIndexOf("/realms/", StringComparison.Ordinal)],
+                Realm = KeycloakTestRealmFixture.Realm,
+                AdminClientId = "customer-org-provisioner",
+                AdminClientSecret = "local-only-test-customer-org-provisioner-secret-not-for-production",
+            }));
+
+        var organizationId = await provisioner.EnsureOwnerOrganizationAsync(tenantId, identifier, ownerSubject,
+            CancellationToken.None).ConfigureAwait(false);
+        Assert.NotEqual(Guid.Empty, organizationId);
+        Assert.Equal(organizationId, await provisioner.EnsureOwnerOrganizationAsync(tenantId, identifier,
+            ownerSubject, CancellationToken.None).ConfigureAwait(false));
+
+        string updatedToken = await keycloak.GetUserTokenAsync("integration-no-access", "local-only-test-no-access-password",
+            TokenClientId, clientSecret: TokenClientSecret, requestedScope: "customer-api-audience organization:*").ConfigureAwait(false);
+        using var parsed = ReadTokenPayload(updatedToken);
+        Assert.Contains(parsed.RootElement.GetProperty("organization").EnumerateObject(),
+            membership => membership.Value.GetProperty("id").GetString() == organizationId.ToString("D"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => provisioner.EnsureOwnerOrganizationAsync(Guid.NewGuid(),
+            identifier, ownerSubject, CancellationToken.None)).ConfigureAwait(false);
+    }
+
+    [Fact]
+    public async Task PurchaseReservation_WithRealServiceToken_AllowsBillingOnlyAndRejectsUserToken()
+    {
+        var reservation = Tenant.CreatePendingReservation(Guid.NewGuid(), $"new-tenant-{Guid.NewGuid():N}", "buyer-subject");
+        await using (var scope = factory!.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CustomerDbContext>();
+            db.Tenants.Add(reservation);
+            await db.SaveChangesAsync().ConfigureAwait(false);
+        }
+
+        using var tokenClient = new HttpClient();
+        using var tokenResponse = await tokenClient.PostAsync($"{keycloak.Authority}/protocol/openid-connect/token",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "client_credentials",
+                ["client_id"] = "billing-api",
+                ["client_secret"] = "local-only-test-billing-api-secret-not-for-production",
+                ["scope"] = "tenant-purchase customer-api-audience",
+            })).ConfigureAwait(false);
+        tokenResponse.EnsureSuccessStatusCode();
+        using var payload = await JsonDocument.ParseAsync(await tokenResponse.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
+        var serviceToken = payload.RootElement.GetProperty("access_token").GetString()!;
+        using var parsed = ReadTokenPayload(serviceToken);
+        Assert.Equal("billing-api", parsed.RootElement.GetProperty("azp").GetString());
+        Assert.Equal("billing-api", parsed.RootElement.GetProperty("billing_service_identity").GetString());
+        Assert.Contains("tenant-purchase", parsed.RootElement.GetProperty("scope").GetString()!);
+        AssertAudience(parsed.RootElement, "customer-api");
+
+        var url = $"/internal/purchase-reservations/{reservation.Id:D}";
+        using var serviceResponse = await SendWithTokenAsync(HttpMethod.Get, url, serviceToken).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, serviceResponse.StatusCode);
+        string userToken = await keycloak.GetUserTokenAsync("integration-reader", "local-only-test-reader-password",
+            TokenClientId, clientSecret: TokenClientSecret, requestedScope: "customer-api-audience").ConfigureAwait(false);
+        using var userResponse = await SendWithTokenAsync(HttpMethod.Get, url, userToken).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Forbidden, userResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Onboarding_WithSignedBuyerWithoutOrganization_ReservesPendingTenant()
+    {
+        string token = await keycloak.GetUserTokenAsync("integration-pending-buyer", "local-only-test-pending-buyer-password",
+            TokenClientId, clientSecret: TokenClientSecret, requestedScope: "customer-api-audience").ConfigureAwait(false);
+        using var parsed = ReadTokenPayload(token);
+        Assert.False(parsed.RootElement.TryGetProperty("tenant_id", out _));
+        if (parsed.RootElement.TryGetProperty("organization", out var organizations))
+        {
+            Assert.Equal(0, organizations.EnumerateObject().Count());
+        }
+
+        using var response = await SendWithTokenAsync(HttpMethod.Post, "/tenants/onboarding", token,
+            new { DisplayName = $"New Buyer {Guid.NewGuid():N}" }).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        using var payload = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
+        Assert.Equal("pending", payload.RootElement.GetProperty("status").GetString());
+        Assert.Equal(parsed.RootElement.GetProperty("sub").GetString(), payload.RootElement.GetProperty("ownerSubjectId").GetString());
+    }
+
+    [Fact]
     public async Task CustomerEndpoints_RejectAnonymousAndInvalidBearerTokens()
     {
         Guid protectedId = Guid.NewGuid();

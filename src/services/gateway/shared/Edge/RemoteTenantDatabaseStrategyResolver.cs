@@ -70,6 +70,11 @@ internal sealed class RemoteTenantDatabaseStrategyResolver : ITenantDatabaseStra
             return TenantDbStrategyResult.Fail(503, "tenant.lookup.unavailable", "An unexpected error occurred resolving the tenant database strategy.");
         }
 
+        if (reply.Found && reply.ValidUntilUtc is DateTimeOffset validUntilUtc && DateTimeOffset.UtcNow >= validUntilUtc)
+        {
+            return TenantDbStrategyResult.Fail(403, "tenant.subscription.expired", "The tenant's paid period has expired.");
+        }
+
         if (!reply.Found)
         {
             string detail = reply.ErrorDetail ?? "Tenant not found.";
