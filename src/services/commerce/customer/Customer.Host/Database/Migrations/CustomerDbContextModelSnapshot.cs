@@ -185,6 +185,38 @@ namespace Customers.Host.Database.Migrations
                     b.ToTable("tenants", (string)null);
                 });
 
+            modelBuilder.Entity("Customers.Domain.Entities.TenantPurgeApproval", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SourceOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SubscriptionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ApproverSubjectId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset>("ApprovedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "SourceOrderId");
+
+                    b.HasIndex("TenantId", "SourceOrderId", "ApproverSubjectId")
+                        .IsUnique();
+
+                    b.ToTable("tenant_purge_approvals", (string)null);
+                });
+
             modelBuilder.Entity("Customers.Domain.Entities.Customer", b =>
                 {
                     b.OwnsMany("Customers.Domain.Entities.Address", "Addresses", b1 =>

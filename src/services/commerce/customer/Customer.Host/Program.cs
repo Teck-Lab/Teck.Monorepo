@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Customers.Application.Customers;
 using Customers.Application.Database;
 using Customers.Application.EventHandlers.IntegrationEvents;
+using Customers.Application.Tenants;
 using Customers.Host.Database;
 using Customers.Host.Grpc.V1;
 using Customers.Host.Infrastructure;
@@ -21,6 +22,9 @@ builder.Services.AddTeckService(typeof(Program).Assembly, builder.Configuration)
 builder.Services.AddScoped<ICustomerIdentityAccessor, CustomerIdentityAccessor>();
 builder.AddCustomerPersistence();
 builder.Services.Configure<KeycloakOrganizationOptions>(builder.Configuration.GetSection(KeycloakOrganizationOptions.SectionName));
+builder.Services.Configure<TenantPurgeApprovalOptions>(builder.Configuration.GetSection(TenantPurgeApprovalOptions.SectionName));
+builder.Services.AddSingleton(_ => new TenantPurgeApprovalSigningKey(
+    builder.Configuration["PurgeApproval:EncryptedPrivateKey"], builder.Configuration["PurgeApproval:Passphrase"]));
 builder.Services.AddHttpClient<IOrganizationProvisioner, KeycloakOrganizationProvisioner>();
 builder.Services.AddSingleton<TenantReadinessVerifier>();
 builder.Services.AddSingleton(_ => new SubscriptionPaymentVerificationKeys(

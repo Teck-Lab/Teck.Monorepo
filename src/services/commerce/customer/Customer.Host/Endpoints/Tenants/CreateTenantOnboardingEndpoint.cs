@@ -1,26 +1,18 @@
 using System.Security.Claims;
 using Customers.Application.Database;
 using Customers.Domain.Entities;
-using FastEndpoints;
 using Microsoft.EntityFrameworkCore;
-using SharedKernel.Infrastructure.OpenApi;
+using SharedKernel.Infrastructure.Endpoints;
 
 namespace Customers.Host.Endpoints.Tenants;
 
 /// <summary>Reserves a pending tenant identifier for the authenticated owner.</summary>
 /// <param name="context">The global Customer registry context.</param>
 public sealed class CreateTenantOnboardingEndpoint(CustomerDbContext context)
-    : Endpoint<TenantOnboardingRequest, TenantOnboardingDto>
+    : AuthenticatedEndpoint<TenantOnboardingRequest, TenantOnboardingDto>
 {
     /// <inheritdoc/>
-    public override void Configure()
-    {
-        Post("/tenants/onboarding");
-        AuthSchemes("Bearer");
-        Policies("PendingTenantOnboarding");
-        Metadata(new OpenApiAudienceMetadata("public"));
-        Version(0);
-    }
+    protected override EndpointPermission Permission => EndpointPermission.ForPolicy("PendingTenantOnboarding", "public");
 
     /// <inheritdoc/>
     public override async Task HandleAsync(TenantOnboardingRequest request, CancellationToken ct)
@@ -58,6 +50,13 @@ public sealed class CreateTenantOnboardingEndpoint(CustomerDbContext context)
         await context.SaveChangesAsync(ct).ConfigureAwait(false);
         HttpContext.Response.Headers.Location = $"/tenants/{tenant.Id}";
         await Send.ResponseAsync(new TenantOnboardingDto(tenant.Id, tenant.Identifier, tenant.Status, tenant.OwnerSubjectId), StatusCodes.Status201Created, ct);
+    }
+
+    /// <inheritdoc/>
+    protected override void ConfigureEndpoint()
+    {
+        Post("/tenants/onboarding");
+        Version(0);
     }
 
     private static string Slugify(string value)

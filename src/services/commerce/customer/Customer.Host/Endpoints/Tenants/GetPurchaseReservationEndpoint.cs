@@ -2,25 +2,20 @@ using Customers.Application.Database;
 using Customers.Domain.Entities;
 using FastEndpoints;
 using Microsoft.EntityFrameworkCore;
+using SharedKernel.Infrastructure.Endpoints;
 
 namespace Customers.Host.Endpoints.Tenants;
 
 /// <summary>Reads canonical owner-bound tenant reservations for authenticated Billing callers.</summary>
 /// <param name="context">The global Customer tenant registry.</param>
 public sealed class GetPurchaseReservationEndpoint(CustomerDbContext context)
-    : EndpointWithoutRequest<PurchaseReservationResponse>
+    : AuthenticatedEndpoint<EmptyRequest, PurchaseReservationResponse>
 {
     /// <inheritdoc/>
-    public override void Configure()
-    {
-        Get("/internal/purchase-reservations/{reservationId:guid}");
-        AuthSchemes("Bearer");
-        Policies("BillingPurchase");
-        Version(0);
-    }
+    protected override EndpointPermission Permission => EndpointPermission.ForPolicy("BillingPurchase", "internal");
 
     /// <inheritdoc/>
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(EmptyRequest request, CancellationToken ct)
     {
         var reservationId = Route<Guid>("reservationId");
         Tenant? tenant = await context.Tenants.AsNoTracking()
@@ -39,5 +34,12 @@ public sealed class GetPurchaseReservationEndpoint(CustomerDbContext context)
             Status = tenant.Status,
             PurchaseOrderId = tenant.PurchaseOrderId,
         }, ct);
+    }
+
+    /// <inheritdoc/>
+    protected override void ConfigureEndpoint()
+    {
+        Get("/internal/purchase-reservations/{reservationId:guid}");
+        Version(0);
     }
 }
