@@ -2,6 +2,7 @@
 // Copyright (c) TeckLab. All rights reserved.
 // </copyright>
 
+using Billings.Application.Billing;
 using Billings.Application.Database;
 using Billings.Application.Billing.Payments;
 using Billings.Application.Billing.Purchases;
@@ -20,6 +21,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using SharedKernel.Infrastructure.MultiTenant;
 using Teck.Platform.IntegrationTests.Shared;
 using Wolverine;
@@ -112,6 +114,7 @@ public abstract class BillingIntegrationTestBase : IDisposable
 
         var configuration = factory.Services.GetRequiredService<IConfiguration>();
         configuration[$"PaymentProvider:{key}"] = value;
+        factory.Services.GetRequiredService<IOptionsMonitorCache<PaymentProviderOptions>>().TryRemove(Options.DefaultName);
     }
 
     /// <inheritdoc/>

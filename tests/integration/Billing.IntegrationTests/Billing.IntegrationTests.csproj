@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Stripe.net" />
     <PackageReference Include="Testcontainers.PostgreSql" />
@@ -26,6 +27,9 @@
     <ProjectReference Include="..\..\..\src\services\operations\billing\Billing.Host\Billing.Host.csproj" />
     <ProjectReference Include="..\..\..\src\services\operations\licensing\Licensing.Application\Licensing.Application.csproj" />
     <ProjectReference Include="../../../src/services/operations/tenant-database/TenantDatabase.Reconciler/TenantDatabase.Reconciler.csproj" />
+    <ProjectReference Include="../../../src/services/operations/tenant-database/TenantDatabase.Host/TenantDatabase.Host.csproj">
+      <Aliases>TenantDatabaseHost</Aliases>
+    </ProjectReference>
     <ProjectReference Include="..\..\..\src\services\operations\licensing\Licensing.Host\Licensing.Host.csproj">
       <Aliases>LicensingHost</Aliases>
     </ProjectReference>

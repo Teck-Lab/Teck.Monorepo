@@ -52,7 +52,11 @@ public static class TeckServiceExtensions
                 t is { IsAbstract: false, IsInterface: false }
                 && typeof(IEndpoint).IsAssignableFrom(t)))
         {
-            services.AddFastEndpoints(endpointOptions => endpointOptions.Assemblies = [assembly]);
+            services.AddFastEndpoints(endpointOptions =>
+            {
+                endpointOptions.Assemblies = [assembly];
+                endpointOptions.DisableAutoDiscovery = true;
+            });
         }
         else
         {

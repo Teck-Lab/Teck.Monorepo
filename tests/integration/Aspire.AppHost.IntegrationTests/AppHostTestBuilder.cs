@@ -25,7 +25,7 @@ internal static class AppHostTestBuilder
             "Parameters:license-public-key=not-a-real-test-public-key",
             "Parameters:license-passphrase=local-only-test-license-passphrase",
             "Parameters:license-readiness-key=bG9jYWwtYXBwaG9zdC1saWNlbnNlLWtleS0zMi1ieXRlcw==",
-            "Parameters:database-readiness-key=bG9jYWwtYXBwaG9zdC1kYXRhYmFzZS1rZXktMzItYnl0ZXM=", 
+            "Parameters:database-readiness-key=bG9jYWwtYXBwaG9zdC1kYXRhYmFzZS1rZXktMzItYnl0ZXM=",
             "UseFixedKeycloakPort=false",
             "KeycloakRealmImportPath=./test-realms",
             "UseVolumes=false",
