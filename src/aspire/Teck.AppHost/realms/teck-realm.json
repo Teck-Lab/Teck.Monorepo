@@ -35,6 +35,26 @@
           }
         }
       ]
+    },
+    {
+      "name": "billing:purge-fence",
+      "description": "Tenant database worker Billing purge fence",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "billing-purge-fence-scope",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "billing_purge_worker_scope",
+            "claim.value": "billing:purge-fence",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
     }
   ],
   "clients": [
@@ -261,6 +281,9 @@
               },
               {
                 "name": "manage"
+              },
+              {
+                "name": "purge"
               }
             ]
           }
@@ -303,6 +326,16 @@
             "decisionStrategy": "UNANIMOUS",
             "config": {
               "scopes": "[\"manage\"]",
+              "applyPolicies": "[\"customer-manage-manager\"]"
+            }
+          },
+          {
+            "name": "customer-purge",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"purge\"]",
               "applyPolicies": "[\"customer-manage-manager\"]"
             }
           }
@@ -611,8 +644,7 @@
             }
           }
         ]
-      },
-      "directAccessGrantsEnabled": false
+      }
     },
     {
       "clientId": "customer-org-provisioner",
@@ -868,6 +900,44 @@
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
           "config": { "included.client.audience": "pricing-api", "access.token.claim": "true", "id.token.claim": "false" }
+        }
+      ]
+    },
+    {
+      "clientId": "tenant-database-worker",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "REPLACE_WITH_ENVIRONMENT_SECRET_TENANT_DATABASE_WORKER",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "protocol": "openid-connect",
+      "optionalClientScopes": ["billing:purge-fence"],
+      "protocolMappers": [
+        {
+          "name": "billing-purge-worker-identity",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "config": {
+            "claim.name": "billing_purge_worker_identity",
+            "claim.value": "tenant-database-worker",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false"
+          }
+        },
+        {
+          "name": "billing-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "billing-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
         }
       ]
     }
