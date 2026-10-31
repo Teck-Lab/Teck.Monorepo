@@ -514,7 +514,11 @@ internal sealed class ProductionLifecycleHarness : IDisposable
     private sealed class BillingFactory(string connectionString, string rabbit) : WebApplicationFactory<BillingHost::Program>
     {
         static BillingFactory() => JasperFxEnvironment.AutoStartHost = true;
-        protected override void ConfigureWebHost(IWebHostBuilder builder) => ConfigureHost(builder, "Billing", connectionString, rabbit, "billing-api");
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            ConfigureHost(builder, "Billing", connectionString, rabbit, "billing-api");
+            builder.UseSetting("Stripe:SecretKey", "sk_test_cross_service_fixture_only");
+        }
     }
 
     private sealed class CustomerFactory(string connectionString, string rabbit) : WebApplicationFactory<CustomerHost::Program>

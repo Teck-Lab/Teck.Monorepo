@@ -59,6 +59,18 @@ public sealed class TenantDatabaseRequestStoreTests(SharedTestcontainersFixture 
         Assert.Equal(paid.Proof, recorded.Proof);
         Assert.Equal(paid.TenantId.ToString("D"), recorded.DesiredState.TenantId);
 
+        var clusterUid = Guid.NewGuid();
+        await store.SaveStatusAsync(recorded,
+            new TenantDatabaseStatus(paid.TenantId.ToString("D"), TenantDatabasePhase.Ready, EvidenceId: clusterUid),
+            now, CancellationToken.None);
+        Assert.Equal(paid.SourceOrderId, Assert.Single(await store.GetPendingAsync(32, CancellationToken.None),
+            request => request.SubscriptionId == paid.SubscriptionId).SourceOrderId);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.MarkReadinessPublishedAsync(recorded,
+            Guid.NewGuid(), now, CancellationToken.None));
+        await store.MarkReadinessPublishedAsync(recorded, clusterUid, now, CancellationToken.None);
+        Assert.DoesNotContain(await store.GetPendingAsync(32, CancellationToken.None),
+            request => request.SubscriptionId == paid.SubscriptionId);
+
         var firstOrder = paid.SourceOrderId;
         var nextOrder = Guid.NewGuid();
         paid.PreviousSourceOrderId = firstOrder;
@@ -72,6 +84,7 @@ public sealed class TenantDatabaseRequestStoreTests(SharedTestcontainersFixture 
         var renewed = await store.GetPendingAsync(32, CancellationToken.None);
         var renewedRecord = Assert.Single(renewed, request => request.SubscriptionId == paid.SubscriptionId);
         Assert.Equal(nextOrder, renewedRecord.SourceOrderId);
+        Assert.Equal(firstOrder, renewedRecord.PreviousSourceOrderId);
 
         var staleSuspension = new SubscriptionAccessSuspendedIntegrationEvent
         {

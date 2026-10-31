@@ -2,7 +2,9 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Security.Cryptography;
 using Customers.Application.Database;
+using Customers.Application.EventHandlers.IntegrationEvents;
 using Customers.Application.Customers.Responses;
 using Customers.Domain.Entities;
 using JasperFx.CommandLine;
@@ -13,7 +15,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Customers.Host.Database;
+using SharedKernel.Core.Database;
 using SharedKernel.Infrastructure.Database.EFCore;
+using SharedKernel.Events;
 using Teck.Platform.IntegrationTests.Shared;
 using Xunit;
 
@@ -23,6 +28,10 @@ namespace Customers.IntegrationTests;
 [Collection("KeycloakTestRealm")]
 public sealed class KeycloakCustomerAuthorizationTests : IAsyncLifetime
 {
+    private static SubscriptionPaymentConfirmedHandler CreatePaymentHandler(CustomerDbContext context,
+        IOrganizationProvisioner organizations, SubscriptionPaymentVerificationKeys billingKeys) =>
+        new(new CustomerWriteRepository<Tenant, Guid>(context, new Microsoft.AspNetCore.Http.HttpContextAccessor()),
+            new UnitOfWork<CustomerDbContext>(context), organizations, billingKeys);
     private const string Reader = "integration-reader";
     private const string Manager = "integration-manager";
     private const string TokenClientId = "integration-test-client";
@@ -82,6 +91,69 @@ public sealed class KeycloakCustomerAuthorizationTests : IAsyncLifetime
             membership => membership.Value.GetProperty("id").GetString() == organizationId.ToString("D"));
         await Assert.ThrowsAsync<InvalidOperationException>(() => provisioner.EnsureOwnerOrganizationAsync(Guid.NewGuid(),
             identifier, ownerSubject, CancellationToken.None)).ConfigureAwait(false);
+    }
+
+    [Fact]
+    public async Task SignedPaidConfirmation_PersistsRealOwnerOrganizationButStillDeniesUnreadyTenant()
+    {
+        string buyerToken = await keycloak.GetUserTokenAsync("integration-no-access", "local-only-test-no-access-password",
+            TokenClientId, clientSecret: TokenClientSecret, requestedScope: "customer-api-audience").ConfigureAwait(false);
+        using var buyer = ReadTokenPayload(buyerToken);
+        string ownerSubject = buyer.RootElement.GetProperty("sub").GetString()!;
+        var tenantId = Guid.NewGuid();
+        var reservation = Tenant.CreatePendingReservation(tenantId, $"paid-owner-{tenantId:N}", ownerSubject);
+        await using (var scope = factory!.Services.CreateAsyncScope())
+        {
+            var database = scope.ServiceProvider.GetRequiredService<CustomerDbContext>();
+            database.Tenants.Add(reservation);
+            await database.SaveChangesAsync().ConfigureAwait(false);
+        }
+
+        var confirmedAt = DateTimeOffset.UtcNow;
+        var paid = new SubscriptionPaymentConfirmedIntegrationEvent
+        {
+            TenantId = tenantId, TenantIdentifier = reservation.Identifier, SourceOrderId = Guid.NewGuid(),
+            SubscriptionId = Guid.NewGuid(), PlanId = "Business", PlanVersion = "2026-10",
+            PaymentMethod = "captured", AmountMinor = 10000, Currency = "USD", DatabaseStrategy = "dedicated",
+            DatabaseProvider = "postgres", MaxLocations = 2, ConfirmedAtUtc = confirmedAt,
+            ValidFromUtc = confirmedAt, ValidUntilUtc = confirmedAt.AddYears(1),
+        };
+        using var privateKey = RSA.Create(2048);
+        using var trustedKeys = new SubscriptionPaymentVerificationKeys([privateKey.ExportSubjectPublicKeyInfoPem()]);
+        paid.Proof = SubscriptionPaymentProof.Sign(paid, privateKey);
+        using var http = new HttpClient();
+        var provisioner = new Customers.Host.Infrastructure.KeycloakOrganizationProvisioner(http,
+            Microsoft.Extensions.Options.Options.Create(new Customers.Host.Infrastructure.KeycloakOrganizationOptions
+            {
+                ServerUrl = keycloak.Authority[..keycloak.Authority.LastIndexOf("/realms/", StringComparison.Ordinal)],
+                Realm = KeycloakTestRealmFixture.Realm, AdminClientId = "customer-org-provisioner",
+                AdminClientSecret = "local-only-test-customer-org-provisioner-secret-not-for-production",
+            }));
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var handler = CreatePaymentHandler(scope.ServiceProvider.GetRequiredService<CustomerDbContext>(), provisioner, trustedKeys);
+            await handler.Handle(paid, CancellationToken.None).ConfigureAwait(false);
+            await handler.Handle(paid, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var persisted = await scope.ServiceProvider.GetRequiredService<CustomerDbContext>().Tenants
+                .AsNoTracking().SingleAsync(item => item.Id == tenantId).ConfigureAwait(false);
+            Assert.Equal("paid_pending_readiness", persisted.Status);
+            Assert.Equal(paid.SourceOrderId, persisted.PurchaseOrderId);
+            Assert.Equal(paid.SubscriptionId, persisted.SubscriptionId);
+            Assert.NotNull(persisted.KeycloakOrganizationId);
+            Assert.False(persisted.DatabaseReady);
+            Assert.False(persisted.LicenseReady);
+
+            string refreshed = await keycloak.GetUserTokenAsync("integration-no-access", "local-only-test-no-access-password",
+                TokenClientId, clientSecret: TokenClientSecret,
+                requestedScope: "customer-api-audience organization:*").ConfigureAwait(false);
+            using var membership = ReadTokenPayload(refreshed);
+            Assert.Contains(membership.RootElement.GetProperty("organization").EnumerateObject(),
+                organization => organization.Value.GetProperty("id").GetString() == persisted.KeycloakOrganizationId.Value.ToString("D"));
+        }
     }
 
     [Fact]
