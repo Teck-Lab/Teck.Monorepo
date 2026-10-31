@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Security.Cryptography;
+using SharedKernel.Events;
 using Teck.TenantDatabase.Reconciler;
 using Xunit;
 
@@ -58,8 +60,13 @@ public sealed class TenantDatabaseReconcilerTests
         var backend = new FakeBackend { SecretAvailable = true, ClusterReady = true, DatabaseReady = true };
         var store = new FakeRequestStore();
         var reconciler = new TenantDatabaseReconciler(backend, new FakeMigrations(), NullLogger<TenantDatabaseReconciler>.Instance);
-        var worker = new TenantDatabaseWorker(store, reconciler, NullLogger<TenantDatabaseWorker>.Instance);
-        TenantDatabaseRequest request = new(Guid.NewGuid(), DesiredTenant("dedicated", TenantSubscriptionStatus.Active), DateTimeOffset.UtcNow);
+        var publisher = new RecordingReadinessPublisher();
+        byte[] key = RandomNumberGenerator.GetBytes(32);
+        var signingKey = new DatabaseReadinessSigningKey(Convert.ToBase64String(key));
+        var worker = new TenantDatabaseWorker(store, reconciler, publisher, signingKey,
+            NullLogger<TenantDatabaseWorker>.Instance);
+        TenantDatabaseRequest request = new(Guid.NewGuid(), DesiredTenant("dedicated", TenantSubscriptionStatus.Active),
+            DateTimeOffset.UtcNow, Guid.NewGuid(), "signed");
         store.Pending.Add(request);
 
         int processed = await worker.ProcessBatchAsync(TestContext.Current.CancellationToken);
@@ -67,6 +74,23 @@ public sealed class TenantDatabaseReconcilerTests
         Assert.Equal(1, processed);
         Assert.Equal(TenantDatabasePhase.Ready, store.Statuses[request.SubscriptionId].Phase);
         Assert.Equal(request.DesiredState.TenantId, store.Statuses[request.SubscriptionId].TenantId);
+        Assert.True(store.Published.Contains(request.SubscriptionId));
+        var ready = Assert.Single(publisher.Events);
+        Assert.Equal("database", ready.Provisioner);
+        Assert.Equal(request.SourceOrderId, ready.SourceOrderId);
+        Assert.Equal(store.Statuses[request.SubscriptionId].EvidenceId, ready.EvidenceId);
+        Assert.True(TenantReadinessProof.Verify(ready, key));
+        Assert.Equal(0, await worker.ProcessBatchAsync(TestContext.Current.CancellationToken));
+
+        var second = request with { SubscriptionId = Guid.NewGuid(), SourceOrderId = Guid.NewGuid() };
+        store.Pending.Add(second);
+        publisher.FailNext = true;
+        await worker.ProcessBatchAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(TenantDatabasePhase.Ready, store.Statuses[second.SubscriptionId].Phase);
+        Assert.False(store.Published.Contains(second.SubscriptionId));
+        await worker.ProcessBatchAsync(TestContext.Current.CancellationToken);
+        Assert.True(store.Published.Contains(second.SubscriptionId));
+        Assert.Equal(2, publisher.Events.Count);
     }
 
     [Fact]
@@ -87,6 +111,21 @@ public sealed class TenantDatabaseReconcilerTests
     }
 
     [Fact]
+    public async Task ReconcileAsync_WhenClusterIsUnready_DoesNotMigrateOrDeclareTenantReady()
+    {
+        var backend = new FakeBackend { SecretAvailable = true, ClusterReady = false, DatabaseReady = true };
+        var migrations = new FakeMigrations();
+        var reconciler = new TenantDatabaseReconciler(backend, migrations, NullLogger<TenantDatabaseReconciler>.Instance);
+
+        TenantDatabaseStatus result = await reconciler.ReconcileAsync(
+            DesiredTenant("dedicated", TenantSubscriptionStatus.Active), TestContext.Current.CancellationToken);
+
+        Assert.Equal(TenantDatabasePhase.Provisioning, result.Phase);
+        Assert.Empty(backend.Databases);
+        Assert.Empty(migrations.Services);
+    }
+
+    [Fact]
     public async Task ReconcileAsync_WhenCredentialsAndDatabaseAreReady_RunsMigrationBeforeReady()
     {
         var backend = new FakeBackend { SecretAvailable = true, ClusterReady = true, DatabaseReady = true };
@@ -97,6 +136,8 @@ public sealed class TenantDatabaseReconcilerTests
         TenantDatabaseStatus result = await reconciler.ReconcileAsync(desired, TestContext.Current.CancellationToken);
 
         Assert.Equal(TenantDatabasePhase.Ready, result.Phase);
+        Assert.NotNull(result.EvidenceId);
+        Assert.NotEqual(Guid.Empty, result.EvidenceId.Value);
         Assert.Equal(["basket", "catalog", "inventory", "order", "pricing"], migrations.Services);
         Assert.Equal(5, backend.Databases.Count);
         Assert.All(backend.Databases, database => Assert.Equal("tenant-databases", database.Namespace));
@@ -148,10 +189,27 @@ public sealed class TenantDatabaseReconcilerTests
         Assert.Empty(migrations.Services);
     }
 
+    private sealed class RecordingReadinessPublisher : ITenantDatabaseReadinessPublisher
+    {
+        public bool FailNext { get; set; }
+        public List<TenantProvisioningReadyIntegrationEvent> Events { get; } = [];
+        public Task PublishAsync(TenantProvisioningReadyIntegrationEvent readiness, CancellationToken ct)
+        {
+            if (FailNext)
+            {
+                FailNext = false;
+                throw new InvalidOperationException("Broker temporarily unavailable.");
+            }
+            Events.Add(readiness);
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class FakeRequestStore : ITenantDatabaseRequestStore
     {
         public List<TenantDatabaseRequest> Pending { get; } = [];
         public Dictionary<Guid, TenantDatabaseStatus> Statuses { get; } = [];
+        public HashSet<Guid> Published { get; } = [];
         public Task<bool> UpsertAsync(TenantDatabaseRequest request, CancellationToken ct)
         {
             var prior = Pending.FirstOrDefault(item => item.SubscriptionId == request.SubscriptionId);
@@ -180,11 +238,26 @@ public sealed class TenantDatabaseReconcilerTests
             } };
             return Task.FromResult(true);
         }
-        public Task<IReadOnlyList<TenantDatabaseRequest>> GetPendingAsync(int limit, CancellationToken ct) => Task.FromResult<IReadOnlyList<TenantDatabaseRequest>>(Pending.Take(limit).ToArray());
+        public Task<IReadOnlyList<TenantDatabaseRequest>> GetPendingAsync(int limit, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<TenantDatabaseRequest>>(Pending.Where(request => !Published.Contains(request.SubscriptionId)).Take(limit).ToArray());
+        public async Task<bool> WithCurrentRequestLockAsync(TenantDatabaseRequest request, Func<CancellationToken, Task> action, CancellationToken ct)
+        {
+            if (!Pending.Contains(request) || Published.Contains(request.SubscriptionId)) return false;
+            await action(ct);
+            return true;
+        }
         public Task SaveStatusAsync(TenantDatabaseRequest request, TenantDatabaseStatus status, DateTimeOffset reconciledAt, CancellationToken ct)
         {
             if (!Pending.Contains(request)) throw new InvalidOperationException("Paid order or desired state changed before readiness could be recorded.");
             Statuses[request.SubscriptionId] = status;
+            return Task.CompletedTask;
+        }
+        public Task MarkReadinessPublishedAsync(TenantDatabaseRequest request, Guid clusterUid, DateTimeOffset publishedAt, CancellationToken ct)
+        {
+            if (!Pending.Contains(request) || !Statuses.TryGetValue(request.SubscriptionId, out var status) ||
+                status.Phase != TenantDatabasePhase.Ready || status.EvidenceId != clusterUid)
+                throw new InvalidOperationException("No current ready request to acknowledge.");
+            Published.Add(request.SubscriptionId);
             return Task.CompletedTask;
         }
     }
@@ -199,17 +272,19 @@ public sealed class TenantDatabaseReconcilerTests
         public bool ClusterReady { get; init; }
         public bool DatabaseReady { get; init; }
         public Task ApplyClusterAsync(TenantClusterSpec spec, CancellationToken ct) { Clusters.Add(spec); return Task.CompletedTask; }
-        public Task<bool> HasApplicationSecretAsync(string tenantId, CancellationToken ct) => Task.FromResult(SecretAvailable);
+        public Task<bool> HasApplicationSecretAsync(string tenantId, Guid sourceOrderId, CancellationToken ct) => Task.FromResult(SecretAvailable);
         public Task<bool> IsClusterReadyAsync(string ns, string name, CancellationToken ct) => Task.FromResult(ClusterReady);
+        public Task<Guid?> GetReadyClusterUidAsync(string ns, string name, CancellationToken ct) => Task.FromResult<Guid?>(
+            ClusterReady ? Guid.Parse("d0d58a9c-6c2b-4da3-bec0-01fd82ef7251") : null);
         public Task ApplyDatabaseAsync(TenantDatabaseSpec spec, CancellationToken ct) { Databases.Add(spec); return Task.CompletedTask; }
         public Task<bool> IsDatabaseReadyAsync(string ns, string name, CancellationToken ct) => Task.FromResult(DatabaseReady);
-        public Task SuspendAccessAsync(string tenantId, DateTimeOffset suspendedAt, CancellationToken ct) => Task.CompletedTask;
+        public Task SuspendAccessAsync(string tenantId, string identifier, Guid sourceOrderId, DateTimeOffset suspendedAt, CancellationToken ct) => Task.CompletedTask;
     }
 
     private sealed class FakeMigrations : ITenantSchemaMigrator
     {
         public List<string> Services { get; } = [];
-        public Task MigrateAsync(TenantDatabaseDesiredState state, string service, CancellationToken ct)
+        public Task MigrateAsync(TenantDatabaseDesiredState state, Guid sourceOrderId, Guid previousSourceOrderId, string service, CancellationToken ct)
         {
             Services.Add(service);
             return Task.CompletedTask;
