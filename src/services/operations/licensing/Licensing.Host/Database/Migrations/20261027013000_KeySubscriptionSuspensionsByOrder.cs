@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Licensing.Host.Database.Migrations;
 
+#pragma warning disable SA1649 // Timestamped EF migration files retain stable migration IDs.
 /// <summary>Retains an out-of-order revocation tombstone per paid annual order without blocking later captured periods.</summary>
 [DbContext(typeof(LicensingDbContext))]
 [Migration("20261027013000_KeySubscriptionSuspensionsByOrder")]
@@ -26,3 +27,4 @@ public sealed class KeySubscriptionSuspensionsByOrder : Migration
         migrationBuilder.AddPrimaryKey(name: "PK_subscription_suspensions", table: "subscription_suspensions", column: "SubscriptionId");
     }
 }
+#pragma warning restore SA1649

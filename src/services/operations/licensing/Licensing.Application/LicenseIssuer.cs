@@ -70,6 +70,17 @@ public sealed class LicenseIssuer(ILicenseStore store, ILicenseSigningKeyProvide
     }
 
     /// <summary>Replaces the current signed license after Billing attests a distinct paid successor order.</summary>
+    /// <param name="previousOrderId">The last licensed paid order.</param>
+    /// <param name="sourceOrderId">The newly paid successor order.</param>
+    /// <param name="subscriptionId">The stable subscription identifier.</param>
+    /// <param name="tenantId">The tenant owning the subscription.</param>
+    /// <param name="planId">The purchased plan.</param>
+    /// <param name="planVersion">The immutable plan version.</param>
+    /// <param name="features">The confirmed feature snapshot.</param>
+    /// <param name="issuedAtUtc">The renewal issue time.</param>
+    /// <param name="validUntilUtc">The new paid period expiry.</param>
+    /// <param name="cancellationToken">Cancellation signal.</param>
+    /// <returns>The signed license for this paid successor.</returns>
     public async Task<IssuedLicense> IssuePaidRenewalAsync(Guid previousOrderId, Guid sourceOrderId,
         Guid subscriptionId, Guid tenantId, string planId, string planVersion,
         IReadOnlyDictionary<string, string> features, DateTimeOffset issuedAtUtc,
@@ -89,6 +100,7 @@ public sealed class LicenseIssuer(ILicenseStore store, ILicenseSigningKeyProvide
         {
             throw new InvalidOperationException("Subscription belongs to a different tenant.");
         }
+
         if (prior.SourceOrderId == sourceOrderId)
         {
             var signed = License.Load(prior.LicenseDocument).ProductFeatures.GetAll()
@@ -97,9 +109,13 @@ public sealed class LicenseIssuer(ILicenseStore store, ILicenseSigningKeyProvide
             if (prior.Revoked || prior.ExpiresAt.UtcTicks / 10 != validUntilUtc.UtcTicks / 10 ||
                 prior.PlanId != planId || prior.PlanVersion != planVersion || signed.Count != features.Count ||
                 features.Any(feature => !signed.TryGetValue(feature.Key, out var value) || value != feature.Value))
+            {
                 throw new InvalidOperationException("Paid order license snapshot differs from its previous issuance.");
+            }
+
             return prior;
         }
+
         if (prior.SourceOrderId != previousOrderId)
         {
             throw new InvalidOperationException("Paid renewal does not follow the latest licensed order.");
