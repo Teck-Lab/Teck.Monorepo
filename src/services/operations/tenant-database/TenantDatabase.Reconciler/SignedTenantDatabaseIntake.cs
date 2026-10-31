@@ -1,8 +1,10 @@
 using SharedKernel.Events;
+using Wolverine.Attributes;
 
 namespace Teck.TenantDatabase.Reconciler;
 
 /// <summary>Admits only Billing-attested paid subscription requests to the durable CNPG queue.</summary>
+[WolverineHandler]
 public sealed class SignedTenantDatabaseIntake(ITenantDatabaseRequestStore store, SubscriptionPaymentVerificationKeys billingKeys)
 {
     /// <summary>Validates the immutable Billing snapshot before creating one subscription request.</summary>

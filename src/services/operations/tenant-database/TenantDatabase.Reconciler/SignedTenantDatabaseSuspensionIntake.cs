@@ -1,8 +1,10 @@
 using SharedKernel.Events;
+using Wolverine.Attributes;
 
 namespace Teck.TenantDatabase.Reconciler;
 
 /// <summary>Admits Billing-attested suspension only for the matching tenant and paid source order.</summary>
+[WolverineHandler]
 public sealed class SignedTenantDatabaseSuspensionIntake(ITenantDatabaseRequestStore store, SubscriptionPaymentVerificationKeys billingKeys)
 {
     /// <summary>Queues revocation for the current period; a stale prior-period suspension has no effect.</summary>

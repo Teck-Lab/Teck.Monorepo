@@ -11,5 +11,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="VaultSharp" />
+    <PackageReference Include="WolverineFx" />
   </ItemGroup>
 </Project>
