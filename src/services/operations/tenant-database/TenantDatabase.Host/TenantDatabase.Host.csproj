@@ -11,9 +11,11 @@
     <ProjectReference Include="../TenantDatabase.Reconciler/TenantDatabase.Reconciler.csproj" />
     <ProjectReference Include="../../../../shared/SharedKernel.Infrastructure/SharedKernel.Infrastructure.csproj" />
     <ProjectReference Include="../../../../aspire/Teck.ServiceDefaults/Teck.ServiceDefaults.csproj" />
-    <None Include="../TenantDatabase.Reconciler/001_create_tenant_database_requests.sql" Link="tenant-database/001_create_tenant_database_requests.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design"><PrivateAssets>all</PrivateAssets></PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="WolverineFx" />
   </ItemGroup>
 </Project>

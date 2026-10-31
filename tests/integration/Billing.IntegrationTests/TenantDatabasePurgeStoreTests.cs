@@ -1,3 +1,6 @@
+extern alias TenantDatabaseHost;
+
+using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using Npgsql;
 using SharedKernel.Events;
@@ -24,13 +27,10 @@ public sealed class TenantDatabasePurgeStoreTests(SharedTestcontainersFixture fi
         try
         {
             await using var source = NpgsqlDataSource.Create(fixture.GetDatabaseConnectionString(database));
-            await using (var db = await source.OpenConnectionAsync())
-            await using (var schema = db.CreateCommand())
-            {
-                schema.CommandText = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory,
-                    "tenant-database", "001_create_tenant_database_requests.sql"));
-                await schema.ExecuteNonQueryAsync();
-            }
+            await using (var db = new TenantDatabaseHost::Teck.TenantDatabase.Host.Database.TenantDatabaseDbContext(
+                new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<TenantDatabaseHost::Teck.TenantDatabase.Host.Database.TenantDatabaseDbContext>()
+                    .UseNpgsql(fixture.GetDatabaseConnectionString(database)).Options))
+                await db.Database.MigrateAsync();
 
             var store = new PostgresTenantDatabaseRequestStore(source);
             var tenant = Guid.NewGuid();

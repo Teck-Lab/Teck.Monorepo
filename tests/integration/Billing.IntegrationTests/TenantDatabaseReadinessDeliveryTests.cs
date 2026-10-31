@@ -7,6 +7,7 @@ using MemoryPack;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -37,6 +38,14 @@ public sealed class TenantDatabaseReadinessDeliveryTests(SharedTestcontainersFix
 
         try
         {
+            string connection = fixture.GetDatabaseConnectionString(database);
+            var options = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<TenantDatabaseHost::Teck.TenantDatabase.Host.Database.TenantDatabaseDbContext>()
+                .UseNpgsql(connection).Options;
+            await using (var migrationContext = new TenantDatabaseHost::Teck.TenantDatabase.Host.Database.TenantDatabaseDbContext(options))
+            {
+                await migrationContext.Database.MigrateAsync();
+            }
+
             JasperFxEnvironment.AutoStartHost = true;
             byte[] readinessKey = RandomNumberGenerator.GetBytes(32);
             using var paidKey = RSA.Create(2048);

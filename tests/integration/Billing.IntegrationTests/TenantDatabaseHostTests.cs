@@ -1,5 +1,9 @@
 extern alias TenantDatabaseHost;
+using TenantDatabaseDbContext = TenantDatabaseHost::Teck.TenantDatabase.Host.Database.TenantDatabaseDbContext;
 
+using System.Diagnostics;
+
+using Microsoft.EntityFrameworkCore;
 using System.Net;
 using System.Security.Cryptography;
 using JasperFx.CommandLine;
@@ -22,6 +26,231 @@ namespace Billing.IntegrationTests;
 public sealed class TenantDatabaseHostTests(SharedTestcontainersFixture fixture)
 {
     [Fact]
+    public async Task WorkerMigrateCommand_AppliesSchemaWithoutHostStartupDdl()
+    {
+        string database = "tenant_worker_migrate_" + Guid.NewGuid().ToString("N");
+        await using (var admin = new NpgsqlConnection(fixture.AdminConnectionString))
+        {
+            await admin.OpenAsync();
+            await using var create = new NpgsqlCommand($"CREATE DATABASE \"{database}\"", admin);
+            await create.ExecuteNonQueryAsync();
+        }
+
+        try
+        {
+            string connection = fixture.GetDatabaseConnectionString(database);
+            var hostAssembly = typeof(TenantDatabaseHost::Program).Assembly.Location;
+            using var process = Process.Start(new ProcessStartInfo("dotnet")
+            {
+                ArgumentList = { hostAssembly, "--migrate" },
+                WorkingDirectory = Path.GetDirectoryName(hostAssembly)!,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                Environment =
+                {
+                    ["DOTNET_ENVIRONMENT"] = "Production",
+                    ["ASPNETCORE_ENVIRONMENT"] = "Production",
+                    ["ConnectionStrings__TenantDatabaseWrite"] = connection,
+                    ["ConnectionStrings__Default"] = connection,
+                }
+            })!;
+            string stdout = await process.StandardOutput.ReadToEndAsync();
+            string stderr = await process.StandardError.ReadToEndAsync();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            await process.WaitForExitAsync(timeout.Token);
+            Assert.True(process.ExitCode == 0, $"Migration command failed. stdout: {stdout} stderr: {stderr}");
+
+            await using var db = new NpgsqlConnection(connection);
+            await db.OpenAsync();
+            await using var verify = new NpgsqlCommand("SELECT to_regclass('public.tenant_database_requests') IS NOT NULL", db);
+            Assert.True((bool)(await verify.ExecuteScalarAsync())!);
+            await using var history = new NpgsqlCommand("SELECT count(*) FROM \"__EFMigrationsHistory\"", db);
+            Assert.Equal(1L, (long)(await history.ExecuteScalarAsync())!);
+        }
+        finally
+        {
+            await using var admin = new NpgsqlConnection(fixture.AdminConnectionString);
+            await admin.OpenAsync();
+            await using var drop = new NpgsqlCommand($"DROP DATABASE \"{database}\" WITH (FORCE)", admin);
+            await drop.ExecuteNonQueryAsync();
+        }
+    }
+    [Fact]
+    public async Task WorkerMigrateCommand_AdoptsSqlCreatedTableAndRetainsApprovalRowsOnRerun()
+    {
+        string database = "tenant_worker_legacy_" + Guid.NewGuid().ToString("N");
+        await CreateDatabaseAsync(database);
+        try
+        {
+            string connection = fixture.GetDatabaseConnectionString(database);
+            await using (var legacy = new NpgsqlConnection(connection))
+            {
+                await legacy.OpenAsync();
+                await using var create = new NpgsqlCommand("""
+                    CREATE TABLE public.tenant_database_requests (
+                        subscription_id uuid PRIMARY KEY, tenant_id uuid NOT NULL, desired_state jsonb NOT NULL,
+                        phase text NOT NULL, detail text, received_at timestamptz NOT NULL, updated_at timestamptz NOT NULL,
+                        lease_until timestamptz, source_order_id uuid NOT NULL, proof text NOT NULL,
+                        previous_source_order_id uuid NOT NULL, evidence_id uuid, readiness_published_at timestamptz,
+                        last_cluster_uid uuid, purge_approval_id uuid, purge_proof text, purge_message jsonb,
+                        purge_backup_uid uuid, purge_restore_uid uuid, purge_backup_name text,
+                        purge_verified_at timestamptz, purged_at timestamptz);
+                    INSERT INTO public.tenant_database_requests (
+                        subscription_id, tenant_id, desired_state, phase, received_at, updated_at,
+                        source_order_id, proof, previous_source_order_id, purge_approval_id, purge_proof, purge_message)
+                    VALUES (
+                        '00000000-0000-0000-0000-000000000101', '00000000-0000-0000-0000-000000000102',
+                        '{}'::jsonb, 'Retained', now(), now(), '00000000-0000-0000-0000-000000000103',
+                        'paid-proof', '00000000-0000-0000-0000-000000000104',
+                        '00000000-0000-0000-0000-000000000105', 'approval-proof', '{"approval":"retained"}'::jsonb);
+                    """, legacy);
+                await create.ExecuteNonQueryAsync();
+            }
+
+            var firstMigration = await RunMigrationCommandAsync(connection);
+            Assert.True(firstMigration.ExitCode == 0, firstMigration.Output);
+            var secondMigration = await RunMigrationCommandAsync(connection);
+            Assert.True(secondMigration.ExitCode == 0, secondMigration.Output);
+
+            await using var verify = new NpgsqlConnection(connection);
+            await verify.OpenAsync();
+            await using var query = new NpgsqlCommand("""
+                SELECT phase, purge_approval_id, purge_proof, purge_message->>'approval'
+                FROM public.tenant_database_requests WHERE subscription_id = '00000000-0000-0000-0000-000000000101'
+                """, verify);
+            await using var row = await query.ExecuteReaderAsync();
+            Assert.True(await row.ReadAsync());
+            Assert.Equal("Retained", row.GetString(0));
+            Assert.Equal(Guid.Parse("00000000-0000-0000-0000-000000000105"), row.GetGuid(1));
+            Assert.Equal("approval-proof", row.GetString(2));
+            Assert.Equal("retained", row.GetString(3));
+            await row.DisposeAsync();
+            await verify.CloseAsync();
+            await using var history = new NpgsqlConnection(connection);
+            await history.OpenAsync();
+            await using var count = new NpgsqlCommand("SELECT count(*) FROM \"__EFMigrationsHistory\"", history);
+            Assert.Equal(1L, (long)(await count.ExecuteScalarAsync())!);
+        }
+        finally
+        {
+            await DropDatabaseAsync(database);
+        }
+    }
+
+    [Fact]
+    public async Task WorkerMigrateCommand_RejectsIncompatibleTableWithoutRecordingMigration()
+    {
+        string database = "tenant_worker_incompatible_" + Guid.NewGuid().ToString("N");
+        await CreateDatabaseAsync(database);
+        try
+        {
+            string connection = fixture.GetDatabaseConnectionString(database);
+            await using (var legacy = new NpgsqlConnection(connection))
+            {
+                await legacy.OpenAsync();
+                await using var create = new NpgsqlCommand("CREATE TABLE public.tenant_database_requests (subscription_id text PRIMARY KEY)", legacy);
+                await create.ExecuteNonQueryAsync();
+            }
+
+            var result = await RunMigrationCommandAsync(connection);
+            Assert.True(result.ExitCode != 0, result.Output);
+            await using var verify = new NpgsqlConnection(connection);
+            await verify.OpenAsync();
+            await using var query = new NpgsqlCommand("SELECT to_regclass('public.__EFMigrationsHistory') IS NULL", verify);
+            Assert.True((bool)(await query.ExecuteScalarAsync())!);
+        }
+        finally
+        {
+            await DropDatabaseAsync(database);
+        }
+    }
+
+    private async Task CreateDatabaseAsync(string database)
+    {
+        await using var admin = new NpgsqlConnection(fixture.AdminConnectionString);
+        await admin.OpenAsync();
+        await using var create = new NpgsqlCommand($"CREATE DATABASE \"{database}\"", admin);
+        await create.ExecuteNonQueryAsync();
+    }
+
+    private async Task DropDatabaseAsync(string database)
+    {
+        await using var admin = new NpgsqlConnection(fixture.AdminConnectionString);
+        await admin.OpenAsync();
+        await using var drop = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{database}\" WITH (FORCE)", admin);
+        await drop.ExecuteNonQueryAsync();
+    }
+
+    private static async Task<(int ExitCode, string Output)> RunMigrationCommandAsync(string connection)
+    {
+        var hostAssembly = typeof(TenantDatabaseHost::Program).Assembly.Location;
+        using var process = Process.Start(new ProcessStartInfo("dotnet")
+        {
+            ArgumentList = { hostAssembly, "--migrate" },
+            WorkingDirectory = Path.GetDirectoryName(hostAssembly)!,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            Environment =
+            {
+                ["DOTNET_ENVIRONMENT"] = "Production",
+                ["ASPNETCORE_ENVIRONMENT"] = "Production",
+                ["ConnectionStrings__TenantDatabaseWrite"] = connection,
+                ["ConnectionStrings__Default"] = connection,
+            }
+        })!;
+        string stdout = await process.StandardOutput.ReadToEndAsync();
+        string stderr = await process.StandardError.ReadToEndAsync();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await process.WaitForExitAsync(timeout.Token);
+        return (process.ExitCode, $"stdout: {stdout} stderr: {stderr}");
+    }
+
+    [Fact]
+    public async Task WorkerMigration_MatchesCurrentModelAndPendingPurgeIndexFilter()
+    {
+        string database = "tenant_worker_model_" + Guid.NewGuid().ToString("N");
+        await CreateDatabaseAsync(database);
+        try
+        {
+            string connection = fixture.GetDatabaseConnectionString(database);
+            var options = new DbContextOptionsBuilder<TenantDatabaseDbContext>().UseNpgsql(connection).Options;
+            await using var context = new TenantDatabaseDbContext(options);
+            var indexes = context.Model.FindEntityType(typeof(TenantDatabaseHost::Teck.TenantDatabase.Host.Database.TenantDatabaseRequestRow))!.GetIndexes().ToArray();
+            Assert.Equal(
+                new[]
+                {
+                    "ix_tenant_database_requests_pending",
+                    "ix_tenant_database_requests_pending_purge",
+                    "ix_tenant_database_requests_unpublished",
+                },
+                indexes.Select(index => index.GetDatabaseName()).OrderBy(name => name).ToArray());
+            Assert.False(context.Database.HasPendingModelChanges());
+            await context.Database.MigrateAsync();
+            await using var db = new NpgsqlConnection(connection);
+            await db.OpenAsync();
+            await using var indexesQuery = new NpgsqlCommand("SELECT i.relname, pg_get_expr(x.indpred, x.indrelid) FROM pg_index x JOIN pg_class i ON i.oid = x.indexrelid JOIN pg_class t ON t.oid = x.indrelid WHERE t.oid = 'public.tenant_database_requests'::regclass AND i.relname LIKE 'ix_tenant_database_requests_%' ORDER BY i.relname", db);
+            await using var indexRows = await indexesQuery.ExecuteReaderAsync();
+            var actualIndexes = new List<(string Name, string Definition)>();
+            while (await indexRows.ReadAsync())
+            {
+                actualIndexes.Add((indexRows.GetString(0), indexRows.IsDBNull(1) ? string.Empty : indexRows.GetString(1)));
+            }
+            await indexRows.DisposeAsync();
+            var queueIndexes = actualIndexes.Where(index => index.Name.StartsWith("ix_tenant_database_requests_", StringComparison.Ordinal)).ToArray();
+            Assert.Equal(3, queueIndexes.Length);
+            Assert.Contains(queueIndexes, index => index.Name == "ix_tenant_database_requests_unpublished" && index.Definition.Contains("readiness_published_at IS NULL", StringComparison.Ordinal));
+            Assert.Contains(queueIndexes, index => index.Name == "ix_tenant_database_requests_pending" && index.Definition.Contains("phase", StringComparison.Ordinal) && index.Definition.Contains("NotManaged", StringComparison.Ordinal));
+            Assert.Contains(queueIndexes, index => index.Name == "ix_tenant_database_requests_pending_purge" && index.Definition.Contains("purge_message IS NOT NULL", StringComparison.Ordinal));
+        }
+        finally
+        {
+            await DropDatabaseAsync(database);
+        }
+    }
+
+    [Fact]
     public async Task WorkerHost_ExposesReadyAndDurablyAdmitsOnlyBillingSignedPaidPeriod()
     {
         string database = "tenant_worker_" + Guid.NewGuid().ToString("N");
@@ -34,8 +263,11 @@ public sealed class TenantDatabaseHostTests(SharedTestcontainersFixture fixture)
 
         try
         {
-            JasperFxEnvironment.AutoStartHost = true;
             string connection = fixture.GetDatabaseConnectionString(database);
+            await using (var migration = new TenantDatabaseHost::Teck.TenantDatabase.Host.Database.TenantDatabaseDbContext(
+                new DbContextOptionsBuilder<TenantDatabaseHost::Teck.TenantDatabase.Host.Database.TenantDatabaseDbContext>().UseNpgsql(connection).Options))
+                await migration.Database.MigrateAsync();
+            JasperFxEnvironment.AutoStartHost = true;
             using var signingKey = RSA.Create(2048);
             using var purgeKey = RSA.Create(2048);
             await using var host = new WebApplicationFactory<TenantDatabaseHost::Program>().WithWebHostBuilder(web =>

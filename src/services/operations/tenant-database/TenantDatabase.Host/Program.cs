@@ -1,21 +1,22 @@
+using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SharedKernel.Events;
-using SharedKernel.Infrastructure;
 using SharedKernel.Infrastructure.Database;
 using SharedKernel.Infrastructure.Database.MultiTenant;
 using SharedKernel.Infrastructure.Hosting;
 using Teck.ServiceDefaults;
+using Teck.TenantDatabase.Host.Database;
 using Teck.TenantDatabase.Reconciler;
 using VaultSharp;
-using VaultSharp.V1.AuthMethods;
-using VaultSharp.V1.AuthMethods.Kubernetes;
 using VaultSharp.V1.AuthMethods.Token;
 using Wolverine.Transports;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.Services.AddTeckService(typeof(Program).Assembly, builder.Configuration);
-string write = CodegenConnectionString.ResolveRequired(builder.Configuration, "TenantDatabaseWrite", "Default");
+string write = CodegenConnectionString.ResolveRequired(builder.Configuration, "TenantDatabaseWrite");
+builder.Services.AddDbContext<TenantDatabaseDbContext>(options => options.UseNpgsql(write,
+    npgsql => npgsql.MigrationsAssembly(typeof(Program).Assembly.FullName)));
 builder.Services.AddSingleton(NpgsqlDataSource.Create(write));
 builder.Services.AddSingleton<PostgresTenantDatabaseRequestStore>();
 builder.Services.AddSingleton<ITenantDatabaseRequestStore>(services => services.GetRequiredService<PostgresTenantDatabaseRequestStore>());
@@ -75,45 +76,23 @@ builder.Services.AddHealthChecks().AddCheck<TenantDatabaseReadinessCheck>("tenan
 builder.AddTeckMessaging(typeof(SignedTenantDatabaseIntake).Assembly, "TenantDatabaseWrite", NamingSource.FromHandlerType);
 
 var app = builder.Build();
-if (!CodeGenerationDetector.IsRunningGeneration())
+if (args is not ["--migrate"])
 {
-    await using var scope = app.Services.CreateAsyncScope();
-    await using var connection = await scope.ServiceProvider.GetRequiredService<NpgsqlDataSource>().OpenConnectionAsync();
-    await using var migration = connection.CreateCommand();
-    migration.CommandText = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory,
-        "tenant-database", "001_create_tenant_database_requests.sql"));
-    await migration.ExecuteNonQueryAsync();
+    app.UseTeckService();
+    app.MapDefaultEndpoints();
 }
 
-app.UseTeckService();
-app.MapDefaultEndpoints();
-return await app.RunTeckServiceAsync(args);
+return await app.RunTeckServiceAsync<TenantDatabaseDbContext>(args);
 
 static IVaultClient CreateOpenBaoClient(IConfiguration config)
 {
     var options = config.GetSection(OpenBaoOptions.Section).Get<OpenBaoOptions>() ?? new OpenBaoOptions();
     if (string.IsNullOrWhiteSpace(options.Url))
     {
-        throw new InvalidOperationException("OpenBao:Url is required for tenant connections.");
+        throw new InvalidOperationException("OpenBao:Url must be configured for tenant credential delivery.");
     }
 
-    IAuthMethodInfo auth;
-    if (!string.IsNullOrWhiteSpace(options.Token))
-    {
-        auth = new TokenAuthMethodInfo(options.Token);
-    }
-    else
-    {
-        if (string.IsNullOrWhiteSpace(options.Role))
-        {
-            throw new InvalidOperationException("OpenBao:Role is required for Kubernetes authentication.");
-        }
-
-        string jwt = File.ReadAllText("/var/run/secrets/kubernetes.io/serviceaccount/token");
-        auth = new KubernetesAuthMethodInfo(options.AuthPath, options.Role, jwt);
-    }
-
-    return new VaultClient(new VaultClientSettings(options.Url, auth));
+    return new VaultClient(new VaultClientSettings(options.Url, new TokenAuthMethodInfo(options.Token)));
 }
 
 /// <summary>Executable tenant database worker entry point.</summary>
