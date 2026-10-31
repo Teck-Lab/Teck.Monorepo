@@ -24,6 +24,8 @@ public abstract class BillingDbContextBase(DbContextOptions options, IMultiTenan
 
     /// <summary>Gets durable tenant purchase orders.</summary>
     public DbSet<TenantPurchaseOrder> TenantPurchaseOrders => Set<TenantPurchaseOrder>();
+    /// <summary>Gets durable global tenant purge grants.</summary>
+    public DbSet<TenantPurgeGrant> TenantPurgeGrants => Set<TenantPurgeGrant>();
 
     /// <summary>Gets the set of tracked invoices.</summary>
     public DbSet<Invoice> Invoices => Set<Invoice>();

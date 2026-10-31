@@ -1,5 +1,4 @@
-using Billings.Application.Database;
-using Microsoft.EntityFrameworkCore;
+using SharedKernel.Core.Database;
 using SharedKernel.Events;
 using Wolverine;
 using Wolverine.Attributes;
@@ -7,10 +6,13 @@ using Wolverine.Attributes;
 namespace Billings.Application.Billing.Purchases;
 
 /// <summary>Suspends paid subscriptions whose validity elapsed without a verified renewal.</summary>
-/// <param name="context">The Billing write context.</param>
+/// <param name="expiredOrders">Bounded tracked paid-period selection.</param>
+/// <param name="unitOfWork">Billing transactional commit boundary.</param>
 /// <param name="bus">The durable outgoing event publisher.</param>
 /// <param name="signer">The Billing-only suspension signing authority.</param>
-public sealed class SuspendExpiredPurchasesHandler(BillingDbContext context, IMessageBus bus, SubscriptionPaymentSigningKey signer)
+/// <param name="tenantLock">The tenant-wide purchase and purge serialization lock.</param>
+public sealed class SuspendExpiredPurchasesHandler(IExpiredTenantPurchaseOrders expiredOrders, IUnitOfWork unitOfWork,
+    IMessageBus bus, SubscriptionPaymentSigningKey signer, IPurchaseTenantLock tenantLock)
 {
     /// <summary>Processes an idempotent batch of expired paid orders.</summary>
     /// <param name="command">The current reconciliation cutoff.</param>
@@ -24,16 +26,22 @@ public sealed class SuspendExpiredPurchasesHandler(BillingDbContext context, IMe
             throw new ArgumentException("A reconciliation time is required.", nameof(command));
         }
 
-        var expired = await context.TenantPurchaseOrders
-            .Where(order => order.Status == "active" && order.ValidUntilUtc <= command.NowUtc &&
-                !context.TenantPurchaseOrders.Any(next => next.PreviousPurchaseOrderId == order.Id &&
-                    next.Status == "active" && next.SubscriptionId == order.SubscriptionId &&
-                    next.ValidUntilUtc > order.ValidUntilUtc))
-            .OrderBy(order => order.ValidUntilUtc)
-            .Take(64)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
-        foreach (var order in expired)
+        var expired = await expiredOrders.FindExpiredAsync(command.NowUtc, cancellationToken).ConfigureAwait(false);
+        var suspendedCount = 0;
+        foreach (var candidate in expired)
         {
+            if (!await tenantLock.AcquireAsync(candidate.TenantId, cancellationToken).ConfigureAwait(false))
+            {
+                continue;
+            }
+
+            var current = await expiredOrders.FindExpiredAsync(command.NowUtc, cancellationToken).ConfigureAwait(false);
+            var order = current.SingleOrDefault(item => item.Id == candidate.Id);
+            if (order is null || order.TenantId != candidate.TenantId)
+            {
+                continue;
+            }
+
             order.SuspendForFailedRenewal(command.NowUtc);
             var suspended = new SubscriptionAccessSuspendedIntegrationEvent
             {
@@ -41,14 +49,15 @@ public sealed class SuspendExpiredPurchasesHandler(BillingDbContext context, IMe
                 TenantIdentifier = order.TenantIdentifier,
                 SourceOrderId = order.Id,
                 SubscriptionId = order.SubscriptionId,
-                Reason = "renewal_failed",
                 SuspendedAtUtc = order.CancelledAtUtc!.Value,
+                Reason = "renewal_failed",
             };
             suspended.Proof = signer.Sign(suspended);
             await bus.PublishAsync(suspended).ConfigureAwait(false);
+            suspendedCount++;
         }
 
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        return expired.Count;
+        await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return suspendedCount;
     }
 }

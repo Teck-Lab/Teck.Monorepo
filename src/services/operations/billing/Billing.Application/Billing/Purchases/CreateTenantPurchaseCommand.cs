@@ -1,4 +1,3 @@
-namespace Billings.Application.Billing.Purchases;
 
 /// <summary>Purchase intent from the authenticated tenant or sales-assisted workflow.</summary>
 /// <param name="TenantId">Global Customer tenant identifier.</param>

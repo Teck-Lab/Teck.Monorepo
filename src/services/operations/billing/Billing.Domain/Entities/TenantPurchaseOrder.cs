@@ -52,25 +52,28 @@ public sealed class TenantPurchaseOrder : BaseEntity, IAggregateRoot
 
     /// <summary>Gets the audited external invoice reference.</summary>
     public string ExternalInvoiceReference { get; private set; } = string.Empty;
-
-    /// <summary>Gets the authenticated invoice verifier.</summary>
+    /// <summary>Gets the independently verified invoice subject.</summary>
     public string InvoiceVerifiedBy { get; private set; } = string.Empty;
 
-    /// <summary>Gets the authenticated subject who created this order.</summary>
+    /// <summary>Gets whether provider intent creation was reserved before making the external request.</summary>
+    public bool StripeIntentAttempted { get; private set; }
+
+    /// <summary>Gets the first committed attempt time; retries never reset this boundary.</summary>
+    public DateTimeOffset? StripeIntentAttemptedAtUtc { get; private set; }
+
+    /// <summary>Gets the unique Stripe intent bound to this purchase.</summary>
+    public string? StripePaymentIntentId { get; private set; }
+
+    /// <summary>Gets the confirmation timestamp.</summary>
+    public DateTimeOffset? ConfirmedAtUtc { get; private set; }
+    /// <summary>Gets the authenticated subject who created this globally stored purchase.</summary>
     public string CreatedBySubjectId { get; private set; } = string.Empty;
 
     /// <summary>Gets the verified reservation owner for this purchase.</summary>
     public string BeneficiarySubjectId { get; private set; } = string.Empty;
 
-    /// <summary>Gets the Stripe PaymentIntent bound to this pending order.</summary>
-    public string? StripePaymentIntentId { get; private set; }
-
-    /// <summary>Gets the creation timestamp.</summary>
+    /// <summary>Gets the quote creation timestamp.</summary>
     public DateTimeOffset CreatedAtUtc { get; private set; }
-
-    /// <summary>Gets the confirmation timestamp.</summary>
-    public DateTimeOffset? ConfirmedAtUtc { get; private set; }
-
     /// <summary>Gets the exclusive start of this paid annual period.</summary>
     public DateTimeOffset? ValidFromUtc { get; private set; }
 
@@ -182,6 +185,7 @@ public sealed class TenantPurchaseOrder : BaseEntity, IAggregateRoot
     }
 
     /// <summary>Correlates a pending renewal to the Customer-verified prior paid period.</summary>
+    /// <param name="previousPurchaseOrderId">Customer-verified current paid period's order ID.</param>
     public void BindPreviousPurchaseOrder(Guid previousPurchaseOrderId)
     {
         if (Status != "pending" || PreviousPurchaseOrderId != Guid.Empty ||
@@ -193,11 +197,31 @@ public sealed class TenantPurchaseOrder : BaseEntity, IAggregateRoot
         PreviousPurchaseOrderId = previousPurchaseOrderId;
     }
 
+    /// <summary>Reserves the Stripe payment path before contacting the provider.</summary>
+    /// <param name="attemptedAtUtc">The first durable provider request boundary.</param>
+    public void ReserveStripeIntentAttempt(DateTimeOffset attemptedAtUtc)
+    {
+        if (Status != "pending" || StripePaymentIntentId is not null || attemptedAtUtc == default)
+        {
+            throw new InvalidOperationException("Only a pending unbound order can reserve a Stripe intent attempt.");
+        }
+
+        StripeIntentAttempted = true;
+        StripeIntentAttemptedAtUtc ??= attemptedAtUtc;
+    }
+
+    /// <summary>Determines whether an unbound attempt can still use Stripe's retained idempotency result.</summary>
+    /// <param name="nowUtc">The current time.</param>
+    /// <returns>True only while the provider guarantees the original key remains retained.</returns>
+    public bool CanRetryUnboundStripeIntent(DateTimeOffset nowUtc) =>
+        StripeIntentAttemptedAtUtc is { } attemptedAt && nowUtc >= attemptedAt &&
+        nowUtc - attemptedAt < TimeSpan.FromHours(23);
+
     /// <summary>Associates one provider intent with the immutable pending purchase snapshot.</summary>
     /// <param name="paymentIntentId">The Stripe-issued PaymentIntent ID.</param>
     public void BindStripePaymentIntent(string paymentIntentId)
     {
-        if (Status != "pending" || string.IsNullOrWhiteSpace(paymentIntentId) ||
+        if (Status != "pending" || !StripeIntentAttempted || string.IsNullOrWhiteSpace(paymentIntentId) ||
             !paymentIntentId.StartsWith("pi_", StringComparison.Ordinal) ||
             StripePaymentIntentId is not null && StripePaymentIntentId != paymentIntentId)
         {
@@ -251,6 +275,11 @@ public sealed class TenantPurchaseOrder : BaseEntity, IAggregateRoot
         if (Status != "pending")
         {
             throw new InvalidOperationException("Only a pending purchase can be confirmed.");
+        }
+
+        if (StripeIntentAttempted || StripePaymentIntentId is not null)
+        {
+            throw new InvalidOperationException("An order with an attempted Stripe PaymentIntent cannot be confirmed by invoice.");
         }
 
         if (subscriptionId == Guid.Empty)
