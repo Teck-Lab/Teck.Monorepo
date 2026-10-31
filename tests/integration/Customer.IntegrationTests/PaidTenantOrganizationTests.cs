@@ -6,6 +6,9 @@ using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using SharedKernel.Core.Database;
+using Customers.Host.Database;
+using SharedKernel.Infrastructure.Database.EFCore;
 using SharedKernel.Events;
 using Teck.Platform.IntegrationTests.Shared;
 using Xunit;
@@ -16,6 +19,10 @@ namespace Customers.IntegrationTests;
 [Collection("SharedTestcontainers")]
 public sealed class PaidTenantOrganizationTests(SharedTestcontainersFixture fixture) : CustomerIntegrationTestBase(fixture)
 {
+    private static SubscriptionPaymentConfirmedHandler CreatePaymentHandler(CustomerDbContext context,
+        IOrganizationProvisioner organizations, SubscriptionPaymentVerificationKeys billingKeys) =>
+        new(new CustomerWriteRepository<Tenant, Guid>(context, new Microsoft.AspNetCore.Http.HttpContextAccessor()),
+            new UnitOfWork<CustomerDbContext>(context), organizations, billingKeys);
     [Fact]
     public async Task PaidConfirmation_OrganizationFailureRetainsInaccessiblePaidTenantAndRetryLinksOwner()
     {
@@ -44,8 +51,7 @@ public sealed class PaidTenantOrganizationTests(SharedTestcontainersFixture fixt
         };
         using (var unsignedScope = CreateServiceScope())
         {
-            var unsignedHandler = new SubscriptionPaymentConfirmedHandler(
-                unsignedScope.ServiceProvider.GetRequiredService<CustomerDbContext>(), new RecordingOrganizationProvisioner(), billingKeys);
+            var unsignedHandler = CreatePaymentHandler(unsignedScope.ServiceProvider.GetRequiredService<CustomerDbContext>(), new RecordingOrganizationProvisioner(), billingKeys);
             await Assert.ThrowsAsync<InvalidOperationException>(() => unsignedHandler.Handle(message, CancellationToken.None)).ConfigureAwait(false);
         }
 
@@ -61,8 +67,7 @@ public sealed class PaidTenantOrganizationTests(SharedTestcontainersFixture fixt
         var provisioner = new RecordingOrganizationProvisioner { Fail = true };
         using (var scope = CreateServiceScope())
         {
-            var handler = new SubscriptionPaymentConfirmedHandler(
-                scope.ServiceProvider.GetRequiredService<CustomerDbContext>(), provisioner, billingKeys);
+            var handler = CreatePaymentHandler(scope.ServiceProvider.GetRequiredService<CustomerDbContext>(), provisioner, billingKeys);
             await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(message, CancellationToken.None)).ConfigureAwait(false);
         }
 
@@ -79,8 +84,7 @@ public sealed class PaidTenantOrganizationTests(SharedTestcontainersFixture fixt
         provisioner.Fail = false;
         using (var scope = CreateServiceScope())
         {
-            var handler = new SubscriptionPaymentConfirmedHandler(
-                scope.ServiceProvider.GetRequiredService<CustomerDbContext>(), provisioner, billingKeys);
+            var handler = CreatePaymentHandler(scope.ServiceProvider.GetRequiredService<CustomerDbContext>(), provisioner, billingKeys);
             await handler.Handle(message, CancellationToken.None).ConfigureAwait(false);
             await handler.Handle(message, CancellationToken.None).ConfigureAwait(false);
             var originalValidUntilUtc = message.ValidUntilUtc;
@@ -131,8 +135,7 @@ public sealed class PaidTenantOrganizationTests(SharedTestcontainersFixture fixt
 
         using (var scope = CreateServiceScope())
         {
-            var handler = new SubscriptionPaymentConfirmedHandler(
-                scope.ServiceProvider.GetRequiredService<CustomerDbContext>(), provisioner, trustedKeys);
+            var handler = CreatePaymentHandler(scope.ServiceProvider.GetRequiredService<CustomerDbContext>(), provisioner, trustedKeys);
             await handler.Handle(paid, CancellationToken.None).ConfigureAwait(false);
         }
 
@@ -173,7 +176,8 @@ public sealed class PaidTenantOrganizationTests(SharedTestcontainersFixture fixt
         using (var scope = CreateServiceScope())
         {
             var handler = new SubscriptionAccessSuspendedHandler(
-                scope.ServiceProvider.GetRequiredService<CustomerDbContext>(), billingKeys);
+                scope.ServiceProvider.GetRequiredService<IGenericWriteRepository<Tenant, Guid>>(),
+                scope.ServiceProvider.GetRequiredService<IUnitOfWork>(), billingKeys);
             await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(cancellation, CancellationToken.None)).ConfigureAwait(false);
         }
 
@@ -181,7 +185,8 @@ public sealed class PaidTenantOrganizationTests(SharedTestcontainersFixture fixt
         using (var scope = CreateServiceScope())
         {
             var handler = new SubscriptionAccessSuspendedHandler(
-                scope.ServiceProvider.GetRequiredService<CustomerDbContext>(), billingKeys);
+                scope.ServiceProvider.GetRequiredService<IGenericWriteRepository<Tenant, Guid>>(),
+                scope.ServiceProvider.GetRequiredService<IUnitOfWork>(), billingKeys);
             await handler.Handle(cancellation, CancellationToken.None).ConfigureAwait(false);
             await handler.Handle(cancellation, CancellationToken.None).ConfigureAwait(false);
             cancellation.Reason = "renewal_failed";
@@ -217,7 +222,9 @@ public sealed class PaidTenantOrganizationTests(SharedTestcontainersFixture fixt
             ["Readiness:LicenseKey"] = Convert.ToBase64String(licenseKey),
             ["Readiness:DatabaseKey"] = Convert.ToBase64String(databaseKey),
         }).Build();
-        var handler = new TenantProvisioningReadyHandler(db, new TenantReadinessVerifier(proofConfig));
+        var handler = new TenantProvisioningReadyHandler(
+            scope.ServiceProvider.GetRequiredService<IGenericWriteRepository<Tenant, Guid>>(),
+            scope.ServiceProvider.GetRequiredService<IUnitOfWork>(), new TenantReadinessVerifier(proofConfig));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(
             new TenantProvisioningReadyIntegrationEvent { TenantId = tenant.Id, Provisioner = "license" },
@@ -293,7 +300,7 @@ public sealed class PaidTenantOrganizationTests(SharedTestcontainersFixture fixt
         var organizations = new RecordingOrganizationProvisioner { Fail = true };
         using (var scope = CreateServiceScope())
         {
-            var handler = new SubscriptionPaymentConfirmedHandler(scope.ServiceProvider.GetRequiredService<CustomerDbContext>(), organizations, keys);
+            var handler = CreatePaymentHandler(scope.ServiceProvider.GetRequiredService<CustomerDbContext>(), organizations, keys);
             await handler.Handle(paid, CancellationToken.None);
             await handler.Handle(paid, CancellationToken.None);
         }
@@ -314,7 +321,7 @@ public sealed class PaidTenantOrganizationTests(SharedTestcontainersFixture fixt
         paid.Proof = SubscriptionPaymentProof.Sign(paid, privateKey);
         using (var scope = CreateServiceScope())
         {
-            var handler = new SubscriptionPaymentConfirmedHandler(scope.ServiceProvider.GetRequiredService<CustomerDbContext>(), organizations, keys);
+            var handler = CreatePaymentHandler(scope.ServiceProvider.GetRequiredService<CustomerDbContext>(), organizations, keys);
             await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(paid, CancellationToken.None));
         }
     }
@@ -346,7 +353,9 @@ public sealed class PaidTenantOrganizationTests(SharedTestcontainersFixture fixt
         stale.Proof = SubscriptionSuspensionProof.Sign(stale, privateKey);
         using (var scope = CreateServiceScope())
         {
-            var handler = new SubscriptionAccessSuspendedHandler(scope.ServiceProvider.GetRequiredService<CustomerDbContext>(), keys);
+            var handler = new SubscriptionAccessSuspendedHandler(
+                scope.ServiceProvider.GetRequiredService<IGenericWriteRepository<Tenant, Guid>>(),
+                scope.ServiceProvider.GetRequiredService<IUnitOfWork>(), keys);
             await handler.Handle(stale, CancellationToken.None);
         }
 

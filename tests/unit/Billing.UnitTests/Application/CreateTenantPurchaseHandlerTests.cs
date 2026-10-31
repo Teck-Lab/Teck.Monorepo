@@ -1,22 +1,35 @@
 using Billings.Application.Billing.Purchases;
+using Billings.Application.Database;
+using Billings.Domain.Entities;
 using Billing.UnitTests.TestContext;
 using Microsoft.Extensions.Options;
+using SharedKernel.Infrastructure.Database.EFCore;
+using NSubstitute;
 using Xunit;
 
 namespace Billing.UnitTests.Application;
 
 public sealed class CreateTenantPurchaseHandlerTests
 {
+    private static IPurchaseTenantLock PurchaseTenantLock()
+    {
+        var tenantLock = NSubstitute.Substitute.For<IPurchaseTenantLock>();
+        tenantLock.AcquireAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(true);
+        return tenantLock;
+    }
+
     [Fact]
     public async Task Handle_UsesServerPlanPriceAndIsIdempotentForSameTenant()
     {
         await using var context = BillingTestContext.CreateInMemory();
-        var handler = new CreateTenantPurchaseHandler(context, Options.Create(new TenantPurchaseOptions
+        var repository = BillingTestContext.WriteRepo<TenantPurchaseOrder>(context);
+        var unitOfWork = new UnitOfWork<BillingDbContext>(context);
+        var handler = new CreateTenantPurchaseHandler(repository, unitOfWork, Options.Create(new TenantPurchaseOptions
         {
             PlanVersion = "2026-10",
             AllowedDatabaseProviders = ["postgres"],
             ReadReplicaMonthlyRate = 15m,
-        }));
+        }), PurchaseTenantLock());
         var tenantId = Guid.NewGuid();
         var command = new CreateTenantPurchaseCommand(tenantId, "acme", "Business", "2026-10", "postgres", true, 2, "buyer", "buyer");
 
@@ -36,12 +49,14 @@ public sealed class CreateTenantPurchaseHandlerTests
     {
         var name = Guid.NewGuid().ToString("N");
         await using var context = BillingTestContext.CreateInMemory(name);
-        var handler = new CreateTenantPurchaseHandler(context, Options.Create(new TenantPurchaseOptions
+        var repository = BillingTestContext.WriteRepo<TenantPurchaseOrder>(context);
+        var unitOfWork = new UnitOfWork<BillingDbContext>(context);
+        var handler = new CreateTenantPurchaseHandler(repository, unitOfWork, Options.Create(new TenantPurchaseOptions
         {
             PlanVersion = "2026-10",
             AllowedDatabaseProviders = ["postgres"],
             ReadReplicaMonthlyRate = 15m,
-        }));
+        }), PurchaseTenantLock());
         var tenantId = Guid.NewGuid();
         var original = new CreateTenantPurchaseCommand(tenantId, "acme", "Business", "2026-10", "postgres", false, 0, "buyer", "buyer");
         await handler.Handle(original, CancellationToken.None);
@@ -57,16 +72,19 @@ public sealed class CreateTenantPurchaseHandlerTests
     public async Task Handle_AfterPaidPeriod_CreatesOneServerPricedPendingRenewalForSameOwner()
     {
         await using var context = BillingTestContext.CreateInMemory();
-        var handler = new CreateTenantPurchaseHandler(context, Options.Create(new TenantPurchaseOptions
+        var repository = BillingTestContext.WriteRepo<TenantPurchaseOrder>(context);
+        var unitOfWork = new UnitOfWork<BillingDbContext>(context);
+        var handler = new CreateTenantPurchaseHandler(repository, unitOfWork, Options.Create(new TenantPurchaseOptions
         {
             PlanVersion = "2026-10",
             AllowedDatabaseProviders = ["postgres"],
             ReadReplicaMonthlyRate = 15m,
-        }));
+        }), PurchaseTenantLock());
         var command = new CreateTenantPurchaseCommand(Guid.NewGuid(), $"renew-{Guid.NewGuid():N}",
             "Business", "2026-10", "postgres", true, 2, "buyer", "buyer");
         var original = await handler.Handle(command, CancellationToken.None);
-        original.ConfirmCapturedPayment(Guid.NewGuid(), DateTimeOffset.UtcNow);
+        context.TenantPurchaseOrders.Single(order => order.Id == original.Id)
+            .ConfirmCapturedPayment(Guid.NewGuid(), DateTimeOffset.UtcNow);
         await context.SaveChangesAsync();
 
         Assert.Equal(original.Id, (await handler.Handle(command, CancellationToken.None)).Id);
@@ -76,7 +94,7 @@ public sealed class CreateTenantPurchaseHandlerTests
         var renewal = await handler.Handle(renewCommand, CancellationToken.None);
         var retry = await handler.Handle(renewCommand, CancellationToken.None);
         Assert.NotEqual(original.Id, renewal.Id);
-        Assert.Equal(original.Id, renewal.PreviousPurchaseOrderId);
+        Assert.Equal(original.Id, context.TenantPurchaseOrders.Single(order => order.Id == renewal.Id).PreviousPurchaseOrderId);
         Assert.Equal(renewal.Id, retry.Id);
         Assert.Equal("pending", renewal.Status);
         Assert.Equal(17999, renewal.AmountMinor);

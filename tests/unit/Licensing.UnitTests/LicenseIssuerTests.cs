@@ -95,13 +95,14 @@ public sealed class LicenseIssuerTests
         Assert.Empty(store.Licenses);
 
         var activeSubscription = Guid.NewGuid();
-        var active = await issuer.IssueAsync(orderId, activeSubscription, tenantId,
+        var activeOrderId = Guid.NewGuid();
+        var active = await issuer.IssueAsync(activeOrderId, activeSubscription, tenantId,
             "Business", "v1", features, now, TimeSpan.FromDays(30), CancellationToken.None);
-        await issuer.SuspendAsync(orderId, activeSubscription, tenantId, now, CancellationToken.None);
+        await issuer.SuspendAsync(activeOrderId, activeSubscription, tenantId, now, CancellationToken.None);
         Assert.False((await issuer.ValidateAsync(active.LicenseDocument, tenantId, now.AddMinutes(1), [key.PublicKey], CancellationToken.None)).IsValid);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => issuer.IssueAsync(orderId, activeSubscription,
+        await Assert.ThrowsAsync<InvalidOperationException>(() => issuer.IssueAsync(activeOrderId, activeSubscription,
             tenantId, "Business", "v1", features, now, TimeSpan.FromDays(30), CancellationToken.None));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => issuer.SuspendAsync(Guid.NewGuid(), activeSubscription,
+        await Assert.ThrowsAsync<InvalidOperationException>(() => issuer.SuspendAsync(activeOrderId, Guid.NewGuid(),
             tenantId, now, CancellationToken.None));
     }
 

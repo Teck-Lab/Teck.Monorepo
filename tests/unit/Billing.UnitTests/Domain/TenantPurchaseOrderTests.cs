@@ -38,6 +38,46 @@ public sealed class TenantPurchaseOrderTests
     }
 
     [Fact]
+    public void ConfirmExternalInvoice_RejectsPendingOrderWithPayableStripeIntent()
+    {
+        var order = TenantPurchaseOrder.Create(Guid.NewGuid(), "invoice-conflict", TenantPlan.Business,
+            "2026-10", DatabaseStrategy.Dedicated, "postgres", false, 0,
+            new Dictionary<string, decimal>(), DateTimeOffset.UtcNow, "buyer", "buyer");
+        order.ReserveStripeIntentAttempt(DateTimeOffset.UtcNow);
+        order.BindStripePaymentIntent("pi_outstanding");
+
+        Assert.Throws<InvalidOperationException>(() => order.ConfirmExternalInvoice(
+            Guid.NewGuid(), "invoice-123", "manager", DateTimeOffset.UtcNow));
+        Assert.Equal("pending", order.Status);
+        Assert.Equal("pi_outstanding", order.StripePaymentIntentId);
+    }
+
+    [Fact]
+    public void ReserveStripeIntentAttempt_PreventsInvoiceConfirmationBeforeProviderOutcomeIsBound()
+    {
+        var order = CreateOrder();
+        order.ReserveStripeIntentAttempt(DateTimeOffset.UtcNow);
+
+        Assert.True(order.StripeIntentAttempted);
+        Assert.Null(order.StripePaymentIntentId);
+        Assert.Throws<InvalidOperationException>(() => order.ConfirmExternalInvoice(
+            Guid.NewGuid(), "INV-early", "manager", DateTimeOffset.UtcNow));
+        Assert.Equal("pending", order.Status);
+    }
+
+    [Fact]
+    public void StripeIntentRetry_RejectsUnboundAttemptAfterProviderIdempotencyRetention()
+    {
+        var order = CreateOrder();
+        var attemptedAt = DateTimeOffset.UtcNow.AddHours(-24);
+        order.ReserveStripeIntentAttempt(attemptedAt);
+
+        Assert.False(order.CanRetryUnboundStripeIntent(DateTimeOffset.UtcNow));
+        Assert.True(order.CanRetryUnboundStripeIntent(attemptedAt.AddHours(22)));
+        Assert.Equal(attemptedAt, order.StripeIntentAttemptedAtUtc);
+    }
+
+    [Fact]
     public void ConfirmCapturedPayment_ActivatesExactlyOnceAndRejectsLateOrDuplicateConfirmation()
     {
         var order = CreateOrder();
@@ -102,6 +142,8 @@ public sealed class TenantPurchaseOrderTests
     public void BindStripePaymentIntent_RejectsReplacementAndLateBinding()
     {
         var order = CreateOrder();
+        Assert.Throws<InvalidOperationException>(() => order.BindStripePaymentIntent("pi_first"));
+        order.ReserveStripeIntentAttempt(DateTimeOffset.UtcNow);
         order.BindStripePaymentIntent("pi_first");
         order.BindStripePaymentIntent("pi_first");
         Assert.Equal("pi_first", order.StripePaymentIntentId);
