@@ -1,13 +1,15 @@
-using Customers.Application.Database;
-using Microsoft.EntityFrameworkCore;
+using Customers.Domain.Entities;
+using SharedKernel.Core.Database;
 using SharedKernel.Events;
 
 namespace Customers.Application.EventHandlers.IntegrationEvents;
 
 /// <summary>Suspends tenant access only after Billing signs a correlated cancellation or failed renewal.</summary>
-/// <param name="context">The global Customer tenant registry.</param>
+/// <param name="tenants">Tracked global Customer registry repository.</param>
+/// <param name="unitOfWork">Single registry commit boundary.</param>
 /// <param name="billingKeys">Trusted Billing public keys, never its private signing authority.</param>
-public sealed class SubscriptionAccessSuspendedHandler(CustomerDbContext context, SubscriptionPaymentVerificationKeys billingKeys)
+public sealed class SubscriptionAccessSuspendedHandler(IGenericWriteRepository<Tenant, Guid> tenants,
+    IUnitOfWork unitOfWork, SubscriptionPaymentVerificationKeys billingKeys)
 {
     /// <summary>Applies an immutable suspension without allowing a delayed paid event to reopen access.</summary>
     /// <param name="message">The signed subscription access change.</param>
@@ -20,8 +22,8 @@ public sealed class SubscriptionAccessSuspendedHandler(CustomerDbContext context
             throw new InvalidOperationException("Subscription suspension was not attested by Billing.");
         }
 
-        var tenant = await context.Tenants.SingleOrDefaultAsync(item => item.Id == message.TenantId,
-            cancellationToken).ConfigureAwait(false);
+        var tenant = await tenants.FindOneAsync(item => item.Id == message.TenantId,
+            enableTracking: true, cancellationToken).ConfigureAwait(false);
         if (tenant is null || !string.Equals(tenant.Identifier, message.TenantIdentifier, StringComparison.Ordinal))
         {
             throw new InvalidOperationException("Subscription suspension does not match a Customer reservation.");
@@ -34,6 +36,6 @@ public sealed class SubscriptionAccessSuspendedHandler(CustomerDbContext context
         }
 
         tenant.SuspendSubscription(message.SourceOrderId, message.SubscriptionId, message.SuspendedAtUtc);
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 }

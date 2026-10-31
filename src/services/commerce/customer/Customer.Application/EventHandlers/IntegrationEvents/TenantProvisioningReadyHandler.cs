@@ -1,12 +1,15 @@
-using Microsoft.EntityFrameworkCore;
+using Customers.Domain.Entities;
+using SharedKernel.Core.Database;
 using SharedKernel.Events;
 
 namespace Customers.Application.EventHandlers.IntegrationEvents;
 
 /// <summary>Applies one idempotent downstream readiness signal to the global tenant registry.</summary>
-/// <param name="context">The global Customer registry.</param>
+/// <param name="tenants">Tracked global Customer registry repository.</param>
+/// <param name="unitOfWork">Registry commit boundary.</param>
 /// <param name="verifier">The configured issuer-specific readiness proof verifier.</param>
-public sealed class TenantProvisioningReadyHandler(global::Customers.Application.Database.CustomerDbContext context, TenantReadinessVerifier verifier)
+public sealed class TenantProvisioningReadyHandler(IGenericWriteRepository<Tenant, Guid> tenants,
+    IUnitOfWork unitOfWork, TenantReadinessVerifier verifier)
 {
     /// <summary>Marks a tenant ready for one downstream system.</summary>
     /// <param name="message">The readiness signal.</param>
@@ -14,8 +17,8 @@ public sealed class TenantProvisioningReadyHandler(global::Customers.Application
     /// <returns>A completed task after persistence.</returns>
     public async Task Handle(TenantProvisioningReadyIntegrationEvent message, CancellationToken cancellationToken)
     {
-        var tenant = await context.Tenants.SingleOrDefaultAsync(item => item.Id == message.TenantId,
-            cancellationToken).ConfigureAwait(false);
+        var tenant = await tenants.FindOneAsync(item => item.Id == message.TenantId,
+            enableTracking: true, cancellationToken).ConfigureAwait(false);
         if (tenant is null)
         {
             throw new InvalidOperationException("Readiness signal references an unknown tenant.");
@@ -33,6 +36,6 @@ public sealed class TenantProvisioningReadyHandler(global::Customers.Application
         }
 
         tenant.MarkProvisionerReady(message.Provisioner);
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 }

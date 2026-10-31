@@ -135,6 +135,15 @@ public sealed class Tenant : BaseEntity, IAggregateRoot
     }
 
     /// <summary>Accepts a verified next paid order only after its preceding order became the current tenant period.</summary>
+    /// <param name="previousOrderId">Currently accepted source order ID.</param>
+    /// <param name="orderId">Distinct paid renewal order ID.</param>
+    /// <param name="subscriptionId">Stable subscription ID across paid periods.</param>
+    /// <param name="planId">Server-owned plan identifier.</param>
+    /// <param name="planVersion">Server-owned plan version.</param>
+    /// <param name="databaseStrategy">Quoted tenant database strategy.</param>
+    /// <param name="databaseProvider">Quoted tenant database provider.</param>
+    /// <param name="hasReadReplicas">Whether the renewed quote includes replicas.</param>
+    /// <param name="validUntilUtc">Exclusive end of the new paid period.</param>
     public void ApplyRenewalConfirmation(Guid previousOrderId, Guid orderId, Guid subscriptionId,
         string planId, string planVersion, string databaseStrategy, string databaseProvider,
         bool hasReadReplicas, DateTimeOffset validUntilUtc)
@@ -246,6 +255,17 @@ public sealed class Tenant : BaseEntity, IAggregateRoot
         SuspendedAtUtc = suspendedAtUtc;
         Status = "suspended";
     }
+
+    /// <summary>Checks whether the current dedicated paid period has remained suspended through recovery retention.</summary>
+    /// <param name="now">Trusted UTC decision time.</param>
+    /// <param name="recoveryWindow">Positive configured recovery duration.</param>
+    /// <returns>True only after the current paid dedicated PostgreSQL tenant has completed retention.</returns>
+    public bool IsPurgeEligibleAt(DateTimeOffset now, TimeSpan recoveryWindow) =>
+        recoveryWindow > TimeSpan.Zero && now.Offset == TimeSpan.Zero &&
+        Status == "suspended" && PurchaseOrderId != Guid.Empty && SubscriptionId != Guid.Empty &&
+        string.Equals(DatabaseStrategy, "dedicated", StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(DatabaseProvider, "postgres", StringComparison.OrdinalIgnoreCase) &&
+        SuspendedAtUtc is { } suspendedAt && now >= suspendedAt + recoveryWindow;
 
     private void ActivateIfReady()
     {

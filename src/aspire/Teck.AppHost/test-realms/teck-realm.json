@@ -10,9 +10,6 @@
       },
       {
         "name": "platform-manager"
-      },
-      {
-        "name": "sales"
       }
     ]
   },
@@ -57,6 +54,159 @@
       ]
     },
     {
+      "name": "order-api-audience",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "order-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "order-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "name": "pricing-api-audience",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "pricing-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "pricing-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "name": "web-customer-gateway-audience",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "web-customer-gateway-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "web-customer-gateway",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "name": "web-admin-gateway-audience",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "web-admin-gateway-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "web-admin-gateway",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "name": "basket-api-audience",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "basket-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "basket-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "name": "customer-api-audience",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "customer-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "customer-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "name": "inventory-api-audience",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "inventory-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "inventory-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "name": "billing-api-audience",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "billing-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "billing-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "name": "catalog-api-audience",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "catalog-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "catalog-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
       "name": "tenant-purchase",
       "protocol": "openid-connect",
       "protocolMappers": [
@@ -75,15 +225,42 @@
         }
       ]
     },
-    {"name":"order-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"order-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"order-api","access.token.claim":"true","id.token.claim":"false"}}]},
-    {"name":"pricing-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"pricing-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"pricing-api","access.token.claim":"true","id.token.claim":"false"}}]},
-    {"name":"web-customer-gateway-audience","protocol":"openid-connect","protocolMappers":[{"name":"web-customer-gateway-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"web-customer-gateway","access.token.claim":"true","id.token.claim":"false"}}]},
-    {"name":"web-admin-gateway-audience","protocol":"openid-connect","protocolMappers":[{"name":"web-admin-gateway-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"web-admin-gateway","access.token.claim":"true","id.token.claim":"false"}}]},
-    {"name":"basket-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"basket-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"basket-api","access.token.claim":"true","id.token.claim":"false"}}]},
-    {"name":"customer-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"customer-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"customer-api","access.token.claim":"true","id.token.claim":"false"}}]},
-    {"name":"inventory-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"inventory-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"inventory-api","access.token.claim":"true","id.token.claim":"false"}}]},
-    {"name":"billing-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"billing-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"billing-api","access.token.claim":"true","id.token.claim":"false"}}]},
-    {"name":"catalog-api-audience","protocol":"openid-connect","protocolMappers":[{"name":"catalog-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"catalog-api","access.token.claim":"true","id.token.claim":"false"}}]}
+    {
+      "name": "billing:purge-fence",
+      "description": "Tenant database worker Billing purge fence",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "billing-purge-fence-scope",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "billing_purge_worker_scope",
+            "claim.value": "billing:purge-fence",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "name": "profile",
+      "protocol": "openid-connect"
+    },
+    {
+      "name": "email",
+      "protocol": "openid-connect"
+    },
+    {
+      "name": "roles",
+      "protocol": "openid-connect"
+    },
+    {
+      "name": "web-origins",
+      "protocol": "openid-connect"
+    }
   ],
   "clients": [
     {
@@ -221,9 +398,15 @@
           {
             "name": "catalog",
             "scopes": [
-              {"name": "read"},
-              {"name": "manage"},
-              {"name": "supplier-read"}
+              {
+                "name": "read"
+              },
+              {
+                "name": "manage"
+              },
+              {
+                "name": "supplier-read"
+              }
             ]
           }
         ],
@@ -336,6 +519,9 @@
               },
               {
                 "name": "manage"
+              },
+              {
+                "name": "purge"
               }
             ]
           }
@@ -378,6 +564,16 @@
             "decisionStrategy": "UNANIMOUS",
             "config": {
               "scopes": "[\"manage\"]",
+              "applyPolicies": "[\"customer-manage-manager\"]"
+            }
+          },
+          {
+            "name": "customer-purge",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"purge\"]",
               "applyPolicies": "[\"customer-manage-manager\"]"
             }
           }
@@ -588,10 +784,6 @@
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
       "secret": "local-only-test-billing-api-secret-not-for-production",
-      "serviceAccountsEnabled": true,
-      "standardFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
-      "optionalClientScopes": ["tenant-purchase", "customer-api-audience"],
       "authorizationServicesEnabled": true,
       "protocol": "openid-connect",
       "protocolMappers": [
@@ -640,7 +832,9 @@
               {
                 "name": "read"
               },
-              { "name": "purchase" }
+              {
+                "name": "purchase"
+              }
             ]
           }
         ],
@@ -687,18 +881,8 @@
           }
         ]
       },
-      "directAccessGrantsEnabled": false
-    },
-    {
-      "clientId": "customer-org-provisioner",
-      "enabled": true,
-      "publicClient": false,
-      "clientAuthenticatorType": "client-secret",
-      "secret": "local-only-test-customer-org-provisioner-secret-not-for-production",
-      "serviceAccountsEnabled": true,
-      "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
-      "protocol": "openid-connect"
+      "optionalClientScopes": ["tenant-purchase", "customer-api-audience"]
     },
     {
       "clientId": "pricing-api",
@@ -813,8 +997,17 @@
       "attributes": {
         "pkce.code.challenge.method": "S256"
       },
-      "defaultClientScopes": ["organization", "basic", "profile", "email", "roles", "web-origins"],
-      "optionalClientScopes": ["web-admin-gateway-audience"],
+      "defaultClientScopes": [
+        "organization",
+        "basic",
+        "profile",
+        "email",
+        "roles",
+        "web-origins"
+      ],
+      "optionalClientScopes": [
+        "web-admin-gateway-audience"
+      ],
       "protocolMappers": [
         {
           "name": "staff-preferred-username",
@@ -877,31 +1070,58 @@
       "secret": "local-only-test-web-customer-gateway-secret-not-for-production",
       "directAccessGrantsEnabled": false,
       "protocol": "openid-connect",
-      "attributes": { "standard.token.exchange.enabled": "true" },
+      "attributes": {
+        "standard.token.exchange.enabled": "true"
+      },
       "protocolMappers": [
         {
           "name": "tenant_id",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-attribute-mapper",
-          "config": { "user.attribute": "tenant_id", "claim.name": "tenant_id", "access.token.claim": "true", "id.token.claim": "false", "userinfo.token.claim": "false", "jsonType": "String", "multivalued": "false" }
+          "config": {
+            "user.attribute": "tenant_id",
+            "claim.name": "tenant_id",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "jsonType": "String",
+            "multivalued": "false"
+          }
         },
         {
           "name": "organization-membership",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-organization-membership-mapper",
-          "config": { "claim.name": "organization", "jsonType.label": "JSON", "multivalued": "true", "addOrganizationId": "true", "access.token.claim": "true", "id.token.claim": "true", "userinfo.token.claim": "true", "introspection.token.claim": "true" }
+          "config": {
+            "claim.name": "organization",
+            "jsonType.label": "JSON",
+            "multivalued": "true",
+            "addOrganizationId": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
         },
         {
           "name": "web-customer-gateway-audience",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
-          "config": { "included.client.audience": "web-customer-gateway", "access.token.claim": "true", "id.token.claim": "false" }
+          "config": {
+            "included.client.audience": "web-customer-gateway",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
         },
         {
           "name": "catalog-api-audience",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
-          "config": { "included.client.audience": "catalog-api", "access.token.claim": "true", "id.token.claim": "false" }
+          "config": {
+            "included.client.audience": "catalog-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
         }
       ]
     },
@@ -913,37 +1133,68 @@
       "secret": "local-only-test-web-admin-gateway-secret-not-for-production",
       "directAccessGrantsEnabled": false,
       "protocol": "openid-connect",
-      "attributes": { "standard.token.exchange.enabled": "true" },
+      "attributes": {
+        "standard.token.exchange.enabled": "true"
+      },
       "protocolMappers": [
         {
           "name": "tenant_id",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-attribute-mapper",
-          "config": { "user.attribute": "tenant_id", "claim.name": "tenant_id", "access.token.claim": "true", "id.token.claim": "false", "userinfo.token.claim": "false", "jsonType": "String", "multivalued": "false" }
+          "config": {
+            "user.attribute": "tenant_id",
+            "claim.name": "tenant_id",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "jsonType": "String",
+            "multivalued": "false"
+          }
         },
         {
           "name": "organization-membership",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-organization-membership-mapper",
-          "config": { "claim.name": "organization", "jsonType.label": "JSON", "multivalued": "true", "addOrganizationId": "true", "access.token.claim": "true", "id.token.claim": "true", "userinfo.token.claim": "true", "introspection.token.claim": "true" }
+          "config": {
+            "claim.name": "organization",
+            "jsonType.label": "JSON",
+            "multivalued": "true",
+            "addOrganizationId": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
         },
         {
           "name": "web-admin-gateway-audience",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
-          "config": { "included.client.audience": "web-admin-gateway", "access.token.claim": "true", "id.token.claim": "false" }
+          "config": {
+            "included.client.audience": "web-admin-gateway",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
         },
         {
           "name": "catalog-api-audience",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
-          "config": { "included.client.audience": "catalog-api", "access.token.claim": "true", "id.token.claim": "false" }
+          "config": {
+            "included.client.audience": "catalog-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
         },
         {
           "name": "pricing-api-audience",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
-          "config": { "included.client.audience": "pricing-api", "access.token.claim": "true", "id.token.claim": "false" }
+          "config": {
+            "included.client.audience": "pricing-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
         }
       ]
     },
@@ -960,17 +1211,106 @@
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
       "authorizationServicesEnabled": false,
-      "defaultClientScopes": ["organization", "basic", "profile", "email", "roles", "web-origins"],
-      "optionalClientScopes": ["order-api-audience", "pricing-api-audience", "web-customer-gateway-audience", "web-admin-gateway-audience", "basket-api-audience", "customer-api-audience", "inventory-api-audience", "billing-api-audience", "catalog-api-audience"],
-      "protocolMappers": [{
-        "name": "integration-realm-roles",
-        "protocol": "openid-connect",
-        "protocolMapper": "oidc-usermodel-realm-role-mapper",
-        "config": { "claim.name": "realm_access.roles", "jsonType.label": "String", "multivalued": "true", "access.token.claim": "true", "id.token.claim": "false", "userinfo.token.claim": "false" }
-      }]
+      "defaultClientScopes": [
+        "organization",
+        "basic",
+        "profile",
+        "email",
+        "roles",
+        "web-origins"
+      ],
+      "optionalClientScopes": [
+        "order-api-audience",
+        "pricing-api-audience",
+        "web-customer-gateway-audience",
+        "web-admin-gateway-audience",
+        "basket-api-audience",
+        "customer-api-audience",
+        "inventory-api-audience",
+        "billing-api-audience",
+        "catalog-api-audience"
+      ],
+      "protocolMappers": [
+        {
+          "name": "integration-realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "customer-org-provisioner",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "local-only-test-customer-org-provisioner-secret-not-for-production",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "tenant-database-worker",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "local-only-test-tenant-database-worker-secret-not-for-production",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "protocol": "openid-connect",
+      "optionalClientScopes": [
+        "billing:purge-fence"
+      ],
+      "protocolMappers": [
+        {
+          "name": "billing-purge-worker-identity",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "config": {
+            "claim.name": "billing_purge_worker_identity",
+            "claim.value": "tenant-database-worker",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false"
+          }
+        },
+        {
+          "name": "billing-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "billing-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
     }
   ],
   "users": [
+    {
+      "username": "service-account-customer-org-provisioner",
+      "enabled": true,
+      "serviceAccountClientId": "customer-org-provisioner",
+      "clientRoles": {
+        "realm-management": [
+          "manage-organizations",
+          "view-users",
+          "manage-users"
+        ]
+      }
+    },
     {
       "username": "dev@teck.local",
       "email": "dev@teck.local",
@@ -1027,7 +1367,8 @@
           "value": "local-only-test-manager-password",
           "temporary": false
         }
-      ]
+      ],
+      "requiredActions": []
     },
     {
       "username": "integration-reader",
@@ -1045,7 +1386,8 @@
           "value": "local-only-test-reader-password",
           "temporary": false
         }
-      ]
+      ],
+      "requiredActions": []
     },
     {
       "username": "integration-no-access",
@@ -1066,12 +1408,11 @@
     },
     {
       "username": "integration-pending-buyer",
-      "email": "integration-pending-buyer@teck.local",
+      "email": "integration-pending-buyer@example.test",
+      "enabled": true,
       "emailVerified": true,
       "firstName": "Integration",
       "lastName": "Pending Buyer",
-      "enabled": true,
-      "requiredActions": [],
       "realmRoles": [],
       "credentials": [
         {
@@ -1079,7 +1420,8 @@
           "value": "local-only-test-pending-buyer-password",
           "temporary": false
         }
-      ]
+      ],
+      "requiredActions": []
     },
     {
       "username": "integration-foreign-member",
@@ -1120,29 +1462,84 @@
       ]
     },
     {
-      "username": "integration-sales",
-      "email": "integration-sales@teck.local",
+      "username": "integration-pkce-user",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "local-only-test-pkce-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "platform-manager"
+      ]
+    },
+    {
+      "username": "integration-customer-user",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "local-only-test-customer-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "platform-manager"
+      ],
+      "attributes": {
+        "tenant_id": [
+          "tenant-customer-test"
+        ]
+      }
+    },
+    {
+      "username": "integration-sales-user",
+      "email": "integration-sales-user@example.test",
+      "enabled": true,
       "emailVerified": true,
       "firstName": "Integration",
       "lastName": "Sales",
-      "enabled": true,
       "requiredActions": [],
-      "realmRoles": ["sales"],
       "credentials": [
         {
           "type": "password",
           "value": "local-only-test-sales-password",
           "temporary": false
         }
-      ]
+      ],
+      "realmRoles": [
+        "sales"
+      ],
+      "attributes": {
+        "tenant_id": [
+          "tenant-sales-test"
+        ]
+      }
     },
     {
-      "username": "service-account-customer-org-provisioner",
+      "username": "integration-admin-user",
       "enabled": true,
-      "serviceAccountClientId": "customer-org-provisioner",
-      "clientRoles": {
-        "realm-management": ["manage-organizations", "view-users", "manage-users"]
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "local-only-test-admin-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "platform-manager"
+      ],
+      "attributes": {
+        "tenant_id": [
+          "tenant-admin-test"
+        ]
       }
     }
-  ]
+  ],
+  "organizations": []
 }
