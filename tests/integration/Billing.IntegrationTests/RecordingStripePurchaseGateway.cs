@@ -15,6 +15,8 @@ public sealed class RecordingStripePurchaseGateway : IStripePurchaseGateway
 
     public int CreateCount { get; private set; }
 
+    public bool FailAfterProviderAcceptsOnce { get; set; }
+
     public void MarkCaptured(string intentId) => captured.Add(intentId);
 
     public Task<StripePurchaseIntent> CreateAsync(TenantPurchaseOrder order, CancellationToken cancellationToken)
@@ -23,7 +25,13 @@ public sealed class RecordingStripePurchaseGateway : IStripePurchaseGateway
         CreatedAmountMinor = order.AmountMinor;
         CreatedCurrency = order.Currency;
         var intent = new StripePurchaseIntent($"pi_{order.Id:N}", $"pi_{order.Id:N}_secret_isolated-test-only");
-        created.Add(intent.PaymentIntentId, intent);
+        created.TryAdd(intent.PaymentIntentId, intent);
+        if (FailAfterProviderAcceptsOnce)
+        {
+            FailAfterProviderAcceptsOnce = false;
+            throw new InvalidOperationException("Test provider accepted the intent but the response was lost.");
+        }
+
         return Task.FromResult(intent);
     }
 

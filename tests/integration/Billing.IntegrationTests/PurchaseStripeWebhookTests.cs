@@ -65,6 +65,7 @@ public sealed class PurchaseStripeWebhookTests(SharedTestcontainersFixture fixtu
         var order = TenantPurchaseOrder.Create(tenantId, $"stripe-webhook-{tenantId:N}", TenantPlan.Business,
             "2026-10", TenantPlan.Business.DatabaseStrategy, "postgres", false, 0,
             new Dictionary<string, decimal>(), DateTimeOffset.UtcNow, "owner", "owner");
+        order.ReserveStripeIntentAttempt(DateTimeOffset.UtcNow);
         var created = await StripePurchases.CreateAsync(order, CancellationToken.None).ConfigureAwait(false);
         order.BindStripePaymentIntent(created.PaymentIntentId);
         await using (var scope = Services.CreateAsyncScope())

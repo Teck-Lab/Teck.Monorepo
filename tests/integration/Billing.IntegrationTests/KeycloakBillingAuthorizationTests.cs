@@ -5,6 +5,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Billings.Application.Billing.Purchases;
 using Billings.Application.Database;
@@ -116,6 +117,50 @@ public sealed class KeycloakBillingAuthorizationTests(KeycloakTestRealmFixture k
     }
 
     [Fact]
+    public async Task PurgeFence_WithRealWorkerToken_DeniesBuyerAndReachesBillingGate()
+    {
+        var path = $"/internal/purge-fences/{Guid.NewGuid():D}/acquire";
+        var payload = new { SubscriptionId = Guid.NewGuid(), SourceOrderId = Guid.NewGuid(), ApprovalId = Guid.NewGuid() };
+        string buyerToken = await keycloak.GetUserTokenAsync(NoReadName, NoReadPassword, TokenClientId,
+            clientSecret: TokenClientSecret, requestedScope: "billing-api-audience").ConfigureAwait(false);
+
+        using var anonymous = await client!.PostAsJsonAsync(path, payload).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+        using var buyer = await SendJsonAsync(path, payload, buyerToken).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Forbidden, buyer.StatusCode);
+
+        using var tokenClient = new HttpClient();
+        using var noScopeResponse = await tokenClient.PostAsync($"{keycloak.Authority}/protocol/openid-connect/token",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "client_credentials",
+                ["client_id"] = "tenant-database-worker",
+                ["client_secret"] = "local-only-test-tenant-database-worker-secret-not-for-production",
+            })).ConfigureAwait(false);
+        noScopeResponse.EnsureSuccessStatusCode();
+        using JsonDocument noScopePayload = await JsonDocument.ParseAsync(
+            await noScopeResponse.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
+        string noScopeToken = noScopePayload.RootElement.GetProperty("access_token").GetString()!;
+        using var noScope = await SendJsonAsync(path, payload, noScopeToken).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Forbidden, noScope.StatusCode);
+
+        using var tokenResponse = await tokenClient.PostAsync($"{keycloak.Authority}/protocol/openid-connect/token",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "client_credentials",
+                ["client_id"] = "tenant-database-worker",
+                ["client_secret"] = "local-only-test-tenant-database-worker-secret-not-for-production",
+                ["scope"] = "billing:purge-fence",
+            })).ConfigureAwait(false);
+        tokenResponse.EnsureSuccessStatusCode();
+        using JsonDocument tokenPayload = await JsonDocument.ParseAsync(
+            await tokenResponse.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
+        string workerToken = tokenPayload.RootElement.GetProperty("access_token").GetString()!;
+        using var worker = await SendJsonAsync(path, payload, workerToken).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Conflict, worker.StatusCode);
+    }
+
+    [Fact]
     public async Task PurchaseStatus_WithSignedNoOrganizationBuyerToken_ReachesOwnerLookup()
     {
         string buyerToken = await keycloak.GetUserTokenAsync(NoReadName, NoReadPassword, TokenClientId,
@@ -123,6 +168,27 @@ public sealed class KeycloakBillingAuthorizationTests(KeycloakTestRealmFixture k
         Assert.Contains(BillingResourceClientId, GetAudience(buyerToken));
         using var response = await SendAsync($"/purchases/{Guid.NewGuid():D}", buyerToken).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PurchaseStatus_BillingServiceTokenCannotActAsBuyer()
+    {
+        using var tokenClient = new HttpClient();
+        using var tokenResponse = await tokenClient.PostAsync($"{keycloak.Authority}/protocol/openid-connect/token",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "client_credentials",
+                ["client_id"] = BillingResourceClientId,
+                ["client_secret"] = BillingResourceClientSecret,
+            })).ConfigureAwait(false);
+        tokenResponse.EnsureSuccessStatusCode();
+        using JsonDocument payload = await JsonDocument.ParseAsync(
+            await tokenResponse.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
+        string token = payload.RootElement.GetProperty("access_token").GetString()!;
+        Assert.Contains(BillingResourceClientId, GetAudience(token));
+
+        using var response = await SendAsync($"/purchases/{Guid.NewGuid():D}", token).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
@@ -153,7 +219,7 @@ public sealed class KeycloakBillingAuthorizationTests(KeycloakTestRealmFixture k
     {
         string ownerToken = await keycloak.GetUserTokenAsync(NoReadName, NoReadPassword, TokenClientId,
             clientSecret: TokenClientSecret, requestedScope: "billing-api-audience").ConfigureAwait(false);
-        string salesToken = await keycloak.GetUserTokenAsync("integration-sales", "local-only-test-sales-password", TokenClientId,
+        string salesToken = await keycloak.GetUserTokenAsync("integration-sales-user", "local-only-test-sales-password", TokenClientId,
             clientSecret: TokenClientSecret, requestedScope: "billing-api-audience").ConfigureAwait(false);
         using var owner = GetTokenPayload(ownerToken);
         using var seller = GetTokenPayload(salesToken);
@@ -330,6 +396,13 @@ public sealed class KeycloakBillingAuthorizationTests(KeycloakTestRealmFixture k
 
     private sealed class BillingWebApplicationFactory(string databaseConnectionString, string rabbitMqConnectionString, string authority, ReservationHandler reservationHandler) : WebApplicationFactory<Program>
     {
+        private const string PaymentPassphrase = "test-only-keycloak-billing-payment-proof";
+        private static readonly Lazy<string> PaymentPrivateKey = new(() =>
+        {
+            using RSA key = RSA.Create(2048);
+            return key.ExportEncryptedPkcs8PrivateKeyPem(PaymentPassphrase,
+                new PbeParameters(PbeEncryptionAlgorithm.Aes256Cbc, HashAlgorithmName.SHA256, 10000));
+        });
         static BillingWebApplicationFactory() => JasperFxEnvironment.AutoStartHost = true;
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -339,6 +412,8 @@ public sealed class KeycloakBillingAuthorizationTests(KeycloakTestRealmFixture k
             builder.UseSetting("ConnectionStrings:BillingRead", databaseConnectionString);
             builder.UseSetting("ConnectionStrings:Default", databaseConnectionString);
             builder.UseSetting("ConnectionStrings:rabbitmq", rabbitMqConnectionString);
+            builder.UseSetting("PaymentProof:EncryptedPrivateKey", PaymentPrivateKey.Value);
+            builder.UseSetting("PaymentProof:Passphrase", PaymentPassphrase);
             builder.UseSetting("Keycloak:realm", KeycloakTestRealmFixture.Realm);
             builder.UseSetting("Keycloak:auth-server-url", authority[..authority.LastIndexOf("/realms/", StringComparison.Ordinal)]);
             builder.UseSetting("Keycloak:resource", BillingResourceClientId);

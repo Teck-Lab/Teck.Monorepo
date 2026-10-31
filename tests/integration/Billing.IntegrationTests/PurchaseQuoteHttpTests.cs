@@ -56,6 +56,18 @@ public sealed class PurchaseQuoteHttpTests(SharedTestcontainersFixture fixture)
     }
 
     [Fact]
+    public void PaymentIntentService_WhenStripeSecretMissing_RefusesProviderClientConstruction()
+    {
+        using var scope = Services.CreateScope();
+        var configuration = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>();
+        Assert.True(string.IsNullOrWhiteSpace(configuration["Stripe:SecretKey"]));
+
+        var failure = Assert.Throws<InvalidOperationException>(() =>
+            scope.ServiceProvider.GetRequiredService<Stripe.PaymentIntentService>());
+        Assert.Contains("Stripe:SecretKey", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task PendingQuote_BuyerCanCreateStripeIntent_ForeignSubjectCannot()
     {
         using var quoteRequest = CreateRequest(OwnedReservationId, "buyer");
@@ -80,6 +92,14 @@ public sealed class PurchaseQuoteHttpTests(SharedTestcontainersFixture fixture)
         Assert.Equal(order.AmountMinor, StripePurchases.CreatedAmountMinor);
         Assert.Equal("USD", StripePurchases.CreatedCurrency);
         Assert.Equal(1, StripePurchases.CreateCount);
+        await using (var scope = Services.CreateAsyncScope())
+        {
+            var persisted = await scope.ServiceProvider.GetRequiredService<Billings.Application.Database.BillingDbContext>()
+                .TenantPurchaseOrders.SingleAsync(item => item.Id == order.Id).ConfigureAwait(false);
+            Assert.True(persisted.StripeIntentAttempted);
+            Assert.Equal(payment.PaymentIntentId, persisted.StripePaymentIntentId);
+        }
+
         using var retryRequest = new HttpRequestMessage(HttpMethod.Post, $"/purchases/{order.Id:D}/payment-intent");
         retryRequest.Headers.Add("X-Test-Onboarding-Subject", "buyer");
         using var retried = await Client.SendAsync(retryRequest).ConfigureAwait(false);
@@ -88,6 +108,89 @@ public sealed class PurchaseQuoteHttpTests(SharedTestcontainersFixture fixture)
         Assert.Equal(payment, sameIntent);
         Assert.Equal(1, StripePurchases.CreateCount);
         Assert.NotEmpty(payment.ClientSecret);
+    }
+
+    [Fact]
+    public async Task PaymentIntent_WhenProviderAcceptedButResponseLost_ReservationSurvivesAndRetryReusesIntent()
+    {
+        using var quoteRequest = CreateRequest(OwnedReservationId, "buyer");
+        using var quote = await Client.SendAsync(quoteRequest).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Created, quote.StatusCode);
+        var order = await quote.Content.ReadFromJsonAsync<QuoteResult>().ConfigureAwait(false);
+        Assert.NotNull(order);
+
+        StripePurchases.FailAfterProviderAcceptsOnce = true;
+        using (var failedRequest = new HttpRequestMessage(HttpMethod.Post, $"/purchases/{order.Id:D}/payment-intent"))
+        {
+            failedRequest.Headers.Add("X-Test-Onboarding-Subject", "buyer");
+            using var failure = await Client.SendAsync(failedRequest).ConfigureAwait(false);
+            Assert.Equal(HttpStatusCode.InternalServerError, failure.StatusCode);
+        }
+
+        await using (var scope = Services.CreateAsyncScope())
+        {
+            var orderAfterFailure = await scope.ServiceProvider.GetRequiredService<Billings.Application.Database.BillingDbContext>()
+                .TenantPurchaseOrders.SingleAsync(item => item.Id == order.Id).ConfigureAwait(false);
+            Assert.True(orderAfterFailure.StripeIntentAttempted);
+            Assert.Null(orderAfterFailure.StripePaymentIntentId);
+            Assert.Equal("pending", orderAfterFailure.Status);
+        }
+
+        using var retryRequest = new HttpRequestMessage(HttpMethod.Post, $"/purchases/{order.Id:D}/payment-intent");
+        retryRequest.Headers.Add("X-Test-Onboarding-Subject", "buyer");
+        using var retried = await Client.SendAsync(retryRequest).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.OK, retried.StatusCode);
+        var intent = await retried.Content.ReadFromJsonAsync<StripeIntentResult>().ConfigureAwait(false);
+        Assert.NotNull(intent);
+        Assert.Equal($"pi_{order.Id:N}", intent.PaymentIntentId);
+        Assert.Equal(2, StripePurchases.CreateCount);
+        await using var verify = Services.CreateAsyncScope();
+        Assert.Equal(intent.PaymentIntentId, (await verify.ServiceProvider.GetRequiredService<Billings.Application.Database.BillingDbContext>()
+            .TenantPurchaseOrders.SingleAsync(item => item.Id == order.Id).ConfigureAwait(false)).StripePaymentIntentId);
+    }
+
+    [Fact]
+    public async Task PaymentIntent_WhenUnboundRetryWindowExpires_OwnerGetsConflictWithoutSecondProviderIntent()
+    {
+        using var quoteRequest = CreateRequest(OwnedReservationId, "buyer");
+        using var quote = await Client.SendAsync(quoteRequest).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Created, quote.StatusCode);
+        var order = await quote.Content.ReadFromJsonAsync<QuoteResult>().ConfigureAwait(false);
+        Assert.NotNull(order);
+
+        StripePurchases.FailAfterProviderAcceptsOnce = true;
+        using (var failedRequest = new HttpRequestMessage(HttpMethod.Post, $"/purchases/{order.Id:D}/payment-intent"))
+        {
+            failedRequest.Headers.Add("X-Test-Onboarding-Subject", "buyer");
+            using var failure = await Client.SendAsync(failedRequest).ConfigureAwait(false);
+            Assert.Equal(HttpStatusCode.InternalServerError, failure.StatusCode);
+        }
+
+        await using (var scope = Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Billings.Application.Database.BillingDbContext>();
+            await db.TenantPurchaseOrders.Where(item => item.Id == order.Id)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(item => item.StripeIntentAttemptedAtUtc,
+                    DateTimeOffset.UtcNow.AddHours(-24))).ConfigureAwait(false);
+        }
+
+        using var foreignRequest = new HttpRequestMessage(HttpMethod.Post, $"/purchases/{order.Id:D}/payment-intent");
+        foreignRequest.Headers.Add("X-Test-Onboarding-Subject", "other-buyer");
+        using var foreign = await Client.SendAsync(foreignRequest).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
+
+        using var ownerRequest = new HttpRequestMessage(HttpMethod.Post, $"/purchases/{order.Id:D}/payment-intent");
+        ownerRequest.Headers.Add("X-Test-Onboarding-Subject", "buyer");
+        using var expired = await Client.SendAsync(ownerRequest).ConfigureAwait(false);
+        Assert.Equal(HttpStatusCode.Conflict, expired.StatusCode);
+        Assert.Equal(1, StripePurchases.CreateCount);
+
+        await using var verify = Services.CreateAsyncScope();
+        var persisted = await verify.ServiceProvider.GetRequiredService<Billings.Application.Database.BillingDbContext>()
+            .TenantPurchaseOrders.SingleAsync(item => item.Id == order.Id).ConfigureAwait(false);
+        Assert.True(persisted.StripeIntentAttempted);
+        Assert.Null(persisted.StripePaymentIntentId);
+        Assert.Equal("pending", persisted.Status);
     }
 
     [Fact]

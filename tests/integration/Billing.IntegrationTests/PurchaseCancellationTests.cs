@@ -52,7 +52,9 @@ public sealed class PurchaseCancellationTests(SharedTestcontainersFixture fixtur
             Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
         }
 
-        using (var cancelled = await Client.PostAsync($"/purchases/{paid.Id}/cancel", content: null).ConfigureAwait(false))
+        using var cancelRequest = new HttpRequestMessage(HttpMethod.Post, $"/purchases/{paid.Id}/cancel");
+        cancelRequest.Headers.Add("X-Test-Onboarding-Subject", "test-user");
+        using (var cancelled = await Client.SendAsync(cancelRequest).ConfigureAwait(false))
         {
             Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
             using var json = JsonDocument.Parse(await cancelled.Content.ReadAsStringAsync().ConfigureAwait(false));
@@ -84,7 +86,9 @@ public sealed class PurchaseCancellationTests(SharedTestcontainersFixture fixtur
             Assert.True(SubscriptionSuspensionProof.Verify(suspended, publicKey));
         }
 
-        using var duplicate = await Client.PostAsync($"/purchases/{paid.Id}/cancel", content: null).ConfigureAwait(false);
+        using var duplicateRequest = new HttpRequestMessage(HttpMethod.Post, $"/purchases/{paid.Id}/cancel");
+        duplicateRequest.Headers.Add("X-Test-Onboarding-Subject", "test-user");
+        using var duplicate = await Client.SendAsync(duplicateRequest).ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.OK, duplicate.StatusCode);
         Assert.Null(await channel.BasicGetAsync(queue.QueueName, autoAck: true).ConfigureAwait(false));
         await using (var scope = Services.CreateAsyncScope())
@@ -121,8 +125,10 @@ public sealed class PurchaseCancellationTests(SharedTestcontainersFixture fixtur
         await using (var scope = Services.CreateAsyncScope())
         {
             var bus = scope.ServiceProvider.GetRequiredService<Wolverine.IMessageBus>();
-            await bus.InvokeAsync(new Billings.Application.Billing.Purchases.SuspendExpiredPurchasesCommand(DateTimeOffset.UtcNow));
-            await bus.InvokeAsync(new Billings.Application.Billing.Purchases.SuspendExpiredPurchasesCommand(DateTimeOffset.UtcNow.AddMinutes(1)));
+            var suspendedCount = await bus.InvokeAsync<int>(new Billings.Application.Billing.Purchases.SuspendExpiredPurchasesCommand(DateTimeOffset.UtcNow));
+            var duplicateSuspendedCount = await bus.InvokeAsync<int>(new Billings.Application.Billing.Purchases.SuspendExpiredPurchasesCommand(DateTimeOffset.UtcNow.AddMinutes(1)));
+            Assert.Equal(1, suspendedCount);
+            Assert.Equal(0, duplicateSuspendedCount);
         }
 
         BasicGetResult? delivered = null;
@@ -136,7 +142,11 @@ public sealed class PurchaseCancellationTests(SharedTestcontainersFixture fixtur
         var suspended = MemoryPackSerializer.Deserialize<SubscriptionAccessSuspendedIntegrationEvent>(delivered.Body.Span);
         Assert.NotNull(suspended);
         Assert.Equal("renewal_failed", suspended.Reason);
+        Assert.Equal(active.TenantId, suspended.TenantId);
+        Assert.Equal(active.TenantIdentifier, suspended.TenantIdentifier);
         Assert.Equal(active.Id, suspended.SourceOrderId);
+        Assert.Equal(active.SubscriptionId, suspended.SubscriptionId);
+        Assert.Equal(active.ValidUntilUtc!.Value.ToUnixTimeMilliseconds(), suspended.SuspendedAtUtc.ToUnixTimeMilliseconds());
         using (var key = RSA.Create())
         {
             key.ImportFromPem(BillingPaymentPublicKey);

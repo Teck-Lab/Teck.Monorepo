@@ -1,3 +1,4 @@
+using Billings.Application.Billing.Purchases;
 using Billings.Application.Database;
 using Billings.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -44,7 +45,7 @@ public sealed class PurchaseRenewalPeriodTests(SharedTestcontainersFixture fixtu
         Assert.Equal(stored[0].ValidUntilUtc, stored[1].ValidFromUtc);
         Assert.Equal(stored[0].ValidUntilUtc!.Value.AddYears(1), stored[1].ValidUntilUtc);
         var current = await new Billings.Application.Billing.Purchases.GetTenantPurchaseOrderHandler(
-            verifyScope.ServiceProvider.GetRequiredService<BillingDbContext>())
+            verifyScope.ServiceProvider.GetRequiredService<SharedKernel.Core.Database.IGenericReadRepository<TenantPurchaseOrder, Guid>>())
             .Handle(new Billings.Application.Billing.Purchases.GetTenantPurchaseOrderQuery(tenantId, "buyer"), CancellationToken.None);
         Assert.Equal(second.Id, current?.Id);
     }
@@ -143,6 +144,7 @@ public sealed class PurchaseRenewalPeriodTests(SharedTestcontainersFixture fixtu
         original.ConfirmCapturedPayment(subscriptionId, DateTimeOffset.UtcNow.AddMonths(-11));
         var renewal = Create();
         renewal.BindPreviousPurchaseOrder(original.Id);
+        renewal.ReserveStripeIntentAttempt(DateTimeOffset.UtcNow);
         var intent = await StripePurchases.CreateAsync(renewal, CancellationToken.None);
         renewal.BindStripePaymentIntent(intent.PaymentIntentId);
         await using (var scope = Services.CreateAsyncScope())
@@ -192,9 +194,22 @@ public sealed class PurchaseRenewalPeriodTests(SharedTestcontainersFixture fixtu
         await using (var scope = Services.CreateAsyncScope())
         {
             var bus = scope.ServiceProvider.GetRequiredService<Wolverine.IMessageBus>();
-            var result = await bus.InvokeAsync<TenantPurchaseOrder?>(new Billings.Application.Billing.Purchases.ConfirmExternalInvoiceCommand(
+            var result = await bus.InvokeAsync<TenantPurchaseOrderDto?>(new Billings.Application.Billing.Purchases.ConfirmExternalInvoiceCommand(
                 renewal.Id, "INV-2026-0107", "verified-manager"));
             Assert.NotNull(result);
+        }
+
+        await using (var scope = Services.CreateAsyncScope())
+        {
+            var bus = scope.ServiceProvider.GetRequiredService<Wolverine.IMessageBus>();
+            var repeated = await bus.InvokeAsync<TenantPurchaseOrderDto?>(new Billings.Application.Billing.Purchases.ConfirmExternalInvoiceCommand(
+                renewal.Id, "INV-2026-0107", "verified-manager"));
+            Assert.NotNull(repeated);
+            Assert.Equal(subscriptionId, repeated.SubscriptionId);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => bus.InvokeAsync<TenantPurchaseOrderDto?>(new Billings.Application.Billing.Purchases.ConfirmExternalInvoiceCommand(
+                renewal.Id, "INV-2026-0108", "verified-manager")));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => bus.InvokeAsync<TenantPurchaseOrderDto?>(new Billings.Application.Billing.Purchases.ConfirmExternalInvoiceCommand(
+                renewal.Id, "INV-2026-0107", "different-manager")));
         }
 
         await using var verify = Services.CreateAsyncScope();

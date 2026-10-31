@@ -34,6 +34,7 @@ public sealed class StripePurchaseGatewayTests
         string status, long amount, long received, string currency, bool validMetadata)
     {
         var order = CreateOrder();
+        order.ReserveStripeIntentAttempt(DateTimeOffset.UtcNow);
         order.BindStripePaymentIntent("pi_test_purchase");
         var intent = IntentFor(order);
         intent.Status = status;
@@ -53,6 +54,7 @@ public sealed class StripePurchaseGatewayTests
     public async Task VerifyCapture_AcceptsOnlyRetrievedSucceededExactOrder()
     {
         var order = CreateOrder();
+        order.ReserveStripeIntentAttempt(DateTimeOffset.UtcNow);
         order.BindStripePaymentIntent("pi_test_purchase");
         var gateway = new StripePurchaseGateway(new FakePaymentIntents { Result = IntentFor(order) });
 
