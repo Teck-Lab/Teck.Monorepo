@@ -1,19 +1,21 @@
 using System.Security.Claims;
 using System.Text.Json;
 using Billings.Application.Billing.Purchases;
-using Billings.Domain.Entities;
 using Billings.Host.Infrastructure;
-using FastEndpoints;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using SharedKernel.Infrastructure.OpenApi;
+using SharedKernel.Infrastructure.Endpoints;
 using Wolverine;
 
 namespace Billings.Host.Endpoints.Purchases;
 
 /// <summary>Creates one separately payable annual order for the owner of an existing paid tenant.</summary>
+/// <param name="bus">Billing purchase command dispatcher.</param>
+/// <param name="reservations">Authenticated Customer reservation lookup.</param>
 public sealed class CreateTenantRenewalEndpoint(IMessageBus bus, CustomerReservationClient reservations)
-    : Endpoint<CreateTenantPurchaseRequest, TenantPurchaseOrderDto>
+    : AuthenticatedEndpoint<CreateTenantPurchaseRequest, TenantPurchaseOrderDto>
 {
+    /// <inheritdoc/>
+    protected override EndpointPermission Permission => EndpointPermission.ForPolicy("PendingPurchaseBuyer", "billing-api");
+
     /// <inheritdoc/>
     public override async Task HandleAsync(CreateTenantPurchaseRequest request, CancellationToken ct)
     {
@@ -40,11 +42,10 @@ public sealed class CreateTenantRenewalEndpoint(IMessageBus bus, CustomerReserva
 
         try
         {
-            var order = await bus.InvokeAsync<TenantPurchaseOrder>(new CreateTenantPurchaseCommand(
+            var dto = await bus.InvokeAsync<TenantPurchaseOrderDto>(new CreateTenantPurchaseCommand(
                 reservation.TenantId, reservation.TenantIdentifier, request.PlanId, request.PlanVersion,
                 request.DatabaseProvider, request.HasReadReplicas, request.ReplicaCount,
                 actor, reservation.OwnerSubjectId, IsRenewal: true, reservation.PurchaseOrderId), ct).ConfigureAwait(false);
-            var dto = TenantPurchaseOrderMapping.ToDto(order);
             HttpContext.Response.Headers.Location = $"/purchases/{dto.Id}";
             await Send.ResponseAsync(dto, StatusCodes.Status201Created, ct);
         }
@@ -59,19 +60,20 @@ public sealed class CreateTenantRenewalEndpoint(IMessageBus bus, CustomerReserva
     }
 
     /// <inheritdoc/>
-    public override void Configure()
+    protected override void ConfigureEndpoint()
     {
         Post("/purchases/renewals");
         Version(0);
-        AuthSchemes(JwtBearerDefaults.AuthenticationScheme);
-        Policies("PendingPurchaseBuyer");
-        Metadata(new OpenApiAudienceMetadata("billing-api"));
     }
 
     private bool HasSalesRealmRole()
     {
         var realmAccess = HttpContext.User.FindFirst("realm_access")?.Value;
-        if (string.IsNullOrWhiteSpace(realmAccess)) return false;
+        if (string.IsNullOrWhiteSpace(realmAccess))
+        {
+            return false;
+        }
+
         try
         {
             using var parsed = JsonDocument.Parse(realmAccess);

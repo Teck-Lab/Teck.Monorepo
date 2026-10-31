@@ -59,6 +59,7 @@ public sealed class LicenseDbStore : ILicenseStore
         {
             throw new InvalidOperationException("Subscription belongs to a different tenant.");
         }
+
         if (active is not null && active.SourceOrderId != sourceOrderId &&
             !await db.Licenses.AnyAsync(row => row.SourceOrderId == sourceOrderId &&
                 row.SubscriptionId == subscriptionId && row.TenantId == tenantId && row.Revoked,

@@ -1,6 +1,6 @@
 using Billings.Application.Billing.Purchases;
 using FastEndpoints;
-using SharedKernel.Infrastructure.OpenApi;
+using SharedKernel.Infrastructure.Endpoints;
 using Stripe;
 using Wolverine;
 
@@ -10,10 +10,13 @@ namespace Billings.Host.Endpoints.Purchases;
 /// <param name="bus">The Wolverine transactional command bus.</param>
 /// <param name="configuration">The runtime-only Stripe webhook signing secret.</param>
 public sealed class StripePurchaseWebhookEndpoint(IMessageBus bus, IConfiguration configuration)
-    : EndpointWithoutRequest
+    : AuthenticatedEndpoint<EmptyRequest, object>
 {
     /// <inheritdoc/>
-    public override async Task HandleAsync(CancellationToken ct)
+    protected override EndpointPermission Permission => EndpointPermission.Anonymous("internal");
+
+    /// <inheritdoc/>
+    public override async Task HandleAsync(EmptyRequest request, CancellationToken ct)
     {
         var secret = configuration["Stripe:WebhookSecret"];
         if (string.IsNullOrWhiteSpace(secret))
@@ -53,11 +56,9 @@ public sealed class StripePurchaseWebhookEndpoint(IMessageBus bus, IConfiguratio
     }
 
     /// <inheritdoc/>
-    public override void Configure()
+    protected override void ConfigureEndpoint()
     {
         Post("/stripe/webhooks");
         Version(0);
-        AllowAnonymous();
-        Metadata(new OpenApiAudienceMetadata("internal"));
     }
 }

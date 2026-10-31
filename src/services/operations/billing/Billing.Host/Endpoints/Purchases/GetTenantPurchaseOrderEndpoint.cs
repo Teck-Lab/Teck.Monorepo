@@ -1,8 +1,6 @@
 using System.Security.Claims;
 using Billings.Application.Billing.Purchases;
-using FastEndpoints;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using SharedKernel.Infrastructure.OpenApi;
+using SharedKernel.Infrastructure.Endpoints;
 using Wolverine;
 
 namespace Billings.Host.Endpoints.Purchases;
@@ -10,8 +8,11 @@ namespace Billings.Host.Endpoints.Purchases;
 /// <summary>Returns the authenticated tenant's current purchase state.</summary>
 /// <param name="bus">The Wolverine message bus.</param>
 public sealed class GetTenantPurchaseOrderEndpoint(IMessageBus bus)
-    : Endpoint<GetTenantPurchaseOrderRequest, TenantPurchaseOrderDto>
+    : AuthenticatedEndpoint<GetTenantPurchaseOrderRequest, TenantPurchaseOrderDto>
 {
+    /// <inheritdoc/>
+    protected override EndpointPermission Permission => EndpointPermission.ForPolicy("PendingPurchaseBuyer", "billing-api");
+
     /// <inheritdoc/>
     public override async Task HandleAsync(GetTenantPurchaseOrderRequest request, CancellationToken ct)
     {
@@ -34,12 +35,9 @@ public sealed class GetTenantPurchaseOrderEndpoint(IMessageBus bus)
     }
 
     /// <inheritdoc/>
-    public override void Configure()
+    protected override void ConfigureEndpoint()
     {
         Get("/purchases/{reservationId:guid}");
         Version(0);
-        AuthSchemes(JwtBearerDefaults.AuthenticationScheme);
-        Policies("PendingPurchaseBuyer");
-        Metadata(new OpenApiAudienceMetadata("billing-api"));
     }
 }

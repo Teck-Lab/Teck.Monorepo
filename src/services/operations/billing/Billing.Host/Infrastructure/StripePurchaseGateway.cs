@@ -1,3 +1,4 @@
+using System.Globalization;
 using Billings.Application.Billing.Purchases;
 using Billings.Domain.Entities;
 using Stripe;
@@ -18,8 +19,8 @@ public sealed class StripePurchaseGateway(PaymentIntentService intents) : IStrip
             Currency = order.Currency.ToLowerInvariant(),
             Metadata = new Dictionary<string, string>
             {
-                ["purchase_order_id"] = order.Id.ToString("D"),
-                ["customer_tenant_id"] = order.TenantId.ToString("D"),
+                ["purchase_order_id"] = order.Id.ToString("D", CultureInfo.InvariantCulture),
+                ["customer_tenant_id"] = order.TenantId.ToString("D", CultureInfo.InvariantCulture),
             },
         }, new RequestOptions { IdempotencyKey = $"tenant-purchase-{order.Id:D}" }, cancellationToken).ConfigureAwait(false);
         return new StripePurchaseIntent(intent.Id, intent.ClientSecret);
@@ -35,7 +36,6 @@ public sealed class StripePurchaseGateway(PaymentIntentService intents) : IStrip
     /// <inheritdoc/>
     public async Task<bool> IsCapturedAsync(TenantPurchaseOrder order, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(order);
         if (string.IsNullOrWhiteSpace(order.StripePaymentIntentId))
         {
             return false;
@@ -48,8 +48,8 @@ public sealed class StripePurchaseGateway(PaymentIntentService intents) : IStrip
             string.Equals(intent.Currency, order.Currency, StringComparison.OrdinalIgnoreCase) &&
             intent.Metadata is not null &&
             intent.Metadata.TryGetValue("purchase_order_id", out var orderId) &&
-            string.Equals(orderId, order.Id.ToString("D"), StringComparison.Ordinal) &&
+            string.Equals(orderId, order.Id.ToString("D", CultureInfo.InvariantCulture), StringComparison.Ordinal) &&
             intent.Metadata.TryGetValue("customer_tenant_id", out var tenantId) &&
-            string.Equals(tenantId, order.TenantId.ToString("D"), StringComparison.Ordinal);
+            string.Equals(tenantId, order.TenantId.ToString("D", CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 }
