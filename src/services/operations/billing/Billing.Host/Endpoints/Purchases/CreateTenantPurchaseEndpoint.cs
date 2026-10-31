@@ -1,11 +1,8 @@
 using System.Security.Claims;
 using System.Text.Json;
 using Billings.Application.Billing.Purchases;
-using Billings.Domain.Entities;
 using Billings.Host.Infrastructure;
-using FastEndpoints;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using SharedKernel.Infrastructure.OpenApi;
+using SharedKernel.Infrastructure.Endpoints;
 using Wolverine;
 
 namespace Billings.Host.Endpoints.Purchases;
@@ -14,8 +11,11 @@ namespace Billings.Host.Endpoints.Purchases;
 /// <param name="bus">The Wolverine message bus.</param>
 /// <param name="reservations">Authenticated Customer reservation lookup.</param>
 public sealed class CreateTenantPurchaseEndpoint(IMessageBus bus, CustomerReservationClient reservations)
-    : Endpoint<CreateTenantPurchaseRequest, TenantPurchaseOrderDto>
+    : AuthenticatedEndpoint<CreateTenantPurchaseRequest, TenantPurchaseOrderDto>
 {
+    /// <inheritdoc/>
+    protected override EndpointPermission Permission => EndpointPermission.ForPolicy("PendingPurchaseBuyer", "billing-api");
+
     /// <inheritdoc/>
     public override async Task HandleAsync(CreateTenantPurchaseRequest request, CancellationToken ct)
     {
@@ -43,10 +43,9 @@ public sealed class CreateTenantPurchaseEndpoint(IMessageBus bus, CustomerReserv
 
         try
         {
-            var result = await bus.InvokeAsync<TenantPurchaseOrder>(new CreateTenantPurchaseCommand(
+            var dto = await bus.InvokeAsync<TenantPurchaseOrderDto>(new CreateTenantPurchaseCommand(
                 reservation.TenantId, reservation.TenantIdentifier, request.PlanId, request.PlanVersion, request.DatabaseProvider,
                 request.HasReadReplicas, request.ReplicaCount, buyerSubject, reservation.OwnerSubjectId), ct).ConfigureAwait(false);
-            var dto = TenantPurchaseOrderMapping.ToDto(result);
             HttpContext.Response.Headers.Location = $"/purchases/{dto.Id}";
             await Send.ResponseAsync(dto, StatusCodes.Status201Created, ct);
         }
@@ -61,13 +60,10 @@ public sealed class CreateTenantPurchaseEndpoint(IMessageBus bus, CustomerReserv
     }
 
     /// <inheritdoc/>
-    public override void Configure()
+    protected override void ConfigureEndpoint()
     {
         Post("/purchases");
         Version(0);
-        AuthSchemes(JwtBearerDefaults.AuthenticationScheme);
-        Policies("PendingPurchaseBuyer");
-        Metadata(new OpenApiAudienceMetadata("billing-api"));
     }
 
     private bool HasSalesRealmRole()

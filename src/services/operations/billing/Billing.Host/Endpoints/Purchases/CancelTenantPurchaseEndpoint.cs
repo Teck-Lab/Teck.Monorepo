@@ -1,19 +1,20 @@
 using System.Security.Claims;
 using Billings.Application.Billing.Purchases;
-using Billings.Domain.Entities;
 using FastEndpoints;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using SharedKernel.Infrastructure.OpenApi;
+using SharedKernel.Infrastructure.Endpoints;
 using Wolverine;
 
 namespace Billings.Host.Endpoints.Purchases;
 
 /// <summary>Cancels an active paid subscription only for its signed owner.</summary>
 /// <param name="bus">The transactional Billing command dispatcher.</param>
-public sealed class CancelTenantPurchaseEndpoint(IMessageBus bus) : EndpointWithoutRequest<TenantPurchaseOrderDto>
+public sealed class CancelTenantPurchaseEndpoint(IMessageBus bus) : AuthenticatedEndpoint<EmptyRequest, TenantPurchaseOrderDto>
 {
+    /// <inheritdoc/>
+    protected override EndpointPermission Permission => EndpointPermission.ForPolicy("PendingPurchaseBuyer", "billing-api");
+
     /// <inheritdoc />
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(EmptyRequest request, CancellationToken ct)
     {
         var orderId = Route<Guid>("orderId");
         var owner = HttpContext.User.FindFirst("sub")?.Value ?? HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -25,7 +26,7 @@ public sealed class CancelTenantPurchaseEndpoint(IMessageBus bus) : EndpointWith
 
         try
         {
-            var order = await bus.InvokeAsync<TenantPurchaseOrder?>(
+            var order = await bus.InvokeAsync<TenantPurchaseOrderDto?>(
                 new CancelTenantPurchaseCommand(orderId, owner), ct).ConfigureAwait(false);
             if (order is null)
             {
@@ -34,7 +35,7 @@ public sealed class CancelTenantPurchaseEndpoint(IMessageBus bus) : EndpointWith
             }
 
             HttpContext.Response.Headers.CacheControl = "no-store";
-            await Send.OkAsync(TenantPurchaseOrderMapping.ToDto(order), ct);
+            await Send.OkAsync(order, ct);
         }
         catch (InvalidOperationException)
         {
@@ -43,12 +44,9 @@ public sealed class CancelTenantPurchaseEndpoint(IMessageBus bus) : EndpointWith
     }
 
     /// <inheritdoc />
-    public override void Configure()
+    protected override void ConfigureEndpoint()
     {
         Post("/purchases/{orderId:guid}/cancel");
         Version(0);
-        AuthSchemes(JwtBearerDefaults.AuthenticationScheme);
-        Policies("PendingPurchaseBuyer");
-        Metadata(new OpenApiAudienceMetadata("billing-api"));
     }
 }

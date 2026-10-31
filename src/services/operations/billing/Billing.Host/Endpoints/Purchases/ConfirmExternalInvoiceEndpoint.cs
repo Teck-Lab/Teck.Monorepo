@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Billings.Application.Billing.Purchases;
-using Billings.Domain.Entities;
 using SharedKernel.Infrastructure.Endpoints;
 using Wolverine;
 
@@ -27,7 +26,7 @@ public sealed class ConfirmExternalInvoiceEndpoint(IMessageBus bus)
 
         try
         {
-            var order = await bus.InvokeAsync<TenantPurchaseOrder?>(
+            var order = await bus.InvokeAsync<TenantPurchaseOrderDto?>(
                 new ConfirmExternalInvoiceCommand(orderId, request.InvoiceReference, verifier), ct).ConfigureAwait(false);
             if (order is null)
             {
@@ -35,8 +34,7 @@ public sealed class ConfirmExternalInvoiceEndpoint(IMessageBus bus)
                 return;
             }
 
-            var dto = TenantPurchaseOrderMapping.ToDto(order);
-            await Send.OkAsync(dto, ct);
+            await Send.OkAsync(order, ct);
         }
         catch (InvalidOperationException)
         {

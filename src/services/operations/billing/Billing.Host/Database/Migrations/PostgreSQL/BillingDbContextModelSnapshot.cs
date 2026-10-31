@@ -319,6 +319,12 @@ namespace Billings.Host.Database.Migrations.PostgreSQL
                     b.Property<int>("ReplicaCount")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("StripeIntentAttempted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("StripeIntentAttemptedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("StripePaymentIntentId")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
@@ -376,6 +382,22 @@ namespace Billings.Host.Database.Migrations.PostgreSQL
 
                     b.ToTable("tenant_purchase_orders", (string)null);
                 });
+            modelBuilder.Entity("Billings.Domain.Entities.TenantPurgeGrant", b =>
+                {
+                    b.Property<Guid>("Id").HasColumnType("uuid");
+                    b.Property<Guid>("ApprovalId").HasColumnType("uuid");
+                    b.Property<DateTimeOffset>("AcquiredAtUtc").HasColumnType("timestamp with time zone");
+                    b.Property<DateTimeOffset?>("CompletedAtUtc").HasColumnType("timestamp with time zone");
+                    b.Property<Guid>("SourceOrderId").HasColumnType("uuid");
+                    b.Property<Guid>("SubscriptionId").HasColumnType("uuid");
+                    b.Property<Guid>("TenantId").HasColumnType("uuid");
+                    b.HasKey("Id");
+                    b.HasIndex("ApprovalId").IsUnique();
+                    b.HasIndex("SourceOrderId");
+                    b.HasIndex("TenantId").IsUnique().HasFilter("\"CompletedAtUtc\" IS NULL");
+                    b.ToTable("tenant_purge_grants", (string)null);
+                });
+
 
             modelBuilder.Entity("Billings.Domain.Entities.Invoice", b =>
                 {
