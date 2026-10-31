@@ -18,12 +18,48 @@ public sealed class TenantTests
         Assert.False(tenant.HasReadReplicas);
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void Create_RejectsBlankIdentifier(string identifier)
+    [Fact]
+    public void CreatePendingReservation_BindsOwnerAndStaysPendingWithoutPurchaseClaims()
     {
-        Assert.Throws<ArgumentException>(() =>
-            Tenant.Create(Guid.NewGuid(), identifier, "shared", "postgres", false));
+        var id = Guid.NewGuid();
+        var tenant = Tenant.CreatePendingReservation(id, "acme-business-1234", "owner-subject");
+
+        Assert.Equal(id, tenant.Id);
+        Assert.Equal("pending", tenant.Status);
+        Assert.Equal("owner-subject", tenant.OwnerSubjectId);
+        Assert.Equal(string.Empty, tenant.PlanId);
+        Assert.Equal(Guid.Empty, tenant.PurchaseOrderId);
+        Assert.Equal(string.Empty, tenant.DatabaseStrategy);
+        Assert.Equal(Guid.Empty, tenant.PurchaseOrderId);
+    }
+
+    [Fact]
+    public void CreatePendingReservation_RejectsMissingOwner()
+    {
+        Assert.Throws<ArgumentException>(() => Tenant.CreatePendingReservation(Guid.NewGuid(), "acme", " "));
+    }
+
+    [Fact]
+    public void ApplyPurchaseConfirmation_LeavesTenantInactiveUntilBothProvisionersAreReady()
+    {
+        var pending = Tenant.CreatePendingReservation(Guid.NewGuid(), "acme", "owner");
+        pending.ApplyPurchaseConfirmation(Guid.NewGuid(), Guid.NewGuid(), "pro", "2026-10", "dedicated", "postgres", false, DateTimeOffset.UtcNow.AddYears(1));
+
+        Assert.Equal("paid_pending_readiness", pending.Status);
+        pending.MarkProvisionerReady("license");
+        Assert.Equal("paid_pending_readiness", pending.Status);
+        pending.MarkProvisionerReady("database");
+        Assert.Equal("paid_pending_readiness", pending.Status);
+        pending.LinkOrganization(Guid.NewGuid());
+        Assert.Equal("active", pending.Status);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void Create_RejectsEmptyIdentifier(string? identifier)
+    {
+        Assert.Throws<ArgumentException>(() => Tenant.Create(Guid.NewGuid(), identifier!, "shared", "postgres", false));
     }
 }

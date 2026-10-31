@@ -38,7 +38,7 @@ public sealed class LocalIdentityKeycloakFixture : IAsyncLifetime
     internal const string ReaderPassword = "local-only-dev-reader-password-not-for-production";
     private const string AdminUsername = "admin";
     private const string AdminPassword = "local-only-keycloak-admin-password-not-for-production";
-    private const string KeycloakImage = "quay.io/keycloak/keycloak:26.6.0";
+    private const string KeycloakImage = "quay.io/keycloak/keycloak:26.8.1";
     private static readonly Regex DatabaseIdentifierPattern = new("^[a-z0-9_]{1,63}$", RegexOptions.CultureInvariant);
     private PostgreSqlContainer? postgres;
     private KeycloakContainer? provisioned;

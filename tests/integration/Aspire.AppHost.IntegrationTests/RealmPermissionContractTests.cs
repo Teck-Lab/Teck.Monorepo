@@ -79,7 +79,7 @@ public sealed class RealmPermissionContractTests
     {
         string root = FindRepositoryRoot();
         string realmPath = Path.Combine(root, TestRealmPath);
-        var keycloak = new KeycloakBuilder("quay.io/keycloak/keycloak:26.6.0")
+        var keycloak = new KeycloakBuilder("quay.io/keycloak/keycloak:26.8.1")
             .WithUsername("admin")
             .WithPassword("local-only-test-keycloak-admin-password")
             .WithRealm(realmPath)
@@ -104,6 +104,57 @@ public sealed class RealmPermissionContractTests
             await keycloak.DisposeAsync().ConfigureAwait(false);
         }
     }
+
+    [Fact]
+    public async Task TestRealm_WhenWorkerClientCredentialsAreExchanged_IssuesOnlyTheBillingPurgeFenceIdentity()
+    {
+        string root = FindRepositoryRoot();
+        var keycloak = new KeycloakBuilder("quay.io/keycloak/keycloak:26.8.1")
+            .WithUsername("admin")
+            .WithPassword("local-only-test-keycloak-admin-password")
+            .WithRealm(Path.Combine(root, TestRealmPath))
+            .Build();
+        await keycloak.StartAsync().ConfigureAwait(false);
+        try
+        {
+            using var http = new HttpClient { BaseAddress = new Uri(keycloak.GetBaseAddress(), UriKind.Absolute) };
+            using JsonDocument workerPayload = await GetClientCredentialsTokenPayloadAsync(http, "tenant-database-worker", "local-only-test-tenant-database-worker-secret-not-for-production", "billing:purge-fence").ConfigureAwait(false);
+            Assert.Equal("tenant-database-worker", workerPayload.RootElement.GetProperty("billing_purge_worker_identity").GetString());
+            Assert.Contains("billing:purge-fence", workerPayload.RootElement.GetProperty("scope").GetString()!.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+            Assert.Contains("billing-api", AudienceNamesFromToken(workerPayload.RootElement));
+
+            using JsonDocument billingPayload = await GetClientCredentialsTokenPayloadAsync(http, "billing-api", "local-only-test-billing-api-secret-not-for-production", string.Empty).ConfigureAwait(false);
+            Assert.False(billingPayload.RootElement.TryGetProperty("billing_purge_worker_identity", out _));
+        }
+        finally
+        {
+            await keycloak.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<JsonDocument> GetClientCredentialsTokenPayloadAsync(HttpClient http, string clientId, string clientSecret, string scope)
+    {
+        var form = new Dictionary<string, string>
+        {
+            ["grant_type"] = "client_credentials",
+            ["client_id"] = clientId,
+            ["client_secret"] = clientSecret,
+        };
+        if (!string.IsNullOrEmpty(scope))
+        {
+            form["scope"] = scope;
+        }
+
+        using HttpResponseMessage response = await http.PostAsync(
+            "/realms/teck/protocol/openid-connect/token",
+            new FormUrlEncodedContent(form)).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        using JsonDocument body = JsonDocument.Parse(await response.Content.ReadAsStreamAsync().ConfigureAwait(false));
+        return ReadTokenPayload(body.RootElement.GetProperty("access_token").GetString()!);
+    }
+    private static string[] AudienceNamesFromToken(JsonElement token) => token.GetProperty("aud").ValueKind == JsonValueKind.Array
+        ? token.GetProperty("aud").EnumerateArray().Select(value => value.GetString()!).ToArray()
+        : [token.GetProperty("aud").GetString()!];
 
     private static async Task<string> GetTokenAsync(HttpClient http, string username, string password)
     {
@@ -152,7 +203,7 @@ public sealed class RealmPermissionContractTests
 
         Assert.True(realm.RootElement.GetProperty("organizationsEnabled").GetBoolean());
         Assert.Equal(
-            [PlatformManagerRole, PlatformReaderRole],
+            [PlatformManagerRole, PlatformReaderRole, "sales"],
             realm.RootElement.GetProperty("roles").GetProperty("realm").EnumerateArray()
                 .Select(role => role.GetProperty("name").GetString()!)
                 .Order(StringComparer.Ordinal)
@@ -235,12 +286,15 @@ public sealed class RealmPermissionContractTests
                 .ToArray());
     }
 
-    /// <summary>Ensures the production-safe default realm contains no user credentials or enabled password grants.</summary>
+    /// <summary>Ensures production has only its credential-free provisioning service account and disables password grants.</summary>
     [Fact]
     public void DefaultRealm_WhenCredentialsAreEnumerated_RequiresEnvironmentValuesAndDisablesPasswordGrants()
     {
         using JsonDocument realm = ReadRealm();
-        Assert.Empty(realm.RootElement.GetProperty("users").EnumerateArray());
+        JsonElement provisioner = Assert.Single(realm.RootElement.GetProperty("users").EnumerateArray());
+        Assert.Equal("service-account-customer-org-provisioner", provisioner.GetProperty("username").GetString());
+        Assert.Equal("customer-org-provisioner", provisioner.GetProperty("serviceAccountClientId").GetString());
+        Assert.False(provisioner.TryGetProperty("credentials", out _));
 
         foreach (JsonElement client in realm.RootElement.GetProperty("clients").EnumerateArray())
         {
@@ -261,18 +315,23 @@ public sealed class RealmPermissionContractTests
         JsonElement prod = production.RootElement;
         JsonElement testRoot = test.RootElement;
         Assert.Equal(
-            new[] {"organization", "basic", "order-api-audience", "pricing-api-audience", "web-customer-gateway-audience", "web-admin-gateway-audience", "basket-api-audience", "customer-api-audience", "inventory-api-audience", "billing-api-audience", "catalog-api-audience"}.Order(StringComparer.Ordinal),
+            new[] {"organization", "basic", "profile", "email", "roles", "web-origins", "tenant-purchase", "order-api-audience", "pricing-api-audience", "web-customer-gateway-audience", "web-admin-gateway-audience", "basket-api-audience", "customer-api-audience", "inventory-api-audience", "billing-api-audience", "catalog-api-audience", "billing:purge-fence"}.Order(StringComparer.Ordinal),
             testRoot.GetProperty("clientScopes").EnumerateArray().Select(scope => scope.GetProperty("name").GetString()!).Order(StringComparer.Ordinal));
         JsonElement organizationScope = testRoot.GetProperty("clientScopes").EnumerateArray().Single(scope => scope.GetProperty("name").GetString() == "organization");
         Assert.Equal("oidc-organization-membership-mapper", organizationScope.GetProperty("protocolMappers")[0].GetProperty("protocolMapper").GetString());
         Assert.Equal("organization", organizationScope.GetProperty("protocolMappers")[0].GetProperty("config").GetProperty("claim.name").GetString());
-        foreach (JsonElement scope in testRoot.GetProperty("clientScopes").EnumerateArray().Where(scope => scope.GetProperty("name").GetString() is not ("organization" or "basic")))
+        Assert.Equal("oidc-hardcoded-claim-mapper", testRoot.GetProperty("clientScopes").EnumerateArray()
+            .Single(scope => scope.GetProperty("name").GetString() == "tenant-purchase")
+            .GetProperty("protocolMappers")[0].GetProperty("protocolMapper").GetString());
+        foreach (JsonElement scope in testRoot.GetProperty("clientScopes").EnumerateArray().Where(scope => scope.GetProperty("name").GetString() is not ("organization" or "basic" or "profile" or "email" or "roles" or "web-origins" or "tenant-purchase" or "billing:purge-fence")))
         {
             string name = scope.GetProperty("name").GetString()!;
             Assert.Equal("oidc-audience-mapper", scope.GetProperty("protocolMappers")[0].GetProperty("protocolMapper").GetString());
             Assert.Equal(name.Replace("-audience", string.Empty, StringComparison.Ordinal),
                 scope.GetProperty("protocolMappers")[0].GetProperty("config").GetProperty("included.client.audience").GetString());
         }
+        JsonElement billingPurgeScope = testRoot.GetProperty("clientScopes").EnumerateArray().Single(scope => scope.GetProperty("name").GetString() == "billing:purge-fence");
+        Assert.Equal("billing_purge_worker_scope", billingPurgeScope.GetProperty("protocolMappers")[0].GetProperty("config").GetProperty("claim.name").GetString());
         string[] expectedOptionalScopes = ["order-api-audience", "pricing-api-audience", "web-customer-gateway-audience", "web-admin-gateway-audience", "basket-api-audience", "customer-api-audience", "inventory-api-audience", "billing-api-audience", "catalog-api-audience"];
         JsonElement integrationTestClient = FindClient(testRoot, "integration-test-client");
         JsonElement optionalScopes = integrationTestClient.GetProperty("optionalClientScopes");
@@ -323,15 +382,23 @@ public sealed class RealmPermissionContractTests
         string[] expectedTokenOptionalScopes = ["order-api-audience", "pricing-api-audience", "web-customer-gateway-audience", "web-admin-gateway-audience", "basket-api-audience", "customer-api-audience", "inventory-api-audience", "billing-api-audience", "catalog-api-audience"];
         string[] tokenOptionalScopes = tokenClient.GetProperty("optionalClientScopes").EnumerateArray().Select(scope => scope.GetString()!).ToArray();
         Assert.Equal(expectedTokenOptionalScopes.Order(StringComparer.Ordinal), tokenOptionalScopes.Order(StringComparer.Ordinal));
+        JsonElement testWorker = FindClient(testRoot, "tenant-database-worker");
+        Assert.True(testWorker.GetProperty("serviceAccountsEnabled").GetBoolean());
+        Assert.False(testWorker.GetProperty("publicClient").GetBoolean());
+        Assert.Equal(["billing:purge-fence"], testWorker.GetProperty("optionalClientScopes").EnumerateArray().Select(scope => scope.GetString()!).ToArray());
+        Assert.False(FindClient(testRoot, "billing-api").GetProperty("protocolMappers").EnumerateArray().Any(mapper => mapper.GetProperty("config").TryGetProperty("claim.name", out JsonElement claim) && claim.GetString() == "billing_purge_worker_identity"));
         Assert.Equal(1, testClients.Count(client => client.GetProperty("directAccessGrantsEnabled").GetBoolean()));
         JsonElement testUsers = testRoot.GetProperty("users");
         JsonElement productionUsers = prod.GetProperty("users");
-        Assert.Empty(productionUsers.EnumerateArray());
-        Assert.Equal(7, testUsers.GetArrayLength());
+        JsonElement productionProvisioner = Assert.Single(productionUsers.EnumerateArray());
+        Assert.Equal("service-account-customer-org-provisioner", productionProvisioner.GetProperty("username").GetString());
+        JsonElement testProvisioner = Assert.Single(testUsers.EnumerateArray().Where(user => user.TryGetProperty("serviceAccountClientId", out _)));
+        Assert.Equal(CanonicalJson(productionProvisioner), CanonicalJson(testProvisioner));
+        Assert.Equal(12, testUsers.EnumerateArray().Count(user => !user.TryGetProperty("serviceAccountClientId", out _)));
         Assert.Equal("none", testRoot.GetProperty("sslRequired").GetString());
         Assert.Contains(testUsers.EnumerateArray(), user => user.GetProperty("username").GetString() == "integration-manager");
         Assert.Contains(testUsers.EnumerateArray(), user => user.GetProperty("username").GetString() == "integration-foreign-manager" && user.GetProperty("realmRoles").EnumerateArray().Any(role => role.GetString() == "platform-manager"));
-        Assert.All(testUsers.EnumerateArray(), user => Assert.Contains(user.GetProperty("credentials").EnumerateArray(), credential => credential.GetProperty("type").GetString() == "password"));
+        Assert.All(testUsers.EnumerateArray().Where(user => !user.TryGetProperty("serviceAccountClientId", out _)), user => Assert.Contains(user.GetProperty("credentials").EnumerateArray(), credential => credential.GetProperty("type").GetString() == "password"));
     }
 
     private static string CanonicalJson(JsonElement value) => JsonSerializer.Serialize(value);

@@ -17,5 +17,9 @@ public sealed class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         builder.Property(tenant => tenant.DatabaseStrategy).IsRequired().HasMaxLength(64);
         builder.Property(tenant => tenant.DatabaseProvider).IsRequired().HasMaxLength(64);
         builder.Property(tenant => tenant.Status).IsRequired().HasMaxLength(32);
+        builder.Property(tenant => tenant.OwnerSubjectId).IsRequired().HasMaxLength(128);
+        builder.Property(tenant => tenant.PlanId).IsRequired(false).HasMaxLength(64);
+        builder.Property(tenant => tenant.PlanVersion).IsRequired(false).HasMaxLength(64);
+        builder.HasIndex(tenant => tenant.KeycloakOrganizationId).IsUnique();
     }
 }

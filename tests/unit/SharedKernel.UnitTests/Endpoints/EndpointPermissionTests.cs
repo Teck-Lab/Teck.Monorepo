@@ -38,4 +38,16 @@ public sealed class EndpointPermissionTests
         Assert.Equal("create", permission.Scope);
         Assert.Equal("public", permission.Audience);
     }
+
+    [Fact]
+    public void ForPolicy_RequiresAuthenticationWithoutKeycloakProtectedResource()
+    {
+        var permission = EndpointPermission.ForPolicy("PendingPurchaseBuyer", "public");
+
+        Assert.False(permission.IsAnonymous);
+        Assert.Equal("PendingPurchaseBuyer", permission.PolicyName);
+        Assert.Equal(string.Empty, permission.Resource);
+        Assert.Equal("public", permission.Audience);
+    }
+
 }

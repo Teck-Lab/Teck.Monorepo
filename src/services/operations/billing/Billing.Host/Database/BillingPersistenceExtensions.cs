@@ -29,7 +29,9 @@ public static class BillingPersistenceExtensions
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped(typeof(IGenericReadRepository<,>), typeof(BillingReadRepository<,>));
         builder.Services.AddScoped(typeof(IGenericWriteRepository<,>), typeof(BillingWriteRepository<,>));
+        builder.Services.AddScoped<Billings.Application.Billing.Purchases.IPurchaseTenantLock, BillingPurchaseTenantLock>();
         builder.Services.AddScoped<IUnitOfWork>(sp => new UnitOfWork<BillingDbContext>(sp.GetRequiredService<BillingDbContext>()));
+        builder.Services.AddScoped<Billings.Application.Billing.Purchases.IExpiredTenantPurchaseOrders, BillingExpiredTenantPurchaseOrders>();
 
         return builder;
     }

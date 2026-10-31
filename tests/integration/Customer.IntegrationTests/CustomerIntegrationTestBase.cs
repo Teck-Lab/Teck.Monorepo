@@ -3,6 +3,7 @@
 // </copyright>
 
 using Customers.Application.Database;
+using Customers.Application.EventHandlers.IntegrationEvents;
 using Finbuckle.MultiTenant.Extensions;
 using JasperFx.CommandLine;
 using Keycloak.AuthServices.Authorization.Requirements;
@@ -12,6 +13,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using SharedKernel.Infrastructure.MultiTenant;
 using Teck.Platform.IntegrationTests.Shared;
 
@@ -33,20 +35,25 @@ public abstract class CustomerIntegrationTestBase : IDisposable
     /// Initializes a new instance of the <see cref="CustomerIntegrationTestBase"/> class.
     /// </summary>
     /// <param name="fixture">The shared testcontainers fixture providing Postgres.</param>
-    protected CustomerIntegrationTestBase(SharedTestcontainersFixture fixture)
+    /// <param name="useRabbitMq">Whether the actual RabbitMQ transport should consume events.</param>
+    /// <param name="organizationProvisioner">An optional isolated Keycloak collaborator for broker-only tests.</param>
+    /// <param name="billingPublicKey">The trusted Billing public payment key for broker-only tests.</param>
+    protected CustomerIntegrationTestBase(SharedTestcontainersFixture fixture, bool useRabbitMq = false,
+        IOrganizationProvisioner? organizationProvisioner = null, string? billingPublicKey = null)
     {
         ArgumentNullException.ThrowIfNull(fixture);
         this.fixture = fixture;
 
         // Migrations live in Customer.Host (migrationsAssembly: typeof(Program).Assembly in
-        // AddCustomerPersistence). Reuses the same shared database as GetTenantDatabaseInfoTests —
-        // CreateSharedTestDatabaseAsync is idempotent (no-op if the database already exists).
+        // AddCustomerPersistence). Reuses the same shared database as GetTenantDatabaseInfoTests.
+        // Pending migrations are applied even if a prior test already created the database.
         databaseConnectionString = fixture
             .CreateSharedTestDatabaseAsync(typeof(CustomerDbContext), "Customer.Host")
             .GetAwaiter()
             .GetResult();
 
-        factory = new CustomerWebApplicationFactory(fixture, databaseConnectionString);
+        factory = new CustomerWebApplicationFactory(fixture, databaseConnectionString, useRabbitMq,
+            organizationProvisioner, billingPublicKey);
         Client = factory.CreateClient();
     }
 
@@ -55,6 +62,18 @@ public abstract class CustomerIntegrationTestBase : IDisposable
 
     /// <summary>Gets the PostgreSQL connection string shared by this test project.</summary>
     protected string DatabaseConnectionString => databaseConnectionString;
+
+    /// <summary>Creates a scoped test service provider.</summary>
+    protected IServiceScope CreateServiceScope() => factory.Services.CreateScope();
+
+    /// <summary>Seeds a tenant through the PostgreSQL-backed Customer context.</summary>
+    protected async Task SeedTenantAsync(Customers.Domain.Entities.Tenant tenant)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CustomerDbContext>();
+        db.Tenants.Add(tenant);
+        await db.SaveChangesAsync();
+    }
 
     /// <inheritdoc/>
     public void Dispose()
@@ -67,7 +86,10 @@ public abstract class CustomerIntegrationTestBase : IDisposable
 
     private sealed class CustomerWebApplicationFactory(
         SharedTestcontainersFixture fixture,
-        string databaseConnectionString) : WebApplicationFactory<Program>
+        string databaseConnectionString,
+        bool useRabbitMq,
+        IOrganizationProvisioner? organizationProvisioner,
+        string? billingPublicKey) : WebApplicationFactory<Program>
     {
         static CustomerWebApplicationFactory()
         {
@@ -88,6 +110,15 @@ public abstract class CustomerIntegrationTestBase : IDisposable
             builder.UseSetting("ConnectionStrings:CustomerWrite", databaseConnectionString);
             builder.UseSetting("ConnectionStrings:CustomerRead", databaseConnectionString);
             builder.UseSetting("ConnectionStrings:Default", databaseConnectionString);
+            if (useRabbitMq)
+            {
+                builder.UseSetting("ConnectionStrings:rabbitmq", fixture.RabbitMqConnectionString);
+            }
+
+            if (billingPublicKey is not null)
+            {
+                builder.UseSetting("PaymentProof:TrustedPublicKeys:0", billingPublicKey);
+            }
 
             // Minimal Keycloak stubs so the production binding of KeycloakAuthenticationOptions
             // does not throw at startup. Actual JWT validation is replaced by MockBearerAuthenticationHandler.
@@ -135,6 +166,11 @@ public abstract class CustomerIntegrationTestBase : IDisposable
                 }
 
                 services.AddSingleton<IAuthorizationHandler, PermissiveProtectedResourceHandler>();
+                if (organizationProvisioner is not null)
+                {
+                    services.RemoveAll<IOrganizationProvisioner>();
+                    services.AddSingleton(organizationProvisioner);
+                }
             });
         }
     }

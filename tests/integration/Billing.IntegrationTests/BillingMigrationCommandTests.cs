@@ -57,6 +57,8 @@ public sealed class BillingMigrationCommandTests(SharedTestcontainersFixture fix
             Assert.True(Convert.ToInt64(await history.ExecuteScalarAsync(), System.Globalization.CultureInfo.InvariantCulture) > 0);
             await using var payments = new NpgsqlCommand("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'payments')", verify);
             Assert.True((bool)(await payments.ExecuteScalarAsync())!);
+            await using var attempt = new NpgsqlCommand("SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'tenant_purchase_orders' AND column_name IN ('StripeIntentAttempted', 'StripeIntentAttemptedAtUtc')", verify);
+            Assert.Equal(2, Convert.ToInt32(await attempt.ExecuteScalarAsync(), System.Globalization.CultureInfo.InvariantCulture));
         }
         finally
         {

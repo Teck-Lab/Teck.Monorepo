@@ -15,7 +15,7 @@ public sealed class KeycloakTestRealmFixture : IAsyncLifetime
 {
     public const string Realm = "teck";
     public const string TenantId = "tenant-authz-test";
-    private const string Image = "quay.io/keycloak/keycloak:26.6.0";
+    private const string Image = "quay.io/keycloak/keycloak:26.8.1";
     private const string RealmFile = "test-realms/teck-realm.json";
     private const string AdminPassword = "local-only-test-keycloak-admin-password";
     private KeycloakContainer? container;

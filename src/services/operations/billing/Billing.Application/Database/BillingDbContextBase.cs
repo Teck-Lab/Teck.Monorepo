@@ -22,6 +22,11 @@ public abstract class BillingDbContextBase(DbContextOptions options, IMultiTenan
     /// <summary>Gets the set of provider payment attempts.</summary>
     public DbSet<PaymentAttempt> PaymentAttempts => Set<PaymentAttempt>();
 
+    /// <summary>Gets durable tenant purchase orders.</summary>
+    public DbSet<TenantPurchaseOrder> TenantPurchaseOrders => Set<TenantPurchaseOrder>();
+    /// <summary>Gets durable global tenant purge grants.</summary>
+    public DbSet<TenantPurgeGrant> TenantPurgeGrants => Set<TenantPurgeGrant>();
+
     /// <summary>Gets the set of tracked invoices.</summary>
     public DbSet<Invoice> Invoices => Set<Invoice>();
 
@@ -33,5 +38,6 @@ public abstract class BillingDbContextBase(DbContextOptions options, IMultiTenan
         modelBuilder.Entity<Payment>().IsMultiTenant();
         modelBuilder.Entity<PaymentAttempt>().IsMultiTenant();
         modelBuilder.Entity<Invoice>().IsMultiTenant();
+        modelBuilder.Entity<TenantPurchaseOrder>().Ignore(order => order.DomainEvents);
     }
 }
