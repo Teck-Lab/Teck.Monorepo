@@ -32,15 +32,20 @@ public sealed class SubscriptionPaymentSigningKey : IDisposable
         }
     }
 
-    /// <summary>Signs only the immutable captured-payment or audited-invoice snapshot.</summary>
-    /// <param name="paid">The server-priced confirmed subscription.</param>
-    /// <returns>A detached RSA-PSS proof.</returns>
+    /// <summary>Signs a captured-payment or audited-invoice snapshot.</summary>
+    /// <param name="paid">The paid snapshot to sign.</param>
+    /// <returns>The Billing RSA-PSS proof.</returns>
     public string Sign(SubscriptionPaymentConfirmedIntegrationEvent paid) => SubscriptionPaymentProof.Sign(paid, privateKey);
 
-    /// <summary>Signs an access suspension without letting consumers mint cancellation events.</summary>
-    /// <param name="suspension">The correlated subscription suspension.</param>
-    /// <returns>A detached RSA-PSS proof.</returns>
+    /// <summary>Signs an access suspension.</summary>
+    /// <param name="suspension">The suspension to sign.</param>
+    /// <returns>The Billing RSA-PSS proof.</returns>
     public string Sign(SubscriptionAccessSuspendedIntegrationEvent suspension) => SubscriptionSuspensionProof.Sign(suspension, privateKey);
+
+    /// <summary>Signs a Licensing-verified policy transition.</summary>
+    /// <param name="transition">The policy transition to sign.</param>
+    /// <returns>The Billing RSA-PSS proof.</returns>
+    public string Sign(EnterprisePolicyAttachedIntegrationEvent transition) => EnterprisePolicyAttachedProof.Sign(transition, privateKey);
 
     /// <inheritdoc />
     public void Dispose() => privateKey.Dispose();

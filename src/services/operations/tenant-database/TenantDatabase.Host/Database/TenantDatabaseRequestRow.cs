@@ -15,6 +15,8 @@ public sealed class TenantDatabaseRequestRow
 
     public string? Detail { get; set; }
 
+    public string? SuspensionReason { get; set; }
+
     public DateTimeOffset ReceivedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
@@ -24,6 +26,8 @@ public sealed class TenantDatabaseRequestRow
     public Guid SourceOrderId { get; set; }
 
     public string Proof { get; set; } = null!;
+
+    public string? EnterprisePolicyTransitionProof { get; set; }
 
     public Guid PreviousSourceOrderId { get; set; }
 

@@ -32,7 +32,9 @@ public sealed class SignedTenantDatabaseIntake(ITenantDatabaseRequestStore store
         }
 
         var desired = new TenantDatabaseDesiredState(paid.TenantId.ToString("D"), paid.TenantIdentifier,
-            paid.DatabaseStrategy, paid.DatabaseProvider, paid.ReplicaCount, TenantSubscriptionStatus.Active, null);
+            paid.DatabaseStrategy, paid.DatabaseProvider, paid.ReplicaCount, TenantSubscriptionStatus.Active, null,
+            paid.HasScheduledBackups, paid.HasHighAvailability, paid.ValidUntilUtc,
+            paid.EffectiveGracePeriodDays, paid.EffectiveBackupRetentionDays);
         await store.UpsertAsync(new TenantDatabaseRequest(paid.SubscriptionId, desired, paid.ConfirmedAtUtc,
             paid.SourceOrderId, paid.Proof, paid.PreviousSourceOrderId), ct).ConfigureAwait(false);
     }

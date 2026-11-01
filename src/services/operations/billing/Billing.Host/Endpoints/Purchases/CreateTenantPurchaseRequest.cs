@@ -23,4 +23,9 @@ public sealed class CreateTenantPurchaseRequest
 
     /// <summary>Gets or sets the requested replica count.</summary>
     public int ReplicaCount { get; set; }
+    /// <summary>Gets or sets whether Barman scheduled backups were requested.</summary>
+    public bool HasScheduledBackups { get; set; }
+
+    /// <summary>Gets or sets whether high availability was requested.</summary>
+    public bool HasHighAvailability { get; set; }
 }

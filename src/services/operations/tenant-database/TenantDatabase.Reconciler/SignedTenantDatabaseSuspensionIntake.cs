@@ -20,6 +20,6 @@ public sealed class SignedTenantDatabaseSuspensionIntake(ITenantDatabaseRequestS
         }
 
         await store.SuspendAsync(suspension.SubscriptionId, suspension.SourceOrderId, suspension.TenantId,
-            suspension.TenantIdentifier, suspension.SuspendedAtUtc, ct).ConfigureAwait(false);
+            suspension.TenantIdentifier, suspension.SuspendedAtUtc, suspension.Reason, ct).ConfigureAwait(false);
     }
 }

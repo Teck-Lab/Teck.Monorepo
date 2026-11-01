@@ -15,6 +15,11 @@ public sealed class LicensingDbContext : DbContext
     /// <summary>Gets permanent Billing suspension records per paid order, including out-of-order cancellations.</summary>
     public DbSet<SubscriptionSuspensionRecord> SubscriptionSuspensions => Set<SubscriptionSuspensionRecord>();
 
+    /// <summary>Gets immutable signed enterprise policy versions.</summary>
+    public DbSet<EnterprisePolicyRecord> EnterprisePolicies => Set<EnterprisePolicyRecord>();
+    /// <summary>Gets operator audit records for policy changes.</summary>
+    public DbSet<EnterprisePolicyAuditRecord> EnterprisePolicyAudit => Set<EnterprisePolicyAuditRecord>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,5 +36,14 @@ public sealed class LicensingDbContext : DbContext
         suspension.HasKey(x => x.SourceOrderId);
         suspension.HasIndex(x => x.SubscriptionId);
         suspension.HasIndex(x => x.TenantId);
+        var policy = modelBuilder.Entity<EnterprisePolicyRecord>();
+        policy.ToTable("enterprise_policies");
+        policy.HasKey(x => new { x.PolicyId, x.PolicyVersion });
+        policy.Property(x => x.Document).HasColumnType("text");
+        policy.HasIndex(x => new { x.PolicyId, x.TenantId, x.SubscriptionId, x.SourceOrderId, x.IssuedAtUtc });
+        var policyAudit = modelBuilder.Entity<EnterprisePolicyAuditRecord>();
+        policyAudit.ToTable("enterprise_policy_audit");
+        policyAudit.HasKey(x => x.Id);
+        policyAudit.HasIndex(x => new { x.PolicyId, x.PolicyVersion });
     }
 }
