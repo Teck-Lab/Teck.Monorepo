@@ -8,10 +8,14 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="../../../../shared/SharedKernel.Events/SharedKernel.Events.csproj" />
+    <ProjectReference Include="../../../../shared/SharedKernel.Grpc.Contracts/SharedKernel.Grpc.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="VaultSharp" />
+    <PackageReference Include="Grpc.Net.ClientFactory" />
+    <PackageReference Include="Grpc.AspNetCore" />
     <PackageReference Include="WolverineFx" />
+    <PackageReference Include="AWSSDK.S3" />
   </ItemGroup>
 </Project>

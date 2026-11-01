@@ -14,4 +14,9 @@ public sealed class TenantPurchaseOptions
 
     /// <summary>Gets or sets monthly read-replica rate in USD.</summary>
     public decimal ReadReplicaMonthlyRate { get; set; }
+    /// <summary>Gets or sets monthly Barman scheduled backup rate in USD.</summary>
+    public decimal BarmanBackupMonthlyRate { get; set; }
+
+    /// <summary>Gets or sets monthly high availability rate in USD.</summary>
+    public decimal HighAvailabilityMonthlyRate { get; set; }
 }

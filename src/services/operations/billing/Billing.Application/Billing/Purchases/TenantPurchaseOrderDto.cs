@@ -12,6 +12,8 @@ public sealed record TenantPurchaseOrderDto(
     string Currency,
     string DatabaseStrategy,
     string DatabaseProvider,
+    bool HasScheduledBackups,
+    bool HasHighAvailability,
     bool HasReadReplicas,
     int ReplicaCount,
     string Status,

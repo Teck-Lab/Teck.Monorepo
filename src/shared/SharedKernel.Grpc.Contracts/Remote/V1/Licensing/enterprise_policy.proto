@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+option csharp_namespace = "Licensing.Host.Grpc.V1";
+package teck.licensing.v1;
+
+// Internal cluster-only lookup; network policy provides the caller trust boundary.
+// The operator-facing HTTP endpoints remain protected by gateway authentication.
+service EnterprisePolicyLookup {
+  rpc GetEnterprisePolicy(GetEnterprisePolicyRequest) returns (GetEnterprisePolicyResponse);
+}
+
+message GetEnterprisePolicyRequest {
+  string policy_id = 1;
+  string policy_version = 2;
+  string tenant_id = 3;
+  string subscription_id = 4;
+  string source_order_id = 5;
+}
+
+message GetEnterprisePolicyResponse {
+  EnterprisePolicyDocument policy = 1;
+  PolicyStatus status = 2;
+}
+
+message EnterprisePolicyDocument {
+  string policy_id = 1;
+  string policy_version = 2;
+  string tenant_id = 3;
+  string subscription_id = 4;
+  string source_order_id = 5;
+  int32 grace_period_days = 6;
+  int32 backup_retention_days = 7;
+  string valid_from_utc = 8;
+  string valid_until_utc = 9;
+  string license_kind = 10;
+  string signing_key_id = 11;
+  string signature = 12;
+}
+
+enum PolicyStatus {
+  POLICY_STATUS_UNSPECIFIED = 0;
+  POLICY_STATUS_ACTIVE = 1;
+  POLICY_STATUS_REVOKED = 2;
+  POLICY_STATUS_SUPERSEDED = 3;
+  POLICY_STATUS_NOT_YET_VALID = 4;
+  POLICY_STATUS_EXPIRED = 5;
+}

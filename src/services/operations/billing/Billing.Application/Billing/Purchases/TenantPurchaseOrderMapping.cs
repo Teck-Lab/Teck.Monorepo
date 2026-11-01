@@ -11,7 +11,7 @@ public static class TenantPurchaseOrderMapping
     public static TenantPurchaseOrderDto ToDto(TenantPurchaseOrder order) => new(
         order.Id, order.TenantId, order.TenantIdentifier, order.SubscriptionId,
         order.PlanId, order.PlanVersion, order.AmountMinor, order.Currency,
-        order.DatabaseStrategy, order.DatabaseProvider, order.HasReadReplicas,
-        order.ReplicaCount, order.Status, order.PaymentMethod, order.CreatedAtUtc,
+        order.DatabaseStrategy, order.DatabaseProvider, order.HasScheduledBackups, order.HasHighAvailability,
+        order.HasReadReplicas, order.ReplicaCount, order.Status, order.PaymentMethod, order.CreatedAtUtc,
         order.ConfirmedAtUtc, order.ValidUntilUtc, order.CancelledAtUtc);
 }
