@@ -18,6 +18,8 @@ public sealed class TenantPurchaseOrderConfiguration : IEntityTypeConfiguration<
         builder.Property(order => order.PlanVersion).HasMaxLength(64).IsRequired();
         builder.Property(order => order.Currency).HasMaxLength(3).IsRequired();
         builder.Property(order => order.DatabaseStrategy).HasMaxLength(32).IsRequired();
+        builder.Property(order => order.HasScheduledBackups).IsRequired();
+        builder.Property(order => order.HasHighAvailability).IsRequired();
         builder.Property(order => order.DatabaseProvider).HasMaxLength(32).IsRequired();
         builder.Property(order => order.Status).HasMaxLength(16).IsRequired();
         builder.Property(order => order.PaymentMethod).HasMaxLength(32);
@@ -25,6 +27,10 @@ public sealed class TenantPurchaseOrderConfiguration : IEntityTypeConfiguration<
         builder.Property(order => order.InvoiceVerifiedBy).HasMaxLength(128);
         builder.Property(order => order.StripePaymentIntentId).HasMaxLength(255);
         builder.HasIndex(order => order.StripePaymentIntentId).IsUnique();
+        builder.Property(order => order.EnterprisePolicyId).HasMaxLength(128);
+        builder.Property(order => order.EnterprisePolicyVersion).HasMaxLength(64);
+        builder.Property(order => order.EffectiveGracePeriodDays).IsRequired();
+        builder.Property(order => order.EffectiveBackupRetentionDays).IsRequired();
         builder.Property(order => order.CreatedBySubjectId).HasMaxLength(128).IsRequired();
         builder.Property(order => order.BeneficiarySubjectId).HasMaxLength(128).IsRequired();
         builder.HasIndex(order => order.PreviousPurchaseOrderId)

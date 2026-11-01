@@ -12,6 +12,21 @@ public sealed class TenantDatabaseReadinessCheck(NpgsqlDataSource dataSource, IC
     /// <inheritdoc />
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
+        bool HasValidBarmanConfiguration()
+        {
+            try
+            {
+                new TenantBarmanStoreOptions(configuration["TenantDatabase:Barman:DestinationPath"] ?? "",
+                    configuration["TenantDatabase:Barman:EndpointUrl"],
+                    configuration["TenantDatabase:Barman:CredentialsSecret"] ?? "").Validate();
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
+
         if (TenantDatabaseReconciler.SupportedServices.Any(service =>
                 string.IsNullOrWhiteSpace(configuration[$"TenantDatabase:ServiceImages:{service}"])) ||
             string.IsNullOrWhiteSpace(configuration["Keycloak:realm"]) ||
@@ -28,9 +43,9 @@ public sealed class TenantDatabaseReadinessCheck(NpgsqlDataSource dataSource, IC
             configuration["BillingPurgeFenceClient:Scope"]?.Split(' ', StringSplitOptions.RemoveEmptyEntries)
                 .Contains("billing:purge-fence", StringComparer.Ordinal) != true ||
             string.IsNullOrWhiteSpace(configuration["BillingPurgeFenceClient:BillingBaseUrl"]) ||
-            string.IsNullOrWhiteSpace(configuration["TenantDatabase:VolumeSnapshotClass"]))
+            !HasValidBarmanConfiguration())
         {
-            return HealthCheckResult.Unhealthy("Tenant database migration, identity, OpenBao, signing, verified-backup or dedicated Billing purge-fence settings are missing.");
+            return HealthCheckResult.Unhealthy("Tenant database migration, identity, OpenBao, signing, Barman archive or dedicated Billing purge-fence settings are missing.");
         }
 
         if (!environment.IsDevelopment() &&

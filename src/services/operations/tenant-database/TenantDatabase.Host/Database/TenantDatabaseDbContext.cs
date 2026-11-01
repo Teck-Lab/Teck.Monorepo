@@ -18,12 +18,14 @@ public sealed class TenantDatabaseDbContext(DbContextOptions<TenantDatabaseDbCon
         request.Property(row => row.DesiredState).HasColumnName("desired_state").HasColumnType("jsonb").IsRequired();
         request.Property(row => row.Phase).HasColumnName("phase").HasColumnType("text").IsRequired();
         request.Property(row => row.Detail).HasColumnName("detail").HasColumnType("text");
+        request.Property(row => row.SuspensionReason).HasColumnName("suspension_reason").HasColumnType("text");
         request.Property(row => row.ReceivedAt).HasColumnName("received_at").HasColumnType("timestamp with time zone").IsRequired();
         request.Property(row => row.UpdatedAt).HasColumnName("updated_at").HasColumnType("timestamp with time zone").IsRequired();
         request.Property(row => row.LeaseUntil).HasColumnName("lease_until").HasColumnType("timestamp with time zone");
         request.Property(row => row.SourceOrderId).HasColumnName("source_order_id").HasColumnType("uuid").IsRequired();
         request.Property(row => row.Proof).HasColumnName("proof").HasColumnType("text").IsRequired();
         request.Property(row => row.PreviousSourceOrderId).HasColumnName("previous_source_order_id").HasColumnType("uuid").HasDefaultValue(Guid.Empty).IsRequired();
+        request.Property(row => row.EnterprisePolicyTransitionProof).HasColumnName("enterprise_policy_transition_proof").HasColumnType("text");
         request.Property(row => row.EvidenceId).HasColumnName("evidence_id").HasColumnType("uuid");
         request.Property(row => row.ReadinessPublishedAt).HasColumnName("readiness_published_at").HasColumnType("timestamp with time zone");
         request.Property(row => row.LastClusterUid).HasColumnName("last_cluster_uid").HasColumnType("uuid");

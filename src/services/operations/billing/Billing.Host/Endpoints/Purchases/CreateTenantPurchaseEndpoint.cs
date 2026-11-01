@@ -45,7 +45,8 @@ public sealed class CreateTenantPurchaseEndpoint(IMessageBus bus, CustomerReserv
         {
             var dto = await bus.InvokeAsync<TenantPurchaseOrderDto>(new CreateTenantPurchaseCommand(
                 reservation.TenantId, reservation.TenantIdentifier, request.PlanId, request.PlanVersion, request.DatabaseProvider,
-                request.HasReadReplicas, request.ReplicaCount, buyerSubject, reservation.OwnerSubjectId), ct).ConfigureAwait(false);
+                request.HasScheduledBackups, request.HasHighAvailability, request.HasReadReplicas, request.ReplicaCount,
+                buyerSubject, reservation.OwnerSubjectId), ct).ConfigureAwait(false);
             HttpContext.Response.Headers.Location = $"/purchases/{dto.Id}";
             await Send.ResponseAsync(dto, StatusCodes.Status201Created, ct);
         }

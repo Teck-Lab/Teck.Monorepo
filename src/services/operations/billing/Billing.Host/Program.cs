@@ -19,6 +19,10 @@ builder.Services.AddTeckService(typeof(Program).Assembly, builder.Configuration)
 builder.AddBillingPersistence();
 builder.Services.Configure<PaymentProviderOptions>(builder.Configuration.GetSection(PaymentProviderOptions.SectionName));
 builder.Services.Configure<TenantPurchaseOptions>(builder.Configuration.GetSection(TenantPurchaseOptions.SectionName));
+builder.Services.Configure<EnterprisePolicyOptions>(builder.Configuration.GetSection(EnterprisePolicyOptions.SectionName));
+builder.Services.AddSingleton(new EnterprisePolicyVerificationKeys(builder.Configuration));
+builder.Services.AddSingleton<EnterprisePolicyLookupClient>();
+builder.Services.AddScoped<AttachEnterprisePolicyHandler>();
 builder.Services.AddScoped<CreateTenantPurchaseHandler>();
 builder.Services.AddScoped<CreateStripePurchaseIntentHandler>();
 builder.Services.AddScoped<GetTenantPurchaseOrderHandler>();

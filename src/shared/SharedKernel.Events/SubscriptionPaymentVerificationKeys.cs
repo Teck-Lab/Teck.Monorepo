@@ -7,8 +7,8 @@ public sealed class SubscriptionPaymentVerificationKeys : IDisposable
 {
     private readonly List<RSA> publicKeys = [];
 
-    /// <summary>Loads the active and, during rotation, previously trusted public keys.</summary>
-    /// <param name="trustedPublicKeys">Runtime SubjectPublicKeyInfo PEM documents.</param>
+    /// <summary>Loads active and previously trusted public keys.</summary>
+    /// <param name="trustedPublicKeys">SubjectPublicKeyInfo PEM documents.</param>
     public SubscriptionPaymentVerificationKeys(IEnumerable<string>? trustedPublicKeys)
     {
         var completed = false;
@@ -50,37 +50,20 @@ public sealed class SubscriptionPaymentVerificationKeys : IDisposable
         }
     }
 
-    /// <summary>Checks the complete paid snapshot against every currently trusted Billing public key.</summary>
-    /// <param name="paid">The received broker message.</param>
-    /// <returns>True only for a valid Billing signature on the unmodified snapshot.</returns>
-    public bool Verify(SubscriptionPaymentConfirmedIntegrationEvent paid)
-    {
-        foreach (var key in publicKeys)
-        {
-            if (SubscriptionPaymentProof.Verify(paid, key))
-            {
-                return true;
-            }
-        }
+    /// <summary>Checks the complete paid snapshot against every trusted Billing key.</summary>
+    /// <param name="paid">The received paid snapshot.</param>
+    /// <returns>True only for an authenticated snapshot.</returns>
+    public bool Verify(SubscriptionPaymentConfirmedIntegrationEvent paid) => publicKeys.Any(key => SubscriptionPaymentProof.Verify(paid, key));
 
-        return false;
-    }
+    /// <summary>Checks a suspension against every trusted Billing key.</summary>
+    /// <param name="suspension">The received suspension.</param>
+    /// <returns>True only for an authenticated suspension.</returns>
+    public bool Verify(SubscriptionAccessSuspendedIntegrationEvent suspension) => publicKeys.Any(key => SubscriptionSuspensionProof.Verify(suspension, key));
 
-    /// <summary>Checks a cancelled or failed-renewal subscription with public-only Billing keys.</summary>
-    /// <param name="suspension">The received subscription suspension.</param>
-    /// <returns>True only when Billing signed this exact suspended tenant and subscription.</returns>
-    public bool Verify(SubscriptionAccessSuspendedIntegrationEvent suspension)
-    {
-        foreach (var key in publicKeys)
-        {
-            if (SubscriptionSuspensionProof.Verify(suspension, key))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    /// <summary>Checks a policy transition against every trusted Billing key.</summary>
+    /// <param name="transition">The received policy attachment.</param>
+    /// <returns>True only for an authenticated transition.</returns>
+    public bool Verify(EnterprisePolicyAttachedIntegrationEvent transition) => publicKeys.Any(key => EnterprisePolicyAttachedProof.Verify(transition, key));
 
     /// <inheritdoc />
     public void Dispose()

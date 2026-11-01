@@ -28,6 +28,8 @@ internal static class TenantPurchaseEventSnapshot
             Currency = order.Currency,
             DatabaseStrategy = order.DatabaseStrategy,
             DatabaseProvider = order.DatabaseProvider,
+            HasScheduledBackups = order.HasScheduledBackups,
+            HasHighAvailability = order.HasHighAvailability,
             HasReadReplicas = order.HasReadReplicas,
             ReplicaCount = order.ReplicaCount,
             PaymentMethod = order.PaymentMethod,
@@ -40,6 +42,11 @@ internal static class TenantPurchaseEventSnapshot
             MaxLocations = plan.MaxLocations,
             SupportsCustomBranding = plan.SupportsCustomBranding,
             SupportsAnalytics = plan.SupportsAnalytics,
+            PolicyVersion = 4,
+            EffectiveGracePeriodDays = order.EffectiveGracePeriodDays,
+            EffectiveBackupRetentionDays = order.EffectiveBackupRetentionDays,
+            EnterprisePolicyId = order.EnterprisePolicyId,
+            EnterprisePolicyVersion = order.EnterprisePolicyVersion,
             Features = new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 [LicenseFeatureKey.AccessPointsMax] = Limit(plan.MaxAccessPointsPerLocation),
