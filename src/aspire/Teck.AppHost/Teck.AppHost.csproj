@@ -21,6 +21,7 @@
     <ProjectReference Include="..\..\services\commerce\catalog\Catalog.Host\Catalog.Host.csproj" />
     <ProjectReference Include="..\..\services\commerce\pricing\Pricing.Host\Pricing.Host.csproj" />
     <ProjectReference Include="..\..\services\operations\billing\Billing.Host\Billing.Host.csproj" />
+    <ProjectReference Include="..\..\services\operations\licensing\Licensing.Host\Licensing.Host.csproj" />
     <ProjectReference Include="..\..\services\operations\notification\Notification.Host\Notification.Host.csproj" />
     <ProjectReference Include="..\..\services\gateway\web-customer\Gateway.WebCustomer.csproj" />
     <ProjectReference Include="..\..\services\gateway\web-admin\Gateway.WebAdmin.csproj" />

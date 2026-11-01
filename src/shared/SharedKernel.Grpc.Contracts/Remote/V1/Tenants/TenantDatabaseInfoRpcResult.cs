@@ -21,6 +21,9 @@ public sealed class TenantDatabaseInfoRpcResult
     /// <summary>Gets or sets a value indicating whether the tenant has read replicas.</summary>
     public bool HasReadReplicas { get; set; }
 
+    /// <summary>Gets or sets the exclusive end of the Billing-verified paid period, when applicable.</summary>
+    public DateTimeOffset? ValidUntilUtc { get; set; }
+
     /// <summary>Gets or sets a human-readable error detail when <see cref="Found"/> is false.</summary>
     public string? ErrorDetail { get; set; }
 }

@@ -112,6 +112,58 @@ public sealed class GetTenantDatabaseInfoTests : IAsyncLifetime
         Assert.Equal("dev", result.Identifier);
     }
 
+    [Fact]
+    public async Task RemoteHandler_LinksGeneratedOrganizationOnlyAfterPaidReadiness()
+    {
+        var registryId = Guid.NewGuid();
+        var organizationId = Guid.NewGuid();
+        await using AsyncServiceScope scope = factory!.Services.CreateAsyncScope();
+        var database = scope.ServiceProvider.GetRequiredService<CustomerDbContext>();
+        var tenant = Customers.Domain.Entities.Tenant.CreatePendingReservation(registryId,
+            $"paid-business-{registryId:N}", "owner-subject");
+        database.Tenants.Add(tenant);
+        await database.SaveChangesAsync().ConfigureAwait(false);
+        tenant.ApplyPurchaseConfirmation(Guid.NewGuid(), Guid.NewGuid(), "Business", "2026-10", "shared", "postgres", false, DateTimeOffset.UtcNow.AddYears(1));
+        tenant.LinkOrganization(organizationId);
+        await database.SaveChangesAsync().ConfigureAwait(false);
+
+        var handler = scope.ServiceProvider.GetRequiredService<GetTenantDatabaseInfoCommandHandler>();
+        var query = new GetTenantDatabaseInfoCommand { TenantId = organizationId.ToString("D"), ServiceName = "order" };
+        Assert.False((await handler.ExecuteAsync(query, CancellationToken.None).ConfigureAwait(false)).Found);
+
+        tenant.MarkProvisionerReady("license");
+        tenant.MarkProvisionerReady("database");
+        await database.SaveChangesAsync().ConfigureAwait(false);
+        var resolved = await handler.ExecuteAsync(query, CancellationToken.None).ConfigureAwait(false);
+        Assert.True(resolved.Found);
+        Assert.Equal(registryId.ToString("D"), resolved.TenantId);
+        Assert.Equal(tenant.Identifier, resolved.Identifier);
+    }
+
+    [Fact]
+    public async Task RemoteHandler_DeniesExpiredPaidTenantBeforeBillingSuspensionEventArrives()
+    {
+        var tenantId = Guid.NewGuid();
+        var organizationId = Guid.NewGuid();
+        await using AsyncServiceScope scope = factory!.Services.CreateAsyncScope();
+        var database = scope.ServiceProvider.GetRequiredService<CustomerDbContext>();
+        var tenant = Customers.Domain.Entities.Tenant.CreatePendingReservation(tenantId,
+            $"expired-business-{tenantId:N}", "owner-subject");
+        tenant.ApplyPurchaseConfirmation(Guid.NewGuid(), Guid.NewGuid(), "Business", "2026-10",
+            "shared", "postgres", false, DateTimeOffset.UtcNow.AddSeconds(-1));
+        tenant.MarkProvisionerReady("license");
+        tenant.MarkProvisionerReady("database");
+        tenant.LinkOrganization(organizationId);
+        database.Tenants.Add(tenant);
+        await database.SaveChangesAsync().ConfigureAwait(false);
+
+        var handler = scope.ServiceProvider.GetRequiredService<GetTenantDatabaseInfoCommandHandler>();
+        var query = new GetTenantDatabaseInfoCommand { TenantId = organizationId.ToString("D"), ServiceName = "order" };
+        Assert.False((await handler.ExecuteAsync(query, CancellationToken.None).ConfigureAwait(false)).Found);
+        query.TenantId = tenantId.ToString("D");
+        Assert.False((await handler.ExecuteAsync(query, CancellationToken.None).ConfigureAwait(false)).Found);
+    }
+
     /// <summary>
     /// <see cref="WebApplicationFactory{TEntryPoint}"/> for Customer.Host that injects the
     /// Testcontainers Postgres connection string into all three connection-string slots so that

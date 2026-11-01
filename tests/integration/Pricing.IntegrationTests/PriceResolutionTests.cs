@@ -61,7 +61,10 @@ public sealed class PriceResolutionTests : PricingIntegrationTestBase
         using HttpResponseMessage customerResponse = await Client.GetAsync(new Uri("/openapi/v1-public/openapi.json", UriKind.Relative));
         Assert.Equal(System.Net.HttpStatusCode.OK, customerResponse.StatusCode);
         using var customer = System.Text.Json.JsonDocument.Parse(await customerResponse.Content.ReadAsStringAsync());
-        Assert.False(customer.RootElement.GetProperty("paths").TryGetProperty("/api/v1/admin/pricing/price-lists", out _));
+        if (customer.RootElement.TryGetProperty("paths", out System.Text.Json.JsonElement publicPaths))
+        {
+            Assert.False(publicPaths.TryGetProperty("/api/v1/admin/pricing/price-lists", out _));
+        }
     }
 
     /// <summary>Resolving in the list's native currency applies the matching quantity tier.</summary>

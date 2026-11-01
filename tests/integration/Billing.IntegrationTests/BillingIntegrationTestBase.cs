@@ -2,9 +2,12 @@
 // Copyright (c) TeckLab. All rights reserved.
 // </copyright>
 
+using Billings.Application.Billing;
 using Billings.Application.Database;
 using Billings.Application.Billing.Payments;
+using Billings.Application.Billing.Purchases;
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using Finbuckle.MultiTenant.Abstractions;
 using Finbuckle.MultiTenant.Extensions;
 using JasperFx.CommandLine;
@@ -18,6 +21,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using SharedKernel.Infrastructure.MultiTenant;
 using Teck.Platform.IntegrationTests.Shared;
 using Wolverine;
@@ -32,6 +36,9 @@ namespace Billing.IntegrationTests;
 /// </summary>
 public abstract class BillingIntegrationTestBase : IDisposable
 {
+    private const string TestPaymentKeyPassphrase = "test-only-billing-paid-proof-passphrase";
+    private static readonly Lazy<(string Encrypted, string Public)> PaymentKeys = new(CreatePaymentKeys);
+
     private readonly SharedTestcontainersFixture fixture;
     private readonly string databaseConnectionString;
     private readonly BillingWebApplicationFactory factory;
@@ -41,7 +48,7 @@ public abstract class BillingIntegrationTestBase : IDisposable
     /// </summary>
     /// <param name="fixture">The shared testcontainers fixture providing Postgres.</param>
     /// <param name="useRabbitMq">Whether this test requires the production RabbitMQ transport.</param>
-    protected BillingIntegrationTestBase(SharedTestcontainersFixture fixture, bool useRabbitMq = false)
+    protected BillingIntegrationTestBase(SharedTestcontainersFixture fixture, bool useRabbitMq = false, HttpMessageHandler? reservationHandler = null)
     {
         ArgumentNullException.ThrowIfNull(fixture);
         this.fixture = fixture;
@@ -54,7 +61,7 @@ public abstract class BillingIntegrationTestBase : IDisposable
             .GetAwaiter()
             .GetResult();
 
-        factory = new BillingWebApplicationFactory(fixture, databaseConnectionString, useRabbitMq);
+        factory = new BillingWebApplicationFactory(fixture, databaseConnectionString, useRabbitMq, reservationHandler);
         Client = factory.CreateClient();
     }
 
@@ -70,11 +77,17 @@ public abstract class BillingIntegrationTestBase : IDisposable
     /// <summary>Gets the test provider used to observe provider calls made by the host.</summary>
     protected RecordingPaymentProvider Provider => factory.Services.GetRequiredService<RecordingPaymentProvider>();
 
+    /// <summary>Gets the isolated Stripe gateway used to assert the server-priced purchase request.</summary>
+    protected RecordingStripePurchaseGateway StripePurchases => factory.Services.GetRequiredService<RecordingStripePurchaseGateway>();
+
     /// <summary>Gets the real Billing host for Wolverine's built-in tracked-session assertions.</summary>
     protected IHost WolverineHost => factory.WolverineHost;
 
     /// <summary>Gets the shared RabbitMQ connection string for broker-backed regression tests.</summary>
     protected string RabbitMqConnectionString => fixture.RabbitMqConnectionString;
+    /// <summary>Gets Billing's test-only public payment key for independently running consumers.</summary>
+    protected static string BillingPaymentPublicKey => PaymentKeys.Value.Public;
+
 
     /// <summary>Establishes the tenant that production Wolverine middleware receives from an envelope.</summary>
     protected static void EstablishMessageTenant(IServiceProvider services, string tenantId)
@@ -101,6 +114,7 @@ public abstract class BillingIntegrationTestBase : IDisposable
 
         var configuration = factory.Services.GetRequiredService<IConfiguration>();
         configuration[$"PaymentProvider:{key}"] = value;
+        factory.Services.GetRequiredService<IOptionsMonitorCache<PaymentProviderOptions>>().TryRemove(Options.DefaultName);
     }
 
     /// <inheritdoc/>
@@ -112,10 +126,19 @@ public abstract class BillingIntegrationTestBase : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    private static (string Encrypted, string Public) CreatePaymentKeys()
+    {
+        using var key = RSA.Create(2048);
+        return (key.ExportEncryptedPkcs8PrivateKeyPem(TestPaymentKeyPassphrase,
+            new PbeParameters(PbeEncryptionAlgorithm.Aes256Cbc, HashAlgorithmName.SHA256, 10000)),
+            key.ExportSubjectPublicKeyInfoPem());
+    }
+
     private sealed class BillingWebApplicationFactory(
         SharedTestcontainersFixture fixture,
         string databaseConnectionString,
-        bool useRabbitMq) : WebApplicationFactory<Program>
+        bool useRabbitMq,
+        HttpMessageHandler? reservationHandler) : WebApplicationFactory<Program>
     {
         private IHost? wolverineHost;
 
@@ -143,6 +166,9 @@ public abstract class BillingIntegrationTestBase : IDisposable
             builder.UseSetting("ConnectionStrings:BillingWrite", databaseConnectionString);
             builder.UseSetting("ConnectionStrings:BillingRead", databaseConnectionString);
             builder.UseSetting("ConnectionStrings:Default", databaseConnectionString);
+            builder.UseSetting("Stripe:WebhookSecret", "whsec_local-only-billing-integration-tests");
+            builder.UseSetting("PaymentProof:EncryptedPrivateKey", PaymentKeys.Value.Encrypted);
+            builder.UseSetting("PaymentProof:Passphrase", TestPaymentKeyPassphrase);
             if (useRabbitMq)
             {
                 builder.UseSetting("ConnectionStrings:rabbitmq", fixture.RabbitMqConnectionString);
@@ -198,10 +224,18 @@ public abstract class BillingIntegrationTestBase : IDisposable
                 }
 
                 services.AddSingleton<IAuthorizationHandler, PermissiveProtectedResourceHandler>();
+                if (reservationHandler is not null)
+                {
+                    services.AddHttpClient<Billings.Host.Infrastructure.CustomerReservationClient>()
+                        .ConfigurePrimaryHttpMessageHandler(() => reservationHandler);
+                }
 
                 services.RemoveAll<IPaymentProvider>();
                 services.AddSingleton<RecordingPaymentProvider>();
                 services.AddSingleton<IPaymentProvider>(provider => provider.GetRequiredService<RecordingPaymentProvider>());
+                services.RemoveAll<IStripePurchaseGateway>();
+                services.AddSingleton<RecordingStripePurchaseGateway>();
+                services.AddSingleton<IStripePurchaseGateway>(provider => provider.GetRequiredService<RecordingStripePurchaseGateway>());
             });
         }
 

@@ -35,4 +35,4 @@ builder.AddTeckMessaging(typeof(BasketDbContext).Assembly, "BasketWrite");
 var app = builder.Build();
 app.UseTeckService();
 app.MapDefaultEndpoints();
-return await app.RunTeckServiceAsync(args);
+return await app.RunTeckServiceAsync<BasketDbContext>(args);

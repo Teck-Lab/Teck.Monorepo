@@ -35,6 +35,18 @@ public sealed class GetTenantDatabaseInfoCommandHandler(IGenericReadRepository<T
             };
         }
 
+        if (!string.Equals(tenant.Status, "active", StringComparison.Ordinal) ||
+            tenant.PurchaseOrderId != Guid.Empty && (tenant.ValidUntilUtc is not DateTimeOffset validUntilUtc ||
+                DateTimeOffset.UtcNow >= validUntilUtc))
+        {
+            return new TenantDatabaseInfoRpcResult
+            {
+                Found = false,
+                TenantId = command.TenantId,
+                ErrorDetail = "Tenant is not active.",
+            };
+        }
+
         return new TenantDatabaseInfoRpcResult
         {
             Found = true,
@@ -43,6 +55,7 @@ public sealed class GetTenantDatabaseInfoCommandHandler(IGenericReadRepository<T
             DatabaseStrategy = tenant.DatabaseStrategy,
             DatabaseProvider = tenant.DatabaseProvider,
             HasReadReplicas = tenant.HasReadReplicas,
+            ValidUntilUtc = tenant.ValidUntilUtc,
         };
     }
 }

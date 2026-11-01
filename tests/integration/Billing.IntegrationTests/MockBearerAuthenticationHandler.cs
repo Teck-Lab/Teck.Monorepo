@@ -50,16 +50,25 @@ internal sealed class MockBearerAuthenticationHandler : AuthenticationHandler<Au
     /// <inheritdoc/>
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var claims = new[]
+        var onboardingSubject = Request.Headers["X-Test-Onboarding-Subject"].ToString();
+        var sales = Request.Headers.ContainsKey("X-Test-Sales-Role");
+        var subject = string.IsNullOrEmpty(onboardingSubject) ? "test-user" : onboardingSubject;
+        var claims = new List<Claim>
         {
-            new Claim("tenant_id", TestTenantId),
-            // Billing handlers resolve the current tenant via ITenantInfo (Finbuckle), not from
-            // claims directly, so no customer_id claim is required here. "sub" is included anyway
-            // for parity with a real Keycloak access token shape.
-            new Claim("sub", "test-user"),
-            new Claim(ClaimTypes.NameIdentifier, "test-user"),
-            new Claim(ClaimTypes.Name, "Test User"),
+            new("sub", subject),
+            new("aud", "billing-api"),
+            new(ClaimTypes.NameIdentifier, subject),
+            new(ClaimTypes.Name, subject),
         };
+        if (string.IsNullOrEmpty(onboardingSubject))
+        {
+            claims.Add(new Claim("tenant_id", TestTenantId));
+            claims.Add(new Claim("tenant_identifier", "test-tenant"));
+        }
+        if (sales)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, "sales"));
+        }
 
         var identity = new ClaimsIdentity(claims, SchemeName);
         var principal = new ClaimsPrincipal(identity);
