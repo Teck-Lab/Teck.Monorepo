@@ -15,7 +15,7 @@ public sealed class KubernetesCnpgBackendTests
     {
         var handler = new RecordingHandler(missingOnGet: true);
         var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
-        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao());
+        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
 
         await backend.ApplyClusterAsync(new("tenant-databases", "tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa", 3, "tenant-secret",
             Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1")), TestContext.Current.CancellationToken);
@@ -30,11 +30,11 @@ public sealed class KubernetesCnpgBackendTests
             Assert.True(Convert.FromBase64String(body.RootElement.GetProperty("data").GetProperty("password").GetString()!).Length >= 32);
         }
 
-        Assert.Equal("POST", handler.Method);
-        Assert.Equal("/apis/postgresql.cnpg.io/v1/namespaces/tenant-databases/clusters", handler.Path);
-        Assert.Contains("\"namespace\":\"tenant-databases\"", handler.Body);
-        Assert.Contains("\"instances\":3", handler.Body);
-        using var manifest = JsonDocument.Parse(handler.Body);
+        var clusterRequest = Assert.Single(handler.Requests, request => request.Method == "POST" &&
+            request.Path == "/apis/postgresql.cnpg.io/v1/namespaces/tenant-databases/clusters");
+        Assert.Contains("\"namespace\":\"tenant-databases\"", clusterRequest.Body);
+        Assert.Contains("\"instances\":3", clusterRequest.Body);
+        using var manifest = JsonDocument.Parse(clusterRequest.Body);
         var roles = manifest.RootElement.GetProperty("spec").GetProperty("managed").GetProperty("roles")
             .EnumerateArray().ToArray();
         Assert.Equal(11, roles.Length);
@@ -66,18 +66,109 @@ public sealed class KubernetesCnpgBackendTests
     }
 
     [Fact]
+    public async Task ApplyClusterAsync_WithPaidBackupAndHa_ProvisionsIsolatedWalAndScheduledBaseBackups()
+    {
+        var handler = new RecordingHandler(missingOnGet: true);
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
+        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
+        var order = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1");
+        await backend.ApplyClusterAsync(new("tenant-databases", "tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa", 3,
+            "tenant-secret", order, HasScheduledBackups: true, HasHighAvailability: true), TestContext.Current.CancellationToken);
+
+        var storeRequest = Assert.Single(handler.Requests, request => request.Path.Contains("/objectstores", StringComparison.Ordinal) && request.Method == "POST");
+        using var store = JsonDocument.Parse(storeRequest.Body);
+        Assert.Equal("tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa", store.RootElement.GetProperty("metadata").GetProperty("name").GetString());
+        Assert.Contains("/aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa/", store.RootElement.GetProperty("spec").GetProperty("configuration")
+            .GetProperty("destinationPath").GetString(), StringComparison.Ordinal);
+        Assert.Equal("barmancloud.cnpg.io/v1", store.RootElement.GetProperty("apiVersion").GetString());
+        var credentials = store.RootElement.GetProperty("spec").GetProperty("configuration").GetProperty("s3Credentials");
+        Assert.Equal("barman-s3", credentials.GetProperty("accessKeyId").GetProperty("name").GetString());
+        Assert.Equal("ACCESS_SECRET_KEY", credentials.GetProperty("secretAccessKey").GetProperty("key").GetString());
+        Assert.Equal("https://s3.test", store.RootElement.GetProperty("spec").GetProperty("configuration").GetProperty("endpointURL").GetString());
+
+        var clusterRequest = Assert.Single(handler.Requests, request => request.Path.EndsWith("/clusters", StringComparison.Ordinal) && request.Method == "POST");
+        using var cluster = JsonDocument.Parse(clusterRequest.Body);
+        var spec = cluster.RootElement.GetProperty("spec");
+        Assert.Equal(3, spec.GetProperty("instances").GetInt32());
+        Assert.True(spec.GetProperty("minSyncReplicas").GetInt32() > 0);
+        Assert.Equal("barman-cloud.cloudnative-pg.io", spec.GetProperty("plugins")[0].GetProperty("name").GetString());
+        Assert.True(spec.GetProperty("plugins")[0].GetProperty("isWALArchiver").GetBoolean());
+        Assert.Equal("tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa", spec.GetProperty("plugins")[0]
+            .GetProperty("parameters").GetProperty("barmanObjectName").GetString());
+        var scheduledRequest = Assert.Single(handler.Requests, request => request.Path.Contains("/scheduledbackups", StringComparison.Ordinal) && request.Method == "POST");
+        using var scheduled = JsonDocument.Parse(scheduledRequest.Body);
+        var backup = scheduled.RootElement.GetProperty("spec");
+        Assert.Equal("plugin", backup.GetProperty("method").GetString());
+        Assert.Equal("barman-cloud.cloudnative-pg.io", backup.GetProperty("pluginConfiguration").GetProperty("name").GetString());
+        Assert.Equal("0 0 0 * * *", backup.GetProperty("schedule").GetString());
+    }
+
+    [Fact]
+    public async Task ApplyClusterAsync_WithoutRecurringBackup_RetainsFinalBackupArchiveButNoSchedule()
+    {
+        var handler = new RecordingHandler(missingOnGet: true);
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
+        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao(),
+            new TenantBarmanStoreOptions("s3://tenant-backups/", null, "barman-s3"));
+
+        await backend.ApplyClusterAsync(new("tenant-databases", "tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa", 1,
+            "tenant-secret", Guid.NewGuid()), TestContext.Current.CancellationToken);
+
+        Assert.Single(handler.Requests, request => request.Method == "POST" && request.Path.EndsWith("/objectstores", StringComparison.Ordinal));
+        Assert.DoesNotContain(handler.Requests, request => request.Method == "POST" && request.Path.EndsWith("/scheduledbackups", StringComparison.Ordinal));
+        var clusterRequest = Assert.Single(handler.Requests, request => request.Method == "POST" && request.Path.EndsWith("/clusters", StringComparison.Ordinal));
+        using var cluster = JsonDocument.Parse(clusterRequest.Body);
+        Assert.True(cluster.RootElement.GetProperty("spec").GetProperty("plugins")[0].GetProperty("isWALArchiver").GetBoolean());
+        Assert.Equal(0, cluster.RootElement.GetProperty("spec").GetProperty("minSyncReplicas").GetInt32());
+    }
+
+    [Fact]
+    public async Task ApplyClusterAsync_HaWithOneInstance_FailsBeforeCreatingResources()
+    {
+        var handler = new RecordingHandler(missingOnGet: true);
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
+        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao(),
+            new TenantBarmanStoreOptions("s3://tenant-backups/", null, "barman-s3"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => backend.ApplyClusterAsync(
+            new("tenant-databases", "tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa", 1, "tenant-secret",
+                Guid.NewGuid(), HasHighAvailability: true), TestContext.Current.CancellationToken));
+
+        Assert.DoesNotContain(handler.Requests, request => request.Method == "POST");
+    }
+
+    [Fact]
+    public async Task ArePaidEntitlementsReadyAsync_RequiresObservedHaAndScheduledBackup()
+    {
+        var handler = new RecordingHandler("""
+            {"metadata":{"generation":4},"spec":{"instances":3,"minSyncReplicas":1,"plugins":[{"name":"barman-cloud.cloudnative-pg.io","isWALArchiver":true,"parameters":{"barmanObjectName":"tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa"}}]},"status":{"readyInstances":3,"observedGeneration":4}}
+            """);
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
+        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao(),
+            new TenantBarmanStoreOptions("s3://tenant-backups/", null, "barman-s3"));
+        var paid = new TenantClusterSpec("tenant-databases", "tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa", 3,
+            "tenant-secret", Guid.NewGuid(), HasScheduledBackups: true, HasHighAvailability: true);
+
+        Assert.False(await backend.ArePaidEntitlementsReadyAsync(paid, TestContext.Current.CancellationToken));
+        handler.ScheduleResponseBody = """
+            {"metadata":{"generation":2},"spec":{"method":"plugin","pluginConfiguration":{"name":"barman-cloud.cloudnative-pg.io"},"cluster":{"name":"tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa"}},"status":{"lastCheckTime":"2026-10-31T12:00:00Z","nextScheduleTime":"2026-11-01T00:00:00Z"}}
+            """;
+        Assert.True(await backend.ArePaidEntitlementsReadyAsync(paid, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task ApplyClusterAsync_ConditionallyPatchesExistingClusterWithoutReplacingOperatorMetadata()
     {
         var handler = new RecordingHandler("{\"metadata\":{\"resourceVersion\":\"12\",\"annotations\":{\"teck.io/source-order-id\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1\"},\"labels\":{\"cnpg.io/managed\":\"true\"}}}", missingSecretsOnGet: true);
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
-        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao());
+        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
 
         await backend.ApplyClusterAsync(new("tenant-databases", "tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa", 3, "tenant-secret",
             Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1")), TestContext.Current.CancellationToken);
 
-        Assert.Equal("PATCH", handler.Method);
-        Assert.Equal("/apis/postgresql.cnpg.io/v1/namespaces/tenant-databases/clusters/tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa", handler.Path);
-        using var patch = JsonDocument.Parse(handler.Body);
+        var clusterPatch = Assert.Single(handler.Requests, request => request.Method == "PATCH" &&
+            request.Path == "/apis/postgresql.cnpg.io/v1/namespaces/tenant-databases/clusters/tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa");
+        using var patch = JsonDocument.Parse(clusterPatch.Body);
         var operations = patch.RootElement.EnumerateArray().ToArray();
         Assert.Contains(operations, op => op.GetProperty("op").GetString() == "test" &&
             op.GetProperty("path").GetString() == "/metadata/resourceVersion" &&
@@ -88,10 +179,47 @@ public sealed class KubernetesCnpgBackendTests
     }
 
     [Fact]
+    public async Task ApplyClusterAsync_PaidSuccessorRehydratesOnlyItsPredecessorCluster()
+    {
+        var priorOrder = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1");
+        var renewedOrder = Guid.NewGuid();
+        var handler = new RecordingHandler("{\"metadata\":{\"resourceVersion\":\"12\",\"annotations\":{\"teck.io/source-order-id\":\"" + priorOrder + "\",\"cnpg.io/hibernation\":\"on\"},\"labels\":{\"teck.io/tenant-access\":\"suspended\"}}}", missingSecretsOnGet: true);
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
+        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
+
+        await backend.ApplyClusterAsync(new("tenant-databases", "tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa", 1,
+            "tenant-secret", renewedOrder, priorOrder), TestContext.Current.CancellationToken);
+
+        var request = Assert.Single(handler.Requests, item => item.Method == "PATCH" && item.Path.EndsWith("/clusters/tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa", StringComparison.Ordinal));
+        using var patch = JsonDocument.Parse(request.Body);
+        Assert.Contains(patch.RootElement.EnumerateArray(), op => op.GetProperty("path").GetString() == "/metadata/annotations/cnpg.io~1hibernation" &&
+            op.GetProperty("value").GetString() == "off");
+        Assert.Contains(patch.RootElement.EnumerateArray(), op => op.GetProperty("path").GetString() == "/metadata/annotations/teck.io~1source-order-id" &&
+            op.GetProperty("value").GetString() == renewedOrder.ToString("D"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ApplyClusterAsync_HibernatedClusterRejectsSameOrUnrelatedPaidOrder(bool sameOrder)
+    {
+        var previousOrder = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1");
+        var handler = new RecordingHandler("{\"metadata\":{\"resourceVersion\":\"12\",\"annotations\":{\"teck.io/source-order-id\":\"" + previousOrder + "\",\"cnpg.io/hibernation\":\"on\"},\"labels\":{\"teck.io/tenant-access\":\"suspended\"}}}", missingSecretsOnGet: true);
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
+        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => backend.ApplyClusterAsync(new("tenant-databases",
+            "tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa", 1, "tenant-secret", sameOrder ? previousOrder : Guid.NewGuid()),
+            TestContext.Current.CancellationToken));
+
+        Assert.DoesNotContain(handler.Requests, item => item.Method == "PATCH" && item.Path.EndsWith("/clusters/tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task ApplyClusterAsync_RejectsTheArgoOwnedDevelopmentNamespace()
     {
         var handler = new RecordingHandler();
-        var backend = new KubernetesCnpgBackend(new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") }, new UnexpectedRoleRevoker(), new RecordingOpenBao());
+        var backend = new KubernetesCnpgBackend(new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") }, new UnexpectedRoleRevoker(), new RecordingOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => backend.ApplyClusterAsync(new("postgres", "postgres", 1, "ignored"), TestContext.Current.CancellationToken));
         Assert.Null(handler.Method);
@@ -109,7 +237,7 @@ public sealed class KubernetesCnpgBackendTests
         });
         var handler = new RecordingHandler(originalSecret, missingClustersOnGet: true);
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
-        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao());
+        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
 
         await backend.SuspendAccessAsync("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "paid-business", Guid.NewGuid(), suspendedAt, TestContext.Current.CancellationToken);
 
@@ -132,7 +260,7 @@ public sealed class KubernetesCnpgBackendTests
             """;
         var handler = new RecordingHandler(cluster);
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
-        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao());
+        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => backend.SuspendAccessAsync("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "paid-business", Guid.NewGuid(), DateTimeOffset.UtcNow, TestContext.Current.CancellationToken));
     }
@@ -145,7 +273,7 @@ public sealed class KubernetesCnpgBackendTests
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
         var revoker = new FailingOnceRoleRevoker();
         var openBao = new RecordingOpenBao();
-        var backend = new KubernetesCnpgBackend(client, revoker, openBao);
+        var backend = new KubernetesCnpgBackend(client, revoker, openBao, new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
         var suspendedAt = DateTimeOffset.UtcNow.AddDays(-2);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => backend.SuspendAccessAsync(
@@ -173,7 +301,7 @@ public sealed class KubernetesCnpgBackendTests
         Guid firstOrder = Guid.NewGuid();
         var handler = new ConvergedClusterHandler(firstOrder);
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
-        var backend = new KubernetesCnpgBackend(client, new FailingOnceRoleRevoker(failFirst: false), new RecordingOpenBao());
+        var backend = new KubernetesCnpgBackend(client, new FailingOnceRoleRevoker(failFirst: false), new RecordingOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
         var tenant = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
         var when = DateTimeOffset.UtcNow;
         await backend.SuspendAccessAsync(tenant, "paid-business", firstOrder, when, CancellationToken.None);
@@ -191,7 +319,7 @@ public sealed class KubernetesCnpgBackendTests
         Guid first = Guid.NewGuid(), next = Guid.NewGuid();
         var handler = new ConvergedClusterHandler(first);
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
-        var backend = new KubernetesCnpgBackend(client, new FailingOnceRoleRevoker(failFirst: false), new RecordingOpenBao());
+        var backend = new KubernetesCnpgBackend(client, new FailingOnceRoleRevoker(failFirst: false), new RecordingOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
         var initial = new TenantClusterSpec("tenant-databases", "tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa", 2,
             "tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa-credentials", first);
         await backend.ApplyClusterAsync(initial, CancellationToken.None);
@@ -232,7 +360,7 @@ public sealed class KubernetesCnpgBackendTests
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
         var roles = new FailingOnceRoleRevoker(failFirst: false);
         var openBao = new RecordingOpenBao();
-        var backend = new KubernetesCnpgBackend(client, roles, openBao);
+        var backend = new KubernetesCnpgBackend(client, roles, openBao, new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => backend.SuspendAccessAsync(
             "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "paid-business", first, DateTimeOffset.UtcNow,
@@ -248,7 +376,7 @@ public sealed class KubernetesCnpgBackendTests
         Guid sourceOrder = Guid.NewGuid();
         var handler = new ConvergedClusterHandler(sourceOrder) { SuspendDuringNextActivePatch = true };
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
-        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao());
+        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
 
         await Assert.ThrowsAsync<HttpRequestException>(() => backend.ApplyClusterAsync(new(
             "tenant-databases", "tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa", 2,
@@ -264,7 +392,7 @@ public sealed class KubernetesCnpgBackendTests
         var handler = new ConvergedClusterHandler(first) { RenewDuringNextSuspendPatch = next };
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
         var roles = new FailingOnceRoleRevoker(failFirst: false);
-        var backend = new KubernetesCnpgBackend(client, roles, new RecordingOpenBao());
+        var backend = new KubernetesCnpgBackend(client, roles, new RecordingOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
 
         await Assert.ThrowsAsync<HttpRequestException>(() => backend.SuspendAccessAsync(
             "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "paid-business", first, DateTimeOffset.UtcNow,
@@ -282,7 +410,7 @@ public sealed class KubernetesCnpgBackendTests
             """;
         var handler = new RecordingHandler(existingSecret, missingClustersOnGet: true);
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
-        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao());
+        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => backend.SuspendAccessAsync("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "paid-business", Guid.NewGuid(), DateTimeOffset.UtcNow, TestContext.Current.CancellationToken));
     }
@@ -295,7 +423,7 @@ public sealed class KubernetesCnpgBackendTests
             """;
         var handler = new RecordingHandler(roleSecret, missingBootstrapOnGet: true, missingClustersOnGet: true);
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
-        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao());
+        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => backend.SuspendAccessAsync("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "paid-business", Guid.NewGuid(), DateTimeOffset.UtcNow, TestContext.Current.CancellationToken));
     }
@@ -305,7 +433,7 @@ public sealed class KubernetesCnpgBackendTests
     {
         var handler = new RecordingHandler("{}");
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
-        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao());
+        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
 
         Assert.False(await backend.HasApplicationSecretAsync("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", Guid.NewGuid(), TestContext.Current.CancellationToken));
     }
@@ -318,7 +446,7 @@ public sealed class KubernetesCnpgBackendTests
     {
         var handler = new RecordingHandler(payload);
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
-        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao());
+        var backend = new KubernetesCnpgBackend(client, new UnexpectedRoleRevoker(), new RecordingOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
 
         Assert.Equal(expected, await backend.IsClusterReadyAsync("tenant-databases", "tenant-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa",
             TestContext.Current.CancellationToken));
@@ -333,7 +461,7 @@ public sealed class KubernetesCnpgBackendTests
     public async Task IsDatabaseReadyAsync_RequiresAppliedCurrentGeneration(string payload, bool expected)
     {
         var handler = new RecordingHandler(payload);
-        var backend = new KubernetesCnpgBackend(new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") }, new UnexpectedRoleRevoker(), new RecordingOpenBao());
+        var backend = new KubernetesCnpgBackend(new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") }, new UnexpectedRoleRevoker(), new RecordingOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3"));
 
         bool result = await backend.IsDatabaseReadyAsync("tenant-databases", "tenant_db", TestContext.Current.CancellationToken);
 
@@ -422,7 +550,7 @@ public sealed class KubernetesCnpgBackendTests
                 CreatedSecrets++;
                 return new HttpResponseMessage(HttpStatusCode.Created);
             }
-            if (request.Method == HttpMethod.Patch)
+            if (request.Method == HttpMethod.Patch && request.RequestUri!.AbsolutePath.Contains("/clusters/", StringComparison.Ordinal))
             {
                 var patch = JsonNode.Parse(await request.Content!.ReadAsStringAsync(ct))!;
                 if (SuspendDuringNextActivePatch)
@@ -522,6 +650,8 @@ public sealed class KubernetesCnpgBackendTests
         public string? Path { get; private set; }
         public string Body { get; private set; } = string.Empty;
         public List<(string Method, string Path, string Body)> Requests { get; } = [];
+        public string ResponseBody { get; set; } = responseBody;
+        public string? ScheduleResponseBody { get; set; }
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Method = request.Method.Method;
@@ -537,7 +667,8 @@ public sealed class KubernetesCnpgBackendTests
 
             return new HttpResponseMessage(request.Method == HttpMethod.Post ? HttpStatusCode.Created : HttpStatusCode.OK)
             {
-                Content = new StringContent(responseBody, Encoding.UTF8, "application/json"),
+                Content = new StringContent(Path!.Contains("/scheduledbackups/", StringComparison.Ordinal) && ScheduleResponseBody is not null
+                    ? ScheduleResponseBody : ResponseBody, Encoding.UTF8, "application/json"),
             };
         }
     }

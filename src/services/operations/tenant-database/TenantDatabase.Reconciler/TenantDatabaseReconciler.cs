@@ -11,20 +11,47 @@ namespace Teck.TenantDatabase.Reconciler;
 
 public enum TenantSubscriptionStatus { Pending, Active, Suspended, Cancelled }
 public enum TenantDatabasePhase { Pending, NotManaged, Provisioning, AwaitingCredentials, Migrating, Ready, Retained, Purging, Purged }
-public sealed record TenantDatabaseDesiredState(string TenantId, string Identifier, string DatabaseStrategy, string DatabaseProvider, int ReadReplicas, TenantSubscriptionStatus SubscriptionStatus, DateTimeOffset? SuspendedAt);
+public sealed record TenantDatabaseDesiredState(string TenantId, string Identifier, string DatabaseStrategy, string DatabaseProvider, int ReadReplicas, TenantSubscriptionStatus SubscriptionStatus, DateTimeOffset? SuspendedAt, bool HasScheduledBackups = false, bool HasHighAvailability = false, DateTimeOffset? PaidUntilUtc = null, int GracePeriodDays = 0, int BackupRetentionDays = 0, string? EnterprisePolicyId = null, string? EnterprisePolicyVersion = null, Guid? EnterprisePolicySourceOrderId = null);
 public sealed record TenantDatabaseStatus(string TenantId, TenantDatabasePhase Phase, string? Detail = null, Guid? EvidenceId = null);
 public sealed record TenantClusterSpec(string Namespace, string Name, int Instances, string SecretName,
-    Guid SourceOrderId = default, Guid PreviousSourceOrderId = default);
+    Guid SourceOrderId = default, Guid PreviousSourceOrderId = default, bool HasScheduledBackups = false, bool HasHighAvailability = false);
 public sealed record TenantDatabaseSpec(string Namespace, string Name, string ClusterName, string Owner);
 
 /// <summary>Persisted, replay-safe request sourced from a trusted subscription snapshot.</summary>
-public sealed record TenantDatabaseRequest(Guid SubscriptionId, TenantDatabaseDesiredState DesiredState, DateTimeOffset ReceivedAt, Guid SourceOrderId = default, string Proof = "", Guid PreviousSourceOrderId = default);
+public sealed record TenantDatabaseRequest(Guid SubscriptionId, TenantDatabaseDesiredState DesiredState, DateTimeOffset ReceivedAt, Guid SourceOrderId = default, string Proof = "", Guid PreviousSourceOrderId = default, Guid? LastClusterUid = null, bool IsDueRetainedRenewal = false);
+
+/// <summary>Read-only, order-fenced candidate whose trusted retention deadline has elapsed.</summary>
+/// <param name="SubscriptionId">The current tenant subscription identifier.</param>
+/// <param name="TenantId">The canonical tenant registry identifier.</param>
+/// <param name="Identifier">The current tenant identifier used to validate the stored request.</param>
+/// <param name="SourceOrderId">The latest paid order whose grace and retention terms govern this candidate.</param>
+/// <param name="Proof">The persisted Billing signature proving the source order.</param>
+/// <param name="PreviousSourceOrderId">The predecessor order recorded with the paid period.</param>
+/// <param name="PaidUntilUtc">The trusted paid period expiry time.</param>
+/// <param name="EligibleAfterUtc">The paid expiry plus trusted grace and retention windows.</param>
+/// <param name="ClusterUid">The UID of the currently retained CNPG Cluster.</param>
+public sealed record TenantAutomaticExpiryCandidate(Guid SubscriptionId, Guid TenantId, string Identifier,
+    Guid SourceOrderId, string Proof, Guid PreviousSourceOrderId, DateTimeOffset PaidUntilUtc,
+    DateTimeOffset EligibleAfterUtc, Guid ClusterUid);
+
+/// <summary>Enumerates automatic nonpayment eligibility without performing destructive work.</summary>
+public interface ITenantAutomaticExpiryCandidateStore
+{
+    /// <summary>Returns current failed-renewal rows whose trusted expiry and retention deadline has elapsed.</summary>
+    Task<IReadOnlyList<TenantAutomaticExpiryCandidate>> GetAutomaticExpiryCandidatesAsync(int limit, CancellationToken ct);
+
+    /// <summary>Rechecks tenant, source order and Cluster UID under tenant lock before caller work.</summary>
+    Task<bool> WithCurrentAutomaticExpiryCandidateLockAsync(TenantAutomaticExpiryCandidate candidate,
+        Func<CancellationToken, Task> action, CancellationToken ct);
+}
 
 /// <summary>Durable queue and status store for accepted tenant database requests.</summary>
 public interface ITenantDatabaseRequestStore
 {
     Task<bool> UpsertAsync(TenantDatabaseRequest request, CancellationToken ct);
-    Task<bool> SuspendAsync(Guid subscriptionId, Guid sourceOrderId, Guid tenantId, string identifier, DateTimeOffset suspendedAt, CancellationToken ct);
+    /// <summary>Updates immutable enterprise terms only for the current request and exact policy transition.</summary>
+    Task<bool> AttachEnterprisePolicyAsync(EnterprisePolicyAttachedIntegrationEvent transition, CancellationToken ct);
+    Task<bool> SuspendAsync(Guid subscriptionId, Guid sourceOrderId, Guid tenantId, string identifier, DateTimeOffset suspendedAt, string reason, CancellationToken ct);
     Task<IReadOnlyList<TenantDatabaseRequest>> GetPendingAsync(int limit, CancellationToken ct);
     /// <summary>Runs external reconciliation only while this paid request is current and blocks newer intake until it finishes.</summary>
     Task<bool> WithCurrentRequestLockAsync(TenantDatabaseRequest request, Func<CancellationToken, Task> action, CancellationToken ct);
@@ -41,7 +68,7 @@ public interface ITenantDatabaseReadinessPublisher
 /// <summary>Executes durable requests until each request reaches an externally observable state.</summary>
 public sealed class TenantDatabaseWorker(ITenantDatabaseRequestStore store, TenantDatabaseReconciler reconciler,
     ITenantDatabaseReadinessPublisher publisher, DatabaseReadinessSigningKey signingKey,
-    ILogger<TenantDatabaseWorker> logger)
+    ITenantFinalBackupRequester finalBackupRequester, ILogger<TenantDatabaseWorker> logger)
 {
     /// <summary>Reconciles the next persisted batch and stores every resulting phase.</summary>
     public async Task<int> ProcessBatchAsync(CancellationToken ct)
@@ -53,6 +80,23 @@ public sealed class TenantDatabaseWorker(ITenantDatabaseRequestStore store, Tena
             {
                 await store.WithCurrentRequestLockAsync(request, async lockedCt =>
                 {
+                    if (request.IsDueRetainedRenewal)
+                    {
+                        TenantCompletedFinalBackup? completedBackup = await finalBackupRequester.RequestAsync(
+                            new(Guid.Parse(request.DesiredState.TenantId), request.SourceOrderId, request.LastClusterUid!.Value),
+                            lockedCt).ConfigureAwait(false);
+                        if (completedBackup is null)
+                        {
+                            logger.LogInformation("Tenant final backup for {SubscriptionId} is not completed yet; retaining request for retry.", request.SubscriptionId);
+                        }
+                        else
+                        {
+                            logger.LogWarning("Tenant final backup {BackupName} completed as {BackupId}/{EndWal}, but no verified Barman restore gate is configured; retaining request and keeping source active.",
+                                completedBackup.BackupName, completedBackup.BackupId, completedBackup.EndWal);
+                        }
+                        return;
+                    }
+
                     TenantDatabaseStatus status = await reconciler.ReconcileAsync(request.DesiredState, lockedCt,
                         request.SourceOrderId, request.PreviousSourceOrderId).ConfigureAwait(false);
                     await store.SaveStatusAsync(request, status, DateTimeOffset.UtcNow, lockedCt).ConfigureAwait(false);
@@ -82,6 +126,7 @@ public interface ITenantCnpgBackend
     Task ApplyClusterAsync(TenantClusterSpec spec, CancellationToken ct);
     Task<bool> HasApplicationSecretAsync(string tenantId, Guid sourceOrderId, CancellationToken ct);
     Task<bool> IsClusterReadyAsync(string ns, string name, CancellationToken ct);
+    Task<bool> ArePaidEntitlementsReadyAsync(TenantClusterSpec spec, CancellationToken ct);
     Task<Guid?> GetReadyClusterUidAsync(string ns, string name, CancellationToken ct);
     Task ApplyDatabaseAsync(TenantDatabaseSpec spec, CancellationToken ct);
     Task<bool> IsDatabaseReadyAsync(string ns, string name, CancellationToken ct);
@@ -115,8 +160,8 @@ public sealed class TenantDatabaseReconciler
         if ((desired.SubscriptionStatus is TenantSubscriptionStatus.Suspended or TenantSubscriptionStatus.Cancelled) && desired.SuspendedAt is DateTimeOffset suspendedAt)
         {
             await backend.SuspendAccessAsync(desired.TenantId, desired.Identifier, sourceOrderId, suspendedAt, ct).ConfigureAwait(false);
-            // Retention expiry alone never authorizes destructive deletion. An independently
-            // approved, signed purge request and verified backup must gate a separate purge path.
+            // Grace expiry alone cannot delete data. Explicit approved purge remains separate;
+            // automatic nonpayment erasure requires its own renewal fence and verified Barman recovery.
             return new(desired.TenantId, TenantDatabasePhase.Retained);
         }
         if (desired.SubscriptionStatus != TenantSubscriptionStatus.Active || !string.Equals(desired.DatabaseStrategy, "dedicated", StringComparison.OrdinalIgnoreCase)) return new(desired.TenantId, TenantDatabasePhase.NotManaged);
@@ -125,11 +170,15 @@ public sealed class TenantDatabaseReconciler
 
         string clusterName = "tenant-" + suffix;
         string secretName = "tenant-" + suffix + "-credentials";
-        await backend.ApplyClusterAsync(new(TenantNamespace, clusterName, desired.ReadReplicas + 1, secretName,
-            sourceOrderId, previousSourceOrderId), ct).ConfigureAwait(false);
+        int instances = desired.ReadReplicas + (desired.HasHighAvailability ? 2 : 1);
+        var clusterSpec = new TenantClusterSpec(TenantNamespace, clusterName, instances, secretName,
+            sourceOrderId, previousSourceOrderId, desired.HasScheduledBackups, desired.HasHighAvailability);
+        await backend.ApplyClusterAsync(clusterSpec, ct).ConfigureAwait(false);
         if (!await backend.HasApplicationSecretAsync(desired.TenantId, sourceOrderId, ct).ConfigureAwait(false)) return new(desired.TenantId, TenantDatabasePhase.AwaitingCredentials, "Missing current paid-period role credentials in " + TenantNamespace + ".");
         if (!await backend.IsClusterReadyAsync(TenantNamespace, clusterName, ct).ConfigureAwait(false))
             return new(desired.TenantId, TenantDatabasePhase.Provisioning, "CNPG Cluster is not ready.");
+        if (!await backend.ArePaidEntitlementsReadyAsync(clusterSpec, ct).ConfigureAwait(false))
+            return new(desired.TenantId, TenantDatabasePhase.Provisioning, "CNPG paid backup or HA entitlement is not ready.");
         foreach (string service in SupportedServices)
         {
             string databaseName = "tenant_" + suffix + "_" + service;
@@ -154,24 +203,44 @@ public sealed class TenantDatabaseReconciler
     }
 }
 
+/// <summary>Shared storage endpoint and Kubernetes credential reference for tenant-isolated Barman archives.</summary>
+public sealed record TenantBarmanStoreOptions(string DestinationPath, string? EndpointUrl, string CredentialsSecret)
+{
+    /// <summary>Fails closed if an archive cannot be constructed for every tenant.</summary>
+    public void Validate()
+    {
+        if (!Uri.TryCreate(DestinationPath, UriKind.Absolute, out Uri? destination) || destination.Scheme != "s3" ||
+            string.IsNullOrWhiteSpace(destination.Host) || !DestinationPath.EndsWith("/", StringComparison.Ordinal) ||
+            !string.IsNullOrEmpty(destination.Query) || !string.IsNullOrEmpty(destination.Fragment) ||
+            string.IsNullOrWhiteSpace(CredentialsSecret) ||
+            (EndpointUrl is not null && (!Uri.TryCreate(EndpointUrl, UriKind.Absolute, out Uri? endpoint) ||
+                endpoint.Scheme is not ("http" or "https"))))
+            throw new InvalidOperationException("Tenant Barman S3 destination, endpoint and credentials must be configured.");
+    }
+}
+
 /// <summary>Kubernetes API adapter for CNPG resources confined to tenant-databases.</summary>
 public sealed class KubernetesCnpgBackend : ITenantCnpgBackend
 {
     private const string Namespace = "tenant-databases";
     private const string Clusters = "apis/postgresql.cnpg.io/v1/namespaces/tenant-databases/clusters";
     private const string Databases = "apis/postgresql.cnpg.io/v1/namespaces/tenant-databases/databases";
+    private const string ObjectStores = "apis/barmancloud.cnpg.io/v1/namespaces/tenant-databases/objectstores";
+    private const string ScheduledBackups = "apis/postgresql.cnpg.io/v1/namespaces/tenant-databases/scheduledbackups";
+    private const string BarmanPlugin = "barman-cloud.cloudnative-pg.io";
     private readonly HttpClient http;
     private readonly ITenantDatabaseRoleRevoker roleRevoker;
     private readonly ITenantOpenBaoConnectionStore openBao;
-    private readonly string? snapshotClass;
+    private readonly TenantBarmanStoreOptions barman;
 
     public KubernetesCnpgBackend(HttpClient http, ITenantDatabaseRoleRevoker roleRevoker,
-        ITenantOpenBaoConnectionStore openBao, string? snapshotClass = null)
+        ITenantOpenBaoConnectionStore openBao, TenantBarmanStoreOptions barman)
     {
+        barman.Validate();
         this.http = http;
         this.roleRevoker = roleRevoker;
         this.openBao = openBao;
-        this.snapshotClass = snapshotClass;
+        this.barman = barman;
     }
 
     public async Task ApplyClusterAsync(TenantClusterSpec spec, CancellationToken ct)
@@ -179,8 +248,27 @@ public sealed class KubernetesCnpgBackend : ITenantCnpgBackend
         CheckNamespace(spec.Namespace);
         if (spec.SourceOrderId == Guid.Empty || spec.SourceOrderId == spec.PreviousSourceOrderId)
             throw new InvalidOperationException("A signed paid source order is required for CNPG provisioning.");
+        if (spec.HasHighAvailability && spec.Instances < 2)
+            throw new InvalidOperationException("Paid high availability requires at least two CNPG instances.");
         await EnsureCurrentPaidOrderAsync(spec, ct).ConfigureAwait(false);
         string suffix = spec.Name[7..];
+        var configuration = new Dictionary<string, object?>
+        {
+            ["destinationPath"] = barman.DestinationPath + suffix + "/",
+            ["s3Credentials"] = new Dictionary<string, object?>
+            {
+                ["accessKeyId"] = new { name = barman.CredentialsSecret, key = "ACCESS_KEY_ID" },
+                ["secretAccessKey"] = new { name = barman.CredentialsSecret, key = "ACCESS_SECRET_KEY" },
+            },
+            ["wal"] = new { compression = "gzip" },
+        };
+        if (barman.EndpointUrl is not null) configuration["endpointURL"] = barman.EndpointUrl;
+        await ApplyAsync(ObjectStores + "/" + spec.Name, new
+        {
+            apiVersion = "barmancloud.cnpg.io/v1", kind = "ObjectStore",
+            metadata = new { name = spec.Name, @namespace = Namespace },
+            spec = new { configuration },
+        }, ct).ConfigureAwait(false);
         var roles = new List<object>(11);
         await EnsureSecretAsync(spec.SecretName, "tenant_" + suffix + "_migration", ct).ConfigureAwait(false);
         string managerName = "tenant_" + suffix + "_manager";
@@ -242,23 +330,40 @@ public sealed class KubernetesCnpgBackend : ITenantCnpgBackend
             ["spec"] = new Dictionary<string, object?>
             {
                 ["instances"] = spec.Instances,
+                ["plugins"] = new[]
+                {
+                    new
+                    {
+                        name = BarmanPlugin, isWALArchiver = true,
+                        parameters = new { barmanObjectName = spec.Name },
+                    },
+                },
+                ["minSyncReplicas"] = spec.HasHighAvailability ? 1 : 0,
+                ["maxSyncReplicas"] = spec.HasHighAvailability ? Math.Min(2, spec.Instances - 1) : 0,
                 ["managed"] = new Dictionary<string, object?> { ["roles"] = roles },
                 ["bootstrap"] = new Dictionary<string, object?> { ["initdb"] = new Dictionary<string, object?> { ["database"] = "tenant_" + suffix, ["owner"] = "tenant_" + suffix + "_migration", ["secret"] = new Dictionary<string, object?> { ["name"] = spec.SecretName }, ["postInitSQL"] = bootstrapSql } },
                 ["storage"] = new Dictionary<string, object?> { ["size"] = "5Gi" }
             }
         };
-        if (!string.IsNullOrWhiteSpace(snapshotClass))
-        {
-            ((Dictionary<string, object?>)resource["spec"]!)["backup"] = new Dictionary<string, object?>
-            {
-                ["volumeSnapshot"] = new Dictionary<string, string>
-                {
-                    ["className"] = snapshotClass,
-                    ["snapshotOwnerReference"] = "none",
-                },
-            };
-        }
         await ApplyAsync(Clusters + "/" + spec.Name, resource, ct, spec).ConfigureAwait(false);
+        if (spec.HasScheduledBackups)
+        {
+            await ApplyAsync(ScheduledBackups + "/" + spec.Name, new
+            {
+                apiVersion = "postgresql.cnpg.io/v1", kind = "ScheduledBackup",
+                metadata = new { name = spec.Name, @namespace = Namespace },
+                spec = new
+                {
+                    schedule = "0 0 0 * * *", backupOwnerReference = "self", method = "plugin",
+                    pluginConfiguration = new { name = BarmanPlugin }, cluster = new { name = spec.Name },
+                },
+            }, ct).ConfigureAwait(false);
+        }
+        else
+        {
+            using HttpResponseMessage delete = await http.DeleteAsync(ScheduledBackups + "/" + spec.Name, ct).ConfigureAwait(false);
+            if (delete.StatusCode != HttpStatusCode.NotFound) delete.EnsureSuccessStatusCode();
+        }
     }
 
     public async Task<bool> HasApplicationSecretAsync(string tenantId, Guid sourceOrderId, CancellationToken ct)
@@ -276,6 +381,58 @@ public sealed class KubernetesCnpgBackend : ITenantCnpgBackend
     }
 
     public Task<bool> IsClusterReadyAsync(string ns, string name, CancellationToken ct) => ReadyAsync(ns, Clusters + "/" + name, true, ct);
+    public async Task<bool> ArePaidEntitlementsReadyAsync(TenantClusterSpec spec, CancellationToken ct)
+    {
+        CheckNamespace(spec.Namespace);
+        if (!spec.HasScheduledBackups && !spec.HasHighAvailability) return true;
+
+        using HttpResponseMessage clusterResponse = await http.GetAsync(Clusters + "/" + spec.Name, ct).ConfigureAwait(false);
+        if (clusterResponse.StatusCode == HttpStatusCode.NotFound) return false;
+        clusterResponse.EnsureSuccessStatusCode();
+        using JsonDocument cluster = await JsonDocument.ParseAsync(await clusterResponse.Content.ReadAsStreamAsync(ct).ConfigureAwait(false),
+            cancellationToken: ct).ConfigureAwait(false);
+        JsonElement root = cluster.RootElement;
+        if (!root.TryGetProperty("metadata", out JsonElement metadata) ||
+            !metadata.TryGetProperty("generation", out JsonElement generation) ||
+            !generation.TryGetInt64(out long currentGeneration) || currentGeneration < 1 ||
+            !root.TryGetProperty("status", out JsonElement status) ||
+            !status.TryGetProperty("observedGeneration", out JsonElement observedGeneration) ||
+            !observedGeneration.TryGetInt64(out long observed) || observed != currentGeneration ||
+            !root.TryGetProperty("spec", out JsonElement clusterSpec) ||
+            !clusterSpec.TryGetProperty("plugins", out JsonElement plugins) || plugins.ValueKind != JsonValueKind.Array ||
+            !plugins.EnumerateArray().Any(plugin =>
+                plugin.TryGetProperty("name", out JsonElement name) && name.GetString() == BarmanPlugin &&
+                plugin.TryGetProperty("isWALArchiver", out JsonElement archiver) && archiver.ValueKind == JsonValueKind.True &&
+                plugin.TryGetProperty("parameters", out JsonElement parameters) &&
+                parameters.TryGetProperty("barmanObjectName", out JsonElement objectName) && objectName.GetString() == spec.Name))
+            return false;
+
+        if (spec.HasHighAvailability &&
+            (!clusterSpec.TryGetProperty("instances", out JsonElement instances) || instances.GetInt32() < 2 ||
+             !clusterSpec.TryGetProperty("minSyncReplicas", out JsonElement synchronous) || synchronous.GetInt32() < 1 ||
+             !status.TryGetProperty("readyInstances", out JsonElement ready) || ready.GetInt32() < spec.Instances))
+            return false;
+
+        if (!spec.HasScheduledBackups) return true;
+        using HttpResponseMessage scheduleResponse = await http.GetAsync(ScheduledBackups + "/" + spec.Name, ct).ConfigureAwait(false);
+        if (scheduleResponse.StatusCode == HttpStatusCode.NotFound) return false;
+        scheduleResponse.EnsureSuccessStatusCode();
+        using JsonDocument schedule = await JsonDocument.ParseAsync(await scheduleResponse.Content.ReadAsStreamAsync(ct).ConfigureAwait(false),
+            cancellationToken: ct).ConfigureAwait(false);
+        JsonElement backup = schedule.RootElement;
+        return backup.TryGetProperty("status", out JsonElement backupStatus) &&
+            backupStatus.TryGetProperty("lastCheckTime", out JsonElement lastCheck) &&
+            DateTimeOffset.TryParse(lastCheck.GetString(), out _) &&
+            backupStatus.TryGetProperty("nextScheduleTime", out JsonElement nextSchedule) &&
+            DateTimeOffset.TryParse(nextSchedule.GetString(), out _) &&
+            backup.TryGetProperty("spec", out JsonElement backupSpec) &&
+            backupSpec.TryGetProperty("method", out JsonElement method) && method.GetString() == "plugin" &&
+            backupSpec.TryGetProperty("pluginConfiguration", out JsonElement pluginConfiguration) &&
+            pluginConfiguration.TryGetProperty("name", out JsonElement pluginName) && pluginName.GetString() == BarmanPlugin &&
+            backupSpec.TryGetProperty("cluster", out JsonElement backupCluster) &&
+            backupCluster.TryGetProperty("name", out JsonElement backupClusterName) && backupClusterName.GetString() == spec.Name;
+    }
+
     public async Task<Guid?> GetReadyClusterUidAsync(string ns, string name, CancellationToken ct)
     {
         CheckNamespace(ns);
@@ -570,6 +727,12 @@ public sealed class KubernetesCnpgBackend : ITenantCnpgBackend
                 if (!cluster.RootElement.GetProperty("metadata").TryGetProperty("resourceVersion", out JsonElement version) ||
                     string.IsNullOrWhiteSpace(version.GetString()))
                     throw new InvalidOperationException("CNPG Cluster resourceVersion is required for a paid-order update.");
+                bool hibernated = cluster.RootElement.GetProperty("metadata").TryGetProperty("annotations", out JsonElement currentAnnotations) &&
+                    currentAnnotations.TryGetProperty("cnpg.io/hibernation", out JsonElement hibernation) &&
+                    hibernation.GetString() == "on";
+                if (hibernated && (paidOrder.PreviousSourceOrderId == Guid.Empty ||
+                    currentAnnotations.GetProperty("teck.io/source-order-id").GetString() != paidOrder.PreviousSourceOrderId.ToString("D")))
+                    throw new InvalidOperationException("Only a paid successor can rehydrate a suspended CNPG Cluster.");
                 JsonNode body = JsonSerializer.SerializeToNode(resource)!;
                 conditionalPatch = new JsonArray
                 {
@@ -581,10 +744,15 @@ public sealed class KubernetesCnpgBackend : ITenantCnpgBackend
                     },
                     new JsonObject { ["op"] = "add", ["path"] = "/metadata/labels/teck.io~1tenant-access", ["value"] = "active" },
                     new JsonObject { ["op"] = "add", ["path"] = "/spec/instances", ["value"] = body["spec"]!["instances"]!.DeepClone() },
+                    new JsonObject { ["op"] = "add", ["path"] = "/spec/plugins", ["value"] = body["spec"]!["plugins"]!.DeepClone() },
+                    new JsonObject { ["op"] = "add", ["path"] = "/spec/minSyncReplicas", ["value"] = body["spec"]!["minSyncReplicas"]!.DeepClone() },
+                    new JsonObject { ["op"] = "add", ["path"] = "/spec/maxSyncReplicas", ["value"] = body["spec"]!["maxSyncReplicas"]!.DeepClone() },
                     new JsonObject { ["op"] = "add", ["path"] = "/spec/managed/roles", ["value"] = body["spec"]!["managed"]!["roles"]!.DeepClone() },
                     new JsonObject { ["op"] = "add", ["path"] = "/spec/bootstrap", ["value"] = body["spec"]!["bootstrap"]!.DeepClone() },
                     new JsonObject { ["op"] = "add", ["path"] = "/spec/storage", ["value"] = body["spec"]!["storage"]!.DeepClone() },
                 };
+                if (hibernated)
+                    conditionalPatch.Add(new JsonObject { ["op"] = "add", ["path"] = "/metadata/annotations/cnpg.io~1hibernation", ["value"] = "off" });
                 if (cluster.RootElement.GetProperty("metadata").TryGetProperty("labels", out JsonElement labels) &&
                     labels.TryGetProperty("teck.io/suspended-at", out _))
                     conditionalPatch.Add(new JsonObject { ["op"] = "remove", ["path"] = "/metadata/labels/teck.io~1suspended-at" });

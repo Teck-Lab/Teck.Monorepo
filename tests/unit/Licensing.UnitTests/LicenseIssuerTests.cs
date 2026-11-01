@@ -173,6 +173,7 @@ public sealed class LicenseIssuerTests
             PlanVersion = "2026-10", AmountMinor = 10000, Currency = "USD",
             DatabaseStrategy = "shared", DatabaseProvider = "postgres", MaxLocations = 2,
             Features = new Dictionary<string, string> { ["access-points-max"] = "25" },
+            PolicyVersion = 4, EffectiveGracePeriodDays = 7, EffectiveBackupRetentionDays = 30,
             ValidFromUtc = now, ValidUntilUtc = now.AddDays(30), ConfirmedAtUtc = now,
         };
 
@@ -229,6 +230,7 @@ public sealed class LicenseIssuerTests
             PlanVersion = "2026-10", AmountMinor = 10000, Currency = "USD",
             DatabaseStrategy = "shared", DatabaseProvider = "postgres", MaxLocations = 2,
             Features = new Dictionary<string, string> { ["access-points-max"] = "25" },
+            PolicyVersion = 4, EffectiveGracePeriodDays = 7, EffectiveBackupRetentionDays = 30,
             ValidFromUtc = now, ValidUntilUtc = now.AddDays(30), ConfirmedAtUtc = now,
         };
         paid.Proof = SubscriptionPaymentProof.Sign(paid, billingPrivateKey);
@@ -255,6 +257,7 @@ public sealed class LicenseIssuerTests
             PlanVersion = "2026-10", AmountMinor = 10000, Currency = "USD",
             DatabaseStrategy = "shared", DatabaseProvider = "postgres", MaxLocations = 2,
             Features = new Dictionary<string, string> { ["access-points-max"] = "25" },
+            PolicyVersion = 4, EffectiveGracePeriodDays = 7, EffectiveBackupRetentionDays = 30,
             ValidFromUtc = now, ValidUntilUtc = now.AddDays(30), ConfirmedAtUtc = now,
         };
         delayedPaid.Proof = SubscriptionPaymentProof.Sign(delayedPaid, billingPrivateKey);
@@ -286,6 +289,7 @@ public sealed class LicenseIssuerTests
             TenantIdentifier = "renew-license-tenant", PaymentMethod = "captured", PlanId = "Business",
             PlanVersion = "2026-10", AmountMinor = 14999, Currency = "USD", DatabaseStrategy = "shared",
             DatabaseProvider = "postgres", Features = new Dictionary<string, string> { ["access-points-max"] = "25" },
+            PolicyVersion = 4, EffectiveGracePeriodDays = 7, EffectiveBackupRetentionDays = 30,
             ValidFromUtc = now.AddMonths(-11), ValidUntilUtc = now.AddMonths(1), ConfirmedAtUtc = now.AddMonths(-11),
         };
         first.Proof = SubscriptionPaymentProof.Sign(first, billingPrivateKey);
@@ -298,6 +302,7 @@ public sealed class LicenseIssuerTests
             PaymentMethod = "captured", PlanId = "Business", PlanVersion = "2026-10", AmountMinor = 14999,
             Currency = "USD", DatabaseStrategy = "shared", DatabaseProvider = "postgres",
             Features = new Dictionary<string, string> { ["access-points-max"] = "25" },
+            PolicyVersion = 4, EffectiveGracePeriodDays = 7, EffectiveBackupRetentionDays = 30,
             ConfirmedAtUtc = now, ValidFromUtc = first.ValidUntilUtc, ValidUntilUtc = first.ValidUntilUtc.AddYears(1),
         };
         renewal.Proof = SubscriptionPaymentProof.Sign(renewal, billingPrivateKey);
@@ -338,8 +343,8 @@ public sealed class LicenseIssuerTests
             TenantIdentifier = "recovered-license-tenant", PaymentMethod = "captured", PlanId = "Business",
             PlanVersion = "2026-10", AmountMinor = 14999, Currency = "USD", DatabaseStrategy = "shared",
             DatabaseProvider = "postgres", Features = new Dictionary<string, string> { ["access-points-max"] = "25" },
-            ValidFromUtc = now.AddYears(-1), ValidUntilUtc = now.AddDays(1),
-            ConfirmedAtUtc = now.AddYears(-1),
+            PolicyVersion = 4, EffectiveGracePeriodDays = 7, EffectiveBackupRetentionDays = 30,
+            ValidFromUtc = now.AddYears(-1), ValidUntilUtc = now.AddDays(1), ConfirmedAtUtc = now.AddYears(-1),
         };
         first.Proof = SubscriptionPaymentProof.Sign(first, privateKey);
         await paidHandler.Handle(first, CancellationToken.None);
@@ -359,6 +364,7 @@ public sealed class LicenseIssuerTests
             PaymentMethod = "external_invoice", PlanId = "Business", PlanVersion = "2026-10", AmountMinor = 14999,
             Currency = "USD", DatabaseStrategy = "shared", DatabaseProvider = "postgres",
             Features = new Dictionary<string, string> { ["access-points-max"] = "25" },
+            PolicyVersion = 4, EffectiveGracePeriodDays = 7, EffectiveBackupRetentionDays = 30,
             ConfirmedAtUtc = now, ValidFromUtc = now, ValidUntilUtc = now.AddYears(1),
         };
         recovery.Proof = SubscriptionPaymentProof.Sign(recovery, privateKey);

@@ -117,6 +117,7 @@ public sealed class KeycloakCustomerAuthorizationTests : IAsyncLifetime
             PaymentMethod = "captured", AmountMinor = 10000, Currency = "USD", DatabaseStrategy = "dedicated",
             DatabaseProvider = "postgres", MaxLocations = 2, ConfirmedAtUtc = confirmedAt,
             ValidFromUtc = confirmedAt, ValidUntilUtc = confirmedAt.AddYears(1),
+            PolicyVersion = 4, EffectiveGracePeriodDays = 7, EffectiveBackupRetentionDays = 30,
         };
         using var privateKey = RSA.Create(2048);
         using var trustedKeys = new SubscriptionPaymentVerificationKeys([privateKey.ExportSubjectPublicKeyInfoPem()]);

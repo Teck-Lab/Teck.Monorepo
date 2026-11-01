@@ -33,9 +33,11 @@ public sealed class TenantDatabaseReconcilerTests
             SourceOrderId = Guid.NewGuid(), SubscriptionId = Guid.NewGuid(), TenantId = Guid.NewGuid(),
             TenantIdentifier = "acme", PaymentMethod = "captured", DatabaseStrategy = "dedicated",
             DatabaseProvider = "postgres", HasReadReplicas = true, ReplicaCount = 2,
+            HasScheduledBackups = true, HasHighAvailability = true,
             PlanId = "Business", PlanVersion = "2026-10", Currency = "USD", AmountMinor = 10000,
             ValidFromUtc = DateTimeOffset.UtcNow, ValidUntilUtc = DateTimeOffset.UtcNow.AddDays(30),
             ConfirmedAtUtc = DateTimeOffset.UtcNow,
+            PolicyVersion = 4, EffectiveGracePeriodDays = 7, EffectiveBackupRetentionDays = 30,
         };
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => intake.Handle(paid, CancellationToken.None));
@@ -47,8 +49,16 @@ public sealed class TenantDatabaseReconcilerTests
         Assert.Equal(paid.TenantId.ToString("D"), request.DesiredState.TenantId);
         Assert.Equal(TenantSubscriptionStatus.Active, request.DesiredState.SubscriptionStatus);
         Assert.Equal(2, request.DesiredState.ReadReplicas);
+        Assert.True(request.DesiredState.HasScheduledBackups);
+        Assert.True(request.DesiredState.HasHighAvailability);
+        Assert.Equal(paid.ValidUntilUtc, request.DesiredState.PaidUntilUtc);
+        Assert.Equal(paid.EffectiveGracePeriodDays, request.DesiredState.GracePeriodDays);
+        Assert.Equal(paid.EffectiveBackupRetentionDays, request.DesiredState.BackupRetentionDays);
+        Assert.Equal(paid.PreviousSourceOrderId, request.PreviousSourceOrderId);
         await intake.Handle(paid, CancellationToken.None);
         Assert.Single(store.Pending);
+        paid.HasHighAvailability = false;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => intake.Handle(paid, CancellationToken.None));
 
         paid.ReplicaCount = 3;
         await Assert.ThrowsAsync<InvalidOperationException>(() => intake.Handle(paid, CancellationToken.None));
@@ -64,7 +74,7 @@ public sealed class TenantDatabaseReconcilerTests
         byte[] key = RandomNumberGenerator.GetBytes(32);
         var signingKey = new DatabaseReadinessSigningKey(Convert.ToBase64String(key));
         var worker = new TenantDatabaseWorker(store, reconciler, publisher, signingKey,
-            NullLogger<TenantDatabaseWorker>.Instance);
+            new UnexpectedFinalBackupRequester(), NullLogger<TenantDatabaseWorker>.Instance);
         TenantDatabaseRequest request = new(Guid.NewGuid(), DesiredTenant("dedicated", TenantSubscriptionStatus.Active),
             DateTimeOffset.UtcNow, Guid.NewGuid(), "signed");
         store.Pending.Add(request);
@@ -91,6 +101,91 @@ public sealed class TenantDatabaseReconcilerTests
         await worker.ProcessBatchAsync(TestContext.Current.CancellationToken);
         Assert.True(store.Published.Contains(second.SubscriptionId));
         Assert.Equal(2, publisher.Events.Count);
+    }
+
+    [Fact]
+    public async Task ProcessBatchAsync_DueRetainedRenewalRequestsOrderFencedBackupWithoutReactivating()
+    {
+        var store = new FakeRequestStore();
+        var backup = new RecordingFinalBackupRequester();
+        var publisher = new RecordingReadinessPublisher();
+        var uid = Guid.NewGuid();
+        var request = new TenantDatabaseRequest(Guid.NewGuid(), DesiredTenant("dedicated", TenantSubscriptionStatus.Suspended) with
+        {
+            SuspendedAt = DateTimeOffset.UtcNow.AddDays(-8), PaidUntilUtc = DateTimeOffset.UtcNow.AddDays(-8),
+            GracePeriodDays = 7,
+        }, DateTimeOffset.UtcNow.AddDays(-365), Guid.NewGuid(), "signed", LastClusterUid: uid, IsDueRetainedRenewal: true);
+        store.Pending.Add(request);
+        var worker = new TenantDatabaseWorker(store, new TenantDatabaseReconciler(new FakeBackend(), new FakeMigrations(),
+            NullLogger<TenantDatabaseReconciler>.Instance), publisher,
+            new DatabaseReadinessSigningKey(Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))), backup,
+            NullLogger<TenantDatabaseWorker>.Instance);
+
+        Assert.Equal(1, await worker.ProcessBatchAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal(new(Guid.Parse(request.DesiredState.TenantId), request.SourceOrderId, uid), Assert.Single(backup.Targets));
+        Assert.Empty(publisher.Events);
+        Assert.Empty(store.Statuses);
+    }
+
+
+    [Fact]
+    public async Task ProcessBatchAsync_DueRenewalWithCompletedBackupDoesNotAdvanceWithoutRestoreProof()
+    {
+        var store = new FakeRequestStore();
+        var backup = new RecordingFinalBackupRequester
+        {
+            Completed = new TenantCompletedFinalBackup(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+                "tenant-final-order", "backup-42", "000000010000000000000042"),
+        };
+        var uid = Guid.NewGuid();
+        var request = new TenantDatabaseRequest(Guid.NewGuid(), DesiredTenant("dedicated", TenantSubscriptionStatus.Suspended),
+            DateTimeOffset.UtcNow, Guid.NewGuid(), "signed", LastClusterUid: uid, IsDueRetainedRenewal: true);
+        store.Pending.Add(request);
+        var worker = new TenantDatabaseWorker(store, new TenantDatabaseReconciler(new FakeBackend(), new FakeMigrations(),
+            NullLogger<TenantDatabaseReconciler>.Instance), new RecordingReadinessPublisher(),
+            new DatabaseReadinessSigningKey(Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))), backup,
+            NullLogger<TenantDatabaseWorker>.Instance);
+
+        await worker.ProcessBatchAsync(TestContext.Current.CancellationToken);
+
+        Assert.Empty(store.Statuses);
+        Assert.Empty(store.Published);
+    }
+
+
+
+    [Fact]
+    public async Task ReconcileAsync_PaidEntitlementsReachClusterProvisioning()
+    {
+        var backend = new FakeBackend();
+        var reconciler = new TenantDatabaseReconciler(backend, new FakeMigrations(), NullLogger<TenantDatabaseReconciler>.Instance);
+        var desired = DesiredTenant("dedicated", TenantSubscriptionStatus.Active) with
+        {
+            ReadReplicas = 2, HasScheduledBackups = true, HasHighAvailability = true,
+        };
+
+        await reconciler.ReconcileAsync(desired, TestContext.Current.CancellationToken, Guid.NewGuid());
+
+        var cluster = Assert.Single(backend.Clusters);
+        Assert.Equal(4, cluster.Instances);
+        Assert.True(cluster.HasScheduledBackups);
+        Assert.True(cluster.HasHighAvailability);
+    }
+
+    [Fact]
+    public async Task ReconcileAsync_HaWithoutReadReplicaPurchase_ProvisionsStandby()
+    {
+        var backend = new FakeBackend();
+        var reconciler = new TenantDatabaseReconciler(backend, new FakeMigrations(), NullLogger<TenantDatabaseReconciler>.Instance);
+        var desired = DesiredTenant("dedicated", TenantSubscriptionStatus.Active) with
+        {
+            ReadReplicas = 0, HasHighAvailability = true,
+        };
+
+        await reconciler.ReconcileAsync(desired, TestContext.Current.CancellationToken, Guid.NewGuid());
+
+        Assert.Equal(2, Assert.Single(backend.Clusters).Instances);
     }
 
     [Fact]
@@ -123,6 +218,28 @@ public sealed class TenantDatabaseReconcilerTests
         Assert.Equal(TenantDatabasePhase.Provisioning, result.Phase);
         Assert.Empty(backend.Databases);
         Assert.Empty(migrations.Services);
+    }
+
+    [Fact]
+    public async Task ReconcileAsync_WhenPaidBackupOrHaNotObserved_DoesNotPublishDatabaseReadiness()
+    {
+        var backend = new FakeBackend
+        {
+            SecretAvailable = true, ClusterReady = true, DatabaseReady = true, EntitlementsReady = false,
+        };
+        var migrations = new FakeMigrations();
+        var reconciler = new TenantDatabaseReconciler(backend, migrations, NullLogger<TenantDatabaseReconciler>.Instance);
+        var desired = DesiredTenant("dedicated", TenantSubscriptionStatus.Active) with
+        {
+            HasScheduledBackups = true, HasHighAvailability = true,
+        };
+
+        TenantDatabaseStatus result = await reconciler.ReconcileAsync(desired, TestContext.Current.CancellationToken);
+
+        Assert.Equal(TenantDatabasePhase.Provisioning, result.Phase);
+        Assert.Null(result.EvidenceId);
+        Assert.Empty(migrations.Services);
+        Assert.Empty(backend.Databases);
     }
 
     [Fact]
@@ -205,6 +322,23 @@ public sealed class TenantDatabaseReconcilerTests
         }
     }
 
+    private sealed class UnexpectedFinalBackupRequester : ITenantFinalBackupRequester
+    {
+        public Task<TenantCompletedFinalBackup?> RequestAsync(TenantFinalBackupTarget target, CancellationToken ct) =>
+            throw new InvalidOperationException("Active paid reconciliation must not request a final backup.");
+    }
+
+    private sealed class RecordingFinalBackupRequester : ITenantFinalBackupRequester
+    {
+        public List<TenantFinalBackupTarget> Targets { get; } = [];
+        public TenantCompletedFinalBackup? Completed { get; set; }
+        public Task<TenantCompletedFinalBackup?> RequestAsync(TenantFinalBackupTarget target, CancellationToken ct)
+        {
+            Targets.Add(target);
+            return Task.FromResult(Completed);
+        }
+    }
+
     private sealed class FakeRequestStore : ITenantDatabaseRequestStore
     {
         public List<TenantDatabaseRequest> Pending { get; } = [];
@@ -226,7 +360,10 @@ public sealed class TenantDatabaseReconcilerTests
             Pending.Add(request);
             return Task.FromResult(true);
         }
-        public Task<bool> SuspendAsync(Guid subscriptionId, Guid sourceOrderId, Guid tenantId, string identifier, DateTimeOffset suspendedAt, CancellationToken ct)
+        public Task<bool> AttachEnterprisePolicyAsync(SharedKernel.Events.EnterprisePolicyAttachedIntegrationEvent transition, CancellationToken ct) =>
+            throw new InvalidOperationException("Enterprise policy attachment is not used in reconciler worker tests.");
+
+        public Task<bool> SuspendAsync(Guid subscriptionId, Guid sourceOrderId, Guid tenantId, string identifier, DateTimeOffset suspendedAt, string reason, CancellationToken ct)
         {
             int index = Pending.FindIndex(request => request.SubscriptionId == subscriptionId && request.SourceOrderId == sourceOrderId &&
                 request.DesiredState.TenantId == tenantId.ToString("D") && request.DesiredState.Identifier == identifier &&
@@ -270,10 +407,12 @@ public sealed class TenantDatabaseReconcilerTests
         public List<TenantDatabaseSpec> Databases { get; } = [];
         public bool SecretAvailable { get; init; }
         public bool ClusterReady { get; init; }
+        public bool EntitlementsReady { get; init; } = true;
         public bool DatabaseReady { get; init; }
         public Task ApplyClusterAsync(TenantClusterSpec spec, CancellationToken ct) { Clusters.Add(spec); return Task.CompletedTask; }
         public Task<bool> HasApplicationSecretAsync(string tenantId, Guid sourceOrderId, CancellationToken ct) => Task.FromResult(SecretAvailable);
         public Task<bool> IsClusterReadyAsync(string ns, string name, CancellationToken ct) => Task.FromResult(ClusterReady);
+        public Task<bool> ArePaidEntitlementsReadyAsync(TenantClusterSpec spec, CancellationToken ct) => Task.FromResult(EntitlementsReady);
         public Task<Guid?> GetReadyClusterUidAsync(string ns, string name, CancellationToken ct) => Task.FromResult<Guid?>(
             ClusterReady ? Guid.Parse("d0d58a9c-6c2b-4da3-bec0-01fd82ef7251") : null);
         public Task ApplyDatabaseAsync(TenantDatabaseSpec spec, CancellationToken ct) { Databases.Add(spec); return Task.CompletedTask; }

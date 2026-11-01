@@ -282,12 +282,32 @@ namespace Billings.Host.Database.Migrations.PostgreSQL
                     b.Property<DateTimeOffset?>("DeletedOn")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("EffectiveBackupRetentionDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EffectiveGracePeriodDays")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EnterprisePolicyId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("EnterprisePolicyVersion")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("ExternalInvoiceReference")
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
+                    b.Property<bool>("HasHighAvailability")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("HasReadReplicas")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("HasScheduledBackups")
                         .HasColumnType("boolean");
 
                     b.Property<string>("InvoiceVerifiedBy")
@@ -319,6 +339,11 @@ namespace Billings.Host.Database.Migrations.PostgreSQL
                     b.Property<int>("ReplicaCount")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<bool>("StripeIntentAttempted")
                         .HasColumnType("boolean");
 
@@ -328,11 +353,6 @@ namespace Billings.Host.Database.Migrations.PostgreSQL
                     b.Property<string>("StripePaymentIntentId")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
 
                     b.Property<Guid>("SubscriptionId")
                         .HasColumnType("uuid");
@@ -373,31 +393,52 @@ namespace Billings.Host.Database.Migrations.PostgreSQL
 
                     b.HasIndex("TenantId");
 
+                    b.HasIndex("TenantIdentifier");
+
                     b.HasIndex(new[] { "TenantId" }, "OnePendingPerTenant")
                         .IsUnique()
                         .HasDatabaseName("IX_tenant_purchase_orders_one_pending_per_tenant")
                         .HasFilter("\"Status\" = 'pending'");
 
-                    b.HasIndex("TenantIdentifier");
-
                     b.ToTable("tenant_purchase_orders", (string)null);
                 });
+
             modelBuilder.Entity("Billings.Domain.Entities.TenantPurgeGrant", b =>
                 {
-                    b.Property<Guid>("Id").HasColumnType("uuid");
-                    b.Property<Guid>("ApprovalId").HasColumnType("uuid");
-                    b.Property<DateTimeOffset>("AcquiredAtUtc").HasColumnType("timestamp with time zone");
-                    b.Property<DateTimeOffset?>("CompletedAtUtc").HasColumnType("timestamp with time zone");
-                    b.Property<Guid>("SourceOrderId").HasColumnType("uuid");
-                    b.Property<Guid>("SubscriptionId").HasColumnType("uuid");
-                    b.Property<Guid>("TenantId").HasColumnType("uuid");
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AcquiredAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ApprovalId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SourceOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SubscriptionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
-                    b.HasIndex("ApprovalId").IsUnique();
+
+                    b.HasIndex("ApprovalId")
+                        .IsUnique();
+
                     b.HasIndex("SourceOrderId");
-                    b.HasIndex("TenantId").IsUnique().HasFilter("\"CompletedAtUtc\" IS NULL");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique()
+                        .HasFilter("\"CompletedAtUtc\" IS NULL");
+
                     b.ToTable("tenant_purge_grants", (string)null);
                 });
-
 
             modelBuilder.Entity("Billings.Domain.Entities.Invoice", b =>
                 {
