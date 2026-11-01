@@ -39,6 +39,9 @@ public sealed class PurchaseStripeWebhookTests(SharedTestcontainersFixture fixtu
         using var licensingFactory = new WebApplicationFactory<LicensingHost::Program>().WithWebHostBuilder(web =>
         {
             web.UseEnvironment("Development");
+            web.UseSetting("Keycloak:realm", "test");
+            web.UseSetting("Keycloak:auth-server-url", "http://localhost:8080");
+            web.UseSetting("Keycloak:resource", "licensing-api");
             web.UseSetting("ConnectionStrings:LicensingWrite", licenseDb);
             web.UseSetting("ConnectionStrings:Default", licenseDb);
             web.UseSetting("ConnectionStrings:rabbitmq", RabbitMqConnectionString);

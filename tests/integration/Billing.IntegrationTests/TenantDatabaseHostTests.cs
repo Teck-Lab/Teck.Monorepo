@@ -65,8 +65,10 @@ public sealed class TenantDatabaseHostTests(SharedTestcontainersFixture fixture)
             await db.OpenAsync();
             await using var verify = new NpgsqlCommand("SELECT to_regclass('public.tenant_database_requests') IS NOT NULL", db);
             Assert.True((bool)(await verify.ExecuteScalarAsync())!);
+            await using var reason = new NpgsqlCommand("SELECT count(*) FROM information_schema.columns WHERE table_name = 'tenant_database_requests' AND column_name = 'suspension_reason'", db);
+            Assert.Equal(1L, (long)(await reason.ExecuteScalarAsync())!);
             await using var history = new NpgsqlCommand("SELECT count(*) FROM \"__EFMigrationsHistory\"", db);
-            Assert.Equal(1L, (long)(await history.ExecuteScalarAsync())!);
+            Assert.Equal(2L, (long)(await history.ExecuteScalarAsync())!);
         }
         finally
         {
@@ -130,7 +132,7 @@ public sealed class TenantDatabaseHostTests(SharedTestcontainersFixture fixture)
             await using var history = new NpgsqlConnection(connection);
             await history.OpenAsync();
             await using var count = new NpgsqlCommand("SELECT count(*) FROM \"__EFMigrationsHistory\"", history);
-            Assert.Equal(1L, (long)(await count.ExecuteScalarAsync())!);
+            Assert.Equal(2L, (long)(await count.ExecuteScalarAsync())!);
         }
         finally
         {
@@ -283,7 +285,8 @@ public sealed class TenantDatabaseHostTests(SharedTestcontainersFixture fixture)
                 web.UseSetting("BillingPurgeFenceClient:ClientSecret", "test-worker-secret");
                 web.UseSetting("BillingPurgeFenceClient:Scope", "billing:purge-fence");
                 web.UseSetting("BillingPurgeFenceClient:BillingBaseUrl", "http://billing-api/");
-                web.UseSetting("TenantDatabase:VolumeSnapshotClass", "test-snapshot-class");
+                web.UseSetting("TenantDatabase:Barman:DestinationPath", "s3://tenant-backups/");
+                web.UseSetting("TenantDatabase:Barman:CredentialsSecret", "barman-s3");
                 web.UseSetting("Readiness:DatabaseKey", Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
                 web.ConfigureTestServices(services =>
                 {
@@ -291,6 +294,8 @@ public sealed class TenantDatabaseHostTests(SharedTestcontainersFixture fixture)
                     services.AddSingleton<ITenantCnpgBackend, UnreadyBackend>();
                     services.RemoveAll<ITenantSchemaMigrator>();
                     services.AddSingleton<ITenantSchemaMigrator, NoMigrationBeforeCredentials>();
+                    services.RemoveAll<ITenantFinalBackupRequester>();
+                    services.AddSingleton<ITenantFinalBackupRequester, UnexpectedFinalBackupRequester>();
                 });
             });
             using HttpClient client = host.CreateClient();
@@ -323,6 +328,7 @@ public sealed class TenantDatabaseHostTests(SharedTestcontainersFixture fixture)
                 SubscriptionId = Guid.NewGuid(), PlanId = "Business", PlanVersion = "2026-10", PaymentMethod = "captured",
                 DatabaseStrategy = "dedicated", DatabaseProvider = "postgres", Currency = "USD", AmountMinor = 10000,
                 ValidFromUtc = now, ValidUntilUtc = now.AddYears(1), ConfirmedAtUtc = now,
+                PolicyVersion = 4, EffectiveGracePeriodDays = 7, EffectiveBackupRetentionDays = 30,
             };
             await using var scope = host.Services.CreateAsyncScope();
             var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
@@ -348,11 +354,18 @@ public sealed class TenantDatabaseHostTests(SharedTestcontainersFixture fixture)
         }
     }
 
+    private sealed class UnexpectedFinalBackupRequester : ITenantFinalBackupRequester
+    {
+        public Task<TenantCompletedFinalBackup?> RequestAsync(TenantFinalBackupTarget target, CancellationToken ct) =>
+            throw new InvalidOperationException("A new paid period cannot request final backup.");
+    }
+
     private sealed class UnreadyBackend : ITenantCnpgBackend
     {
         public Task ApplyClusterAsync(TenantClusterSpec spec, CancellationToken ct) => Task.CompletedTask;
         public Task<bool> HasApplicationSecretAsync(string tenantId, Guid sourceOrderId, CancellationToken ct) => Task.FromResult(false);
         public Task<bool> IsClusterReadyAsync(string ns, string name, CancellationToken ct) => Task.FromResult(false);
+        public Task<bool> ArePaidEntitlementsReadyAsync(TenantClusterSpec spec, CancellationToken ct) => Task.FromResult(false);
         public Task<Guid?> GetReadyClusterUidAsync(string ns, string name, CancellationToken ct) => Task.FromResult<Guid?>(null);
         public Task ApplyDatabaseAsync(TenantDatabaseSpec spec, CancellationToken ct) => throw new InvalidOperationException("Unexpected database creation before credentials.");
         public Task<bool> IsDatabaseReadyAsync(string ns, string name, CancellationToken ct) => Task.FromResult(false);

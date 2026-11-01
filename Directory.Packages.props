@@ -140,6 +140,7 @@
     <PackageVersion Include="FluentStorage" Version="8.0.2" />
     <PackageVersion Include="FluentStorage.AWS" Version="8.0.2" />
     <PackageVersion Include="AWSSDK.Core" Version="4.0.102.8" />
+    <PackageVersion Include="AWSSDK.S3" Version="4.0.100.2" />
   </ItemGroup>
   <!-- ================================================== -->
   <!-- IMAGE PROCESSING                                   -->
@@ -345,5 +346,6 @@
     <PackageVersion Include="Testcontainers.RabbitMq" Version="4.15.0" />
     <PackageVersion Include="Testcontainers.Redis" Version="4.15.0" />
     <PackageVersion Include="Testcontainers.Keycloak" Version="4.15.0" />
+    <PackageVersion Include="Testcontainers.K3s" Version="4.15.0" />
   </ItemGroup>
 </Project>

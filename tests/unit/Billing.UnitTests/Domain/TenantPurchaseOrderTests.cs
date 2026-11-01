@@ -27,6 +27,25 @@ public sealed class TenantPurchaseOrderTests
     }
 
     [Fact]
+    public void Create_PricedIndependentBackupHaAndReplicaAddonsFromServerRates()
+    {
+        var order = TenantPurchaseOrder.Create(Guid.NewGuid(), "acme", TenantPlan.Business, "2026-10",
+            DatabaseStrategy.Dedicated, "postgres", true, 2,
+            new Dictionary<string, decimal>(StringComparer.Ordinal)
+            {
+                ["barman-backup"] = 10m,
+                ["high-availability"] = 20m,
+                ["read-replica"] = 15m,
+            }, DateTimeOffset.UtcNow, "buyer", "buyer", hasScheduledBackups: true, hasHighAvailability: true);
+
+        Assert.True(order.HasScheduledBackups);
+        Assert.True(order.HasHighAvailability);
+        Assert.True(order.HasReadReplicas);
+        Assert.Equal(2, order.ReplicaCount);
+        Assert.Equal(20999, order.AmountMinor);
+    }
+
+    [Fact]
     public void Create_RejectsUnknownPlanAndUnpricedOptions()
     {
         Assert.Throws<ArgumentException>(() => TenantPurchaseOrder.Create(
@@ -87,6 +106,23 @@ public sealed class TenantPurchaseOrderTests
         Assert.Equal("active", order.Status);
         Assert.Equal(subscriptionId, order.SubscriptionId);
         Assert.Throws<InvalidOperationException>(() => order.ConfirmCapturedPayment(subscriptionId, DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
+    public void AttachedEnterprisePolicy_UsesVerifiedTermsAndCannotBeReplaced()
+    {
+        var order = CreateOrder();
+        Assert.Throws<InvalidOperationException>(() => order.AttachEnterprisePolicy("enterprise", "1", 21, 90));
+
+        order.ConfirmCapturedPayment(Guid.NewGuid(), DateTimeOffset.UtcNow);
+        order.AttachEnterprisePolicy("enterprise", "1", 21, 90);
+
+        Assert.Equal("enterprise", order.EnterprisePolicyId);
+        Assert.Equal("1", order.EnterprisePolicyVersion);
+        Assert.Equal(21, order.EffectiveGracePeriodDays);
+        Assert.Equal(90, order.EffectiveBackupRetentionDays);
+        Assert.Throws<InvalidOperationException>(() => order.AttachEnterprisePolicy("enterprise", "2", 30, 120));
+        Assert.Equal(21, order.EffectiveGracePeriodDays);
     }
 
     [Fact]

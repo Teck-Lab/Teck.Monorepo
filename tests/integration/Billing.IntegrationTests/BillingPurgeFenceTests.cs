@@ -87,7 +87,7 @@ public sealed class BillingPurgeFenceTests(SharedTestcontainersFixture fixture) 
         }
 
         var command = new CreateTenantPurchaseCommand(tenantId, source.TenantIdentifier, "Business", "2026-10", "postgres",
-            false, 0, "buyer", "buyer");
+            false, false, false, 0, "buyer", "buyer");
         await using var createScope = Services.CreateAsyncScope();
         var createDb = createScope.ServiceProvider.GetRequiredService<BillingDbContext>();
         await using var createTransaction = await createDb.Database.BeginTransactionAsync();
@@ -145,7 +145,7 @@ public sealed class BillingPurgeFenceTests(SharedTestcontainersFixture fixture) 
 
         await using var createScope = Services.CreateAsyncScope();
         var command = new CreateTenantPurchaseCommand(tenantId, source.TenantIdentifier, "Business", "2026-10", "postgres",
-            false, 0, "buyer", "buyer");
+            false, false, false, 0, "buyer", "buyer");
         await Assert.ThrowsAsync<InvalidOperationException>(() => createScope.ServiceProvider
             .GetRequiredService<Wolverine.IMessageBus>().InvokeAsync<TenantPurchaseOrderDto>(command));
     }
@@ -194,7 +194,7 @@ public sealed class BillingPurgeFenceTests(SharedTestcontainersFixture fixture) 
             tenantId, subscriptionId, source.Id, Guid.NewGuid(), CancellationToken.None));
         await using var purchaseScope = Services.CreateAsyncScope();
         var command = new CreateTenantPurchaseCommand(tenantId, source.TenantIdentifier, "Business", "2026-10", "postgres",
-            false, 0, "buyer", "buyer");
+            false, false, false, 0, "buyer", "buyer");
         await Assert.ThrowsAsync<InvalidOperationException>(() => purchaseScope.ServiceProvider
             .GetRequiredService<Wolverine.IMessageBus>().InvokeAsync<TenantPurchaseOrderDto>(command));
     }

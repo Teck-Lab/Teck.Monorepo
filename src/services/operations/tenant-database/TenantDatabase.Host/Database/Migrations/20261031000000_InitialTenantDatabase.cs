@@ -78,6 +78,7 @@ public sealed class InitialTenantDatabase : Migration
                     lease_until = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     source_order_id = table.Column<Guid>(type: "uuid", nullable: false),
                     proof = table.Column<string>(type: "text", nullable: false),
+                    enterprise_policy_transition_proof = table.Column<string>(type: "text", nullable: true),
                     previous_source_order_id = table.Column<Guid>(type: "uuid", nullable: false, defaultValue: Guid.Empty),
                     evidence_id = table.Column<Guid>(type: "uuid", nullable: true),
                     readiness_published_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -97,7 +98,34 @@ public sealed class InitialTenantDatabase : Migration
             DO $$
             BEGIN
                 IF to_regclass('public.tenant_database_requests_legacy_migration') IS NOT NULL THEN
-                    INSERT INTO public.tenant_database_requests SELECT * FROM public.tenant_database_requests_legacy_migration;
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'tenant_database_requests_legacy_migration'
+                          AND column_name = 'enterprise_policy_transition_proof'
+                    ) THEN
+                        INSERT INTO public.tenant_database_requests (
+                            subscription_id, tenant_id, desired_state, phase, detail, received_at, updated_at, lease_until,
+                            source_order_id, proof, previous_source_order_id, enterprise_policy_transition_proof,
+                            evidence_id, readiness_published_at, last_cluster_uid, purge_approval_id, purge_proof,
+                            purge_message, purge_backup_uid, purge_restore_uid, purge_backup_name, purge_verified_at, purged_at)
+                        SELECT subscription_id, tenant_id, desired_state, phase, detail, received_at, updated_at, lease_until,
+                            source_order_id, proof, previous_source_order_id, enterprise_policy_transition_proof,
+                            evidence_id, readiness_published_at, last_cluster_uid, purge_approval_id, purge_proof,
+                            purge_message, purge_backup_uid, purge_restore_uid, purge_backup_name, purge_verified_at, purged_at
+                        FROM public.tenant_database_requests_legacy_migration;
+                    ELSE
+                        INSERT INTO public.tenant_database_requests (
+                            subscription_id, tenant_id, desired_state, phase, detail, received_at, updated_at, lease_until,
+                            source_order_id, proof, previous_source_order_id, enterprise_policy_transition_proof,
+                            evidence_id, readiness_published_at, last_cluster_uid, purge_approval_id, purge_proof,
+                            purge_message, purge_backup_uid, purge_restore_uid, purge_backup_name, purge_verified_at, purged_at)
+                        SELECT subscription_id, tenant_id, desired_state, phase, detail, received_at, updated_at, lease_until,
+                            source_order_id, proof, previous_source_order_id, NULL,
+                            evidence_id, readiness_published_at, last_cluster_uid, purge_approval_id, purge_proof,
+                            purge_message, purge_backup_uid, purge_restore_uid, purge_backup_name, purge_verified_at, purged_at
+                        FROM public.tenant_database_requests_legacy_migration;
+                    END IF;
                     DROP TABLE public.tenant_database_requests_legacy_migration;
                 END IF;
             END $$;

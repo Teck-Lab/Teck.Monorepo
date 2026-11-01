@@ -147,6 +147,38 @@ namespace Customers.Host.Database.Migrations
                     b.Property<string>("PlanVersion")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
+                    b.Property<int?>("EnterprisePolicyBackupRetentionDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("EnterprisePolicyGracePeriodDays")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EnterprisePolicyId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid?>("EnterprisePolicySourceOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EnterprisePolicySignature")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EnterprisePolicySigningKeyId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("EnterprisePolicyTransitionProof")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("EnterprisePolicyValidFromUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("EnterprisePolicyValidUntilUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EnterprisePolicyVersion")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
 
                     b.Property<Guid>("PreviousPaidOrderId")
                         .HasColumnType("uuid");

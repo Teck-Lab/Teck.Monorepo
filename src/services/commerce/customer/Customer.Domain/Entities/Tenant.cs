@@ -49,6 +49,34 @@ public sealed class Tenant : BaseEntity, IAggregateRoot
 
     /// <summary>Gets the confirmed subscription used to correlate downstream readiness.</summary>
     public Guid SubscriptionId { get; private set; }
+    /// <summary>Gets the attached enterprise policy identity.</summary>
+    public string? EnterprisePolicyId { get; private set; }
+
+    /// <summary>Gets the immutable attached enterprise policy version.</summary>
+    public string? EnterprisePolicyVersion { get; private set; }
+
+    /// <summary>Gets the attached policy grace period in days.</summary>
+    public int? EnterprisePolicyGracePeriodDays { get; private set; }
+
+    /// <summary>Gets the attached policy backup retention in days.</summary>
+    public int? EnterprisePolicyBackupRetentionDays { get; private set; }
+
+    /// <summary>Gets the attached policy's signed Licensing document key identifier.</summary>
+    public string? EnterprisePolicySigningKeyId { get; private set; }
+
+    /// <summary>Gets the detached Licensing document signature for the attached policy.</summary>
+    public string? EnterprisePolicySignature { get; private set; }
+
+    /// <summary>Gets the exclusive validity end of the attached policy.</summary>
+    public DateTimeOffset? EnterprisePolicyValidUntilUtc { get; private set; }
+    /// <summary>Gets the inclusive validity start of the attached policy.</summary>
+    public DateTimeOffset? EnterprisePolicyValidFromUtc { get; private set; }
+
+    /// <summary>Gets the Billing proof for the accepted policy transition.</summary>
+    public string? EnterprisePolicyTransitionProof { get; private set; }
+
+    /// <summary>Gets the Billing-attested paid source order for the attached policy.</summary>
+    public Guid? EnterprisePolicySourceOrderId { get; private set; }
 
     /// <summary>Gets the linked Keycloak organization identifier after verified payment.</summary>
     public Guid? KeycloakOrganizationId { get; private set; }
@@ -67,7 +95,6 @@ public sealed class Tenant : BaseEntity, IAggregateRoot
 
     /// <summary>Gets the effective time at which the subscription lost tenant access.</summary>
     public DateTimeOffset? SuspendedAtUtc { get; private set; }
-
     /// <summary>Creates a pending tenant reservation bound to its owner.</summary>
     /// <param name="id">Generated tenant identifier.</param>
     /// <param name="identifier">Generated tenant slug.</param>
@@ -101,6 +128,59 @@ public sealed class Tenant : BaseEntity, IAggregateRoot
         tenant.KeycloakOrganizationId = id;
         tenant.Status = "active";
         return tenant;
+    }
+
+    /// <summary>Applies a verified policy only to the currently accepted paid source order.</summary>
+    /// <param name="sourceOrderId">Current paid Billing order identity.</param>
+    /// <param name="subscriptionId">Correlated Billing subscription identity.</param>
+    /// <param name="policyId">Operator-issued Licensing policy ID.</param>
+    /// <param name="policyVersion">Immutable Licensing policy version.</param>
+    /// <param name="gracePeriodDays">Signed policy grace period.</param>
+    /// <param name="backupRetentionDays">Signed policy backup retention.</param>
+    /// <param name="signingKeyId">Licensing document signing key identifier.</param>
+    /// <param name="signature">Detached Licensing document signature.</param>
+    /// <param name="validFromUtc">Inclusive policy validity start.</param>
+    /// <param name="validUntilUtc">Exclusive policy validity end.</param>
+    /// <param name="transitionProof">Billing transition proof.</param>
+    /// <returns>True if first applied; false for exact idempotent replay.</returns>
+    public bool ApplyEnterprisePolicy(Guid sourceOrderId, Guid subscriptionId, string policyId, string policyVersion,
+        int gracePeriodDays, int backupRetentionDays, string signingKeyId, string signature,
+        DateTimeOffset validFromUtc, DateTimeOffset validUntilUtc, string transitionProof)
+    {
+        if (sourceOrderId == Guid.Empty || subscriptionId == Guid.Empty || PurchaseOrderId != sourceOrderId ||
+            SubscriptionId != subscriptionId || string.IsNullOrWhiteSpace(policyId) || string.IsNullOrWhiteSpace(policyVersion) ||
+            string.IsNullOrWhiteSpace(signingKeyId) || string.IsNullOrWhiteSpace(signature) || string.IsNullOrWhiteSpace(transitionProof) ||
+            gracePeriodDays is < 0 or > 3650 || backupRetentionDays is < 0 or > 36500 ||
+            validFromUtc.Offset != TimeSpan.Zero || validUntilUtc.Offset != TimeSpan.Zero || validUntilUtc <= validFromUtc)
+        {
+            throw new InvalidOperationException("Enterprise policy must match the current paid tenant order and subscription.");
+        }
+
+        if (EnterprisePolicyId is not null)
+        {
+            if (EnterprisePolicySourceOrderId == sourceOrderId && EnterprisePolicyId == policyId &&
+                EnterprisePolicyVersion == policyVersion && EnterprisePolicyGracePeriodDays == gracePeriodDays &&
+                EnterprisePolicyBackupRetentionDays == backupRetentionDays && EnterprisePolicySigningKeyId == signingKeyId &&
+                EnterprisePolicySignature == signature && EnterprisePolicyValidFromUtc == validFromUtc &&
+                EnterprisePolicyValidUntilUtc == validUntilUtc && EnterprisePolicyTransitionProof == transitionProof)
+            {
+                return false;
+            }
+
+            throw new InvalidOperationException("A different enterprise policy is already attached to this paid order.");
+        }
+
+        EnterprisePolicySourceOrderId = sourceOrderId;
+        EnterprisePolicyId = policyId;
+        EnterprisePolicyVersion = policyVersion;
+        EnterprisePolicyGracePeriodDays = gracePeriodDays;
+        EnterprisePolicyBackupRetentionDays = backupRetentionDays;
+        EnterprisePolicySigningKeyId = signingKeyId;
+        EnterprisePolicySignature = signature;
+        EnterprisePolicyValidFromUtc = validFromUtc;
+        EnterprisePolicyValidUntilUtc = validUntilUtc;
+        EnterprisePolicyTransitionProof = transitionProof;
+        return true;
     }
 
     /// <summary>Applies immutable purchase attributes from a trusted Billing confirmation event.</summary>

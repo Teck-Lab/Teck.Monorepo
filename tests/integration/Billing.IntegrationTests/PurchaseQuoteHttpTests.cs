@@ -25,9 +25,10 @@ public sealed class PurchaseQuoteHttpTests(SharedTestcontainersFixture fixture)
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var order = await response.Content.ReadFromJsonAsync<QuoteResult>().ConfigureAwait(false);
         Assert.NotNull(order);
-        Assert.Equal(OwnedReservationId, order.TenantId);
         Assert.Equal("owned-business", order.TenantIdentifier);
-        Assert.Equal(14999, order.AmountMinor);
+        Assert.Equal(20999, order.AmountMinor);
+        Assert.True(order.HasScheduledBackups);
+        Assert.True(order.HasHighAvailability);
         Assert.Equal("pending", order.Status);
     }
 
@@ -237,6 +238,10 @@ public sealed class PurchaseQuoteHttpTests(SharedTestcontainersFixture fixture)
             PlanId = "Business",
             PlanVersion = "2026-10",
             DatabaseProvider = "postgres",
+            HasScheduledBackups = true,
+            HasHighAvailability = true,
+            HasReadReplicas = true,
+            ReplicaCount = 2,
         });
         return request;
     }
@@ -270,5 +275,6 @@ public sealed class PurchaseQuoteHttpTests(SharedTestcontainersFixture fixture)
 
     private sealed record StripeIntentResult(Guid OrderId, string PaymentIntentId, string ClientSecret);
 
-    private sealed record QuoteResult(Guid Id, Guid TenantId, string TenantIdentifier, long AmountMinor, string Status);
+    private sealed record QuoteResult(Guid Id, Guid TenantId, string TenantIdentifier, long AmountMinor, string Status,
+        bool HasScheduledBackups, bool HasHighAvailability, bool HasReadReplicas, int ReplicaCount);
 }

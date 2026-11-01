@@ -38,6 +38,12 @@ public sealed class TenantPurchaseOrder : BaseEntity, IAggregateRoot
     /// <summary>Gets the database provider snapshot.</summary>
     public string DatabaseProvider { get; private set; } = string.Empty;
 
+    /// <summary>Gets whether Barman scheduled backups were included.</summary>
+    public bool HasScheduledBackups { get; private set; }
+
+    /// <summary>Gets whether high availability was included.</summary>
+    public bool HasHighAvailability { get; private set; }
+
     /// <summary>Gets whether read replicas were included.</summary>
     public bool HasReadReplicas { get; private set; }
 
@@ -79,7 +85,14 @@ public sealed class TenantPurchaseOrder : BaseEntity, IAggregateRoot
 
     /// <summary>Gets the subscription expiry timestamp.</summary>
     public DateTimeOffset? ValidUntilUtc { get; private set; }
-
+    /// <summary>Gets the immutable attached enterprise policy ID, if licensed.</summary>
+    public string? EnterprisePolicyId { get; private set; }
+    /// <summary>Gets the immutable attached enterprise policy version, if licensed.</summary>
+    public string? EnterprisePolicyVersion { get; private set; }
+    /// <summary>Gets the effective grace period for this paid period.</summary>
+    public int EffectiveGracePeriodDays { get; private set; } = 7;
+    /// <summary>Gets the effective recovery retention for this paid period.</summary>
+    public int EffectiveBackupRetentionDays { get; private set; } = 30;
     /// <summary>Gets the cancellation time used to suspend tenant access and start retention.</summary>
     public DateTimeOffset? CancelledAtUtc { get; private set; }
 
@@ -96,6 +109,8 @@ public sealed class TenantPurchaseOrder : BaseEntity, IAggregateRoot
     /// <param name="createdAtUtc">The quote creation timestamp.</param>
     /// <param name="actorSubjectId">The authenticated quote creator.</param>
     /// <param name="beneficiarySubjectId">The Customer-verified reservation owner.</param>
+    /// <param name="hasScheduledBackups">Whether Barman scheduled backups were selected.</param>
+    /// <param name="hasHighAvailability">Whether high availability was selected.</param>
     /// <returns>The new pending purchase order with a server-calculated total.</returns>
     public static TenantPurchaseOrder Create(
         Guid tenantId,
@@ -109,7 +124,9 @@ public sealed class TenantPurchaseOrder : BaseEntity, IAggregateRoot
         IReadOnlyDictionary<string, decimal> monthlyAddonRates,
         DateTimeOffset createdAtUtc,
         string actorSubjectId,
-        string beneficiarySubjectId)
+        string beneficiarySubjectId,
+        bool hasScheduledBackups = false,
+        bool hasHighAvailability = false)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(monthlyAddonRates);
@@ -143,23 +160,43 @@ public sealed class TenantPurchaseOrder : BaseEntity, IAggregateRoot
             throw new ArgumentOutOfRangeException(nameof(replicaCount));
         }
 
-        decimal ratePerReplica = 0m;
-        if (hasReadReplicas && !monthlyAddonRates.TryGetValue("read-replica", out ratePerReplica))
+        var addonKeys = new[] { "barman-backup", "high-availability", "read-replica" };
+        decimal addonTotal = 0m;
+        foreach (var key in addonKeys)
         {
-            throw new ArgumentException("Read replicas require a configured price.", nameof(monthlyAddonRates));
+            var selected = key switch
+            {
+                "barman-backup" => hasScheduledBackups,
+                "high-availability" => hasHighAvailability,
+                _ => hasReadReplicas,
+            };
+
+            if (selected && !monthlyAddonRates.TryGetValue(key, out var rate))
+            {
+                throw new ArgumentException($"Selected add-on '{key}' requires a configured price.", nameof(monthlyAddonRates));
+            }
+
+            if (monthlyAddonRates.TryGetValue(key, out rate))
+            {
+                if (rate < 0m)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(monthlyAddonRates));
+                }
+
+                if (selected)
+                {
+                    addonTotal += rate * (key == "read-replica" ? replicaCount : 1);
+                }
+            }
         }
 
-        if (ratePerReplica < 0m)
-        {
-            throw new ArgumentOutOfRangeException(nameof(monthlyAddonRates));
-        }
-
-        if (monthlyAddonRates.Keys.Any(key => key != "read-replica"))
+        if (monthlyAddonRates.Keys.Any(key => !addonKeys.Contains(key, StringComparer.Ordinal)))
         {
             throw new ArgumentException("Unknown add-on pricing keys are not supported.", nameof(monthlyAddonRates));
         }
 
-        var total = decimal.Round(plan.BasePrice + (ratePerReplica * replicaCount), 2, MidpointRounding.ToEven);
+        var total = decimal.Round(plan.BasePrice + addonTotal, 2, MidpointRounding.ToEven);
+
         if (total <= 0m || total > (long.MaxValue / 100m))
         {
             throw new ArgumentOutOfRangeException(nameof(plan));
@@ -175,6 +212,8 @@ public sealed class TenantPurchaseOrder : BaseEntity, IAggregateRoot
             Currency = "USD",
             DatabaseStrategy = databaseStrategy.Name,
             DatabaseProvider = databaseProvider,
+            HasScheduledBackups = hasScheduledBackups,
+            HasHighAvailability = hasHighAvailability,
             HasReadReplicas = hasReadReplicas,
             ReplicaCount = replicaCount,
             Status = "pending",
@@ -229,6 +268,30 @@ public sealed class TenantPurchaseOrder : BaseEntity, IAggregateRoot
         }
 
         StripePaymentIntentId = paymentIntentId;
+    }
+
+    /// <summary>Attaches the verified immutable Licensing policy to this paid period.</summary>
+    /// <param name="policyId">The signed enterprise policy identifier.</param>
+    /// <param name="policyVersion">The signed immutable policy version.</param>
+    /// <param name="gracePeriodDays">The verified grace period.</param>
+    /// <param name="backupRetentionDays">The verified recovery retention.</param>
+    public void AttachEnterprisePolicy(string policyId, string policyVersion, int gracePeriodDays, int backupRetentionDays)
+    {
+        if (Status != "active" || ConfirmedAtUtc is null || string.IsNullOrWhiteSpace(policyId) ||
+            string.IsNullOrWhiteSpace(policyVersion) || gracePeriodDays is < 0 or > 3650 || backupRetentionDays is < 0 or > 36500)
+        {
+            throw new InvalidOperationException("Only a confirmed paid period can attach a valid enterprise policy.");
+        }
+
+        if (EnterprisePolicyId is not null)
+        {
+            throw new InvalidOperationException("An enterprise policy snapshot is immutable once attached.");
+        }
+
+        EnterprisePolicyId = policyId;
+        EnterprisePolicyVersion = policyVersion;
+        EffectiveGracePeriodDays = gracePeriodDays;
+        EffectiveBackupRetentionDays = backupRetentionDays;
     }
 
     /// <summary>Confirms an order after a trusted captured-payment outcome.</summary>

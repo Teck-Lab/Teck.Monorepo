@@ -48,6 +48,7 @@ public sealed class PaidTenantOrganizationTests(SharedTestcontainersFixture fixt
             MaxLocations = 2,
             DatabaseStrategy = "shared",
             DatabaseProvider = "postgres",
+            PolicyVersion = 4, EffectiveGracePeriodDays = 7, EffectiveBackupRetentionDays = 30,
         };
         using (var unsignedScope = CreateServiceScope())
         {
@@ -129,6 +130,7 @@ public sealed class PaidTenantOrganizationTests(SharedTestcontainersFixture fixt
             AmountMinor = 10000, Currency = "USD", DatabaseStrategy = "shared", DatabaseProvider = "postgres",
             MaxLocations = 2, ConfirmedAtUtc = suspendedAt.AddMinutes(-1),
             ValidFromUtc = suspendedAt.AddMinutes(-1), ValidUntilUtc = suspendedAt.AddYears(1),
+            PolicyVersion = 4, EffectiveGracePeriodDays = 7, EffectiveBackupRetentionDays = 30,
         };
         paid.Proof = SubscriptionPaymentProof.Sign(paid, billingPrivateKey);
         var provisioner = new RecordingOrganizationProvisioner();
@@ -295,6 +297,7 @@ public sealed class PaidTenantOrganizationTests(SharedTestcontainersFixture fixt
             PlanId = "Business", PlanVersion = "2026-10", PaymentMethod = "captured",
             AmountMinor = 14999, Currency = "USD", DatabaseStrategy = "shared", DatabaseProvider = "postgres",
             ConfirmedAtUtc = DateTimeOffset.UtcNow, ValidFromUtc = oldExpiry, ValidUntilUtc = oldExpiry.AddYears(1),
+            PolicyVersion = 4, EffectiveGracePeriodDays = 7, EffectiveBackupRetentionDays = 30,
         };
         paid.Proof = SubscriptionPaymentProof.Sign(paid, privateKey);
         var organizations = new RecordingOrganizationProvisioner { Fail = true };

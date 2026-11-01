@@ -65,7 +65,8 @@ public sealed class TenantDatabaseReadinessDeliveryTests(SharedTestcontainersFix
                 web.UseSetting("BillingPurgeFenceClient:ClientSecret", "test-only-worker-secret");
                 web.UseSetting("BillingPurgeFenceClient:Scope", "billing:purge-fence");
                 web.UseSetting("BillingPurgeFenceClient:BillingBaseUrl", "http://billing-api/");
-                web.UseSetting("TenantDatabase:VolumeSnapshotClass", "test-snapshot-class");
+                web.UseSetting("TenantDatabase:Barman:DestinationPath", "s3://tenant-backups/");
+                web.UseSetting("TenantDatabase:Barman:CredentialsSecret", "barman-s3");
                 web.UseSetting("Readiness:DatabaseKey", Convert.ToBase64String(readinessKey));
                 web.UseSetting("TenantDatabase:Polling:PollInterval", "00:00:00.1");
                 foreach (string service in new[] { "basket", "catalog", "inventory", "order", "pricing" })
@@ -80,6 +81,8 @@ public sealed class TenantDatabaseReadinessDeliveryTests(SharedTestcontainersFix
                     services.AddSingleton<ITenantCnpgBackend>(new ReadyBackend(clusterUid));
                     services.RemoveAll<ITenantSchemaMigrator>();
                     services.AddSingleton<ITenantSchemaMigrator, CompletedMigrations>();
+                    services.RemoveAll<ITenantFinalBackupRequester>();
+                    services.AddSingleton<ITenantFinalBackupRequester, UnexpectedFinalBackupRequester>();
                 });
             });
             using var client = host.CreateClient();
@@ -102,6 +105,7 @@ public sealed class TenantDatabaseReadinessDeliveryTests(SharedTestcontainersFix
                 PlanVersion = "2026-10", PaymentMethod = "captured", DatabaseStrategy = "dedicated",
                 DatabaseProvider = "postgres", Currency = "USD", AmountMinor = 10000,
                 ValidFromUtc = now, ValidUntilUtc = now.AddYears(1), ConfirmedAtUtc = now,
+                PolicyVersion = 4, EffectiveGracePeriodDays = 7, EffectiveBackupRetentionDays = 30,
             };
             paid.Proof = SubscriptionPaymentProof.Sign(paid, paidKey);
             await using var scope = host.Services.CreateAsyncScope();
@@ -193,11 +197,18 @@ public sealed class TenantDatabaseReadinessDeliveryTests(SharedTestcontainersFix
         }
     }
 
+    private sealed class UnexpectedFinalBackupRequester : ITenantFinalBackupRequester
+    {
+        public Task<TenantCompletedFinalBackup?> RequestAsync(TenantFinalBackupTarget target, CancellationToken ct) =>
+            throw new InvalidOperationException("Readiness delivery cannot request final backup.");
+    }
+
     private sealed class ReadyBackend(Guid uid) : ITenantCnpgBackend
     {
         public Task ApplyClusterAsync(TenantClusterSpec spec, CancellationToken ct) => Task.CompletedTask;
         public Task<bool> HasApplicationSecretAsync(string tenantId, Guid sourceOrderId, CancellationToken ct) => Task.FromResult(true);
         public Task<bool> IsClusterReadyAsync(string ns, string name, CancellationToken ct) => Task.FromResult(true);
+        public Task<bool> ArePaidEntitlementsReadyAsync(TenantClusterSpec spec, CancellationToken ct) => Task.FromResult(true);
         public Task<Guid?> GetReadyClusterUidAsync(string ns, string name, CancellationToken ct) => Task.FromResult<Guid?>(uid);
         public Task ApplyDatabaseAsync(TenantDatabaseSpec spec, CancellationToken ct) => Task.CompletedTask;
         public Task<bool> IsDatabaseReadyAsync(string ns, string name, CancellationToken ct) => Task.FromResult(true);
