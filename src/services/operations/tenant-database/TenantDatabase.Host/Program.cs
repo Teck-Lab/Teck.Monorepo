@@ -27,6 +27,11 @@ builder.Services.AddSingleton(_ => new TenantPurgeRetentionPolicy(int.TryParse(
     builder.Configuration["PurgeApproval:RecoveryDays"], out int days) ? TimeSpan.FromDays(days) : TimeSpan.Zero));
 builder.Services.AddSingleton(_ => new SubscriptionPaymentVerificationKeys(
     builder.Configuration.GetSection("PaymentProof:TrustedPublicKeys").Get<string[]>()));
+builder.Services.AddSingleton(_ => new EnterprisePolicyDocumentVerificationKeys(
+    builder.Configuration.GetSection("EnterprisePolicy:TrustedPublicKeys").GetChildren()
+        .Select(section => new KeyValuePair<string, string?>(section.Key, section.Value))));
+builder.Services.Configure<EnterprisePolicyOptions>(builder.Configuration.GetSection(EnterprisePolicyOptions.SectionName));
+builder.Services.AddSingleton<IEnterprisePolicyFreshnessVerifier, EnterprisePolicyFreshnessVerifier>();
 builder.Services.Configure<BillingPurgeFenceClientOptions>(builder.Configuration.GetSection("BillingPurgeFenceClient"));
 builder.Services.AddHttpClient<IBillingPurgeFenceClient, BillingPurgeFenceClient>();
 builder.Services.AddSingleton<HttpClient>(_ => InClusterKubernetesClient.Create(builder.Configuration));
@@ -39,7 +44,10 @@ builder.Services.AddSingleton<ITenantCnpgBackend>(services =>
     new KubernetesCnpgBackend(services.GetRequiredService<HttpClient>(),
         services.GetRequiredService<ITenantDatabaseRoleRevoker>(),
         services.GetRequiredService<ITenantOpenBaoConnectionStore>(),
-        builder.Configuration["TenantDatabase:VolumeSnapshotClass"]));
+        new TenantBarmanStoreOptions(
+            builder.Configuration["TenantDatabase:Barman:DestinationPath"] ?? "",
+            builder.Configuration["TenantDatabase:Barman:EndpointUrl"],
+            builder.Configuration["TenantDatabase:Barman:CredentialsSecret"] ?? "")));
 builder.Services.AddSingleton<IVaultClient>(_ => CreateOpenBaoClient(builder.Configuration));
 builder.Services.AddSingleton<ITenantOpenBaoConnectionStore>(services =>
     new OpenBaoTenantConnectionStore(services.GetRequiredService<IVaultClient>(),
@@ -58,6 +66,7 @@ builder.Services.AddSingleton<ITenantSchemaMigrator>(services =>
 builder.Services.AddSingleton(_ => new DatabaseReadinessSigningKey(builder.Configuration["Readiness:DatabaseKey"]));
 builder.Services.AddSingleton<ITenantDatabaseReadinessPublisher, WolverineTenantDatabaseReadinessPublisher>();
 builder.Services.AddSingleton<TenantDatabaseReconciler>();
+builder.Services.AddSingleton<ITenantFinalBackupRequester, KubernetesTenantFinalBackupRequester>();
 builder.Services.AddSingleton<TenantDatabaseWorker>();
 builder.Services.AddSingleton<ITenantRecoveredDatabaseInspector>(services =>
     new NpgsqlTenantRecoveredDatabaseInspector(services.GetRequiredService<HttpClient>(),

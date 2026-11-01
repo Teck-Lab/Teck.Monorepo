@@ -40,6 +40,12 @@ public partial class SubscriptionPaymentConfirmedIntegrationEvent : IntegrationE
     /// <summary>Gets or sets the per-location access point limit.</summary>
     public int? MaxAccessPointsPerLocation { get; set; }
 
+    /// <summary>Gets or sets whether Barman scheduled backups were included in the paid order.</summary>
+    public bool HasScheduledBackups { get; set; }
+
+    /// <summary>Gets or sets whether high availability was included in the paid order.</summary>
+    public bool HasHighAvailability { get; set; }
+
     /// <summary>Gets or sets the per-location device limit.</summary>
     public int? MaxDevicesPerLocation { get; set; }
 
@@ -90,4 +96,18 @@ public partial class SubscriptionPaymentConfirmedIntegrationEvent : IntegrationE
 
     /// <summary>Gets or sets the previous paid source order; empty only for an original purchase.</summary>
     public Guid PreviousSourceOrderId { get; set; }
+    /// <summary>Signed payload schema version; version 4 includes effective retention policy.</summary>
+    public int PolicyVersion { get; set; }
+
+    /// <summary>Operator-issued policy identity, null for default policy.</summary>
+    public string? EnterprisePolicyId { get; set; }
+
+    /// <summary>Immutable operator-issued policy version, null for default policy.</summary>
+    public string? EnterprisePolicyVersion { get; set; }
+
+    /// <summary>Effective grace period in days, defaults to seven.</summary>
+    public int EffectiveGracePeriodDays { get; set; } = 7;
+
+    /// <summary>Effective recovery retention in days, defaults to thirty.</summary>
+    public int EffectiveBackupRetentionDays { get; set; } = 30;
 }

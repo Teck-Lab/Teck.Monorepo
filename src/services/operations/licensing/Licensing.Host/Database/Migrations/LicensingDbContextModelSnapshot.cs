@@ -13,6 +13,7 @@ namespace Licensing.Host.Database.Migrations
     [DbContext(typeof(LicensingDbContext))]
     partial class LicensingDbContextModelSnapshot : ModelSnapshot
     {
+        /// <inheritdoc />
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
@@ -21,6 +22,101 @@ namespace Licensing.Host.Database.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("Licensing.Application.Database.EnterprisePolicyAuditRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ActorSubjectId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("AtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PolicyId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PolicyVersion")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PolicyId", "PolicyVersion");
+
+                    b.ToTable("enterprise_policy_audit");
+                });
+
+            modelBuilder.Entity("Licensing.Application.Database.EnterprisePolicyRecord", b =>
+                {
+                    b.Property<string>("PolicyId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PolicyVersion")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Document")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("IssuedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("RevokedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RevokedBySubjectId")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SourceOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SubscriptionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("PolicyId", "PolicyVersion");
+
+                    b.HasIndex("PolicyId", "TenantId", "SubscriptionId", "SourceOrderId", "IssuedAtUtc");
+
+                    b.ToTable("enterprise_policies", (string)null);
+                });
+
+            modelBuilder.Entity("Licensing.Application.Database.SubscriptionSuspensionRecord", b =>
+                {
+                    b.Property<Guid>("SourceOrderId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SubscriptionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("SuspendedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("SourceOrderId");
+
+                    b.HasIndex("SubscriptionId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("subscription_suspensions", (string)null);
+                });
 
             modelBuilder.Entity("Licensing.Application.LicenseRecord", b =>
                 {
@@ -72,29 +168,6 @@ namespace Licensing.Host.Database.Migrations
                         .HasFilter("NOT \"Revoked\"");
 
                     b.ToTable("licenses", (string)null);
-                });
-
-            modelBuilder.Entity("Licensing.Application.Database.SubscriptionSuspensionRecord", b =>
-                {
-                    b.Property<Guid>("SubscriptionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("SourceOrderId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("SuspendedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("SourceOrderId");
-
-                    b.HasIndex("SubscriptionId");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("subscription_suspensions", (string)null);
                 });
 #pragma warning restore 612, 618
         }

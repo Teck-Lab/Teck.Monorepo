@@ -1,3 +1,6 @@
+extern alias TenantDatabaseHost;
+
+using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
@@ -26,13 +29,10 @@ public sealed class TenantDatabaseWorkerConcurrencyTests(SharedTestcontainersFix
         try
         {
             await using var dataSource = NpgsqlDataSource.Create(fixture.GetDatabaseConnectionString(database));
-            await using (var connection = await dataSource.OpenConnectionAsync())
-            await using (var migrate = connection.CreateCommand())
-            {
-                migrate.CommandText = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory,
-                    "tenant-database", "001_create_tenant_database_requests.sql"));
-                await migrate.ExecuteNonQueryAsync();
-            }
+            await using var db = new TenantDatabaseHost::Teck.TenantDatabase.Host.Database.TenantDatabaseDbContext(
+                new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<TenantDatabaseHost::Teck.TenantDatabase.Host.Database.TenantDatabaseDbContext>()
+                    .UseNpgsql(fixture.GetDatabaseConnectionString(database)).Options);
+            await db.Database.MigrateAsync();
             var store = new PostgresTenantDatabaseRequestStore(dataSource);
             Guid tenant = Guid.NewGuid(), subscription = Guid.NewGuid(), order = Guid.NewGuid();
             const string identifier = "concurrent-paid-business";
@@ -44,13 +44,13 @@ public sealed class TenantDatabaseWorkerConcurrencyTests(SharedTestcontainersFix
                 NullLogger<TenantDatabaseReconciler>.Instance);
             var worker = new TenantDatabaseWorker(store, reconciler, new UnusedReadinessPublisher(),
                 new DatabaseReadinessSigningKey(Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))),
-                NullLogger<TenantDatabaseWorker>.Instance);
+                new UnusedFinalBackupRequester(), NullLogger<TenantDatabaseWorker>.Instance);
             Task processing = worker.ProcessBatchAsync(CancellationToken.None);
             await backend.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
             Guid nextOrder = Guid.NewGuid();
             Task<bool> changed = paidSuccessor
                 ? store.UpsertAsync(new(subscription, desired, DateTimeOffset.UtcNow, nextOrder, "successor-signed", order), CancellationToken.None)
-                : store.SuspendAsync(subscription, order, tenant, identifier, DateTimeOffset.UtcNow, CancellationToken.None);
+                : store.SuspendAsync(subscription, order, tenant, identifier, DateTimeOffset.UtcNow, "renewal_failed", CancellationToken.None);
             try
             {
                 await Task.Delay(300);
@@ -77,6 +77,12 @@ public sealed class TenantDatabaseWorkerConcurrencyTests(SharedTestcontainersFix
         }
     }
 
+    private sealed class UnusedFinalBackupRequester : ITenantFinalBackupRequester
+    {
+        public Task<TenantCompletedFinalBackup?> RequestAsync(TenantFinalBackupTarget target, CancellationToken ct) =>
+            throw new InvalidOperationException("Paid readiness must not invoke final backup.");
+    }
+
     private sealed class DelayedClusterBackend : ITenantCnpgBackend
     {
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -88,6 +94,7 @@ public sealed class TenantDatabaseWorkerConcurrencyTests(SharedTestcontainersFix
         }
         public Task<bool> HasApplicationSecretAsync(string tenantId, Guid sourceOrderId, CancellationToken ct) => Task.FromResult(false);
         public Task<bool> IsClusterReadyAsync(string ns, string name, CancellationToken ct) => Task.FromResult(false);
+        public Task<bool> ArePaidEntitlementsReadyAsync(TenantClusterSpec spec, CancellationToken ct) => Task.FromResult(false);
         public Task<Guid?> GetReadyClusterUidAsync(string ns, string name, CancellationToken ct) => Task.FromResult<Guid?>(null);
         public Task ApplyDatabaseAsync(TenantDatabaseSpec spec, CancellationToken ct) => throw new InvalidOperationException("No migration before credentials.");
         public Task<bool> IsDatabaseReadyAsync(string ns, string name, CancellationToken ct) => Task.FromResult(false);

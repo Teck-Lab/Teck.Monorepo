@@ -29,6 +29,13 @@ builder.Services.AddHttpClient<IOrganizationProvisioner, KeycloakOrganizationPro
 builder.Services.AddSingleton<TenantReadinessVerifier>();
 builder.Services.AddSingleton(_ => new SubscriptionPaymentVerificationKeys(
     builder.Configuration.GetSection("PaymentProof:TrustedPublicKeys").Get<string[]>()));
+builder.Services.AddSingleton(_ => new EnterprisePolicyDocumentVerificationKeys(
+    builder.Configuration.GetSection("EnterprisePolicy:TrustedPublicKeys").GetChildren()
+        .Select(section => new KeyValuePair<string, string?>(section.Key, section.Value))));
+builder.Services.Configure<EnterprisePolicyOptions>(builder.Configuration.GetSection(EnterprisePolicyOptions.SectionName));
+builder.Services.AddSingleton(services => new Licensing.Host.Grpc.V1.EnterprisePolicyLookup.EnterprisePolicyLookupClient(
+    Grpc.Net.Client.GrpcChannel.ForAddress(services.GetRequiredService<Microsoft.Extensions.Options.IOptions<EnterprisePolicyOptions>>().Value.Address)));
+builder.Services.AddSingleton<IEnterprisePolicyFreshnessVerifier, EnterprisePolicyFreshnessVerifier>();
 builder.Services.AddKeycloak(builder.Configuration, builder.Environment,
     builder.Configuration.GetSection("Keycloak").Get<KeycloakAuthenticationOptions>()!);
 builder.ConfigureInternalServiceTransport();

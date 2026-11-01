@@ -28,20 +28,26 @@ public sealed class CreateTenantPurchaseHandlerTests
         {
             PlanVersion = "2026-10",
             AllowedDatabaseProviders = ["postgres"],
+            BarmanBackupMonthlyRate = 10m,
+            HighAvailabilityMonthlyRate = 20m,
             ReadReplicaMonthlyRate = 15m,
         }), PurchaseTenantLock());
         var tenantId = Guid.NewGuid();
-        var command = new CreateTenantPurchaseCommand(tenantId, "acme", "Business", "2026-10", "postgres", true, 2, "buyer", "buyer");
+        var command = new CreateTenantPurchaseCommand(tenantId, "acme", "Business", "2026-10", "postgres", true, true, true, 2, "buyer", "buyer");
 
         var first = await handler.Handle(command, CancellationToken.None);
         var retry = await handler.Handle(command, CancellationToken.None);
 
         Assert.Equal(first.Id, retry.Id);
-        Assert.Equal(17999, first.AmountMinor);
+        Assert.Equal(20999, first.AmountMinor);
         Assert.Equal("USD", first.Currency);
         Assert.Equal("pending", first.Status);
         Assert.Equal("Business", first.PlanId);
         Assert.Equal("2026-10", first.PlanVersion);
+        Assert.True(first.HasScheduledBackups);
+        Assert.True(first.HasHighAvailability);
+        Assert.True(first.HasReadReplicas);
+        Assert.Equal(2, first.ReplicaCount);
     }
 
     [Fact]
@@ -58,14 +64,14 @@ public sealed class CreateTenantPurchaseHandlerTests
             ReadReplicaMonthlyRate = 15m,
         }), PurchaseTenantLock());
         var tenantId = Guid.NewGuid();
-        var original = new CreateTenantPurchaseCommand(tenantId, "acme", "Business", "2026-10", "postgres", false, 0, "buyer", "buyer");
+        var original = new CreateTenantPurchaseCommand(tenantId, "acme", "Business", "2026-10", "postgres", false, false, false, 0, "buyer", "buyer");
         await handler.Handle(original, CancellationToken.None);
         await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(original with { BeneficiarySubjectId = "other-buyer" }, CancellationToken.None));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(original with { TenantId = Guid.NewGuid() }, CancellationToken.None));
         await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(original with { PlanVersion = "stale" }, CancellationToken.None));
-        await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(new CreateTenantPurchaseCommand(Guid.NewGuid(), "other", "Business", "2026-10", "mysql", false, 0, "buyer", "buyer"), CancellationToken.None));
-        await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(new CreateTenantPurchaseCommand(Guid.NewGuid(), "other", "unknown", "2026-10", "postgres", false, 0, "buyer", "buyer"), CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(new CreateTenantPurchaseCommand(Guid.NewGuid(), "other", "Business", "2026-10", "mysql", false, false, false, 0, "buyer", "buyer"), CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(new CreateTenantPurchaseCommand(Guid.NewGuid(), "other", "unknown", "2026-10", "postgres", false, false, false, 0, "buyer", "buyer"), CancellationToken.None));
     }
 
     [Fact]
@@ -81,7 +87,7 @@ public sealed class CreateTenantPurchaseHandlerTests
             ReadReplicaMonthlyRate = 15m,
         }), PurchaseTenantLock());
         var command = new CreateTenantPurchaseCommand(Guid.NewGuid(), $"renew-{Guid.NewGuid():N}",
-            "Business", "2026-10", "postgres", true, 2, "buyer", "buyer");
+            "Business", "2026-10", "postgres", false, true, true, 2, "buyer", "buyer");
         var original = await handler.Handle(command, CancellationToken.None);
         context.TenantPurchaseOrders.Single(order => order.Id == original.Id)
             .ConfirmCapturedPayment(Guid.NewGuid(), DateTimeOffset.UtcNow);

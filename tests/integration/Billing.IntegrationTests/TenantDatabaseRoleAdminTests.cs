@@ -24,7 +24,7 @@ public sealed class TenantDatabaseRoleAdminTests(SharedTestcontainersFixture fix
         using var http = new HttpClient(handler) { BaseAddress = new Uri("https://kubernetes.test/") };
         var server = new NpgsqlConnectionStringBuilder(fixture.AdminConnectionString);
         var revoker = new PostgresTenantRoleRevoker(http, _ => server.Host!, server.Port, SslMode.Disable, null);
-        await new KubernetesCnpgBackend(http, revoker, new UnexpectedOpenBao()).ApplyClusterAsync(new("tenant-databases", $"tenant-{suffix}", 2,
+        await new KubernetesCnpgBackend(http, revoker, new UnexpectedOpenBao(), new TenantBarmanStoreOptions("s3://tenant-backups/", "https://s3.test", "barman-s3")).ApplyClusterAsync(new("tenant-databases", $"tenant-{suffix}", 2,
             $"tenant-{suffix}-credentials", Guid.NewGuid()), CancellationToken.None);
         using var manifest = JsonDocument.Parse(handler.Cluster!);
         string[] commands = manifest.RootElement.GetProperty("spec").GetProperty("bootstrap").GetProperty("initdb")

@@ -65,6 +65,9 @@ namespace Teck.TenantDatabase.Host.Database.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("proof");
+                    b.Property<string>("EnterprisePolicyTransitionProof")
+                        .HasColumnType("text")
+                        .HasColumnName("enterprise_policy_transition_proof");
 
                     b.Property<Guid?>("PurgeApprovalId")
                         .HasColumnType("uuid")
@@ -109,6 +112,10 @@ namespace Teck.TenantDatabase.Host.Database.Migrations
                     b.Property<Guid>("SourceOrderId")
                         .HasColumnType("uuid")
                         .HasColumnName("source_order_id");
+
+                    b.Property<string>("SuspensionReason")
+                        .HasColumnType("text")
+                        .HasColumnName("suspension_reason");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")

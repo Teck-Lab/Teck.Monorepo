@@ -44,7 +44,7 @@ public sealed class TenantDatabasePurgeStoreTests(SharedTestcontainersFixture fi
             Assert.True(await store.UpsertAsync(request, CancellationToken.None));
             await store.SaveStatusAsync(request, new(tenant.ToString("D"), TenantDatabasePhase.Ready, EvidenceId: clusterUid),
                 DateTimeOffset.UtcNow.AddDays(-32), CancellationToken.None);
-            Assert.True(await store.SuspendAsync(subscription, paidOrder, tenant, desired.Identifier, suspendedAt, CancellationToken.None));
+            Assert.True(await store.SuspendAsync(subscription, paidOrder, tenant, desired.Identifier, suspendedAt, "cancelled", CancellationToken.None));
             var retained = Assert.Single(await store.GetPendingAsync(10, CancellationToken.None));
             await store.SaveStatusAsync(retained, new(tenant.ToString("D"), TenantDatabasePhase.Retained), DateTimeOffset.UtcNow,
                 CancellationToken.None);

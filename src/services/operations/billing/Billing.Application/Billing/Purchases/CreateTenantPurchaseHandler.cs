@@ -93,8 +93,11 @@ public sealed class CreateTenantPurchaseHandler(
             databaseStrategy, command.DatabaseProvider, command.HasReadReplicas, command.ReplicaCount,
             new Dictionary<string, decimal>(StringComparer.Ordinal)
             {
+                ["barman-backup"] = configuration.BarmanBackupMonthlyRate,
+                ["high-availability"] = configuration.HighAvailabilityMonthlyRate,
                 ["read-replica"] = configuration.ReadReplicaMonthlyRate,
-            }, DateTimeOffset.UtcNow, command.ActorSubjectId, command.BeneficiarySubjectId);
+            }, DateTimeOffset.UtcNow, command.ActorSubjectId, command.BeneficiarySubjectId,
+            command.HasScheduledBackups, command.HasHighAvailability);
         if (command.IsRenewal)
         {
             order.BindPreviousPurchaseOrder(command.PreviousPurchaseOrderId);

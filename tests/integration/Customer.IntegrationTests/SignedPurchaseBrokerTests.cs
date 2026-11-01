@@ -46,6 +46,7 @@ public sealed class SignedPurchaseBrokerTests(SharedTestcontainersFixture fixtur
             ConfirmedAtUtc = now,
             ValidFromUtc = now,
             ValidUntilUtc = now.AddDays(30),
+            PolicyVersion = 4, EffectiveGracePeriodDays = 7, EffectiveBackupRetentionDays = 30,
         };
         using (var privateKey = RSA.Create())
         {

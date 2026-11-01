@@ -57,7 +57,7 @@ public static class SubscriptionPaymentProof
     }
 
     private static bool IsValidSnapshot(SubscriptionPaymentConfirmedIntegrationEvent paid) =>
-        paid is not null && paid.SubscriptionId != Guid.Empty && paid.TenantId != Guid.Empty &&
+        paid is not null && paid.PolicyVersion == 4 && paid.SubscriptionId != Guid.Empty && paid.TenantId != Guid.Empty &&
         paid.SourceOrderId != Guid.Empty && Fits(paid.TenantIdentifier) &&
         Fits(paid.PlanId) && Fits(paid.PlanVersion) &&
         paid.Features is { Count: <= 64 } && paid.Features.All(static feature =>
@@ -66,7 +66,11 @@ public static class SubscriptionPaymentProof
         Fits(paid.DatabaseStrategy) && Fits(paid.DatabaseProvider) &&
         paid.PaymentMethod is "captured" or "external_invoice" &&
         paid.ValidFromUtc != default && paid.ValidUntilUtc > paid.ValidFromUtc &&
-        paid.ConfirmedAtUtc != default;
+        paid.ConfirmedAtUtc != default &&
+        paid.EffectiveGracePeriodDays is >= 0 and <= 3650 &&
+        paid.EffectiveBackupRetentionDays is >= 0 and <= 36500 &&
+        ((paid.EnterprisePolicyId is null && paid.EnterprisePolicyVersion is null) ||
+         (Fits(paid.EnterprisePolicyId) && Fits(paid.EnterprisePolicyVersion)));
 
     private static bool Fits(string? value) =>
         !string.IsNullOrWhiteSpace(value) && Encoding.UTF8.GetByteCount(value) <= 4096;
@@ -74,7 +78,7 @@ public static class SubscriptionPaymentProof
     private static ArrayBufferWriter<byte> CreatePayload(SubscriptionPaymentConfirmedIntegrationEvent paid)
     {
         var writer = new ArrayBufferWriter<byte>(512);
-        WriteString(writer, "teck.billing.subscription-payment-confirmed.v2");
+        WriteString(writer, "teck.billing.subscription-payment-confirmed.v4");
         WriteGuid(writer, paid.SubscriptionId);
         WriteGuid(writer, paid.TenantId);
         WriteString(writer, paid.TenantIdentifier);
@@ -101,6 +105,8 @@ public static class SubscriptionPaymentProof
         WriteString(writer, paid.Currency);
         WriteString(writer, paid.DatabaseStrategy);
         WriteString(writer, paid.DatabaseProvider);
+        WriteBoolean(writer, paid.HasScheduledBackups);
+        WriteBoolean(writer, paid.HasHighAvailability);
         WriteBoolean(writer, paid.HasReadReplicas);
         WriteInt32(writer, paid.ReplicaCount);
         WriteString(writer, paid.PaymentMethod);
@@ -108,7 +114,21 @@ public static class SubscriptionPaymentProof
         WriteInt64(writer, paid.ValidFromUtc.UtcDateTime.Ticks);
         WriteInt64(writer, paid.ValidUntilUtc.UtcDateTime.Ticks);
         WriteGuid(writer, paid.PreviousSourceOrderId);
+        WriteInt32(writer, paid.PolicyVersion);
+        WriteNullableString(writer, paid.EnterprisePolicyId);
+        WriteNullableString(writer, paid.EnterprisePolicyVersion);
+        WriteInt32(writer, paid.EffectiveGracePeriodDays);
+        WriteInt32(writer, paid.EffectiveBackupRetentionDays);
         return writer;
+    }
+
+    private static void WriteNullableString(IBufferWriter<byte> writer, string? value)
+    {
+        WriteBoolean(writer, value is not null);
+        if (value is not null)
+        {
+            WriteString(writer, value);
+        }
     }
 
     private static void WriteGuid(IBufferWriter<byte> writer, Guid value)
