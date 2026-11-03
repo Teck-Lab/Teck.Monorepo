@@ -13,14 +13,14 @@
     "metro-resolver": "*",
     "nativewind": "5.0.0-rc.0",
     "react": "*",
-    "react-native": "0.88.0",
+    "react-native": "0.88.1",
     "react-native-css": "3.1.0-rc.0",
     "react-native-reanimated": "4.7.1",
-    "react-native-safe-area-context": "~5.10.1",
+    "react-native-safe-area-context": "~5.11.0",
     "react-native-svg": "*",
     "react-native-svg-transformer": "*",
     "react-native-web": "*",
-    "react-native-worklets": "0.13.0"
+    "react-native-worklets": "0.13.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
