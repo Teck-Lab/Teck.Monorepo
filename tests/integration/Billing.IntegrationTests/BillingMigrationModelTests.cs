@@ -35,5 +35,10 @@ public sealed class BillingMigrationModelTests : BillingIntegrationTestBase
             context.GetService<IDesignTimeModel>().Model.GetRelationalModel());
 
         Assert.False(hasPendingModelChanges, string.Join(Environment.NewLine, differences.Select(difference => difference.GetType().Name)));
+
+        var entity = context.Model.FindEntityType("Billings.Domain.Entities.TenantPurchaseOrder");
+        Assert.NotNull(entity);
+        Assert.Equal(typeof(bool), entity.FindProperty("HasScheduledBackups")!.ClrType);
+        Assert.Equal(typeof(bool), entity.FindProperty("HasHighAvailability")!.ClrType);
     }
 }

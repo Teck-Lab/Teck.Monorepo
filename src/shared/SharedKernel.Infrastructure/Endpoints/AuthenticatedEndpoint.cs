@@ -29,7 +29,7 @@ public abstract class AuthenticatedEndpoint<TRequest, TResponse> : Endpoint<TReq
 
         Options(builder =>
         {
-            if (!permission.IsAnonymous)
+            if (!permission.IsAnonymous && permission.Resource.Length != 0)
             {
                 builder.RequireProtectedResource(permission.Resource, permission.Scope);
             }
@@ -42,6 +42,10 @@ public abstract class AuthenticatedEndpoint<TRequest, TResponse> : Endpoint<TReq
         else
         {
             AuthSchemes(JwtBearerDefaults.AuthenticationScheme);
+            if (permission.PolicyName is { } policyName)
+            {
+                Policies(policyName);
+            }
         }
     }
 

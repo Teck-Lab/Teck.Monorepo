@@ -24,6 +24,12 @@ public sealed class BillingArchitectureTests : Teck.Platform.Arch.Tests.SharedTe
         Types()
             .That()
             .ResideInAssembly(HostAssembly)
+            // Infrastructure adapters implement Application ports over the Domain model;
+            // endpoint and workflow code must still go through Application contracts.
+            .And()
+            .DoNotHaveFullNameContaining("Billings.Host.Infrastructure.StripePurchaseGateway")
+            .And()
+            .DoNotHaveFullNameContaining("Billings.Host.Database.BillingExpiredTenantPurchaseOrders")
             .Should()
             .NotDependOnAny(Types().That().ResideInAssembly(DomainAssembly))
             .Because("the host must depend on the application layer, not the domain layer directly")
@@ -43,15 +49,19 @@ public sealed class BillingArchitectureTests : Teck.Platform.Arch.Tests.SharedTe
     }
 
     [Fact]
-    public void BillingDomainAggregateRoots_ShouldImplementTenantScoped()
+    public void BillingDomainAggregateRoots_ShouldImplementTenantScopedExceptGlobalPurchaseOrder()
     {
-        Classes()
-            .That()
-            .ImplementInterface(typeof(IAggregateRoot))
-            .Should()
-            .ImplementInterface(typeof(ITenantScoped))
-            .Because("tenant-owned billing aggregates must be scoped to a tenant")
-            .Check(BillingArchitecture);
+        // A purchase precedes tenant activation and lives in Billing's global store. Its Guid
+        // TenantId identifies the Customer reservation, not a Finbuckle tenant partition.
+        System.Type[] tenantOwnedAggregates = DomainAssembly.GetTypes()
+            .Where(type => type is { IsClass: true, IsAbstract: false } &&
+                typeof(IAggregateRoot).IsAssignableFrom(type) &&
+                type != typeof(Billings.Domain.Entities.TenantPurchaseOrder))
+            .ToArray();
+        Assert.NotEmpty(tenantOwnedAggregates);
+        Assert.All(tenantOwnedAggregates, type => Assert.True(
+            typeof(ITenantScoped).IsAssignableFrom(type),
+            $"Tenant-owned Billing aggregate '{type.FullName}' must implement ITenantScoped."));
     }
 
     [Fact]

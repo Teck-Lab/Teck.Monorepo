@@ -94,7 +94,8 @@
     <PackageVersion Include="Ardalis.Specification" Version="9.3.1" />
     <PackageVersion Include="Ardalis.Specification.EntityFrameworkCore" Version="9.3.1" />
     <PackageVersion Include="Ardalis.GuardClauses" Version="5.9.0" />
-    <PackageVersion Include="Standard.Licensing" Version="1.3.0" />
+    <PackageVersion Include="Standard.Licensing" Version="1.3.1" />
+    <PackageVersion Include="Stripe.net" Version="53.0.0" />
     <PackageVersion Include="ErrorOr" Version="2.1.1" />
     <PackageVersion Include="FluentValidation" Version="12.1.1" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
@@ -139,6 +140,7 @@
     <PackageVersion Include="FluentStorage" Version="8.0.2" />
     <PackageVersion Include="FluentStorage.AWS" Version="8.0.2" />
     <PackageVersion Include="AWSSDK.Core" Version="4.0.102.8" />
+    <PackageVersion Include="AWSSDK.S3" Version="4.0.100.2" />
   </ItemGroup>
   <!-- ================================================== -->
   <!-- IMAGE PROCESSING                                   -->
@@ -320,11 +322,11 @@
   <!-- ================================================== -->
   <ItemGroup Label="Testing Framework">
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.10.0" />
     <PackageVersion Include="Microsoft.TestPlatform" Version="18.10.1" />
     <PackageVersion Include="xunit.v3" Version="4.0.1" />
     <PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.1" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
-    <PackageVersion Include="coverlet.collector" Version="10.1.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
   </ItemGroup>
   <ItemGroup Label="Testing Utilities">
@@ -344,5 +346,6 @@
     <PackageVersion Include="Testcontainers.RabbitMq" Version="4.15.0" />
     <PackageVersion Include="Testcontainers.Redis" Version="4.15.0" />
     <PackageVersion Include="Testcontainers.Keycloak" Version="4.15.0" />
+    <PackageVersion Include="Testcontainers.K3s" Version="4.15.0" />
   </ItemGroup>
 </Project>

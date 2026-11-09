@@ -30,6 +30,19 @@ public sealed class GetTenantDatabaseInfoCommandHandlerTests
         Assert.False(result.Found);
     }
 
+    /// <summary>A reserved tenant must not expose database routing before payment and provisioning.</summary>
+    [Fact]
+    public async Task ReturnsNotFound_ForPendingReservation()
+    {
+        var id = Guid.NewGuid();
+        var pending = Tenant.CreatePendingReservation(id, "new-business", "owner-subject");
+        var handler = new GetTenantDatabaseInfoCommandHandler(new FakeTenantReadRepository(pending));
+
+        var result = await handler.ExecuteAsync(new GetTenantDatabaseInfoCommand { TenantId = id.ToString() }, default);
+
+        Assert.False(result.Found);
+    }
+
     /// <summary>A valid GUID matching an existing tenant must yield a found result with the correct strategy and identifier.</summary>
     [Fact]
     public async Task ReturnsStrategy_WhenTenantExists()
@@ -45,4 +58,23 @@ public sealed class GetTenantDatabaseInfoCommandHandlerTests
         Assert.Equal("shared", result.DatabaseStrategy);
         Assert.Equal("acme", result.Identifier);
     }
+
+    [Fact]
+    public async Task PaidTenant_ReturnsExclusiveValidityBoundForGatewayCacheEnforcement()
+    {
+        var tenantId = Guid.NewGuid();
+        var paidUntil = DateTimeOffset.UtcNow.AddDays(2);
+        var tenant = Tenant.CreatePendingReservation(tenantId, "paid-tenant", "owner");
+        tenant.ApplyPurchaseConfirmation(Guid.NewGuid(), Guid.NewGuid(), "Business", "2026-10", "shared", "postgres", false, paidUntil);
+        tenant.MarkProvisionerReady("license");
+        tenant.MarkProvisionerReady("database");
+        tenant.LinkOrganization(Guid.NewGuid());
+        var handler = new GetTenantDatabaseInfoCommandHandler(new FakeTenantReadRepository(tenant));
+
+        var result = await handler.ExecuteAsync(new GetTenantDatabaseInfoCommand { TenantId = tenantId.ToString("D"), ServiceName = "order" }, default);
+
+        Assert.True(result.Found);
+        Assert.Equal(paidUntil, result.ValidUntilUtc);
+    }
+
 }

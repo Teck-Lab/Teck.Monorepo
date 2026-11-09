@@ -1,4 +1,5 @@
 using Customers.Application.Database;
+using Customers.Application.Tenants;
 using SharedKernel.Core.Database;
 using SharedKernel.Infrastructure.Database;
 using SharedKernel.Infrastructure.Database.EFCore;
@@ -28,6 +29,7 @@ public static class CustomerPersistenceExtensions
         builder.Services.AddScoped(typeof(IGenericReadRepository<,>), typeof(CustomerReadRepository<,>));
         builder.Services.AddScoped(typeof(IGenericWriteRepository<,>), typeof(CustomerWriteRepository<,>));
         builder.Services.AddScoped<IUnitOfWork>(sp => new UnitOfWork<CustomerDbContext>(sp.GetRequiredService<CustomerDbContext>()));
+        builder.Services.AddScoped<ITenantPurgeApprovalRepository, TenantPurgeApprovalRepository>();
 
         return builder;
     }

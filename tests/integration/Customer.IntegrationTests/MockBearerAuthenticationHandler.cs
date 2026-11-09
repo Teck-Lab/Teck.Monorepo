@@ -58,16 +58,19 @@ internal sealed class MockBearerAuthenticationHandler : AuthenticationHandler<Au
     /// <inheritdoc/>
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var claims = new[]
-        {
-            new Claim("tenant_id", TestTenantId),
-            // CustomerIdentityAccessor.KeycloakSubjectId reads the "sub" claim via
-            // HttpContext.User.FindFirstValue("sub") — this must match exactly for
-            // CreateCustomerHandler to stamp the correct Keycloak subject on the new customer.
-            new Claim("sub", TestSubject),
-            new Claim(ClaimTypes.NameIdentifier, TestSubject),
-            new Claim(ClaimTypes.Name, "Test User"),
-        };
+        var token = Request.Headers.Authorization.ToString().Split(' ').LastOrDefault();
+        var claims = string.Equals(token, "billing-test", StringComparison.Ordinal)
+            ? [new Claim("azp", "billing-api"), new Claim("sub", "billing-service"),
+                new Claim("billing_service_identity", "billing-api"),
+                new Claim("aud", "customer-api"), new Claim("scope", "tenant-purchase")]
+            : new[]
+            {
+                new Claim("tenant_id", TestTenantId),
+                new Claim("sub", TestSubject),
+                new Claim("aud", "customer-api"),
+                new Claim(ClaimTypes.NameIdentifier, TestSubject),
+                new Claim(ClaimTypes.Name, "Test User"),
+            };
 
         var identity = new ClaimsIdentity(claims, SchemeName);
         var principal = new ClaimsPrincipal(identity);

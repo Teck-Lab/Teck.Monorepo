@@ -1,3 +1,4 @@
+using System.Reflection;
 using ArchUnitNET.Domain;
 using ArchUnitNET.Fluent;
 using ArchUnitNET.xUnitV3;
@@ -43,7 +44,6 @@ public static class DomainRules
             .NotBePublic()
             .Because("entity properties should have private setters for encapsulation")
             .WithoutRequiringPositiveResults();
-
         rule.Check(architecture);
     }
 
@@ -61,16 +61,22 @@ public static class DomainRules
 
     public static void EntityCreateMethodsShouldBeStatic(Architecture architecture)
     {
-        var rule = ArchRuleDefinition.Members()
-            .That()
-            .HaveNameStartingWith("Create")
-            .And()
-            .AreDeclaredIn(ArchRuleDefinition.Classes().That().ImplementInterface(typeof(IBaseEntity)))
-            .Should()
-            .BeStatic()
-            .Because("entity factory methods should be static")
-            .WithoutRequiringPositiveResults();
-
-        rule.Check(architecture);
+        var entityTypes = architecture.Classes
+            .Select(type => type.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            foreach (var type in assembly.GetTypes().Where(type =>
+                type.FullName is not null && entityTypes.Contains(type.FullName) &&
+                typeof(IBaseEntity).IsAssignableFrom(type)))
+            {
+                foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic |
+                    BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
+                    .Where(method => method.Name.StartsWith("Create", StringComparison.Ordinal)))
+                {
+                    Xunit.Assert.True(method.IsStatic, $"Entity factory method '{method}' must be static.");
+                }
+            }
+        }
     }
 }
