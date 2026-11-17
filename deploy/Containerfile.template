@@ -7,7 +7,7 @@ ARG SOURCE_SHA=unknown
 
 # Build stage runs on the native CI architecture (no QEMU). crossgen2 then
 # cross-compiles ReadyToRun for the requested TARGETARCH during publish.
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 ARG SERVICE_NAME
 ARG PROJECT_PATH
 ARG VERSION
