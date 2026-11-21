@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "healthPath": "/alive",
+  "dependencies": [
+    "keycloak"
+  ],
+  "images": [
+    {
+      "image": "ghcr.io/teck-lab/gateway-web-customer",
+      "name": "gateway-web-customer",
+      "context": ".",
+      "dockerfile": "deploy/Containerfile.template",
+      "args": {
+        "SERVICE_NAME": "Gateway.WebCustomer",
+        "PROJECT_PATH": "src/services/gateway/web-customer/Gateway.WebCustomer.csproj",
+        "PUBLISH_READYTORUN": "false"
+      }
+    },
+    {
+      "image": "ghcr.io/teck-lab/gateway-web-admin",
+      "name": "gateway-web-admin",
+      "context": ".",
+      "dockerfile": "deploy/Containerfile.template",
+      "args": {
+        "SERVICE_NAME": "Gateway.WebAdmin",
+        "PROJECT_PATH": "src/services/gateway/web-admin/Gateway.WebAdmin.csproj",
+        "PUBLISH_READYTORUN": "false"
+      }
+    }
+  ],
+  "initialAnalyses": [
+    "gateway-web-customer-health",
+    "gateway-web-admin-health"
+  ],
+  "addons": [
+    "rollouts",
+    "gateway"
+  ]
+}

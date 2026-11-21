@@ -1,0 +1,72 @@
+{
+  "apiVersion": "kustomize.config.k8s.io/v1beta1",
+  "kind": "Kustomization",
+  "resources": [
+    "../base"
+  ],
+  "patches": [
+    {
+      "target": {
+        "group": "argoproj.io",
+        "version": "v1alpha1",
+        "kind": "Rollout",
+        "name": "gateway-web-customer"
+      },
+      "patch": "[{\"op\":\"replace\",\"path\":\"/spec/replicas\",\"value\":1},{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"DOTNET_ENVIRONMENT\",\"value\":\"Development\"}}]"
+    },
+    {
+      "target": {
+        "group": "argoproj.io",
+        "version": "v1alpha1",
+        "kind": "Rollout",
+        "name": "gateway-web-admin"
+      },
+      "patch": "[{\"op\":\"replace\",\"path\":\"/spec/replicas\",\"value\":1},{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"DOTNET_ENVIRONMENT\",\"value\":\"Development\"}}]"
+    },
+    {
+      "target": {
+        "group": "argoproj.io",
+        "version": "v1alpha1",
+        "kind": "Rollout",
+        "name": "gateway-web-customer"
+      },
+      "patch": "[{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"Keycloak__auth-server-url\",\"value\":\"http://keycloak:8080\"}},{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"Keycloak__realm\",\"value\":\"teck-cloud-local\"}},{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/env/1/valueFrom/secretKeyRef\",\"value\":{\"name\":\"gateway-web-auth\",\"key\":\"customer-client-secret\"}}]"
+    },
+    {
+      "target": {
+        "group": "argoproj.io",
+        "version": "v1alpha1",
+        "kind": "AnalysisTemplate",
+        "name": "gateway-web-customer-health"
+      },
+      "patch": "[{\"op\":\"replace\",\"path\":\"/spec/metrics/0/provider/job/spec/template/spec/containers/0/command\",\"value\":[\"sh\",\"-ec\",\"set -eu\\nwget -qO- http://gateway-web-customer-canary.{{args.namespace}}.svc.cluster.local/alive | grep -qx Healthy\\nwget -qO- http://keycloak.{{args.namespace}}.svc.cluster.local:8080/realms/teck-cloud-local/.well-known/openid-configuration | grep -q issuer\\nresponse=$(wget -qO- --post-data=\\\"grant_type=client_credentials&client_id=web-customer-gateway&client_secret=$CLIENT_SECRET\\\" http://keycloak.{{args.namespace}}.svc.cluster.local:8080/realms/teck-cloud-local/protocol/openid-connect/token)\\ncase \\\"$response\\\" in *access_token*) ;; *) exit 1;; esac\\nif headers=$(wget -S -O /dev/null http://gateway-web-customer-canary.{{args.namespace}}.svc.cluster.local/api/v1/catalog/products 2>&1); then exit 1; fi\\nprintf '%s' \\\"$headers\\\" | grep -q 'HTTP/1.1 401'\\n\"]},{\"op\":\"add\",\"path\":\"/spec/metrics/0/provider/job/spec/template/spec/containers/0/env\",\"value\":[{\"name\":\"CLIENT_SECRET\",\"valueFrom\":{\"secretKeyRef\":{\"name\":\"gateway-web-auth\",\"key\":\"customer-client-secret\"}}}]}]"
+    },
+    {
+      "target": {
+        "group": "argoproj.io",
+        "version": "v1alpha1",
+        "kind": "Rollout",
+        "name": "gateway-web-admin"
+      },
+      "patch": "[{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"Keycloak__auth-server-url\",\"value\":\"http://keycloak:8080\"}},{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"Keycloak__realm\",\"value\":\"teck-cloud-local\"}},{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/env/1/valueFrom/secretKeyRef\",\"value\":{\"name\":\"gateway-web-auth\",\"key\":\"admin-client-secret\"}}]"
+    },
+    {
+      "target": {
+        "group": "argoproj.io",
+        "version": "v1alpha1",
+        "kind": "AnalysisTemplate",
+        "name": "gateway-web-admin-health"
+      },
+      "patch": "[{\"op\":\"replace\",\"path\":\"/spec/metrics/0/provider/job/spec/template/spec/containers/0/command\",\"value\":[\"sh\",\"-ec\",\"set -eu\\nwget -qO- http://gateway-web-admin-canary.{{args.namespace}}.svc.cluster.local/alive | grep -qx Healthy\\nwget -qO- http://keycloak.{{args.namespace}}.svc.cluster.local:8080/realms/teck-cloud-local/.well-known/openid-configuration | grep -q issuer\\nresponse=$(wget -qO- --post-data=\\\"grant_type=client_credentials&client_id=web-admin-gateway&client_secret=$CLIENT_SECRET\\\" http://keycloak.{{args.namespace}}.svc.cluster.local:8080/realms/teck-cloud-local/protocol/openid-connect/token)\\ncase \\\"$response\\\" in *access_token*) ;; *) exit 1;; esac\\nif headers=$(wget -S -O /dev/null http://gateway-web-admin-canary.{{args.namespace}}.svc.cluster.local/api/v1/admin/catalog/products 2>&1); then exit 1; fi\\nprintf '%s' \\\"$headers\\\" | grep -q 'HTTP/1.1 401'\\n\"]},{\"op\":\"add\",\"path\":\"/spec/metrics/0/provider/job/spec/template/spec/containers/0/env\",\"value\":[{\"name\":\"CLIENT_SECRET\",\"valueFrom\":{\"secretKeyRef\":{\"name\":\"gateway-web-auth\",\"key\":\"admin-client-secret\"}}}]}]"
+    },
+    {
+      "target": {
+        "group": "gateway.networking.k8s.io",
+        "version": "v1",
+        "kind": "HTTPRoute",
+        "name": "gateway-web-admin"
+      },
+      "patch": "[{\"op\":\"replace\",\"path\":\"/spec/rules/0/matches/0/path/value\",\"value\":\"/admin\"},{\"op\":\"add\",\"path\":\"/spec/rules/0/filters\",\"value\":[{\"type\":\"URLRewrite\",\"urlRewrite\":{\"path\":{\"type\":\"ReplacePrefixMatch\",\"replacePrefixMatch\":\"/\"}}}]}]"
+    }
+  ]
+}
